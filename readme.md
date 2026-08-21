@@ -179,19 +179,6 @@ Um primeiro norte de layout da área do professor, para dar ideia da direção v
 
 ---
 
-## 📚 Documentação de apoio
-
-| Documento | Conteúdo |
-|---|---|
-| [Spec SGP Católica](docs/Spec%20SGP%20Cat%C3%B3lica.pdf) | Especificação da disciplina — fonte de verdade de features, entidades e endpoints |
-| [Relato do cliente](docs/Relato%20do%20cliente.docx) | Entrevista com o professor: problema, ferramentas atuais e prioridades |
-| [Requisitos e Telas](docs/Correctio_Requisitos_e_Telas.docx) | Cruzamento Spec × cliente + especificação detalhada de cada tela, elemento e fluxo de navegação |
-| [Escopo e Critérios de Avaliação](docs/Escopo%20do%20Projeto%20e%20Criterios%20de%20Avaliacao.md) | O que cada N exige e como é avaliada |
-| [Metodologia de trabalho](docs/Metodologia%20de%20trabalho.pdf) | Stack obrigatória, arquitetura em camadas e marcos do semestre |
-| [Exemplo de prova real](docs/prova.jpg.jpeg) | Saída da ferramenta usada hoje pelo cliente — referência do PDF a gerar |
-
----
-
 <div align="center">
 
 *README v1 — apresentação de validação de entendimento e viabilidade · 28/08/2026*
