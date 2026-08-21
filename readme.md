@@ -18,7 +18,7 @@ Em uma frase: **o professor cadastra as questões uma vez e o sistema cuida do r
 
 1. **Banco de questões reutilizável** — objetivas e discursivas, com tags e busca.
 2. **Provas montadas por composição** — escolhe questões do banco, define a pontuação de cada uma, e a mesma prova serve para várias turmas.
-3. **PDF único consolidado** — todas as versões e, se quiser, uma prova por aluno em um só arquivo, com QR Code e embaralhamento antifraude.
+3. **Arquivo único consolidado, em PDF e em DOCX** — todas as versões e, se quiser, uma prova por aluno em um só arquivo, com QR Code e embaralhamento antifraude. O **DOCX é editável**, para o professor ajustar o layout antes de imprimir.
 4. **Gabarito publicável** — o aluno vê as respostas corretas só depois que o professor libera.
 5. **Correção e nota** — o professor lança as respostas de cada aluno e o sistema calcula a nota a partir do gabarito.
 
@@ -44,7 +44,7 @@ Em uma frase: **o professor cadastra as questões uma vez e o sistema cuida do r
 
 Hoje ele resolve isso com uma ferramenta de mercado (GradePen), que gera a prova embaralhada e corrige por leitura da folha de respostas — mas que **não mostra qual alternativa o aluno marcou** (impedindo a análise pedagógica do erro) e **quebra questões no meio da página**.
 
-**O objetivo do Correctio** é cobrir o ciclo inteiro da prova em um só lugar: montar (banco de questões e provas reutilizáveis), aplicar (PDF com versões embaralhadas e QR Code), corrigir (lançamento das respostas com nota calculada pelo sistema) e devolver (gabarito publicado para o aluno).
+**O objetivo do Correctio** é cobrir o ciclo inteiro da prova em um só lugar: montar (banco de questões e provas reutilizáveis), aplicar (arquivo em PDF e DOCX, com versões embaralhadas e QR Code), corrigir (lançamento das respostas com nota calculada pelo sistema) e devolver (gabarito publicado para o aluno).
 
 O que o MVP **não** faz é ler a folha de respostas por imagem — mas registra o dado em um formato que já viabiliza essa leitura depois, e que resolve a lacuna do GradePen: guardar **qual alternativa o aluno marcou**, não só se ele acertou.
 
@@ -57,12 +57,12 @@ O que o MVP **não** faz é ler a folha de respostas por imagem — mas registra
 ### Como o sistema funciona, de ponta a ponta
 
 ```
-Turma ──┐                                    ┌─► Gabarito publicado
-        ├─► Aplicação ──► Geração de PDF ────┤     (aluno consulta)
-Prova ──┘                  (versões +        │
-   ▲                     embaralhamento +    └─► Correção manual ──► Nota do aluno
-   │                         QR Code)              (professor lança
-Banco de Questões                                   as respostas)
+Turma ──┐                                      ┌─► Gabarito publicado
+        ├─► Aplicação ──► Geração da prova ────┤     (aluno consulta)
+Prova ──┘                  (versões +          │
+   ▲                     embaralhamento +      └─► Correção manual ──► Nota do aluno
+   │                    QR Code · PDF + DOCX)        (professor lança
+Banco de Questões                                     as respostas)
 ```
 
 O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e **Aplicação** (a prova entregue a *uma* turma em *uma* data). É isso que permite aplicar a mesma prova a várias turmas ou reaplicá-la em 2ª chamada, sem duplicar conteúdo.
@@ -76,7 +76,7 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 | **Questões** | CRUD de objetivas (2 a 5 alternativas) e discursivas, com tags e soft-delete |
 | **Provas** | Montagem por composição, até 20 questões, pontuação independente por questão |
 | **Aplicações** | Associa uma prova a uma turma; permite reaplicação |
-| **PDF** | Arquivo único consolidado: nº de versões, embaralhamento configurável, QR Code, com/sem identificação do aluno |
+| **Geração da prova** | Arquivo único consolidado em **PDF** (impressão) e em **DOCX** (editável): nº de versões, embaralhamento configurável, QR Code, com/sem identificação do aluno |
 | **Gabarito** | Publicação por versão ou pela aplicação inteira |
 | **Correção e nota** | Correção **manual**: o professor lança, por aluno, a alternativa marcada em cada questão objetiva e a nota de cada discursiva; o sistema confronta com o gabarito e calcula a nota total |
 
@@ -113,14 +113,15 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 | **RF06** | Criar, editar e arquivar turmas; matricular aluno por e-mail ou por código de convite regenerável |
 | **RF07** | Criar provas com até 20 questões e pontuação independente por questão |
 | **RF08** | Criar Aplicação associando uma prova existente a uma turma, com reaplicação permitida |
-| **RF09** | Gerar PDF único consolidado, com nº de versões, embaralhamento e identificação do aluno configuráveis |
-| **RF10** | Regenerar o PDF, invalidando as versões e os QR Codes anteriores; bloqueado se já houver correção confirmada na Aplicação |
-| **RF11** | Publicar gabarito por versão ou pela Aplicação inteira |
-| **RF12** | Nenhuma questão pode ser quebrada entre páginas no PDF — enunciado e alternativas saem sempre na mesma página |
-| **RF13** | Correção manual: lançar, por aluno, a alternativa marcada em cada questão objetiva e a nota de cada discursiva, com a nota total calculada pelo sistema a partir do gabarito |
-| **RF14** | Atribuição automática da nota ao aluno quando a prova foi gerada **com** identificação |
-| **RF15** | Quando gerada **sem** identificação: a correção fica pendente de atribuição e o professor associa ao aluno depois, buscando por nome/matrícula |
-| **RF16** | O aluno consulta a própria nota e o desempenho por questão, com isolamento total dos dados de outros alunos |
+| **RF09** | Gerar a prova como arquivo único consolidado, com nº de versões, embaralhamento e identificação do aluno configuráveis |
+| **RF10** | Baixar a prova gerada em **PDF** (pronta para impressão) e em **DOCX** (editável, para o professor ajustar o layout antes de imprimir) |
+| **RF11** | Regenerar a prova, invalidando as versões e os QR Codes anteriores; bloqueado se já houver correção confirmada na Aplicação |
+| **RF12** | Publicar gabarito por versão ou pela Aplicação inteira |
+| **RF13** | Nenhuma questão pode ser quebrada entre páginas — enunciado e alternativas saem sempre na mesma página, nos dois formatos |
+| **RF14** | Correção manual: lançar, por aluno, a alternativa marcada em cada questão objetiva e a nota de cada discursiva, com a nota total calculada pelo sistema a partir do gabarito |
+| **RF15** | Atribuição automática da nota ao aluno quando a prova foi gerada **com** identificação |
+| **RF16** | Quando gerada **sem** identificação: a correção fica pendente de atribuição e o professor associa ao aluno depois, buscando por nome/matrícula |
+| **RF17** | O aluno consulta a própria nota e o desempenho por questão, com isolamento total dos dados de outros alunos |
 
 ### Requisitos Não-Funcionais
 
@@ -139,12 +140,13 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 
 - **Uma prova é reutilizável.** Aplicá-la a outra turma, ou reaplicá-la à mesma turma, cria sempre uma nova Aplicação — nunca uma cópia da prova.
 - **A soma da pontuação não é validada pelo sistema.** Garantir que feche em 10,0 é responsabilidade do professor.
-- **O PDF é um arquivo único consolidado.** Nunca um arquivo por aluno ou por versão.
+- **A prova gerada é um arquivo único consolidado**, tanto em PDF como em DOCX. Nunca um arquivo por aluno ou por versão.
+- **O DOCX é para ajuste fino de layout antes da impressão** — mover uma questão que ficou mal posicionada, por exemplo. Alterar o **conteúdo** ou a **ordem** das questões e alternativas no arquivo baixado faz a prova impressa divergir do que o sistema registrou, o que invalida a correção daquela versão.
 - **Embaralhamento de questões e de alternativas são independentes**, configuráveis por versão.
 - **A ordem embaralhada é persistida** no momento da geração — é ela que torna a correção possível depois, porque o sistema sabe qual letra impressa corresponde a qual alternativa original.
 - **Com identificação:** cada aluno recebe uma versão específica e um QR Code próprio. **Sem identificação:** o QR Code identifica só a versão, e o aluno escreve nome e matrícula à mão.
-- **Nenhuma questão é quebrada entre páginas** no PDF gerado — requisito de qualidade confirmado, e uma das reclamações diretas do cliente sobre a ferramenta atual.
-- **Regenerar o PDF invalida** as versões e os QR Codes anteriores, e **não é permitido** depois que existe correção confirmada na Aplicação — nesse caso o caminho é criar uma nova Aplicação (2ª chamada).
+- **Nenhuma questão é quebrada entre páginas** — requisito de qualidade confirmado, e uma das reclamações diretas do cliente sobre a ferramenta atual.
+- **Regenerar a prova invalida** as versões e os QR Codes anteriores, e **não é permitido** depois que existe correção confirmada na Aplicação — nesse caso o caminho é criar uma nova Aplicação (2ª chamada).
 - **O aluno só vê o gabarito depois da publicação** pelo professor.
 - **A correção registra qual alternativa o aluno marcou**, não apenas acerto/erro — é o que viabiliza a análise pedagógica do erro pedida pelo cliente.
 - **Uma correção não pode ser atribuída duas vezes** ao mesmo aluno na mesma versão.
@@ -154,7 +156,7 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 | Área | Telas |
 |---|---|
 | **Compartilhadas** (4) | Login · Cadastro · Recuperar/redefinir senha · Ingressar em turma por código |
-| **Web Professor** (16) | Painel · Meu perfil · Turmas (lista, criar/editar, detalhe) · Banco de Questões (lista, criar/editar) · Provas (lista, criar/editar, detalhe) · Aplicações (lista, criar, gerar PDF, detalhe) · Correção (lançar respostas, correções pendentes de atribuição) |
+| **Web Professor** (16) | Painel · Meu perfil · Turmas (lista, criar/editar, detalhe) · Banco de Questões (lista, criar/editar) · Provas (lista, criar/editar, detalhe) · Aplicações (lista, criar, gerar prova, detalhe) · Correção (lançar respostas, correções pendentes de atribuição) |
 | **Web Aluno** (4) | Painel · Meu perfil · Provas atribuídas (lista, detalhe com nota e desempenho por questão) |
 
 ---
