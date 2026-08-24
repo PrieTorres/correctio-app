@@ -114,7 +114,7 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 | **RF07** | Criar provas com até 20 questões e pontuação independente por questão |
 | **RF08** | Criar Aplicação associando uma prova existente a uma turma, com reaplicação permitida |
 | **RF09** | Gerar a prova como arquivo único consolidado, com nº de versões, embaralhamento e identificação do aluno configuráveis |
-| **RF10** | Baixar a prova gerada em **PDF** (pronta para impressão) e em **DOCX** (editável, para o professor ajustar o layout antes de imprimir) |
+| **RF10** | Baixar a prova gerada em **PDF** (pronta para impressão) e em **DOCX** (editável, para o professor ajustar o layout antes de imprimir), com aviso no download de que alterar o conteúdo ou a ordem das questões invalida a correção daquela versão |
 | **RF11** | Regenerar a prova, invalidando as versões e os QR Codes anteriores; bloqueado se já houver correção confirmada na Aplicação |
 | **RF12** | Publicar gabarito por versão ou pela Aplicação inteira |
 | **RF13** | Nenhuma questão pode ser quebrada entre páginas — enunciado e alternativas saem sempre na mesma página, nos dois formatos |
@@ -141,7 +141,7 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 - **Uma prova é reutilizável.** Aplicá-la a outra turma, ou reaplicá-la à mesma turma, cria sempre uma nova Aplicação — nunca uma cópia da prova.
 - **A soma da pontuação não é validada pelo sistema.** Garantir que feche em 10,0 é responsabilidade do professor.
 - **A prova gerada é um arquivo único consolidado**, tanto em PDF como em DOCX. Nunca um arquivo por aluno ou por versão.
-- **O DOCX é para ajuste fino de layout antes da impressão** — mover uma questão que ficou mal posicionada, por exemplo. Alterar o **conteúdo** ou a **ordem** das questões e alternativas no arquivo baixado faz a prova impressa divergir do que o sistema registrou, o que invalida a correção daquela versão.
+- **O DOCX é para ajuste fino de layout antes da impressão** — mover uma questão que ficou mal posicionada, por exemplo. Alterar o **conteúdo** ou a **ordem** das questões e alternativas no arquivo baixado faz a prova impressa divergir do que o sistema registrou, o que invalida a correção daquela versão. A tela de download avisa isso de forma explícita; o sistema não relê o arquivo editado.
 - **Embaralhamento de questões e de alternativas são independentes**, configuráveis por versão.
 - **A ordem embaralhada é persistida** no momento da geração — é ela que torna a correção possível depois, porque o sistema sabe qual letra impressa corresponde a qual alternativa original.
 - **Com identificação:** cada aluno recebe uma versão específica e um QR Code próprio. **Sem identificação:** o QR Code identifica só a versão, e o aluno escreve nome e matrícula à mão.
