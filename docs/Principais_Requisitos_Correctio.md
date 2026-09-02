@@ -6,6 +6,8 @@ Itens marcados com **[validar]** dependem de confirmação do cliente.
 
 > **Segurança, proteção de custo e LGPD** têm documento próprio: [Seguranca_e_LGPD.md](Seguranca_e_LGPD.md).
 > **Decisões de arquitetura** (React sem Next, GitHub Pages → Firebase, camada de repositórios): [Arquitetura.md](Arquitetura.md).
+> **Portão de qualidade nos Pull Requests** (testes, cobertura, Sonar, proteção de branch): [CI_CD.md](CI_CD.md).
+> **Tour guiado** (regras de escrita e texto de cada passo): [Tour_Guiado.md](Tour_Guiado.md).
 
 ## Requisitos Funcionais (RF)
 
@@ -79,6 +81,7 @@ Itens marcados com **[validar]** dependem de confirmação do cliente.
 | RNF17 | Auditoria (LGPD, Art. 37) | 100% das operações do RF40 registradas em trilha imutável; a trilha registra a ação e o autor, nunca o conteúdo do dado pessoal. |
 | RNF18 | Endurecimento da API | Cabeçalhos de segurança e CSP ativos em 100% das respostas; CORS restrito a lista de origens conhecidas; payload JSON limitado a 100 KB; 100% das consultas SQL parametrizadas; container executado sem privilégio de root; build reprovado se houver vulnerabilidade alta ou crítica em dependência. |
 | RNF19 | Objetividade do tour | No máximo 4 passos por tela e 90 caracteres por passo; o tour é dispensável em 1 clique e nunca impede o uso da tela; navegável por teclado e anunciado por leitor de tela. |
+| RNF20 | Qualidade contínua | 100% dos Pull Requests executam automaticamente lint, verificação de tipos, testes unitários com cobertura, build e testes E2E; o merge é bloqueado se qualquer verificação falhar, se a cobertura do código novo ficar abaixo de 80%, se a duplicação no código novo passar de 3% ou se o portão do SonarCloud reprovar. Nenhum merge direto na branch principal, e todo PR exige ao menos 1 aprovação. |
 
 > **⚠️ Conferir a escala do RNF02.** Hoje o requisito diz **600 professores e 10.000 alunos cadastrados**. Surgiu na discussão a expectativa de "10 mil professores simultâneos", que é ordem de grandeza bem diferente (cadastrados ≠ simultâneos, e 600 ≠ 10.000) e muda dimensionamento e custo. Definir qual é o número antes da N2.
 

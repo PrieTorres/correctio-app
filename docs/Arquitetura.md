@@ -108,7 +108,8 @@ Três restrições que definem o que a N1 pode fazer:
 | Estilo | Tailwind + componentes próprios no repositório | Customização total, dependência mínima |
 | Acessibilidade | Primitives headless para modal, drawer, abas e combobox | Metade do RNF11 sai pronta |
 | Gráficos | Biblioteca de gráficos para os relatórios | Histograma e barras |
-| Testes | Unitários nas regras críticas + Cypress ponta a ponta | Exigido pelo RNF08, com cobertura mínima barrando o build |
+| Testes | Unitários nas regras críticas + Cypress ponta a ponta | Exigido pelo RNF08, com cobertura mínima barrando o merge |
+| Qualidade contínua | GitHub Actions + SonarCloud em todo PR | RNF20 — ver [CI_CD.md](CI_CD.md) |
 
 **Sobre estilo:** Tailwind como camada de utilitários mais componentes nossos dentro do repositório, envolvendo primitives sem estilo apenas onde a acessibilidade é difícil. Não se adiciona uma biblioteca de CSS-in-JS por cima do Tailwind — seriam dois sistemas de estilo concorrendo no mesmo projeto.
 
@@ -171,7 +172,7 @@ Componente único alimentado por um arquivo de texto por tela. O limite de 4 pas
 
 Segue a prioridade definida no documento de requisitos e telas:
 
-1. **Fundação** — build, publicação, tipos e schemas do domínio, interfaces de repositório e autenticação com implementação local, dados semeados, componentes compartilhados
+1. **Fundação** — build, publicação, **portão de qualidade e proteção de branch**, tipos e schemas do domínio, interfaces de repositório e autenticação com implementação local, dados semeados, componentes compartilhados
 2. Acesso — login, cadastro, recuperação de senha
 3. Painel
 4. Turmas — lista, criar/editar, detalhe

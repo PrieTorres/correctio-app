@@ -107,7 +107,7 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 
 ## ✅ 4. Requisitos
 
-São **42 requisitos funcionais** e **19 não-funcionais**, escritos como ações do sistema e com métrica verificável.
+São **42 requisitos funcionais** e **20 não-funcionais**, escritos como ações do sistema e com métrica verificável.
 
 **📋 Lista completa: [docs/Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md)**
 
@@ -137,6 +137,7 @@ São **42 requisitos funcionais** e **19 não-funcionais**, escritos como açõe
 | RNF12–13 | Abuso, custo e resposta | Limite por rota escalonado por custo, com teto e alerta de orçamento · operação demorada confirma em < 1 s e notifica ao concluir |
 | RNF14–16 | Isolamento e dados | 0 vazamento entre contas · código público ≥ 128 bits · arquivos privados, sem EXIF |
 | RNF17–19 | Auditoria, API, tour | Trilha de auditoria · CSP, CORS, SQL parametrizado · tour de no máximo 4 passos e 90 caracteres |
+| RNF20 | Qualidade contínua | Todo PR roda lint, tipos, testes, build e Sonar; merge bloqueado se falhar ou se a cobertura do código novo cair abaixo de 80% |
 
 **🔒 Desenho de segurança, proteção de custo e LGPD: [docs/Seguranca_e_LGPD.md](docs/Seguranca_e_LGPD.md)**
 
@@ -197,10 +198,13 @@ A especificação detalhada de cada tela — conteúdo, elementos e destino de c
 
 ```bash
 npm install
-npm run dev      # ambiente local
-npm run build    # gera a versão publicável
-npm run test:e2e # testes Cypress
+npm run dev       # ambiente local
+npm run build     # gera a versão publicável
+npm run test      # testes unitários com cobertura
+npm run test:e2e  # testes Cypress
 ```
+
+**Contribuindo:** todo trabalho entra por Pull Request. O merge só libera depois que lint, tipos, testes, build e o portão do SonarCloud passarem — detalhes em [CI_CD.md](docs/CI_CD.md).
 
 ---
 
@@ -212,6 +216,7 @@ npm run test:e2e # testes Cypress
 | [Arquitetura.md](docs/Arquitetura.md) | Decisões técnicas, camada de repositórios, stack, organização do código |
 | [Seguranca_e_LGPD.md](docs/Seguranca_e_LGPD.md) | Autorização, limite de requisições, proteção de custo, LGPD |
 | [Tour_Guiado.md](docs/Tour_Guiado.md) | Tour contextual por tela: regras de escrita, comportamento e o texto de cada passo |
+| [CI_CD.md](docs/CI_CD.md) | Portão de qualidade nos Pull Requests, proteção de branch e publicação |
 | `Correctio_Requisitos_e_Telas.docx` | Especificação detalhada das telas (seção 8) e do modelo de dados (seção 9) |
 | `Escopo do Projeto e Criterios de Avaliacao.md` | Critérios de avaliação da disciplina (documento da professora) |
 
