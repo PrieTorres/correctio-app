@@ -116,7 +116,7 @@ Cada RNF traz um critério mensurável para dizer se foi atendido ou não, como 
 | Cód. | Categoria | Requisito e métrica |
 |---|---|---|
 | RNF01 | Desempenho | 95% das requisições da API respondem em até 300 ms. |
-| RNF02 | Escalabilidade | Suportar 600 professores e 10.000 alunos cadastrados mantendo o RNF01. |
+| RNF02 | Escalabilidade | Suportar 500 a 600 professores e 10.000 alunos ativos no primeiro ano, mantendo o RNF01. |
 | RNF03 | Disponibilidade | Uptime mensal igual ou superior a 99,5%. |
 | RNF04 | Segurança | 100% do tráfego em HTTPS; JWT com refresh; bloqueio temporário após 5 tentativas de login falhas em 15 minutos. |
 | RNF05 | Privacidade (LGPD) | Anonimização de conta concluída em até 24 h após a solicitação; nenhum dado pessoal gravado em logs. |
@@ -134,11 +134,7 @@ Cada RNF traz um critério mensurável para dizer se foi atendido ou não, como 
 | RNF17 | Auditoria (LGPD, Art. 37) | 100% das operações do RF40 registradas em trilha imutável; a trilha registra a ação e o autor, nunca o conteúdo do dado pessoal. |
 | RNF18 | Endurecimento da API | Cabeçalhos de segurança e CSP ativos em 100% das respostas; CORS restrito a lista de origens conhecidas; payload JSON limitado a 100 KB; 100% das consultas SQL parametrizadas; container executado sem privilégio de root; build reprovado se houver vulnerabilidade alta ou crítica em dependência. |
 | RNF19 | Objetividade do tour | No máximo 4 passos por tela e 90 caracteres por passo; o tour é dispensável em 1 clique e nunca impede o uso da tela; navegável por teclado e anunciado por leitor de tela. |
-| RNF20 | Qualidade contínua | 100% dos Pull Requests executam automaticamente lint, verificação de tipos, testes unitários com cobertura, build e testes E2E; o merge é bloqueado se qualquer verificação falhar, se a cobertura do código novo ficar abaixo de 80%, se a duplicação no código novo passar de 3% ou se o portão do SonarCloud reprovar. Nenhum merge direto na branch principal, e todo PR exige ao menos 1 aprovação. |
-
-**⚠️ Conferir a escala do RNF02.** Hoje o requisito diz 600 professores e 10.000 alunos cadastrados. Surgiu na discussão a expectativa de "10 mil professores simultâneos", que é ordem de grandeza bem diferente (cadastrados ≠ simultâneos, e 600 ≠ 10.000) e muda dimensionamento e custo. Definir qual é o número antes da N2.
-
-**Nenhum dado é apagado automaticamente.** Não existe rotina de descarte por prazo: apagar dado que ninguém pediu para apagar é perda de informação, não conformidade. A exclusão acontece sob solicitação (RF38, anonimização de aluno; RF05, anonimização da conta), e tudo que é "excluído" pela interface é soft-delete reversível (RF42). O que protege contra perda é o backup com restauração testada (RNF09).
+| RNF20 | Qualidade contínua | 100% dos Pull Requests executam automaticamente lint, verificação de tipos, testes unitários com cobertura, build e testes E2E; o merge é bloqueado se qualquer verificação falhar, se a cobertura do código novo ficar abaixo de 80%, se a duplicação no código novo passar de 3% ou se o portão do SonarCloud reprovar. Nenhum merge direto na branch principal, e todo PR exige ao menos 1 aprovação. |**Nenhum dado é apagado automaticamente.** Não existe rotina de descarte por prazo: apagar dado que ninguém pediu para apagar é perda de informação, não conformidade. A exclusão acontece sob solicitação (RF38, anonimização de aluno; RF05, anonimização da conta), e tudo que é "excluído" pela interface é soft-delete reversível (RF42). O que protege contra perda é o backup com restauração testada (RNF09).
 
 ## 5. Regras de negócio
 
@@ -761,7 +757,6 @@ Mudanças em relação às entidades da Spec, decorrentes do novo escopo:
 
 - Levar ao cliente as validações da seção 7 (agora com dois itens novos: finalidade do e-mail do aluno e existência de alunos menores de idade)
 - Levar à professora a dúvida da seção 6.3 (versionamento A/B/C) e o uso de Firebase Auth no lugar dos endpoints /auth da Spec (seção 1)
-- Definir a escala do RNF02 (600 professores ou 10 mil? cadastrados ou simultâneos?)
 - Reorganizar as Issues do GitHub Project pela lista atual de 42 RFs, agrupando por área
 - PDF de telas para validação com o cliente — confirmar se já foi entregue; é item obrigatório do checklist da N1 e a base textual é a seção 8 (agora com PUB2)
 

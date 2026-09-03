@@ -11,7 +11,8 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "test:e2e": "start-server-and-test preview http://localhost:4173 'cypress run'"
+    "test:e2e": "start-server-and-test preview http://localhost:4173 'cypress run'",
+    "test:e2e:record": "start-server-and-test preview http://localhost:4173 'cypress run --record'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -15,13 +15,13 @@ jobs:
     name: Lint, tipos, testes e build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Histórico completo: sem ele o Sonar não identifica o que é código
           # novo e passa a avaliar o repositório inteiro, reprovando tudo.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -54,8 +54,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: verificar
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -63,7 +63,10 @@ jobs:
       # E2E roda contra o build de produção, não contra o dev server: é onde
       # os problemas reais aparecem.
       - run: npm run build
-      - run: npm run test:e2e
+      - run: npm run test:e2e:record
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
 
   sonar:
     name: SonarCloud
@@ -73,10 +76,10 @@ jobs:
     # falha por um motivo que não é dele.
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm

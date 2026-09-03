@@ -67,7 +67,7 @@ Itens marcados com **[validar]** dependem de confirmação do cliente.
 | Cód. | Categoria | Requisito e métrica |
 |---|---|---|
 | RNF01 | Desempenho | 95% das requisições da API respondem em até 300 ms. |
-| RNF02 | Escalabilidade | Suportar 600 professores e 10.000 alunos cadastrados mantendo o RNF01. |
+| RNF02 | Escalabilidade | Suportar 500 a 600 professores e 10.000 alunos ativos no primeiro ano, mantendo o RNF01. |
 | RNF03 | Disponibilidade | Uptime mensal igual ou superior a 99,5%. |
 | RNF04 | Segurança | 100% do tráfego em HTTPS; JWT com refresh; bloqueio temporário após 5 tentativas de login falhas em 15 minutos. |
 | RNF05 | Privacidade (LGPD) | Anonimização de conta concluída em até 24 h após a solicitação; nenhum dado pessoal gravado em logs. |
@@ -86,8 +86,6 @@ Itens marcados com **[validar]** dependem de confirmação do cliente.
 | RNF18 | Endurecimento da API | Cabeçalhos de segurança e CSP ativos em 100% das respostas; CORS restrito a lista de origens conhecidas; payload JSON limitado a 100 KB; 100% das consultas SQL parametrizadas; container executado sem privilégio de root; build reprovado se houver vulnerabilidade alta ou crítica em dependência. |
 | RNF19 | Objetividade do tour | No máximo 4 passos por tela e 90 caracteres por passo; o tour é dispensável em 1 clique e nunca impede o uso da tela; navegável por teclado e anunciado por leitor de tela. |
 | RNF20 | Qualidade contínua | 100% dos Pull Requests executam automaticamente lint, verificação de tipos, testes unitários com cobertura, build e testes E2E; o merge é bloqueado se qualquer verificação falhar, se a cobertura do código novo ficar abaixo de 80%, se a duplicação no código novo passar de 3% ou se o portão do SonarCloud reprovar. Nenhum merge direto na branch principal, e todo PR exige ao menos 1 aprovação. |
-
-> **⚠️ Conferir a escala do RNF02.** Hoje o requisito diz **600 professores e 10.000 alunos cadastrados**. Surgiu na discussão a expectativa de "10 mil professores simultâneos", que é ordem de grandeza bem diferente (cadastrados ≠ simultâneos, e 600 ≠ 10.000) e muda dimensionamento e custo. Definir qual é o número antes da N2.
 
 > **Nenhum dado é apagado automaticamente.** Não existe rotina de descarte por prazo: apagar dado que ninguém pediu para apagar é perda de informação, não conformidade. A exclusão acontece **sob solicitação** (RF38, anonimização de aluno; RF05, anonimização da conta), e tudo que é "excluído" pela interface é soft-delete reversível (RF42). O que protege contra perda é o backup com restauração testada (RNF09).
 

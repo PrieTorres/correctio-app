@@ -129,7 +129,7 @@ São **42 requisitos funcionais** e **20 não-funcionais**, escritos como açõe
 
 | Cód. | Categoria | Métrica resumida |
 |---|---|---|
-| RNF01–03 | Desempenho, escala, disponibilidade | p95 ≤ 300 ms · 600 professores e 10.000 alunos · 99,5% de uptime |
+| RNF01–03 | Desempenho, escala, disponibilidade | p95 ≤ 300 ms · 500–600 professores e 10.000 alunos ativos · 99,5% de uptime |
 | RNF04 | Segurança de acesso | HTTPS integral, token com renovação, bloqueio após 5 falhas em 15 min |
 | RNF05 | Privacidade (LGPD) | Anonimização em até 24 h; nenhum dado pessoal em log |
 | RNF06–07 | Usabilidade e confiabilidade | Ação principal em até 3 cliques · erro de leitura < 1% · 100% confirmado pelo professor |
