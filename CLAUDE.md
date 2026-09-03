@@ -35,6 +35,21 @@ e a seção 9 de [docs/Arquitetura.md](docs/Arquitetura.md).
 
 Pelo mesmo motivo, **não construa** rota, tela ou repositório de aluno: seria código morto.
 
+O mesmo vale para `Correction.clientCorrectionId` e `syncStatus`: servem a um app mobile que
+não existe, este site não os trata, e continuam no contrato porque chegariam pela API se
+alguém migrasse para cá.
+
+### Atualização não pode apagar campo que o cliente não conhece
+
+Duas armadilhas, as duas já corrigidas e cobertas por teste — não reintroduza:
+
+1. **Validação descarta chave desconhecida.** `z.object()` remove o que não está declarado.
+   `lib/storage/collection.ts` reanexa essas chaves depois de validar. Validação confere a
+   forma conhecida; nunca pode ser o motivo de um dado sumir.
+2. **Atualização é mesclagem, nunca substituição.** `{ ...registroAtual, ...camposEnviados }`.
+   Trocar o registro inteiro pelo payload do cliente apaga em silêncio tudo que ele não
+   conhece. Vale em dobro para as rotas de escrita do Express na N2.
+
 ## Convenções de código
 
 - **Todo identificador, arquivo e pasta em inglês.** Português só em texto de interface e

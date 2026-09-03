@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createLocalClassRepository } from '../class-repository'
-import { clearAllCollections } from '@/lib/storage/collection'
+import { clearAllCollections, createCollection } from '@/lib/storage/collection'
+import { classSchema } from '@/lib/schemas'
 
 describe('class repository', () => {
   beforeEach(clearAllCollections)
@@ -67,6 +68,40 @@ describe('class repository', () => {
 
     expect((await repository.list({ search: 'cálculo' })).items).toHaveLength(1)
     expect((await repository.list({ search: 'FÍSICA' })).items).toHaveLength(1)
+  })
+
+  it('does not drop unknown fields when updating a record', async () => {
+    const repository = createLocalClassRepository('ana')
+    const created = await repository.create(input)
+
+    const collection = createCollection('classes', classSchema)
+    const stored = collection.readAll()
+    collection.writeAll(
+      stored.map((item) =>
+        item.id === created.id ? { ...item, futureApiField: 'keep me' } : item,
+      ),
+    )
+
+    await repository.update(created.id, { name: 'Cálculo I — Noturno' })
+
+    expect(collection.readAll()[0]).toMatchObject({ futureApiField: 'keep me' })
+  })
+
+  it('does not drop unknown fields when archiving a record', async () => {
+    const repository = createLocalClassRepository('ana')
+    const created = await repository.create(input)
+
+    const collection = createCollection('classes', classSchema)
+    collection.writeAll(
+      collection.readAll().map((item) => ({ ...item, futureApiField: 'keep me' })),
+    )
+
+    await repository.archive(created.id)
+
+    expect(collection.readAll()[0]).toMatchObject({
+      status: 'archived',
+      futureApiField: 'keep me',
+    })
   })
 
   it('rejects updates to a missing record', async () => {

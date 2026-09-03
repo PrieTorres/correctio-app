@@ -31,6 +31,42 @@ describe('collection', () => {
     expect(createCollection('things', schema).readAll()).toEqual([{ id: '1', name: 'valid' }])
   })
 
+  it('preserves fields the schema does not declare', () => {
+    window.localStorage.setItem(
+      'correctio:v1:things',
+      JSON.stringify([
+        { id: '1', name: 'one', clientCorrectionId: 'abc', syncStatus: 'synced' },
+      ]),
+    )
+
+    const [read] = createCollection('things', schema).readAll()
+
+    expect(read).toMatchObject({ clientCorrectionId: 'abc', syncStatus: 'synced' })
+  })
+
+  it('survives a read-write round trip without losing unknown fields', () => {
+    const collection = createCollection('things', schema)
+    window.localStorage.setItem(
+      'correctio:v1:things',
+      JSON.stringify([{ id: '1', name: 'one', legacyColumn: 42 }]),
+    )
+
+    collection.writeAll(collection.readAll())
+
+    expect(collection.readAll()[0]).toMatchObject({ legacyColumn: 42 })
+  })
+
+  it('lets the validated value win over the raw one for known keys', () => {
+    window.localStorage.setItem(
+      'correctio:v1:things',
+      JSON.stringify([{ id: '1', name: 'one', extra: 'kept' }]),
+    )
+
+    const [read] = createCollection('things', schema).readAll()
+
+    expect(read).toEqual({ id: '1', name: 'one', extra: 'kept' })
+  })
+
   it('reports corrupted JSON as a storage failure', () => {
     window.localStorage.setItem('correctio:v1:things', 'not json')
 

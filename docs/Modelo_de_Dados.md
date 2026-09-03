@@ -15,8 +15,8 @@ professora como referência de entidades e API.
 | ❌ **Proibido** | Remover uma chave definida pela Spec. Renomear uma chave. Trocar a estrutura de um campo — por exemplo transformar um `status` em timestamp, ou achatar um objeto aninhado. |
 
 Se uma decisão de escopo do grupo entrar em conflito com a Spec, ela **não é aplicada em
-silêncio**: entra em "Divergências que restam" no fim deste documento e vai para validação
-com a professora.
+silêncio**: o campo permanece no contrato, e a decisão é registrada neste documento antes de
+qualquer código. Não tratar um campo é aceitável; removê-lo, não.
 
 ### Duas conversões que não contam como mudança de estrutura
 
@@ -248,6 +248,8 @@ sem identificação.
   confirmedAt: Date
   correctedBy: string                   // teacherId
   isAutomaticallyAssigned: boolean
+  clientCorrectionId?: string           // fila offline do app; não usado por este site
+  syncStatus?: "pending" | "synced" | "error"
   answerSheetId: string                 // +
   source: "upload_imagem" | "manual"    // +
   imageUrl?: string                     // +
@@ -278,13 +280,54 @@ migração de dados.
 > ⚠️ **Não apague nenhum destes por parecerem sem uso.** São ponto de extensão deliberado, e
 > removê-los transforma "adicionar a área do aluno" em "migrar o banco".
 
-## Divergências que restam
+## Nenhuma divergência em aberto
 
-| # | Divergência | Justificativa | Situação |
-|---|---|---|---|
-| 1 | `Correction` sem `clientCorrectionId` e `syncStatus` | Não há app mobile nem fila offline; sem app, não há o que deduplicar | Decisão de 28/08 — confirmar com a professora |
+Todas as chaves da Spec estão no contrato. Onde o grupo decidiu não construir uma
+funcionalidade, o campo permanece: o site não o trata, mas ele existe.
 
-Qualquer nova remoção precisa de decisão registrada aqui antes de entrar no código.
+Isso vale inclusive para `Correction.clientCorrectionId` e `syncStatus`, que servem à fila
+offline de um app mobile que não será construído. Se um sistema migrar para esta API, esses
+campos chegam nas requisições — e descartá-los na passagem é perda de dado.
+
+**Regra:** um campo sem requisito não é um campo que pode sumir. Não tratar é aceitável;
+apagar não.
+
+---
+
+## Atualização parcial: a regra que protege os campos sem uso
+
+Um campo que o cliente não conhece só sobrevive se **nada no caminho o sobrescrever**. Dois
+pontos são críticos.
+
+### Leitura validada não pode descartar
+
+A validação de schema descarta chaves não declaradas por padrão — no Zod, `z.object()` faz
+exatamente isso. Ler um registro e gravá-lo de volta apagaria tudo que o schema não conhece.
+
+Em `lib/storage/collection.ts` a leitura reanexa as chaves desconhecidas depois de validar:
+os valores validados vencem para as chaves que o schema possui, e o resto passa intacto.
+Há teste travando isso, inclusive um de ida e volta.
+
+**Validação existe para conferir a forma conhecida. Nunca pode ser o motivo de um dado
+desaparecer.**
+
+### Atualização é mesclagem, nunca substituição
+
+| | |
+|---|---|
+| ✅ | `PATCH` com mesclagem: `{ ...registroAtual, ...camposEnviados }` |
+| ❌ | `PUT` que substitui o documento inteiro pelo que o cliente mandou |
+
+O cliente envia só os campos do formulário. Se a rota trocar o registro inteiro por esse
+payload, todo campo que o cliente não conhece é apagado — silenciosamente, sem erro.
+
+Vale para os repositórios do front (já implementado assim, com teste) e **principalmente
+para o Express da N2**:
+
+- `UPDATE` explicitando as colunas alteradas, nunca um `UPDATE` de todas as colunas a partir
+  de um objeto montado no cliente
+- `SELECT` das colunas necessárias; se reescrever a linha, ler antes e mesclar
+- nenhuma rota de escrita monta a entidade só com o que veio na requisição
 
 ---
 
@@ -298,7 +341,8 @@ Ao mexer em qualquer entidade:
 
 1. Confira a tabela desta página antes de escrever o tipo.
 2. Campo novo entra marcado como acréscimo do grupo.
-3. Se algo da Spec parecer atrapalhar, **não remova** — registre em "Divergências que restam".
-   Campos listados em "Reservado para escopo futuro" ficam mesmo sem uso: são ponto de
-   extensão, não código morto.
+3. Se algo da Spec parecer atrapalhar, **não remova** — deixe o campo e simplesmente não o
+   trate. Campos sem uso são ponto de extensão, não código morto.
+4. Toda escrita mescla com o registro atual. Nenhuma rota reconstrói a entidade só com o que
+   veio do cliente — ver "Atualização parcial" acima.
 4. O schema Zod acompanha o tipo na mesma mudança; os dois são a mesma verdade.

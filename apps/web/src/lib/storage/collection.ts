@@ -16,6 +16,12 @@ function isQuotaError(error: unknown): boolean {
  * it through devtools, and a deploy can leave an older shape behind. Invalid
  * records are dropped rather than thrown, so one corrupt row cannot hide the
  * rest of a teacher's data.
+ *
+ * Fields the schema does not declare are preserved. Zod strips unknown keys,
+ * so parsing alone would silently destroy anything this client does not model
+ * yet — a specification field it has no requirement for, or a column added by
+ * a newer version. Validation checks the known shape; it must never be the
+ * reason data disappears.
  */
 export interface Collection<T> {
   readAll: () => T[];
@@ -49,7 +55,7 @@ export function createCollection<T>(name: string, schema: z.ZodType<T>): Collect
       for (const entry of parsed) {
         const result = schema.safeParse(entry);
         if (result.success) {
-          valid.push(result.data);
+          valid.push(preserveUnknownFields(entry, result.data));
         } else if (import.meta.env.DEV) {
           console.warn(`[correctio] dropped invalid record in "${name}"`, result.error.issues);
         }
@@ -67,6 +73,15 @@ export function createCollection<T>(name: string, schema: z.ZodType<T>): Collect
       }
     },
   };
+}
+
+/**
+ * Re-attaches the keys Zod dropped, letting validated values win for the keys
+ * the schema does own.
+ */
+function preserveUnknownFields<T>(raw: unknown, validated: T): T {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return validated;
+  return { ...raw, ...validated } as T;
 }
 
 export function clearAllCollections(): void {

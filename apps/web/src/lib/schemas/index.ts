@@ -195,6 +195,8 @@ export const correctionSchema = z.object({
   confirmedAt: timestamp,
   correctedBy: id,
   isAutomaticallyAssigned: z.boolean(),
+  clientCorrectionId: z.string().optional(),
+  syncStatus: z.enum(['pending', 'synced', 'error']).optional(),
   answerSheetId: id,
   source: z.enum(['upload_imagem', 'manual']),
   imageUrl: z.string().optional(),

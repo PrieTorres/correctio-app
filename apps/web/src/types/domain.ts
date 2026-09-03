@@ -263,7 +263,16 @@ export interface Correction {
   /** Teacher id. */
   correctedBy: Id;
   isAutomaticallyAssigned: boolean;
-  /** Group additions. `clientCorrectionId` and `syncStatus` are dropped: no mobile app. */
+  /**
+   * Deduplication key and sync state for the mobile app's offline queue.
+   *
+   * This client has no requirement touching either, and never writes them.
+   * They stay in the contract because a system migrating onto this API would
+   * send them, and dropping a field on the way through is how data is lost.
+   */
+  clientCorrectionId?: string;
+  syncStatus?: 'pending' | 'synced' | 'error';
+  /** Group additions. */
   answerSheetId: Id;
   source: CorrectionSource;
   imageUrl?: string;
