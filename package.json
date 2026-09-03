@@ -3,8 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "engines": { "node": ">=22" },
-  "workspaces": ["apps/*"],
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "dev": "npm run dev --workspace @correctio/web",
     "build": "npm run build --workspace @correctio/web",
@@ -12,6 +16,7 @@
     "lint": "npm run lint --workspace @correctio/web",
     "typecheck": "npm run typecheck --workspace @correctio/web",
     "test": "npm run test --workspace @correctio/web",
-    "test:e2e": "npm run test:e2e --workspace @correctio/web"
+    "test:e2e": "npm run test:e2e --workspace @correctio/web",
+    "test:e2e:record": "npm run test:e2e:record --workspace @correctio/web"
   }
 }

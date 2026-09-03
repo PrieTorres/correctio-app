@@ -63,7 +63,15 @@ jobs:
       # E2E roda contra o build de produção, não contra o dev server: é onde
       # os problemas reais aparecem.
       - run: npm run build
-      - run: npm run test:e2e:record
+      # Grava no Cypress Cloud quando há chave, mas o portão não pode
+      # depender de um serviço externo: sem a chave, roda igual e passa.
+      - name: Testes E2E
+        run: |
+          if [ -n "$CYPRESS_RECORD_KEY" ]; then
+            npm run test:e2e:record
+          else
+            npm run test:e2e
+          fi
         env:
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
