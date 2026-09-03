@@ -7,7 +7,7 @@ import { Button, Modal, TextField } from '@/components/ui'
 import { ROUTES } from '@/app/routes'
 import { useAddStudent } from '../hooks/useClasses'
 
-const EMPTY: StudentInput = { name: '', registration: '', email: null }
+const EMPTY: StudentInput = { fullName: '', registration: '', email: undefined }
 
 export function StudentFormModal({
   open,
@@ -34,7 +34,7 @@ export function StudentFormModal({
 
   const onSubmit = async (input: StudentInput) => {
     try {
-      await addStudent.mutateAsync({ ...input, email: input.email || null })
+      await addStudent.mutateAsync({ ...input, email: input.email || undefined })
       onOpenChange(false)
     } catch (error) {
       setError('registration', {
@@ -46,7 +46,11 @@ export function StudentFormModal({
   return (
     <Modal open={open} onOpenChange={onOpenChange} title="Adicionar aluno">
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-        <TextField label="Nome completo" error={errors.name?.message} {...register('name')} />
+        <TextField
+          label="Nome completo"
+          error={errors.fullName?.message}
+          {...register('fullName')}
+        />
         <TextField
           label="Matrícula"
           error={errors.registration?.message}

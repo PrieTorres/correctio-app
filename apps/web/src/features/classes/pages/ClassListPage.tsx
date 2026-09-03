@@ -115,7 +115,7 @@ export function ClassListPage() {
         onConfirm={() => {
           if (pendingArchive === null) return;
           archiveClass.mutate(
-            { id: pendingArchive.id, archive: pendingArchive.archivedAt === null },
+            { id: pendingArchive.id, archive: pendingArchive.status === 'active' },
             { onSettled: () => setPendingArchive(null) },
           );
         }}
@@ -133,7 +133,7 @@ function ClassCard({
   onEdit: () => void;
   onToggleArchive: () => void;
 }) {
-  const isArchived = item.archivedAt !== null;
+  const isArchived = item.status === 'archived';
 
   return (
     <Card interactive className="flex h-full flex-col justify-between p-5">
@@ -178,7 +178,7 @@ function ArchiveConfirmDialog({
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }) {
-  const isArchiving = item?.archivedAt === null;
+  const isArchiving = item?.status === 'active';
 
   return (
     <ConfirmDialog

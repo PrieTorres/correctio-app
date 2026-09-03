@@ -5,13 +5,13 @@ import { clearAllCollections } from '@/lib/storage/collection'
 describe('student repository', () => {
   beforeEach(clearAllCollections)
 
-  const ana = { name: 'Ana Beatriz', registration: '2026001', email: null }
+  const ana = { fullName: 'Ana Beatriz', registration: '2026001' }
 
   it('rejects a duplicate registration within the same class', async () => {
     const repository = createLocalStudentRepository()
     await repository.add('c1', ana)
 
-    await expect(repository.add('c1', { ...ana, name: 'Outra Ana' })).rejects.toThrow(/já existe/i)
+    await expect(repository.add('c1', { ...ana, fullName: 'Outra Ana' })).rejects.toThrow(/já existe/i)
   })
 
   it('allows the same registration in a different class', async () => {
@@ -23,12 +23,12 @@ describe('student repository', () => {
 
   it('skips rows whose registration already exists when importing', async () => {
     const repository = createLocalStudentRepository()
-    await repository.add('c1', { name: 'Ana', registration: '1', email: null })
+    await repository.add('c1', { fullName: 'Ana', registration: '1' })
 
     const result = await repository.importMany('c1', [
-      { name: 'Ana again', registration: '1', email: null },
-      { name: 'Bruno', registration: '2', email: null },
-      { name: 'Carla', registration: '3', email: null },
+      { fullName: 'Ana again', registration: '1' },
+      { fullName: 'Bruno', registration: '2' },
+      { fullName: 'Carla', registration: '3' },
     ])
 
     expect(result).toEqual({ created: 2, skipped: 1 })
@@ -42,9 +42,9 @@ describe('student repository', () => {
     await repository.anonymize(student.id)
 
     const [anonymized] = await repository.listByClass('c1')
-    expect(anonymized?.name).not.toContain('Ana Beatriz')
-    expect(anonymized?.email).toBeNull()
-    expect(anonymized?.anonymizedAt).not.toBeNull()
+    expect(anonymized?.fullName).not.toContain('Ana Beatriz')
+    expect(anonymized?.email).toBeUndefined()
+    expect(anonymized?.anonymizedAt).toBeDefined()
   })
 
   it('removes a student from the class without anonymizing', async () => {

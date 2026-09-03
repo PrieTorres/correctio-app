@@ -27,9 +27,9 @@ const ANONYMIZED_NAME = 'Aluno anonimizado'
 function anonymized(student: Student): Student {
   return {
     ...student,
-    name: ANONYMIZED_NAME,
+    fullName: ANONYMIZED_NAME,
     registration: `ANON-${student.id.slice(0, 8)}`,
-    email: null,
+    email: undefined,
     anonymizedAt: new Date().toISOString(),
   }
 }
@@ -53,7 +53,7 @@ export function createLocalStudentRepository(): StudentRepository {
       return collection
         .readAll()
         .filter((item) => item.classId === classId)
-        .toSorted((a, b) => compareByLocale(a.name, b.name))
+        .toSorted((a, b) => compareByLocale(a.fullName, b.fullName))
     },
 
     async add(classId, input) {
@@ -67,7 +67,7 @@ export function createLocalStudentRepository(): StudentRepository {
         )
       }
 
-      const student: Student = { id: createId(), classId, ...input, anonymizedAt: null }
+      const student: Student = { id: createId(), classId, ...input }
       collection.writeAll([...students, student])
       return student
     },
@@ -81,7 +81,7 @@ export function createLocalStudentRepository(): StudentRepository {
       for (const row of rows) {
         if (taken.has(row.registration)) continue
         taken.add(row.registration)
-        created.push({ id: createId(), classId, ...row, anonymizedAt: null })
+        created.push({ id: createId(), classId, ...row })
       }
 
       collection.writeAll([...students, ...created])

@@ -187,7 +187,9 @@ A especificação detalhada de cada tela — conteúdo, elementos e destino de c
 
 **Publicação:** GitHub Pages na N1, Firebase Hosting depois. A URL de consulta pública mantém o mesmo formato de caminho nas duas, porque ela vai impressa em papel dentro do QR Code e não pode quebrar.
 
-**Entidades de domínio:** `User` (só professor) · `Class` · `Student` · `Question` · `Exam` · `Application` · `ExamVersion` · `AnswerSheet` · `Correction`
+**Entidades de domínio:** `User` · `RefreshToken` · `Class` · `Student` · `Question` · `Exam` · `Application` · `ExamVersion` · `AnswerSheet` · `Correction`
+
+A estrutura obrigatória de cada uma segue a seção 8 da Spec SGP Católica e está travada em [docs/Modelo_de_Dados.md](docs/Modelo_de_Dados.md): campos podem ser acrescentados, mas nenhuma chave da Spec pode ser removida, renomeada ou ter a forma alterada.
 
 ---
 
@@ -213,7 +215,8 @@ npm run test:e2e  # testes Cypress
 
 | Documento | Conteúdo |
 |---|---|
-| [Correctio_Requisitos_e_Telas.md](docs/Correctio_Requisitos_e_Telas.md) | **Fonte da verdade:** RFs, RNFs, regras de negócio, especificação das 25 telas e modelo de dados |
+| [Modelo_de_Dados.md](docs/Modelo_de_Dados.md) | **Normativo:** estrutura obrigatória de cada entidade, conforme a Spec SGP Católica |
+| [Correctio_Requisitos_e_Telas.md](docs/Correctio_Requisitos_e_Telas.md) | **Fonte da verdade:** RFs, RNFs, regras de negócio e especificação das 25 telas |
 | [Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md) | Resumo derivado do documento acima, para consulta rápida |
 | [Arquitetura.md](docs/Arquitetura.md) | Decisões técnicas, camada de repositórios, stack, organização do código |
 | [Seguranca_e_LGPD.md](docs/Seguranca_e_LGPD.md) | Autorização, limite de requisições, proteção de custo, LGPD |

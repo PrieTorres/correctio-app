@@ -17,3 +17,14 @@ export function createAnswerSheetCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH))
   return Array.from(bytes, (byte) => CODE_ALPHABET.charAt(byte % 32)).join('')
 }
+
+/**
+ * Invite code for a class, as required by the specification.
+ *
+ * Short and human-readable because a teacher may dictate it; regenerable, so
+ * it is not treated as a secret.
+ */
+export function createInviteCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(8))
+  return Array.from(bytes, (byte) => CODE_ALPHABET.charAt(byte % 32)).join('')
+}

@@ -7,6 +7,15 @@ describe('class repository', () => {
 
   const input = { name: 'Cálculo I', subject: 'Matemática', term: '2026/2' }
 
+  it('assigns a unique invite code on creation, as the specification requires', async () => {
+    const repository = createLocalClassRepository('ana')
+    const first = await repository.create(input)
+    const second = await repository.create({ ...input, name: 'Outra' })
+
+    expect(first.inviteCode).toHaveLength(8)
+    expect(first.inviteCode).not.toBe(second.inviteCode)
+  })
+
   it('lists only classes owned by the current teacher', async () => {
     const ana = createLocalClassRepository('ana')
     const bruno = createLocalClassRepository('bruno')
@@ -48,7 +57,7 @@ describe('class repository', () => {
 
     const archived = await repository.getById(created.id)
     expect(archived).not.toBeNull()
-    expect(archived?.archivedAt).not.toBeNull()
+    expect(archived?.status).toBe('archived')
   })
 
   it('searches by name and subject, ignoring case and accents in the term', async () => {

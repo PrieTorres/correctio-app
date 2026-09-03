@@ -1,26 +1,36 @@
 /**
  * Domain schemas.
  *
- * The same definitions validate data read from `localStorage` today and the
- * HTTP responses (plus the Express request bodies) later, so nothing here is
- * throwaway.
+ * Field names and shapes follow `docs/Modelo_de_Dados.md`. The same
+ * definitions validate data read from `localStorage` today and the HTTP
+ * responses, plus the Express request bodies, later.
  */
 import { z } from 'zod';
 
 const id = z.string().min(1);
 const timestamp = z.string().datetime();
-const nullableTimestamp = timestamp.nullable();
 
-const archivable = { archivedAt: nullableTimestamp };
-const owned = { ownerId: id };
+export const userRoleSchema = z.literal('professor');
+
+export const authenticatedUserSchema = z.object({
+  id,
+  role: userRoleSchema,
+  fullName: z.string().min(1).max(160),
+  email: z.string().email(),
+  createdAt: timestamp,
+  anonymizedAt: timestamp.optional(),
+});
+
+export const classStatusSchema = z.enum(['active', 'archived']);
 
 export const classSchema = z.object({
   id,
-  ...owned,
-  ...archivable,
+  teacherId: id,
   name: z.string().min(1, 'Informe o nome da turma').max(120),
   subject: z.string().min(1, 'Informe a disciplina').max(120),
   term: z.string().min(1, 'Informe o período').max(40),
+  status: classStatusSchema,
+  inviteCode: z.string().min(1),
 });
 
 export const classInputSchema = classSchema.pick({ name: true, subject: true, term: true });
@@ -28,124 +38,155 @@ export const classInputSchema = classSchema.pick({ name: true, subject: true, te
 export const studentSchema = z.object({
   id,
   classId: id,
-  name: z.string().min(1, 'Informe o nome do aluno').max(160),
+  fullName: z.string().min(1, 'Informe o nome do aluno').max(160),
   registration: z.string().min(1, 'Informe a matrícula').max(40),
-  email: z.string().email('E-mail inválido').nullable(),
-  anonymizedAt: nullableTimestamp,
+  email: z.string().email('E-mail inválido').optional(),
+  anonymizedAt: timestamp.optional(),
 });
 
 export const studentInputSchema = studentSchema.pick({
-  name: true,
+  fullName: true,
   registration: true,
   email: true,
 });
 
+export const questionTypeSchema = z.enum(['objetiva', 'discursiva']);
+
 export const alternativeSchema = z.object({
   id,
   text: z.string().min(1, 'A alternativa não pode ficar vazia'),
-  correct: z.boolean(),
 });
 
-const questionBase = {
-  id,
-  ...owned,
-  ...archivable,
-  statement: z.string().min(1, 'Informe o enunciado'),
-  tags: z.array(z.string().min(1)),
-};
+export const questionSchema = z
+  .object({
+    id,
+    teacherId: id,
+    type: questionTypeSchema,
+    statement: z.string().min(1, 'Informe o enunciado'),
+    tags: z.array(z.string().min(1)),
+    alternatives: z
+      .array(alternativeSchema)
+      .min(2, 'Uma questão objetiva precisa de ao menos 2 alternativas')
+      .max(5, 'Máximo de 5 alternativas')
+      .optional(),
+    correctAlternativeId: id.optional(),
+    maxScore: z.number().positive('A nota máxima precisa ser maior que zero').optional(),
+    deletedAt: timestamp.optional(),
+    allowShuffleAlternatives: z.boolean(),
+  })
+  .superRefine((question, ctx) => {
+    if (question.type === 'objetiva') {
+      if (question.alternatives === undefined || question.correctAlternativeId === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Questão objetiva exige alternativas e uma alternativa correta',
+        });
+        return;
+      }
+      const known = question.alternatives.some((item) => item.id === question.correctAlternativeId);
+      if (!known) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['correctAlternativeId'],
+          message: 'A alternativa correta precisa ser uma das alternativas da questão',
+        });
+      }
+      return;
+    }
 
-export const multipleChoiceQuestionSchema = z.object({
-  ...questionBase,
-  kind: z.literal('multiple-choice'),
-  alternatives: z
-    .array(alternativeSchema)
-    .min(2, 'Uma questão objetiva precisa de ao menos 2 alternativas')
-    .max(5, 'Máximo de 5 alternativas')
-    .refine(
-      (list) => list.filter((item) => item.correct).length === 1,
-      'Marque exatamente uma alternativa como correta',
-    ),
-  shuffleAlternatives: z.boolean(),
-});
-
-export const openEndedQuestionSchema = z.object({
-  ...questionBase,
-  kind: z.literal('open-ended'),
-  maxScore: z.number().positive('A nota máxima precisa ser maior que zero'),
-});
-
-export const questionSchema = z.discriminatedUnion('kind', [
-  multipleChoiceQuestionSchema,
-  openEndedQuestionSchema,
-]);
-
-export const examStatusSchema = z.enum(['draft', 'ready', 'archived']);
+    if (question.maxScore === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['maxScore'],
+        message: 'Questão discursiva exige nota máxima',
+      });
+    }
+  });
 
 export const examQuestionSchema = z.object({
   questionId: id,
+  order: z.number().int().nonnegative(),
   score: z.number().nonnegative(),
-  shuffleAlternatives: z.boolean(),
+  allowShuffleAlternatives: z.boolean(),
 });
+
+export const examStatusSchema = z.enum(['draft', 'ready', 'closed']);
 
 export const examSchema = z.object({
   id,
-  ...owned,
-  ...archivable,
+  teacherId: id,
   title: z.string().min(1, 'Informe o título da prova').max(200),
-  description: z.string(),
-  status: examStatusSchema,
   questions: z.array(examQuestionSchema).max(20, 'Máximo de 20 questões por prova'),
+  status: examStatusSchema,
+  description: z.string(),
   defaultShuffleQuestions: z.boolean(),
   defaultShuffleAlternatives: z.boolean(),
 });
 
+export const applicationStatusSchema = z.enum(['draft', 'generated', 'closed']);
+
 export const applicationSchema = z.object({
   id,
-  ...owned,
-  ...archivable,
   examId: id,
   classId: id,
+  teacherId: id,
+  status: applicationStatusSchema,
+  pdfUrl: z.string().optional(),
   date: timestamp,
-  identified: z.boolean(),
   gradesReleased: z.boolean(),
-  pdfGeneratedAt: nullableTimestamp,
+});
+
+export const examVersionLayoutSchema = z.object({
+  questionOrder: z.array(id),
+  alternativeOrder: z.array(z.object({ questionId: id, printedOrder: z.array(id) })),
 });
 
 export const examVersionSchema = z.object({
   id,
   applicationId: id,
-  number: z.number().int().positive(),
+  versionNumber: z.number().int().positive(),
   shuffleQuestions: z.boolean(),
   shuffleAlternatives: z.boolean(),
-  answerKeyPublishedAt: nullableTimestamp,
+  withStudentIdentification: z.boolean(),
+  layout: examVersionLayoutSchema,
+  answerKeyPublished: z.boolean(),
+  answerKeyPublishedAt: timestamp.optional(),
+  publicCode: z.string().min(1),
+  qrCodePayload: z.string().min(1),
 });
 
 export const answerSheetSchema = z.object({
   id,
   applicationId: id,
-  versionId: id,
-  studentId: id.nullable(),
+  examVersionId: id,
+  studentId: id.optional(),
   sheetNumber: z.number().int().positive(),
   code: z.string().length(26),
 });
 
+export const objectiveResultSchema = z.object({
+  questionId: id,
+  correct: z.boolean(),
+  score: z.number().nonnegative(),
+  selectedAlternativeId: id.optional(),
+});
+
 export const correctionSchema = z.object({
   id,
-  answerSheetId: id,
-  source: z.enum(['image-upload', 'manual']),
-  multipleChoiceAnswers: z.array(
-    z.object({
-      questionId: id,
-      markedAlternativeId: id.nullable(),
-      correctAlternativeId: id,
-      correct: z.boolean(),
-    }),
-  ),
-  openEndedScores: z.array(z.object({ questionId: id, score: z.number().nonnegative() })),
+  examVersionId: id,
+  studentId: id.optional(),
+  reportedStudentName: z.string().optional(),
+  reportedStudentRegistration: z.string().optional(),
+  objectiveResults: z.array(objectiveResultSchema),
+  discursiveScores: z.array(z.object({ questionId: id, score: z.number().nonnegative() })),
   totalScore: z.number().nonnegative(),
-  notes: z.string(),
-  confirmedAt: nullableTimestamp,
-  imageUrl: z.string().nullable(),
+  notes: z.string().optional(),
+  confirmedAt: timestamp,
+  correctedBy: id,
+  isAutomaticallyAssigned: z.boolean(),
+  answerSheetId: id,
+  source: z.enum(['upload_imagem', 'manual']),
+  imageUrl: z.string().optional(),
 });
 
 export type ClassInput = z.infer<typeof classInputSchema>;

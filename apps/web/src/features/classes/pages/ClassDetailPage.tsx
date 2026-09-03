@@ -127,7 +127,7 @@ export function ClassDetailPage() {
                   { onSettled: () => setPending(null) },
                 )
               }
-              {...ACTION_COPY[pending.action](pending.student.name)}
+              {...ACTION_COPY[pending.action](pending.student.fullName)}
             />
           )}
         </div>
@@ -143,18 +143,18 @@ function StudentRow({
   student: Student
   onAction: (action: StudentAction) => void
 }) {
-  const isAnonymized = student.anonymizedAt !== null
+  const isAnonymized = student.anonymizedAt !== undefined
 
   return (
     <li className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-body text-ink">{student.name}</span>
+          <span className="text-body text-ink">{student.fullName}</span>
           {isAnonymized && <Badge>Anonimizado</Badge>}
         </div>
         <p className="text-caption text-ink-subtle">
           Matrícula {student.registration}
-          {student.email !== null && ` · ${student.email}`}
+          {student.email !== undefined && ` · ${student.email}`}
         </p>
       </div>
 

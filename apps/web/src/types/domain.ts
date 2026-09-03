@@ -1,154 +1,246 @@
 /**
- * Domain model. Entity names follow section 9 of the requirements document.
+ * Domain model.
  *
- * Variants are modelled as discriminated unions rather than optional fields,
- * so impossible states are unrepresentable.
+ * Every entity here is bound by the contract in `docs/Modelo_de_Dados.md`,
+ * which mirrors section 8 of the SGP Católica specification. Fields may be
+ * added; the keys and shapes defined by the specification may never be
+ * removed, renamed or restructured.
+ *
+ * `Date` in the specification is carried as an ISO 8601 string, since that is
+ * how it crosses JSON. That is a serialization detail, not a shape change.
  */
 
 export type Id = string;
 
-/** ISO 8601 timestamp. `null` means "has not happened". */
+/** ISO 8601 instant. Maps to `Date` in the specification. */
 export type Timestamp = string;
 
-/** Anything that can be archived and restored instead of deleted. */
-export interface Archivable {
-  archivedAt: Timestamp | null;
-}
+/**
+ * The specification allows `"estudante"`, but the group removed the student
+ * area: the teacher is the only authenticated user.
+ */
+export type UserRole = 'professor';
 
-export interface OwnedByTeacher {
-  ownerId: Id;
-}
-
-export interface Teacher {
+export interface User {
   id: Id;
-  name: string;
+  role: UserRole;
+  fullName: string;
   email: string;
+  /** Server-side only; never leaves the API. See {@link AuthenticatedUser}. */
+  passwordHash: string;
+  createdAt: Timestamp;
+  anonymizedAt?: Timestamp;
 }
 
-export interface Class extends Archivable, OwnedByTeacher {
+/** What the client is allowed to hold: the entity minus the server secret. */
+export type AuthenticatedUser = Omit<User, 'passwordHash'>;
+
+export interface RefreshToken {
   id: Id;
+  userId: Id;
+  tokenHash: string;
+  deviceInfo?: string;
+  issuedAt: Timestamp;
+  expiresAt: Timestamp;
+  revokedAt?: Timestamp;
+}
+
+export type ClassStatus = 'active' | 'archived';
+
+export interface Class {
+  id: Id;
+  teacherId: Id;
   name: string;
   subject: string;
   term: string;
+  status: ClassStatus;
+  inviteCode: string;
 }
 
+/**
+ * Group addition, replacing `ClassEnrollment` plus a student `User`: students
+ * are records inside a class and never authenticate.
+ */
 export interface Student {
   id: Id;
   classId: Id;
-  name: string;
+  fullName: string;
   registration: string;
-  email: string | null;
-  /** Set once personal data has been erased on request. */
-  anonymizedAt: Timestamp | null;
+  email?: string;
+  anonymizedAt?: Timestamp;
 }
+
+export type QuestionType = 'objetiva' | 'discursiva';
 
 export interface Alternative {
   id: Id;
   text: string;
-  correct: boolean;
 }
 
-interface QuestionBase extends Archivable, OwnedByTeacher {
+/**
+ * The variant fields are optional rather than a discriminated union because
+ * that is the shape the specification defines. Use {@link isMultipleChoice}
+ * and {@link isOpenEnded} to narrow safely.
+ */
+export interface Question {
   id: Id;
+  teacherId: Id;
+  type: QuestionType;
+  /** Supports basic Markdown. */
   statement: string;
   tags: string[];
+  /** Present when `type` is `"objetiva"`: 2 to 5 entries. */
+  alternatives?: Alternative[];
+  correctAlternativeId?: Id;
+  /** Present when `type` is `"discursiva"`. */
+  maxScore?: number;
+  /** Soft delete. */
+  deletedAt?: Timestamp;
+  /** Group addition: per-question default for alternative shuffling. */
+  allowShuffleAlternatives: boolean;
 }
 
-export interface MultipleChoiceQuestion extends QuestionBase {
-  kind: 'multiple-choice';
+export type MultipleChoiceQuestion = Question & {
+  type: 'objetiva';
   alternatives: Alternative[];
-  /** Question-level default; an exam may override it per question. */
-  shuffleAlternatives: boolean;
-}
+  correctAlternativeId: Id;
+};
 
-export interface OpenEndedQuestion extends QuestionBase {
-  kind: 'open-ended';
+export type OpenEndedQuestion = Question & {
+  type: 'discursiva';
   maxScore: number;
+};
+
+export function isMultipleChoice(question: Question): question is MultipleChoiceQuestion {
+  return question.type === 'objetiva' && question.alternatives !== undefined;
 }
 
-export type Question = MultipleChoiceQuestion | OpenEndedQuestion;
-
-export type ExamStatus = 'draft' | 'ready' | 'archived';
+export function isOpenEnded(question: Question): question is OpenEndedQuestion {
+  return question.type === 'discursiva' && question.maxScore !== undefined;
+}
 
 export interface ExamQuestion {
   questionId: Id;
+  order: number;
   score: number;
-  shuffleAlternatives: boolean;
+  /** Group addition: overrides the question default for this exam. */
+  allowShuffleAlternatives: boolean;
 }
 
-export interface Exam extends Archivable, OwnedByTeacher {
+/** `draft` → `ready` on first application; any → `closed` when archived. */
+export type ExamStatus = 'draft' | 'ready' | 'closed';
+
+export interface Exam {
   id: Id;
+  teacherId: Id;
   title: string;
-  description: string;
-  status: ExamStatus;
   questions: ExamQuestion[];
+  status: ExamStatus;
+  /** Group additions. */
+  description: string;
   defaultShuffleQuestions: boolean;
   defaultShuffleAlternatives: boolean;
 }
 
-export interface Application extends Archivable, OwnedByTeacher {
+export type ApplicationStatus = 'draft' | 'generated' | 'closed';
+
+export interface Application {
   id: Id;
   examId: Id;
   classId: Id;
+  teacherId: Id;
+  status: ApplicationStatus;
+  /** Single consolidated PDF, overwritten on every regeneration. */
+  pdfUrl?: string;
+  /** Group additions. */
   date: Timestamp;
-  /** Applies to the whole application, not per version. */
-  identified: boolean;
   gradesReleased: boolean;
-  pdfGeneratedAt: Timestamp | null;
+}
+
+export interface AlternativeOrder {
+  questionId: Id;
+  /** Alternative ids in the order and letters actually printed. */
+  printedOrder: Id[];
+}
+
+/**
+ * The order materialised at generation time.
+ *
+ * This is what makes correction possible at all: without it the system cannot
+ * tell which printed letter corresponds to which stored alternative.
+ */
+export interface ExamVersionLayout {
+  questionOrder: Id[];
+  alternativeOrder: AlternativeOrder[];
 }
 
 export interface ExamVersion {
   id: Id;
   applicationId: Id;
-  number: number;
+  versionNumber: number;
   shuffleQuestions: boolean;
   shuffleAlternatives: boolean;
-  answerKeyPublishedAt: Timestamp | null;
+  withStudentIdentification: boolean;
+  layout: ExamVersionLayout;
+  answerKeyPublished: boolean;
+  answerKeyPublishedAt?: Timestamp;
+  /** Public access to the answer key, distinct from `qrCodePayload`. */
+  publicCode: string;
+  qrCodePayload: string;
 }
 
 /**
- * One per printed answer sheet.
+ * Group addition, replacing `ExamAssignment`: one per printed answer sheet,
+ * whether or not the exam identifies students.
  *
- * `sheetNumber` and `code` must never be conflated: the former is short and
- * human-readable for sorting paper, the latter is the opaque 128-bit token
- * behind the QR code and the only key to the public lookup. Using a guessable
- * value as the lookup key would make every grade enumerable.
+ * `sheetNumber` and `code` must never be conflated. The former is short and
+ * human-readable for sorting paper; the latter is the opaque 128-bit token
+ * behind the QR code and the only key to the public lookup.
  */
 export interface AnswerSheet {
   id: Id;
   applicationId: Id;
-  versionId: Id;
-  studentId: Id | null;
+  examVersionId: Id;
+  studentId?: Id;
   sheetNumber: number;
   code: string;
 }
 
-export type CorrectionSource = 'image-upload' | 'manual';
-
-export interface MultipleChoiceAnswer {
+export interface ObjectiveResult {
   questionId: Id;
-  /** Which alternative the student marked, not just whether they got it right. */
-  markedAlternativeId: Id | null;
-  correctAlternativeId: Id;
   correct: boolean;
+  score: number;
+  /** Group addition: which alternative the student actually marked. */
+  selectedAlternativeId?: Id;
 }
 
-export interface OpenEndedScore {
+export interface DiscursiveScore {
   questionId: Id;
   score: number;
 }
 
+export type CorrectionSource = 'upload_imagem' | 'manual';
+
 export interface Correction {
   id: Id;
+  examVersionId: Id;
+  /** Filled automatically when the exam identifies students, or assigned later. */
+  studentId?: Id;
+  /** Read off the physical sheet when the exam has no identification. */
+  reportedStudentName?: string;
+  reportedStudentRegistration?: string;
+  objectiveResults: ObjectiveResult[];
+  discursiveScores: DiscursiveScore[];
+  totalScore: number;
+  notes?: string;
+  confirmedAt: Timestamp;
+  /** Teacher id. */
+  correctedBy: Id;
+  isAutomaticallyAssigned: boolean;
+  /** Group additions. `clientCorrectionId` and `syncStatus` are dropped: no mobile app. */
   answerSheetId: Id;
   source: CorrectionSource;
-  multipleChoiceAnswers: MultipleChoiceAnswer[];
-  openEndedScores: OpenEndedScore[];
-  totalScore: number;
-  notes: string;
-  /** No reading becomes a grade until the teacher confirms it. */
-  confirmedAt: Timestamp | null;
-  imageUrl: string | null;
+  imageUrl?: string;
 }
 
 export interface PublicLookupHeader {
@@ -157,8 +249,8 @@ export interface PublicLookupHeader {
   className: string;
   date: Timestamp;
   identity:
-    | { kind: 'student'; name: string }
-    | { kind: 'sheet'; sheetNumber: number; versionNumber: number };
+    | { type: 'student'; fullName: string }
+    | { type: 'sheet'; sheetNumber: number; versionNumber: number };
 }
 
 /** Mutually exclusive states of the public lookup page. */
@@ -169,25 +261,25 @@ export type PublicLookup =
       status: 'released';
       header: PublicLookupHeader;
       totalScore: number;
-      answers: MultipleChoiceAnswer[];
+      objectiveResults: ObjectiveResult[];
       answerKey: { questionId: Id; correctAlternativeId: Id }[] | null;
     };
 
-export type BackgroundJobKind = 'generate-pdf' | 'read-sheets' | 'import' | 'export';
+export type BackgroundJobType = 'generate-pdf' | 'read-sheets' | 'import' | 'export';
 
 export type BackgroundJob =
-  | { id: Id; kind: BackgroundJobKind; status: 'running'; label: string; startedAt: Timestamp }
+  | { id: Id; type: BackgroundJobType; status: 'running'; label: string; startedAt: Timestamp }
   | {
       id: Id;
-      kind: BackgroundJobKind;
+      type: BackgroundJobType;
       status: 'done';
       label: string;
       startedAt: Timestamp;
-      resultUrl: string | null;
+      resultUrl?: string;
     }
   | {
       id: Id;
-      kind: BackgroundJobKind;
+      type: BackgroundJobType;
       status: 'failed';
       label: string;
       startedAt: Timestamp;
