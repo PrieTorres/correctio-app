@@ -1,0 +1,52 @@
+name: Release do dia
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versão a publicar (ex.: 0.3.0). Sem o "v".'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # A release só sai de um estado que passa no portão de qualidade.
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Fixar a versão nos manifestos
+        run: |
+          npm version "${{ inputs.version }}" --no-git-tag-version --workspaces --include-workspace-root
+
+      - name: Commitar e marcar
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git commit -am "chore(release): v${{ inputs.version }}"
+          git tag -a "v${{ inputs.version }}" -m "v${{ inputs.version }}"
+          git push origin HEAD --follow-tags
+
+      # As notas saem dos PRs mergeados desde a tag anterior, agrupando as
+      # entregas de todo o time naquele período.
+      - name: Publicar a release
+        run: gh release create "v${{ inputs.version }}" --generate-notes --title "v${{ inputs.version }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
