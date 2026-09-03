@@ -16,10 +16,13 @@ export type Id = string;
 export type Timestamp = string;
 
 /**
- * The specification allows `"estudante"`, but the group removed the student
- * area: the teacher is the only authenticated user.
+ * Both roles the specification defines.
+ *
+ * Only `professor` authenticates in the current scope; `estudante` is kept so
+ * a student area can be added without migrating the data model. Do not narrow
+ * this union because one value is unused today.
  */
-export type UserRole = 'professor';
+export type UserRole = 'professor' | 'estudante';
 
 export interface User {
   id: Id;
@@ -57,9 +60,30 @@ export interface Class {
   inviteCode: string;
 }
 
+export type EnrollmentStatus = 'active' | 'removed';
+
 /**
- * Group addition, replacing `ClassEnrollment` plus a student `User`: students
- * are records inside a class and never authenticate.
+ * Links a student account to a class.
+ *
+ * Not used in the current scope, where students have no account and are held
+ * as {@link Student} records. Kept because it is the join a student area needs
+ * and because the specification defines it.
+ */
+export interface ClassEnrollment {
+  id: Id;
+  classId: Id;
+  studentId: Id;
+  status: EnrollmentStatus;
+  enrolledVia: 'teacher' | 'invite_code';
+}
+
+/**
+ * A student as a record inside a class, with no account of their own.
+ *
+ * Group addition covering the current scope, where students never sign in.
+ * `userId` is the seam towards a student area: filling it links this record to
+ * a {@link User} with role `estudante`, and {@link ClassEnrollment} then
+ * carries how that link came about.
  */
 export interface Student {
   id: Id;
@@ -68,6 +92,8 @@ export interface Student {
   registration: string;
   email?: string;
   anonymizedAt?: Timestamp;
+  /** Set only once a student area exists. */
+  userId?: Id;
 }
 
 export type QuestionType = 'objetiva' | 'discursiva';

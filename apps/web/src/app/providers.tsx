@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
-import { createRepositories, type Repositories } from '@/lib/repositories'
+import { createTeacherRepositories, type TeacherRepositories } from '@/lib/repositories'
 import { createLocalAuthProvider, type AuthProvider } from '@/lib/auth'
 
 /**
@@ -15,7 +15,7 @@ const queryClient = new QueryClient({
 })
 
 interface AppServices {
-  repositories: Repositories
+  repositories: TeacherRepositories
   auth: AuthProvider
 }
 
@@ -32,7 +32,7 @@ export function Providers({ children }: { children: ReactNode }) {
     const auth = createLocalAuthProvider()
     return {
       auth,
-      repositories: createRepositories(auth.getCurrentUser()?.id ?? 'teacher-demo'),
+      repositories: createTeacherRepositories(auth.getCurrentUser()?.id ?? 'teacher-demo'),
     }
   }, [])
 

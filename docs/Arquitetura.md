@@ -184,3 +184,49 @@ Segue a prioridade definida no documento de requisitos e telas:
 10. Pendentes de atribuição e relatórios
 
 A fundação precisa estar pronta antes da divisão de tarefas entre as cinco pessoas — é ela que permite trabalho paralelo sem conflito.
+
+---
+
+## 9. Extensão futura: área do aluno
+
+A área do aluno **está fora do escopo deste projeto** — decisão de 28/08, e ela não será
+construída aqui. Mas o modelo foi mantido aberto para que quem herde o projeto possa
+adicioná-la sem migrar dados.
+
+### O que já está no lugar
+
+| Costura | Onde | Estado |
+|---|---|---|
+| `role: "estudante"` | `types/domain.ts` | no contrato, só `professor` autentica |
+| `ClassEnrollment` | `types/domain.ts`, `lib/schemas` | modelada, sem repositório |
+| `Student.userId` | `types/domain.ts` | opcional, sempre vazio |
+| `Class.inviteCode` | gerado na criação da turma | preenchido, sem uso na interface |
+| `Correction.studentId` | preenchido quando há identificação | já é a chave da consulta do aluno |
+| `Application.gradesReleased` | em uso | já controla o que o aluno pode ver |
+| `createTeacherRepositories` | `lib/repositories/index.ts` | nomeado pelo escopo, não genérico |
+
+### O que faltaria construir
+
+1. **`createStudentRepositories(studentUserId)`** ao lado da fábrica do professor, devolvendo
+   só o que o aluno pode ver: as próprias correções e as turmas em que está matriculado.
+   **Não** alargar a fábrica existente com um `if` de papel — a separação por escopo é o que
+   torna o isolamento auditável.
+2. **Repositório de `ClassEnrollment`**, mais o fluxo de entrar na turma por `inviteCode`.
+3. **Telas do aluno** em `features/student/`, com layout próprio: o menu do professor não
+   serve, e reaproveitá-lo com condicionais vira a pior parte do código.
+4. **Roteamento por papel** no `router.tsx`, escolhendo o layout pelo `role` da sessão.
+5. **Isolamento no servidor.** Esta é a parte que não pode ser improvisada: toda consulta do
+   aluno filtra pelo id dele na camada de serviço, e recurso de outro aluno responde 404.
+   Ver `Seguranca_e_LGPD.md`.
+
+### O que não fazer
+
+**Não construa nada disso agora.** Rota, tela ou repositório de aluno sem uso é código morto:
+ninguém testa, o portão de qualidade cobra cobertura dele, e a primeira limpeza apaga.
+
+O que ficou pronto foi só o que custa perto de zero e é caro de adicionar depois: campos de
+contrato e nomes que revelam o escopo. Maquinário fica para quem for construir a feature.
+
+**E não apague as costuras por parecerem sem uso.** Estão listadas em
+[Modelo_de_Dados.md](Modelo_de_Dados.md), seção "Reservado para escopo futuro". Removê-las
+transforma "adicionar a área do aluno" em "migrar o banco".

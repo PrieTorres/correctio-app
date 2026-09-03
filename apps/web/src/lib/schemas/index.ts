@@ -10,7 +10,7 @@ import { z } from 'zod';
 const id = z.string().min(1);
 const timestamp = z.string().datetime();
 
-export const userRoleSchema = z.literal('professor');
+export const userRoleSchema = z.enum(['professor', 'estudante']);
 
 export const authenticatedUserSchema = z.object({
   id,
@@ -42,6 +42,17 @@ export const studentSchema = z.object({
   registration: z.string().min(1, 'Informe a matrícula').max(40),
   email: z.string().email('E-mail inválido').optional(),
   anonymizedAt: timestamp.optional(),
+  userId: id.optional(),
+});
+
+export const enrollmentStatusSchema = z.enum(['active', 'removed']);
+
+export const classEnrollmentSchema = z.object({
+  id,
+  classId: id,
+  studentId: id,
+  status: enrollmentStatusSchema,
+  enrolledVia: z.enum(['teacher', 'invite_code']),
 });
 
 export const studentInputSchema = studentSchema.pick({

@@ -22,8 +22,18 @@ Erros que já aconteceram e não podem repetir:
 - mover a alternativa correta para dentro de cada alternativa, em vez de `correctAlternativeId`
 - esquecer `ExamVersion.layout`, sem o qual a correção é impossível
 
-Se a Spec parecer atrapalhar, registre em "Divergências em aberto" naquele documento. Não
+Se a Spec parecer atrapalhar, registre em "Divergências que restam" naquele documento. Não
 resolva sozinho.
+
+### Campos sem uso que NÃO são código morto
+
+A área do aluno está fora do escopo deste projeto, mas o modelo foi deixado aberto para quem
+herdar o código. Estes elementos existem de propósito e **não podem ser removidos por
+parecerem inúteis**: `User.role = "estudante"`, `ClassEnrollment`, `Student.userId`,
+`Class.inviteCode` e `ExamAssignment`. Ver "Reservado para escopo futuro" no modelo de dados
+e a seção 9 de [docs/Arquitetura.md](docs/Arquitetura.md).
+
+Pelo mesmo motivo, **não construa** rota, tela ou repositório de aluno: seria código morto.
 
 ## Convenções de código
 

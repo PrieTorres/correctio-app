@@ -15,8 +15,8 @@ professora como referência de entidades e API.
 | ❌ **Proibido** | Remover uma chave definida pela Spec. Renomear uma chave. Trocar a estrutura de um campo — por exemplo transformar um `status` em timestamp, ou achatar um objeto aninhado. |
 
 Se uma decisão de escopo do grupo entrar em conflito com a Spec, ela **não é aplicada em
-silêncio**: entra na seção "Divergências em aberto" no fim deste documento e vai para
-validação com a professora.
+silêncio**: entra em "Divergências que restam" no fim deste documento e vai para validação
+com a professora.
 
 ### Duas conversões que não contam como mudança de estrutura
 
@@ -37,7 +37,7 @@ Campos marcados **`+`** são acréscimos do grupo. Todo o resto vem da Spec e é
 ```ts
 {
   id: string
-  role: "professor"            // Spec prevê "estudante"; fora de escopo (ver divergências)
+  role: "professor" | "estudante"   // só "professor" autentica no escopo atual
   fullName: string
   email: string                // único
   passwordHash: string         // servidor apenas
@@ -91,7 +91,9 @@ deve implementá-la, mesmo se a autenticação passar a ser Firebase.
 }
 ```
 
-Substituída por `Student` no escopo do grupo — ver divergências.
+**Preservada.** Não é usada no escopo atual, onde o aluno não tem conta e é guardado como
+`Student`. Continua no contrato porque é exatamente a junção que uma área do aluno precisa —
+ver [Arquitetura, seção 9](Arquitetura.md).
 
 ### Student `+`
 
@@ -105,8 +107,12 @@ Acréscimo do grupo, substituindo `ClassEnrollment` mais um `User` de aluno.
   registration: string         // única dentro da turma
   email?: string
   anonymizedAt?: Date
+  userId?: string              // + costura para a área do aluno
 }
 ```
+
+> `userId` é o ponto de extensão: preenchê-lo liga este registro a um `User` com
+> `role: "estudante"`, sem migrar nada. Fica vazio no escopo atual.
 
 ### Question
 
@@ -202,7 +208,9 @@ Acréscimo do grupo, substituindo `ClassEnrollment` mais um `User` de aluno.
 }
 ```
 
-Substituída por `AnswerSheet` — ver divergências.
+Substituída por `AnswerSheet`, que cobre folha com e sem identificação. `ExamAssignment`
+permanece no contrato porque uma área do aluno pode voltar a precisar do vínculo direto
+entre versão e aluno.
 
 ### AnswerSheet `+`
 
@@ -251,21 +259,32 @@ sem identificação.
 
 ---
 
-## Divergências em aberto
+## Reservado para escopo futuro
 
-Estas decisões do grupo removem elementos da Spec. Foram tomadas deliberadamente e estão
-registradas na seção 9 do documento de requisitos, mas **não foram validadas explicitamente
-com a professora**. Precisam ser confirmadas antes da N2.
+O grupo decidiu não construir a área do aluno neste projeto. A decisão é de **escopo, não de
+modelo**: nada foi removido do contrato, para que quem herdar o projeto possa construí-la sem
+migração de dados.
 
-| # | Divergência | Justificativa do grupo | Situação |
+| Elemento | Situação | Para que serve depois |
+|---|---|---|
+| `User.role = "estudante"` | no contrato, sem uso | conta do aluno |
+| `ClassEnrollment` | no contrato, sem uso | matrícula do aluno na turma, com a origem do vínculo |
+| `Student.userId` | opcional, sempre vazio | liga o registro de aluno a uma conta |
+| `Class.inviteCode` | gerado, sem uso | aluno entrar na turma por código |
+| `ExamAssignment` | no contrato, sem uso | vínculo direto versão ↔ aluno |
+| `Correction.studentId` | preenchido quando há identificação | o aluno consultar as próprias correções |
+| `Application.gradesReleased` | em uso | também controla o que o aluno veria |
+
+> ⚠️ **Não apague nenhum destes por parecerem sem uso.** São ponto de extensão deliberado, e
+> removê-los transforma "adicionar a área do aluno" em "migrar o banco".
+
+## Divergências que restam
+
+| # | Divergência | Justificativa | Situação |
 |---|---|---|---|
-| 1 | `User.role` perdeu `"estudante"` | Sem área do aluno; o professor é o único usuário autenticado | Decisão de escopo de 28/08 |
-| 2 | `ClassEnrollment` substituída por `Student` | Aluno não faz login, então não há matrícula de usuário em turma | Decisão de escopo de 28/08 |
-| 3 | `ExamAssignment` substituída por `AnswerSheet` | Código por folha, não por aluno, para funcionar também sem identificação | Seção 6.1 do documento de requisitos |
-| 4 | `Correction` sem `clientCorrectionId` e `syncStatus` | Não há app mobile nem fila offline | Decisão de escopo de 28/08 |
-| 5 | `Class.inviteCode` mantido mas **sem uso** | O código de convite servia para o aluno se matricular sozinho, o que saiu do escopo | Campo preservado por exigência da Spec; confirmar se pode sair |
+| 1 | `Correction` sem `clientCorrectionId` e `syncStatus` | Não há app mobile nem fila offline; sem app, não há o que deduplicar | Decisão de 28/08 — confirmar com a professora |
 
-Nenhuma dessas remoções deve ser ampliada sem nova decisão registrada.
+Qualquer nova remoção precisa de decisão registrada aqui antes de entrar no código.
 
 ---
 
@@ -279,5 +298,7 @@ Ao mexer em qualquer entidade:
 
 1. Confira a tabela desta página antes de escrever o tipo.
 2. Campo novo entra marcado como acréscimo do grupo.
-3. Se algo da Spec parecer atrapalhar, **não remova** — registre em "Divergências em aberto".
+3. Se algo da Spec parecer atrapalhar, **não remova** — registre em "Divergências que restam".
+   Campos listados em "Reservado para escopo futuro" ficam mesmo sem uso: são ponto de
+   extensão, não código morto.
 4. O schema Zod acompanha o tipo na mesma mudança; os dois são a mesma verdade.
