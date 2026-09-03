@@ -1,6 +1,6 @@
 # Segurança, Proteção de Custo e LGPD — Correctio
 
-Documento de apoio aos requisitos. Os requisitos verificáveis estão em [Principais_Requisitos_Correctio.md](Principais_Requisitos_Correctio.md) — aqui está o **desenho** por trás deles: por que cada medida existe e como é implementada.
+Documento de apoio aos requisitos. Os requisitos verificáveis estão em [Correctio_Requisitos_e_Telas.md](Correctio_Requisitos_e_Telas.md) — aqui está o **desenho** por trás deles: por que cada medida existe e como é implementada.
 
 **Onde cada coisa roda.** Praticamente nada disto é da N1: a N1 é um site estático no GitHub Pages. A implementação é da N2/N3, no Express. O documento existe agora porque essas regras mudam o modelo de dados (retenção, anonimização de aluno, EXIF, código da folha) e é mais barato desenhar antes do que remendar depois.
 
