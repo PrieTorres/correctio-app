@@ -23,6 +23,7 @@ export default defineConfig({
     setupFiles: ['./src/test-setup.ts'],
     coverage: {
       provider: 'v8',
+      reporter: ['text', 'lcov'],
       include: ['src/lib/**/*.ts'],
       exclude: ['src/lib/**/index.ts', 'src/lib/**/types.ts', 'src/lib/seed/**'],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
