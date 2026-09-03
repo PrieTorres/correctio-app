@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
-import { createTeacherRepositories, type TeacherRepositories } from '@/lib/repositories'
-import { createLocalAuthProvider, type AuthProvider } from '@/lib/auth'
+import { useMemo, type ReactNode } from 'react'
+import { createTeacherRepositories } from '@/lib/repositories'
+import { createLocalAuthProvider } from '@/lib/auth'
+import { AppServicesContext, type AppServices } from './services'
 
 /**
  * Remote data lives in the query cache, never in component state or a global
@@ -14,19 +15,6 @@ const queryClient = new QueryClient({
   },
 })
 
-interface AppServices {
-  repositories: TeacherRepositories
-  auth: AuthProvider
-}
-
-const AppContext = createContext<AppServices | null>(null)
-
-export function useServices(): AppServices {
-  const services = useContext(AppContext)
-  if (services === null) throw new Error('useServices must be used within <Providers>')
-  return services
-}
-
 export function Providers({ children }: { children: ReactNode }) {
   const services = useMemo<AppServices>(() => {
     const auth = createLocalAuthProvider()
@@ -37,8 +25,8 @@ export function Providers({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AppContext.Provider value={services}>
+    <AppServicesContext.Provider value={services}>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    </AppContext.Provider>
+    </AppServicesContext.Provider>
   )
 }

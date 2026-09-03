@@ -81,7 +81,7 @@ export function createCollection<T>(name: string, schema: z.ZodType<T>): Collect
  */
 function preserveUnknownFields<T>(raw: unknown, validated: T): T {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return validated;
-  return { ...raw, ...validated } as T;
+  return { ...raw, ...validated };
 }
 
 export function clearAllCollections(): void {

@@ -39,14 +39,15 @@ export function createLocalAuthProvider(): AuthProvider {
         return null
       }
     },
-    async signIn(email) {
-      return persist({ ...DEMO_TEACHER, email })
+    signIn(email) {
+      return Promise.resolve(persist({ ...DEMO_TEACHER, email }))
     },
-    async signUp(fullName, email) {
-      return persist({ ...DEMO_TEACHER, fullName, email })
+    signUp(fullName, email) {
+      return Promise.resolve(persist({ ...DEMO_TEACHER, fullName, email }))
     },
-    async signOut() {
+    signOut() {
       window.localStorage.removeItem(SESSION_KEY)
+      return Promise.resolve()
     },
   }
 }

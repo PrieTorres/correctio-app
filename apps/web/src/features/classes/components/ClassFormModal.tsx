@@ -52,7 +52,7 @@ export function ClassFormModal({
       onOpenChange={onOpenChange}
       title={editing === null ? 'Nova turma' : 'Editar turma'}
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
+      <form onSubmit={(event) => void handleSubmit(onSubmit)(event)} className="flex flex-col gap-4" noValidate>
         <TextField
           label="Nome da turma"
           placeholder="Cálculo I — Noturno"

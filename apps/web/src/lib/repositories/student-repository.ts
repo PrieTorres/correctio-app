@@ -43,8 +43,9 @@ export function createLocalStudentRepository(): StudentRepository {
   const updateById = (id: string, transform: (student: Student) => Student): void => {
     const students = collection.readAll()
     const index = students.findIndex((item) => item.id === id)
-    if (index === -1) throw new StorageError('Aluno não encontrado.', 'not-found')
-    collection.writeAll(students.with(index, transform(students[index]!)))
+    const student = students[index]
+    if (student === undefined) throw new StorageError('Aluno não encontrado.', 'not-found')
+    collection.writeAll(students.with(index, transform(student)))
   }
 
   return {

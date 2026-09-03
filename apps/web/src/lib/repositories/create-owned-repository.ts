@@ -54,17 +54,18 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
     collection.writeAll([...others, ...owned])
   }
 
-  const requireIndex = (items: TEntity[], id: string): number => {
+  const requireEntry = (items: TEntity[], id: string): [index: number, entity: TEntity] => {
     const index = items.findIndex((entity) => entity.id === id)
-    if (index === -1) throw new StorageError(`${label} não encontrada.`, 'not-found')
-    return index
+    const entity = items[index]
+    if (entity === undefined) throw new StorageError(`${label} não encontrada.`, 'not-found')
+    return [index, entity]
   }
 
   const setStatus = async (id: string, status: TEntity['status']): Promise<void> => {
     await simulateLatency()
     const items = readOwned()
-    const index = requireIndex(items, id)
-    persist(items.with(index, { ...items[index]!, status }))
+    const [index, entity] = requireEntry(items, id)
+    persist(items.with(index, { ...entity, status }))
   }
 
   return {
@@ -98,8 +99,8 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
     async update(id: string, input: Partial<TInput>): Promise<TEntity> {
       await simulateLatency()
       const items = readOwned()
-      const index = requireIndex(items, id)
-      const next = { ...items[index]!, ...input } as TEntity
+      const [index, entity] = requireEntry(items, id)
+      const next = { ...entity, ...input } as TEntity
       persist(items.with(index, next))
       return next
     },

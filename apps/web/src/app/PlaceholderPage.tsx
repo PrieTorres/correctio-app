@@ -13,7 +13,7 @@ export function PlaceholderPage({ screen }: { screen: string }) {
           Consulte o passo correspondente no plano de execução antes de começar.
         </p>
         <div className="mt-4">
-          <Button onClick={() => navigate(-1)}>Voltar</Button>
+          <Button onClick={() => void navigate(-1)}>Voltar</Button>
         </div>
       </Card>
     </div>

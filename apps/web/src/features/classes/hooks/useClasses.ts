@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { useServices } from '@/app/providers';
+import { useServices } from '@/app/services';
 import type { ClassInput, StudentInput } from '@/lib/schemas';
 
 /**
@@ -30,7 +30,7 @@ export function useClass(id: string | undefined) {
 
   return useQuery({
     queryKey: classKeys.detail(id ?? ''),
-    queryFn: () => repositories.classes.getById(id!),
+    queryFn: () => repositories.classes.getById(id ?? ''),
     enabled: id !== undefined,
   });
 }
@@ -40,7 +40,7 @@ export function useStudents(classId: string | undefined) {
 
   return useQuery({
     queryKey: classKeys.students(classId ?? ''),
-    queryFn: () => repositories.students.listByClass(classId!),
+    queryFn: () => repositories.students.listByClass(classId ?? ''),
     enabled: classId !== undefined,
   });
 }
