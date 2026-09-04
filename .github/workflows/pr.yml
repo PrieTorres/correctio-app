@@ -1,0 +1,98 @@
+name: Portão de qualidade
+
+on:
+  pull_request:
+    branches: [main]
+
+# Cancela execuções superadas do mesmo PR: sem isso, cada push enfileira uma
+# execução nova enquanto a anterior ainda roda.
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Lint, tipos, testes e build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Histórico completo: sem ele o Sonar não identifica o que é código
+          # novo e passa a avaliar o repositório inteiro, reprovando tudo.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verificação de tipos
+        run: npm run typecheck
+
+      - name: Testes unitários com cobertura
+        run: npm test
+
+      - name: Build de produção
+        run: npm run build
+
+      - name: Auditoria de dependências
+        run: npm audit --audit-level=high
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: apps/web/dist
+          retention-days: 3
+
+  e2e:
+    name: Cypress
+    runs-on: ubuntu-latest
+    needs: verificar
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # E2E roda contra o build de produção, não contra o dev server: é onde
+      # os problemas reais aparecem.
+      - run: npm run build
+      # Grava no Cypress Cloud quando há chave, mas o portão não pode
+      # depender de um serviço externo: sem a chave, roda igual e passa.
+      - name: Testes E2E
+        run: |
+          if [ -n "$CYPRESS_RECORD_KEY" ]; then
+            npm run test:e2e:record
+          else
+            npm run test:e2e
+          fi
+        env:
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+
+  sonar:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    needs: verificar
+    # Só roda quando o segredo existe — sem isso o PR de quem clonou o repo
+    # falha por um motivo que não é dele.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

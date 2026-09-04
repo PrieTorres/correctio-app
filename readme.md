@@ -93,7 +93,8 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 ### 🤔 Em discussão e pendente de validação
 
 - **Em discussão com a professora:** versionamento A/B/C de questões (provas realmente diferentes por aluno, não só embaralhadas).
-- **Pendente de validação com o cliente:** questões discursivas · importação e exportação via Excel · nota disponibilizada por QR Code · retorno do cartão-resposta corrigido ao aluno · finalidade do campo e-mail do aluno.
+- **Pendente de validação com o cliente:** questões discursivas · importação e exportação via Excel · nota disponibilizada por QR Code · retorno do cartão-resposta corrigido ao aluno · finalidade do campo e-mail do aluno · existência de alunos menores de idade.
+- **Pendente de validação com a professora:** uso de Firebase Auth no lugar dos endpoints `/auth` previstos na Spec.
 
 ### 📅 Evolução ao longo do semestre
 
@@ -109,7 +110,7 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 
 São **42 requisitos funcionais** e **20 não-funcionais**, escritos como ações do sistema e com métrica verificável.
 
-**📋 Lista completa: [docs/Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md)**
+**📋 Lista completa e fonte da verdade: [docs/Correctio_Requisitos_e_Telas.md](docs/Correctio_Requisitos_e_Telas.md)** — resumo rápido em [Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md)
 
 ### Resumo por área
 
@@ -128,7 +129,7 @@ São **42 requisitos funcionais** e **20 não-funcionais**, escritos como açõe
 
 | Cód. | Categoria | Métrica resumida |
 |---|---|---|
-| RNF01–03 | Desempenho, escala, disponibilidade | p95 ≤ 300 ms · 600 professores e 10.000 alunos · 99,5% de uptime |
+| RNF01–03 | Desempenho, escala, disponibilidade | p95 ≤ 300 ms · 500–600 professores e 10.000 alunos ativos · 99,5% de uptime |
 | RNF04 | Segurança de acesso | HTTPS integral, token com renovação, bloqueio após 5 falhas em 15 min |
 | RNF05 | Privacidade (LGPD) | Anonimização em até 24 h; nenhum dado pessoal em log |
 | RNF06–07 | Usabilidade e confiabilidade | Ação principal em até 3 cliques · erro de leitura < 1% · 100% confirmado pelo professor |
@@ -168,7 +169,7 @@ São **42 requisitos funcionais** e **20 não-funcionais**, escritos como açõe
 | **Públicas, sem login** (2) | Consulta de nota e gabarito por QR Code · Aviso de privacidade |
 | **Web Professor** (20) | Painel · Meu perfil · Turmas (lista, criar/editar, detalhe) · Banco de questões (lista, criar/editar) · Provas (lista, criar/editar, geração automática, detalhe) · Aplicações (lista, criar, gerar PDF, detalhe) · Correção (enviar folhas, revisar, pendentes de atribuição) · Relatórios (por aplicação, consolidado) |
 
-A especificação detalhada de cada tela — conteúdo, elementos e destino de cada ação — está em `docs/Correctio_Requisitos_e_Telas.docx`, seção 8.
+A especificação detalhada de cada tela — conteúdo, elementos e destino de cada ação — está em [docs/Correctio_Requisitos_e_Telas.md](docs/Correctio_Requisitos_e_Telas.md), seção 8.
 
 **Responsivo:** o menu lateral vira menu hambúrguer, as tabelas viram cards empilhados, e a tela de envio de folhas abre a câmera do celular direto. A consulta pública é desenhada primeiro para o celular, já que o aluno a abre escaneando o QR.
 
@@ -186,7 +187,9 @@ A especificação detalhada de cada tela — conteúdo, elementos e destino de c
 
 **Publicação:** GitHub Pages na N1, Firebase Hosting depois. A URL de consulta pública mantém o mesmo formato de caminho nas duas, porque ela vai impressa em papel dentro do QR Code e não pode quebrar.
 
-**Entidades de domínio:** `User` (só professor) · `Class` · `Student` · `Question` · `Exam` · `Application` · `ExamVersion` · `AnswerSheet` · `Correction`
+**Entidades de domínio:** `User` · `RefreshToken` · `Class` · `Student` · `Question` · `Exam` · `Application` · `ExamVersion` · `AnswerSheet` · `Correction`
+
+A estrutura obrigatória de cada uma segue a seção 8 da Spec SGP Católica e está travada em [docs/Modelo_de_Dados.md](docs/Modelo_de_Dados.md): campos podem ser acrescentados, mas nenhuma chave da Spec pode ser removida, renomeada ou ter a forma alterada.
 
 ---
 
@@ -212,12 +215,13 @@ npm run test:e2e  # testes Cypress
 
 | Documento | Conteúdo |
 |---|---|
-| [Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md) | RFs, RNFs, regras de negócio e telas |
+| [Modelo_de_Dados.md](docs/Modelo_de_Dados.md) | **Normativo:** estrutura obrigatória de cada entidade, conforme a Spec SGP Católica |
+| [Correctio_Requisitos_e_Telas.md](docs/Correctio_Requisitos_e_Telas.md) | **Fonte da verdade:** RFs, RNFs, regras de negócio e especificação das 25 telas |
+| [Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md) | Resumo derivado do documento acima, para consulta rápida |
 | [Arquitetura.md](docs/Arquitetura.md) | Decisões técnicas, camada de repositórios, stack, organização do código |
 | [Seguranca_e_LGPD.md](docs/Seguranca_e_LGPD.md) | Autorização, limite de requisições, proteção de custo, LGPD |
 | [Tour_Guiado.md](docs/Tour_Guiado.md) | Tour contextual por tela: regras de escrita, comportamento e o texto de cada passo |
 | [CI_CD.md](docs/CI_CD.md) | Portão de qualidade nos Pull Requests, proteção de branch e publicação |
-| `Correctio_Requisitos_e_Telas.docx` | Especificação detalhada das telas (seção 8) e do modelo de dados (seção 9) |
 | `Escopo do Projeto e Criterios de Avaliacao.md` | Critérios de avaliação da disciplina (documento da professora) |
 
 ---

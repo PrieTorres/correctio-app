@@ -16,7 +16,18 @@ O que mudou depois da apresentação de 28/08:
 - **Novos recursos:** montar prova automaticamente por filtros (tags, tipo, quantidade), duplicar prova, preferências de embaralhamento salvas na prova, embaralhamento de alternativas por questão, tour guiado.
 - **Responsivo para celular:** todas as telas, inclusive a área do professor — o que permite fotografar as folhas de respostas direto do navegador do celular, sem app.
 - **Regra da professora para o README:** RFs escritos como ações do sistema (senão desconta nota) e RNFs com métrica verificável. Seções 3 e 4 já estão nesse formato.
-- **Pendente de validação com o cliente:** questões discursivas, importação/exportação via Excel, notas via QR Code para o aluno.
+
+O que mudou na revisão de 02/09:
+
+- **Sem restrição de domínio de e-mail** no cadastro do professor. O isolamento por conta (RNF14) passa a ser a única barreira protegendo os dados.
+- **Segurança, custo e LGPD viraram requisito**, não recomendação: RF38–RF40 e RNF12–RNF18.
+- **Nada é apagado automaticamente.** Arquivar e excluir são reversíveis (RF42); exclusão definitiva só sob solicitação.
+- **Operação demorada não trava a tela** (RF41, RNF13): confirma em menos de 1 s, roda em segundo plano e notifica ao concluir.
+- **Tour deixou de ser único no primeiro login** e passou a ser contextual, por tela, com limite de 4 passos e 90 caracteres (RF37, RNF19).
+- **Portão de qualidade nos Pull Requests** (RNF20): testes, cobertura e Sonar bloqueiam o merge.
+- **Duas identificações por folha impressa:** número legível para o professor, token opaco de 128 bits para a consulta pública.
+
+**Pendente de validação com o cliente:** questões discursivas, importação/exportação via Excel, notas via QR Code para o aluno, retorno do cartão-resposta, finalidade do e-mail do aluno e existência de alunos menores de idade — lista completa na seção 7.
 
 ## 1. Sobre este documento e regra de ouro
 
@@ -39,10 +50,10 @@ Cruza o **Relato do Cliente**, a **Spec SGP Católica** e o retorno da apresenta
 
 | Nome completo | E-mail institucional / status |
 |---|---|
-| Cleberson Luis Vieira Martins Maia | cleberson.maia@catolicasc.edu (conferir se falta o ".br" final) |
-| Fabricio da Silva Junior | ainda não enviado no grupo |
+| Cleberson Luis Vieira Martins Maia | cleberson.maia@catolicasc.edu.br |
+| Fabricio da Silva Junior | fabricio94.silva@catolicasc.edu.br |
 | Heloísa Fogaça do Nascimento | h.nascimento@catolicasc.edu.br |
-| Jeliel Nunes da Silva | ainda não enviado no grupo |
+| Jeliel Nunes da Silva | jeliel.silva@catolicasc.edu.br |
 | Priscila Torres Benedito de Paula | priscila.paula@catolicasc.edu.br |
 
 Board de tarefas: GitHub Project *github.com/users/PrieTorres/projects/4* — registra quem fez o quê e quando (inclui os slides da apresentação).
@@ -105,7 +116,7 @@ Cada RNF traz um critério mensurável para dizer se foi atendido ou não, como 
 | Cód. | Categoria | Requisito e métrica |
 |---|---|---|
 | RNF01 | Desempenho | 95% das requisições da API respondem em até 300 ms. |
-| RNF02 | Escalabilidade | Suportar 600 professores e 10.000 alunos cadastrados mantendo o RNF01. |
+| RNF02 | Escalabilidade | Suportar 500 a 600 professores e 10.000 alunos ativos no primeiro ano, mantendo o RNF01. |
 | RNF03 | Disponibilidade | Uptime mensal igual ou superior a 99,5%. |
 | RNF04 | Segurança | 100% do tráfego em HTTPS; JWT com refresh; bloqueio temporário após 5 tentativas de login falhas em 15 minutos. |
 | RNF05 | Privacidade (LGPD) | Anonimização de conta concluída em até 24 h após a solicitação; nenhum dado pessoal gravado em logs. |
@@ -123,11 +134,7 @@ Cada RNF traz um critério mensurável para dizer se foi atendido ou não, como 
 | RNF17 | Auditoria (LGPD, Art. 37) | 100% das operações do RF40 registradas em trilha imutável; a trilha registra a ação e o autor, nunca o conteúdo do dado pessoal. |
 | RNF18 | Endurecimento da API | Cabeçalhos de segurança e CSP ativos em 100% das respostas; CORS restrito a lista de origens conhecidas; payload JSON limitado a 100 KB; 100% das consultas SQL parametrizadas; container executado sem privilégio de root; build reprovado se houver vulnerabilidade alta ou crítica em dependência. |
 | RNF19 | Objetividade do tour | No máximo 4 passos por tela e 90 caracteres por passo; o tour é dispensável em 1 clique e nunca impede o uso da tela; navegável por teclado e anunciado por leitor de tela. |
-| RNF20 | Qualidade contínua | 100% dos Pull Requests executam automaticamente lint, verificação de tipos, testes unitários com cobertura, build e testes E2E; o merge é bloqueado se qualquer verificação falhar, se a cobertura do código novo ficar abaixo de 80%, se a duplicação no código novo passar de 3% ou se o portão do SonarCloud reprovar. Nenhum merge direto na branch principal, e todo PR exige ao menos 1 aprovação. |
-
-**⚠️ Conferir a escala do RNF02.** Hoje o requisito diz 600 professores e 10.000 alunos cadastrados. Surgiu na discussão a expectativa de "10 mil professores simultâneos", que é ordem de grandeza bem diferente (cadastrados ≠ simultâneos, e 600 ≠ 10.000) e muda dimensionamento e custo. Definir qual é o número antes da N2.
-
-**Nenhum dado é apagado automaticamente.** Não existe rotina de descarte por prazo: apagar dado que ninguém pediu para apagar é perda de informação, não conformidade. A exclusão acontece sob solicitação (RF38, anonimização de aluno; RF05, anonimização da conta), e tudo que é "excluído" pela interface é soft-delete reversível (RF42). O que protege contra perda é o backup com restauração testada (RNF09).
+| RNF20 | Qualidade contínua | 100% dos Pull Requests executam automaticamente lint, verificação de tipos, testes unitários com cobertura, build e testes E2E; o merge é bloqueado se qualquer verificação falhar, se a cobertura do código novo ficar abaixo de 80%, se a duplicação no código novo passar de 3% ou se o portão do SonarCloud reprovar. Nenhum merge direto na branch principal, e todo PR exige ao menos 1 aprovação. |**Nenhum dado é apagado automaticamente.** Não existe rotina de descarte por prazo: apagar dado que ninguém pediu para apagar é perda de informação, não conformidade. A exclusão acontece sob solicitação (RF38, anonimização de aluno; RF05, anonimização da conta), e tudo que é "excluído" pela interface é soft-delete reversível (RF42). O que protege contra perda é o backup com restauração testada (RNF09).
 
 ## 5. Regras de negócio
 
@@ -230,7 +237,10 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Barra superior: logo/nome do Correctio à esquerda; à direita, botão “Ajuda” (reabre o tour da tela atual, não do sistema inteiro) e avatar do professor com menu (Meu perfil, Sair).
 - Tour guiado contextual: dispara automaticamente na primeira visita a cada tela, com no máximo 4 passos por tela e 90 caracteres por passo (RF37, RNF19); dispensável em 1 clique e nunca bloqueia o uso da tela.
 - Menu lateral, com ícone + texto: Painel · Turmas · Banco de Questões · Provas · Aplicações · Relatórios. Item ativo destacado.
-- Modais reutilizáveis: confirmação (arquivar, remover, regenerar), importação (upload Excel/JSON com modelo para download e prévia antes de confirmar).
+- Rodapé em todas as telas, com link para PUB2 (Aviso de privacidade).
+- Modais reutilizáveis: confirmação (arquivar, remover, regenerar, restaurar, anonimizar), importação (upload Excel/JSON com modelo para download e prévia antes de confirmar).
+- **Operação em segundo plano (RF41):** toda ação demorada — gerar PDF, ler folhas, importar em lote, exportar — confirma o início em menos de 1 segundo, informa que a execução ocorre em segundo plano e libera o professor para navegar. A notificação de conclusão aparece na barra superior. Nenhuma tela fica travada esperando.
+- **Restaurar (RF42):** listas que têm filtro de arquivados/excluídos oferecem a ação "Restaurar" por item, com confirmação. Nenhuma exclusão pela interface é definitiva.
 
 **Comportamento em celular (responsivo):**
 
@@ -368,13 +378,13 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 - Nome, e-mail (leitura), tipo (Professor)
 - Botão “Sair de todos os dispositivos”
-- Botão “Rever tour guiado”
+- Botão “Rever tour guiado” — zera o estado de "já visto" de todas as telas, fazendo o tour contextual voltar a disparar em cada uma
 - Zona de risco: “Anonimizar minha conta” com aviso de irreversibilidade
 
 **Ações e fluxo:**
 
 - “Sair de todos” → confirmação → C1
-- “Rever tour” → P1 com tour ativo
+- “Rever tour” → confirmação → zera o estado de todas as telas → P1 com o tour do Painel ativo
 - “Anonimizar” → modal com “digite ANONIMIZAR” → C1
 
 #### P3. Turmas (lista)
@@ -386,7 +396,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Cabeçalho “Turmas” + botão “+ Nova turma”
 - Filtro Ativas / Arquivadas; busca por nome/disciplina
 - Cards: nome, disciplina, período, nº de alunos, badge de status
-- Menu por card: Ver detalhes · Editar · Arquivar
+- Menu por card: Ver detalhes · Editar · Arquivar (ou **Restaurar**, quando o filtro está em Arquivadas)
 - Estado vazio com botão “+ Nova turma”
 
 **Ações e fluxo:**
@@ -395,6 +405,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Clique no card → P5
 - Editar → P4 (edição)
 - Arquivar → confirmação → atualiza lista
+- Restaurar → confirmação → turma volta para Ativas (RF42)
 
 #### P4. Turma — Criar/Editar
 
@@ -420,7 +431,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Cabeçalho: nome, disciplina/período, status, menu (Editar, Arquivar)
 - Seção “Alunos”: tabela (nome, matrícula, e-mail), busca, botão “+ Adicionar aluno”, botão “Importar alunos”, ícone remover por linha
 - Modal “Adicionar aluno”: nome, matrícula, e-mail opcional
-- Modal “Importar alunos”: upload Excel/JSON, link “baixar modelo”, prévia das linhas com validação (matrícula duplicada, campo vazio), botão “Confirmar importação”
+- Modal “Importar alunos”: upload Excel/JSON, link “baixar modelo”, prévia das linhas com validação (matrícula duplicada, campo vazio), botão “Confirmar importação” — a importação confirma o início em menos de 1 s e processa em segundo plano, notificando ao concluir (RF41)
 - Seção “Aplicações desta turma”: lista resumida (prova, data, status de correção)
 - Aviso de privacidade ao adicionar ou importar alunos, informando que o professor é responsável pelos dados de terceiros que insere (RF39)
 - Ação “Anonimizar dados do aluno” por linha, com confirmação de irreversibilidade (RF38)
@@ -442,18 +453,19 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Conteúdo e elementos:**
 
 - Cabeçalho + botões “+ Nova questão” e “Importar questões”
-- Filtros: tipo, tags (multi), busca por enunciado
+- Filtros: tipo, tags (multi), busca por enunciado, alternância Ativas / Excluídas
 - Lista: enunciado truncado, badge de tipo, chips de tags, nº de alternativas ou nota máxima, ícone se “embaralhar alternativas” está desligado
-- Menu por item: Editar · Duplicar · Excluir
+- Menu por item: Editar · Duplicar · Excluir (ou **Restaurar**, quando o filtro está em Excluídas)
 - Estado vazio com Nova / Importar
 
 **Ações e fluxo:**
 
 - “+ Nova questão” → P7
-- “Importar questões” → modal de importação (Excel/JSON) → prévia → confirma
+- “Importar questões” → modal de importação (Excel/JSON) → prévia → confirma o início em menos de 1 s e processa em segundo plano, notificando ao concluir (RF41)
 - Clique/Editar → P7 (edição)
 - Duplicar → P7 pré-preenchida como nova
 - Excluir → confirmação → soft-delete
+- Restaurar → confirmação → questão volta ao banco (RF42)
 
 #### P7. Questão — Criar/Editar
 
@@ -483,15 +495,16 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Cabeçalho + botões “+ Nova prova”, “Gerar automaticamente”, “Importar prova”
 - Filtros: status (Rascunho/Pronta/Arquivada), tag, busca por título
 - Lista: título, nº de questões, pontuação total, tags predominantes, status
-- Menu por item: Ver detalhes · Editar · Duplicar · Exportar (Excel/JSON) · Arquivar
+- Menu por item: Ver detalhes · Editar · Duplicar · Exportar (Excel/JSON) · Arquivar (ou **Restaurar**, quando o filtro está em Arquivada)
 
 **Ações e fluxo:**
 
 - “+ Nova prova” → P9
 - “Gerar automaticamente” → P9b
-- “Importar prova” → modal de importação → cria prova em rascunho → P10
+- “Importar prova” → modal de importação → confirma o início em menos de 1 s e processa em segundo plano (RF41) → cria prova em rascunho → P10
 - Clique → P10 · Editar → P9 · Duplicar → cria cópia em rascunho → P9 da cópia
-- Exportar → download · Arquivar → confirmação
+- Exportar → confirma o início e notifica quando o arquivo fica pronto para download (RF41)
+- Arquivar → confirmação · Restaurar → confirmação → prova volta para Rascunho/Pronta (RF42)
 
 #### P9. Prova — Criar/Editar
 
@@ -545,7 +558,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 **Ações e fluxo:**
 
-- Editar → P9 · Duplicar → P9 da cópia · Exportar → download · Arquivar → confirmação
+- Editar → P9 · Duplicar → P9 da cópia · Exportar → confirma o início e notifica quando o arquivo fica pronto (RF41) · Arquivar → confirmação
 - “+ Nova aplicação” → P12 (prova pré-selecionada)
 - Clique em aplicação → P14
 
@@ -606,7 +619,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Card “PDF”: “Baixar PDF”, data de geração
 - Tabela “Versões”: nº, embaralhamentos, gabarito publicado?, botão “Publicar gabarito” por linha; botão “Publicar todos”
 - Tabela “Alunos e versões” (se identificada)
-- Card “Correção”: progresso X/N alunos, botões “Corrigir provas” (→ P15) e “Ver relatório” (→ P18)
+- Card “Correção”: progresso X/N alunos, botões “Corrigir provas” (→ P15) e “Ver relatório” (→ P18), e link “Pendentes de atribuição (N)” (→ P17) quando houver correção sem aluno
 - Toggle “Liberar notas via QR Code para os alunos”, com confirmação
 
 **Ações e fluxo:**
@@ -614,9 +627,9 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - “Baixar PDF” → download
 - “Regenerar PDF” → P13 (bloqueado se houver correção confirmada)
 - “Publicar gabarito” → confirmação → publica
-- “Corrigir provas” → P15 · “Ver relatório” → P18
+- “Corrigir provas” → P15 · “Ver relatório” → P18 · “Pendentes de atribuição” → P17
 - “Liberar notas” → confirmação → PUB1 passa a exibir notas
-- Arquivar → confirmação
+- Arquivar → confirmação · Restaurar → confirmação → aplicação volta à lista ativa (RF42)
 
 #### P15. Correção — Enviar folhas de respostas
 
@@ -693,7 +706,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Ações e fluxo:**
 
 - Clique em aluno → P16 daquela correção (leitura)
-- Exportar → download
+- Exportar → confirma o início em menos de 1 s e notifica quando o arquivo fica pronto para download (RF41)
 
 #### P19. Relatório consolidado
 
@@ -709,7 +722,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Ações e fluxo:**
 
 - Clique em linha → P18
-- Exportar → download
+- Exportar → confirma o início em menos de 1 s e notifica quando o arquivo fica pronto para download (RF41)
 
 ## 9. Ajustes no modelo de dados em relação à Spec
 
@@ -736,7 +749,7 @@ Mudanças em relação às entidades da Spec, decorrentes do novo escopo:
 
 - **Fora:** app mobile; editor manual de layout do PDF / exportar .doc; área do aluno com login.
 - **Em discussão:** versionamento A/B/C de questões (provas realmente diferentes) — ver 6.3.
-- **Depende de validação:** discursivas, importação/exportação Excel, notas via QR — ver seção 7.
+- **Depende de validação:** discursivas, importação/exportação Excel, notas via QR, retorno do cartão-resposta, finalidade do e-mail do aluno, existência de alunos menores de idade — ver seção 7. Com a professora: Firebase Auth no lugar dos endpoints /auth da Spec (seção 1) e versionamento A/B/C (6.3).
 
 ## 11. Como seguir — até a N1 (11/09)
 
@@ -744,7 +757,6 @@ Mudanças em relação às entidades da Spec, decorrentes do novo escopo:
 
 - Levar ao cliente as validações da seção 7 (agora com dois itens novos: finalidade do e-mail do aluno e existência de alunos menores de idade)
 - Levar à professora a dúvida da seção 6.3 (versionamento A/B/C) e o uso de Firebase Auth no lugar dos endpoints /auth da Spec (seção 1)
-- Definir a escala do RNF02 (600 professores ou 10 mil? cadastrados ou simultâneos?)
 - Reorganizar as Issues do GitHub Project pela lista atual de 42 RFs, agrupando por área
 - PDF de telas para validação com o cliente — confirmar se já foi entregue; é item obrigatório do checklist da N1 e a base textual é a seção 8 (agora com PUB2)
 
@@ -762,7 +774,7 @@ Cada ponto levantado no grupo após a apresentação e onde ele está neste docu
 |---|---|
 | Não é pra ter área do aluno | Seção 1 (recorte); PUB1; RF33 |
 | Escaneamento para autocorrigir provas | RF26–RF32; P15, P16, P17; RNF07 |
-| PDF com todas as telas e o que cada uma faz | Seção 11 (Jeliel); base textual = seção 8 |
+| PDF com todas as telas e o que cada uma faz | Seção 11; base textual = seção 8 |
 | Tags de categoria por questão, para melhores análises | RF11; P7; RF35 e P18 (% de acerto por tag) |
 | RFs escritos em forma de ação | Seção 3 (42 RFs) |
 | RNFs com métrica verificável | Seção 4 (20 RNFs) |
