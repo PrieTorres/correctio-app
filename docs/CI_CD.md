@@ -100,6 +100,18 @@ porque quem os cobre é o Cypress.
 
 ---
 
-## 7. Ainda não implementado
+## 7. Configuração fora do repositório
 
-Os arquivos de workflow **não existem no repositório**, e é proposital: sem `package.json`, um workflow que roda `npm ci` reprovaria todo PR desde o primeiro. Eles entram junto com a fundação do projeto, na primeira issue de código da N1 — antes de qualquer tela, para que o portão já esteja valendo quando as cinco pessoas começarem a abrir PRs em paralelo.
+Os workflows existem em `.github/workflows/`, mas parte do portão depende de configuração
+na interface do GitHub, que nenhum arquivo versionado consegue ligar:
+
+| Item | Onde | Situação |
+|---|---|---|
+| GitHub Pages via Actions | Settings → Pages | ✅ ligado |
+| `SONAR_TOKEN` | Settings → Secrets | ✅ cadastrado |
+| `CYPRESS_RECORD_KEY` | Settings → Secrets | ✅ cadastrado |
+| Proteção da `main` | Settings → Rules | ⬜ **pendente** |
+
+> **O Pages só publica depois que o workflow estiver na `main`.** O `deploy.yml` dispara em
+> push para a branch padrão, e o GitHub nem lista um workflow que ainda não existe lá. Antes
+> do primeiro merge, não há o que publicar — não é falha de configuração.
