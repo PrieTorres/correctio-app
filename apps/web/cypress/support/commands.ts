@@ -15,10 +15,22 @@ Cypress.Commands.add('findByLabelOrPlaceholder', (text: string) => {
   })
 })
 
+/**
+ * Scopes a query to the open dialog.
+ *
+ * A confirmation dialog usually repeats the label of the button that opened
+ * it, and the original stays in the DOM behind the overlay. Without scoping,
+ * the test picks the one the modal has made inert.
+ */
+Cypress.Commands.add('findInDialog', (selector: string, text: string) => {
+  return cy.get('[role="dialog"]').should('be.visible').contains(selector, text)
+})
+
 declare global {
   namespace Cypress {
     interface Chainable {
       findByLabelOrPlaceholder(text: string): Chainable<JQuery<HTMLElement>>
+      findInDialog(selector: string, text: string): Chainable<JQuery<HTMLElement>>
     }
   }
 }

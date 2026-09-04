@@ -32,7 +32,10 @@ describe('turmas', () => {
       .within(() => {
         cy.contains('button', 'Arquivar').click()
       })
-    cy.contains('button', 'Arquivar').click()
+
+    // O botão do cartão continua no DOM atrás do modal, então a confirmação
+    // precisa ser buscada dentro do diálogo.
+    cy.findInDialog('button', 'Arquivar').click()
 
     cy.contains('Física II').should('not.exist')
 
@@ -56,7 +59,7 @@ describe('turmas', () => {
     cy.contains('li', 'Ana Beatriz Moreira').within(() => {
       cy.contains('button', 'Anonimizar').click()
     })
-    cy.contains('button', 'Anonimizar').click()
+    cy.findInDialog('button', 'Anonimizar').click()
 
     cy.contains('Ana Beatriz Moreira').should('not.exist')
     cy.contains('Aluno anonimizado').should('be.visible')

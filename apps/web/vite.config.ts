@@ -24,9 +24,18 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      include: ['src/lib/**/*.ts'],
-      exclude: ['src/lib/**/index.ts', 'src/lib/**/types.ts', 'src/lib/seed/**'],
+      include: ['src/**/*.ts'],
+      exclude: [
+        'src/**/index.ts',
+        'src/**/types.ts',
+        'src/types/**',
+        'src/lib/seed/**',
+        'src/main.tsx',
+        'src/test-setup.ts',
+        'src/test-utils.tsx',
+      ],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
+
     },
   },
 })
