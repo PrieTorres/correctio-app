@@ -12,9 +12,7 @@ describe('useServices', () => {
     expect(result.current.auth).toBeDefined()
   })
 
-  it('fails loudly when used outside the provider', () => {
-    // A silent undefined here would surface as an unrelated crash deep in a
-    // screen, far from the missing provider.
+  it('fails loudly when used outside the provider, instead of returning undefined', () => {
     expect(() => renderHook(() => useServices())).toThrow(/within <Providers>/)
   })
 })

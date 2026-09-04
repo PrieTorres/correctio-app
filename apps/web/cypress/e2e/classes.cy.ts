@@ -33,8 +33,6 @@ describe('turmas', () => {
         cy.contains('button', 'Arquivar').click()
       })
 
-    // O botão do cartão continua no DOM atrás do modal, então a confirmação
-    // precisa ser buscada dentro do diálogo.
     cy.findInDialog('button', 'Arquivar').click()
 
     cy.contains('Física II').should('not.exist')

@@ -67,6 +67,13 @@ Na N1 a publicação é o site estático no GitHub Pages, com o `index.html` cop
 
 ## 5. Detalhes que costumam dar trabalho
 
+**A cobertura mede lógica, não tela.** O `coverage.include` do vitest e o
+`sonar.coverage.exclusions` precisam apontar para o mesmo conjunto de arquivos. Se
+divergirem, o portão reprova com a suíte verde — foi exatamente o que aconteceu na primeira
+execução: o vitest media 100% de `src/lib` e o Sonar via 64% porque contava as telas junto.
+Componentes seguem analisados para bugs e duplicação; só ficam fora da métrica de cobertura,
+porque quem os cobre é o Cypress.
+
 **A cobertura é medida só nos testes unitários.** Somar a cobertura do Cypress exige instrumentar o build com Istanbul, juntar os relatórios e manter isso funcionando — muito custo para pouco ganho. O Cypress é um portão de **passa ou não passa**: os fluxos principais funcionam de ponta a ponta, sim ou não. Quem responde pela métrica de cobertura é o teste unitário, e é lá que as regras críticas (cálculo de nota, embaralhamento, geração de PDF, leitura da folha) precisam estar cobertas.
 
 **O Cypress precisa da aplicação servida.** Não adianta rodar contra o código-fonte: sobe o build de produção, espera a porta responder, roda os testes, derruba. Rodar contra o servidor de desenvolvimento esconde justamente os problemas que só aparecem no build.

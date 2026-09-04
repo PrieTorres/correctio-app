@@ -26,9 +26,7 @@ describe('buildPath', () => {
 })
 
 describe('ROUTES', () => {
-  it('keeps the public lookup path stable', () => {
-    // Printed inside the QR code on paper: changing it breaks every sheet
-    // already handed out.
+  it('keeps the public lookup path stable, since it is printed inside the QR code', () => {
     expect(ROUTES.publicLookup).toBe('/r/:code')
   })
 

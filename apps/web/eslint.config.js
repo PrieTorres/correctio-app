@@ -5,6 +5,69 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 
+const DIRECTIVE = /^\s*(eslint|@ts-|global|prettier|c8|v8|istanbul|type|jsx)/;
+const ACCENTED_LETTER = /[\u00C0-\u00FF]/;
+
+/**
+ * Rules the team agreed on that no published plugin enforces.
+ *
+ * Both exist because the same mistake kept coming back through review: review
+ * catches it only when someone happens to look, and the build catches it every
+ * time.
+ */
+const conventions = {
+  rules: {
+    'no-line-comments': {
+      meta: {
+        type: 'problem',
+        docs: {
+          description:
+            'A comment that earns its place is a JSDoc block on the declaration. Anything needing a note beside it is saying the name is wrong, and the fix is to rename.',
+        },
+        schema: [],
+      },
+      create(context) {
+        return {
+          Program() {
+            for (const comment of context.sourceCode.getAllComments()) {
+              if (comment.type !== 'Line' || DIRECTIVE.test(comment.value)) continue;
+              context.report({
+                loc: comment.loc,
+                message:
+                  'Use a JSDoc block on the declaration, or rename so the comment is unnecessary.',
+              });
+            }
+          },
+        };
+      },
+    },
+
+    'english-only-comments': {
+      meta: {
+        type: 'problem',
+        docs: {
+          description:
+            'Comments are written in English. Accented letters give away Portuguese; typographic punctuation such as an em dash is fine.',
+        },
+        schema: [],
+      },
+      create(context) {
+        return {
+          Program() {
+            for (const comment of context.sourceCode.getAllComments()) {
+              if (!ACCENTED_LETTER.test(comment.value)) continue;
+              context.report({
+                loc: comment.loc,
+                message: 'Write comments in English. Portuguese belongs in the interface and the docs.',
+              });
+            }
+          },
+        };
+      },
+    },
+  },
+};
+
 export default tseslint.config(
   { ignores: ['dist', 'coverage', 'node_modules'] },
 
@@ -22,6 +85,7 @@ export default tseslint.config(
       },
     },
     plugins: {
+      conventions,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
       'jsx-a11y': jsxA11y,
@@ -48,6 +112,9 @@ export default tseslint.config(
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
       '@typescript-eslint/no-non-null-assertion': 'warn',
+
+      'conventions/no-line-comments': 'error',
+      'conventions/english-only-comments': 'error',
 
       /** Anything left behind must be traceable. */
       'no-warning-comments': ['warn', { terms: ['fixme', 'xxx'], location: 'anywhere' }],

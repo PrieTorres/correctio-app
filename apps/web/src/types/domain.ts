@@ -2,7 +2,7 @@
  * Domain model.
  *
  * Every entity here is bound by the contract in `docs/Modelo_de_Dados.md`,
- * which mirrors section 8 of the SGP Católica specification. Fields may be
+ * which mirrors section 8 of the SGP Catolica specification. Fields may be
  * added; the keys and shapes defined by the specification may never be
  * removed, renamed or restructured.
  *
