@@ -48,6 +48,8 @@ Hoje ele resolve com uma ferramenta de mercado (GradePen), que gera a prova emba
 
 **O objetivo do Correctio** é cobrir o ciclo inteiro da prova em um só lugar: montar, aplicar, corrigir e devolver — guardando **qual alternativa o aluno marcou**, não apenas se ele acertou.
 
+**O produto não é feito para um professor só.** O entrevistado é o primeiro cliente, não o único: o que ele não usa continua disponível, opcional em vez de obrigatório. Ele não libera nota por QR Code e não usa questões discursivas — outros clientes usam, e os dois recursos ficam.
+
 **Ganho concreto:** montar a prova deixa de ser trabalho manual repetido a cada turma e a cada semestre, e a correção deixa de ser feita folha a folha na mão.
 
 ---
@@ -73,7 +75,7 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 |---|---|
 | **Contas** | Só o professor tem conta. Cadastro, login, recuperação de senha, encerrar sessões, anonimização de conta |
 | **Turmas** | Criar, editar, arquivar; alunos cadastrados um a um ou importados em lote |
-| **Questões** | Objetivas (2 a 5 alternativas) e discursivas, com tags, filtros, soft-delete e importação em lote |
+| **Questões** | Objetivas (2 a 5 alternativas) e discursivas, com tags, filtros, soft-delete, importação em lote e imagens no enunciado |
 | **Provas** | Montagem manual ou automática por filtros, até 20 questões, duplicação, importação e exportação |
 | **Aplicações** | Associa prova a turma; permite reaplicação |
 | **PDF** | Arquivo único consolidado: nº de versões, embaralhamento configurável, QR Code único por folha, com ou sem identificação. Questão nunca quebra entre páginas, e prova ímpar ganha folha em branco ao final |
@@ -93,7 +95,7 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 ### 🤔 Em discussão e pendente de validação
 
 - **Em discussão com a professora:** versionamento A/B/C de questões (provas realmente diferentes por aluno, não só embaralhadas).
-- **Pendente de validação com o cliente:** questões discursivas · importação e exportação via Excel · retorno do cartão-resposta corrigido ao aluno · finalidade do campo e-mail do aluno · existência de alunos menores de idade.
+- **Pendente de validação com o cliente:** importação e exportação via Excel · retorno do cartão-resposta corrigido ao aluno · finalidade do campo e-mail do aluno · existência de alunos menores de idade.
 - **Pendente de validação com a professora:** uso de Firebase Auth no lugar dos endpoints `/auth` previstos na Spec.
 
 ### 📅 Evolução ao longo do semestre
@@ -108,7 +110,7 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 
 ## ✅ 4. Requisitos
 
-São **46 requisitos funcionais** e **20 não-funcionais**, escritos como ações do sistema e com métrica verificável.
+São **48 requisitos funcionais** e **20 não-funcionais**, escritos como ações do sistema e com métrica verificável.
 
 **📋 Lista completa e fonte da verdade: [docs/Correctio_Requisitos_e_Telas.md](docs/Correctio_Requisitos_e_Telas.md)** — resumo rápido em [Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md)
 
@@ -121,7 +123,7 @@ São **46 requisitos funcionais** e **20 não-funcionais**, escritos como açõe
 | Questões | RF10–RF14, RF45 | CRUD, tags, filtros, embaralhamento por questão, importação, imagens no enunciado |
 | Provas | RF15–RF20 | Montagem manual e automática, duplicação, importação/exportação, arquivamento |
 | Aplicações e PDF | RF21–RF25, RF43–RF44 | Aplicação, geração do PDF, QR Code, gabarito, paginação por questão e folha par |
-| Correção | RF26–RF32 | Envio de folhas, leitura automática, revisão, lançamento manual, atribuição |
+| Correção | RF26–RF32, RF47–RF48 | Envio de folhas, leitura automática, revisão, lançamento manual, atribuição, correção parcial quando há discursivas |
 | Notas e relatórios | RF33–RF36, RF46 | Consulta pública em dois níveis, estatísticas, exportação |
 | Transversais | RF37, RF40–RF42 | Tour guiado por tela, trilha de auditoria, execução em segundo plano com notificação, desfazer ações |
 
@@ -152,6 +154,7 @@ São **46 requisitos funcionais** e **20 não-funcionais**, escritos como açõe
 - **Regenerar o PDF invalida** as folhas anteriores, e é bloqueado depois da primeira correção confirmada — o caminho passa a ser criar nova Aplicação.
 - **Nenhuma leitura de imagem vira nota sem confirmação do professor.**
 - **A correção registra qual alternativa o aluno marcou**, não apenas acerto ou erro.
+- **Discursiva não bloqueia a correção automática.** Numa prova mista o sistema corrige as objetivas sozinho e deixa a correção em andamento até o professor lançar as notas das discursivas.
 - **O aluno vê o que o professor liberou, em dois níveis:** publicar o gabarito mostra as respostas certas; liberar as notas acrescenta a nota dele. Nota sem gabarito não existe.
 - **Remover aluno da turma não apaga notas** — e também não é exclusão de dado pessoal: para isso existe a anonimização (RF38).
 - **Nada é apagado de verdade.** Arquivar e excluir são reversíveis (RF42); nenhum dado é descartado automaticamente por prazo. Exclusão definitiva só sob solicitação.

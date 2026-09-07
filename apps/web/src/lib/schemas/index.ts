@@ -175,6 +175,8 @@ export const answerSheetSchema = z.object({
   code: z.string().length(26),
 });
 
+export const correctionStatusSchema = z.enum(['em_andamento', 'concluida']);
+
 export const objectiveResultSchema = z.object({
   questionId: id,
   correct: z.boolean(),
@@ -197,6 +199,7 @@ export const correctionSchema = z.object({
   isAutomaticallyAssigned: z.boolean(),
   clientCorrectionId: z.string().optional(),
   syncStatus: z.enum(['pending', 'synced', 'error']).optional(),
+  status: correctionStatusSchema,
   answerSheetId: id,
   source: z.enum(['upload_imagem', 'manual']),
   imageUrl: z.string().optional(),

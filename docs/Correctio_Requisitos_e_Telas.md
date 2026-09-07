@@ -29,11 +29,14 @@ O que mudou na revisão de 02/09:
 
 O que o cliente confirmou em 04/09:
 
+- **Discursivas ficam no produto**, opcionais. Ele não usa, outros clientes usam.
+- **Correção parcial** (RF47): prova com discursivas é corrigida automaticamente nas objetivas e fica em andamento até o professor lançar as notas das discursivas. A presença de discursivas nunca impede a correção automática do resto.
+
 - **Nota via QR Code entra**, e com controle em dois níveis: o professor decide se o aluno vê **apenas o gabarito** ou **o gabarito junto com a nota** (RF46). Nada aparece antes da liberação.
 - **Paginação virou requisito**, não nota de qualidade: questão não quebra entre páginas (RF43) e prova com número ímpar de páginas ganha uma folha em branco ao final (RF44), para não começar a próxima prova no verso.
 - **Imagens no enunciado das questões** entram no escopo (RF45).
 
-**Pendente de validação com o cliente:** questões discursivas, importação/exportação via Excel, retorno do cartão-resposta, finalidade do e-mail do aluno e existência de alunos menores de idade — lista completa na seção 7.
+**Pendente de validação com o cliente:** importação/exportação via Excel, retorno do cartão-resposta, finalidade do e-mail do aluno e existência de alunos menores de idade — lista completa na seção 7.
 
 ## 1. Sobre este documento e regra de ouro
 
@@ -44,6 +47,11 @@ Cruza o **Relato do Cliente**, a **Spec SGP Católica** e o retorno da apresenta
 **Stack:** React + Vite + TypeScript no front (Vue era a preferência da Spec, mas React foi aceito). Backend Node.js + Express + MySQL, conforme a disciplina. Hospedagem: GitHub Pages na N1 (dados simulados em localStorage), migrando para Firebase Hosting com Firebase Auth nas fases seguintes. **[Firebase Auth: validar com a professora — substitui os endpoints /auth da Spec]**
 
 *As decisões de arquitetura, o desenho de segurança/LGPD, a especificação do tour guiado e o portão de qualidade dos Pull Requests estão detalhados em documentos próprios no repositório (docs/Arquitetura.md, docs/Seguranca_e_LGPD.md, docs/Tour_Guiado.md, docs/CI_CD.md).*
+
+**O Correctio não é feito para um cliente só.** O professor entrevistado é o primeiro cliente,
+não o único. O que ele não usa continua no produto, **opcional em vez de obrigatório** — ele
+não vai liberar nota por QR Code e não usa questões discursivas, mas outros clientes vão. Um
+requisito só sai do escopo quando não serve a ninguém, nunca por preferência de um usuário.
 
 **Recorte de escopo (definido pelo time e validado em 28/08):** 
 
@@ -79,7 +87,7 @@ Formato exigido pela professora: cada RF descreve uma ação que pode ser feita 
 | RF07 | O sistema deve permitir que o professor cadastre alunos em uma turma (nome, matrícula, e-mail opcional). [validar minimização] | Turmas |
 | RF08 | O sistema deve permitir que o professor importe alunos em lote a partir de planilha Excel ou arquivo JSON. [validar] | Turmas |
 | RF09 | O sistema deve permitir que o professor remova um aluno da turma preservando o histórico de notas. | Turmas |
-| RF10 | O sistema deve permitir que o professor crie, edite e exclua (soft-delete) questões objetivas (2 a 5 alternativas, 1 correta) e discursivas (enunciado + nota máxima). [validar discursivas] | Questões |
+| RF10 | O sistema deve permitir que o professor crie, edite e exclua (soft-delete) questões objetivas (2 a 5 alternativas, 1 correta) e discursivas (enunciado + nota máxima). | Questões |
 | RF11 | O sistema deve permitir que o professor classifique cada questão com tags de categoria/conteúdo. | Questões |
 | RF12 | O sistema deve permitir que o professor filtre questões por tipo, tag e texto do enunciado. | Questões |
 | RF13 | O sistema deve permitir que o professor defina, para cada questão ao montar a prova, se as alternativas podem ser embaralhadas — com o padrão vindo do cadastro da questão. | Questões |
@@ -94,11 +102,11 @@ Formato exigido pela professora: cada RF descreve uma ação que pode ser feita 
 | RF22 | O sistema deve permitir que o professor configure a geração do PDF: nº de versões, embaralhamento (herdado da prova, editável por versão) e com/sem identificação do aluno. | Aplicações |
 | RF23 | O sistema deve gerar um único PDF consolidado por Aplicação, com um QR Code único em cada cartão-resposta impresso, identificando a folha e, quando houver, o aluno. | Aplicações |
 | RF24 | O sistema deve permitir que o professor regenere o PDF enquanto não houver correção confirmada, invalidando os QR Codes anteriores. | Aplicações |
-| RF25 | O sistema deve permitir que o professor publique o gabarito por versão ou por Aplicação inteira. | Aplicações |
+| RF25 | O sistema deve permitir que o professor publique o gabarito por versão ou por Aplicação inteira, contendo apenas as questões objetivas — discursivas não têm resposta única e ficam de fora. | Aplicações |
 | RF26 | O sistema deve permitir que o professor envie a imagem (foto/scan) da folha de respostas de cada aluno, individualmente ou em lote. | Correção |
 | RF27 | O sistema deve ler o QR Code e as marcações da imagem, comparar com o gabarito da versão e calcular a nota automaticamente. | Correção |
 | RF28 | O sistema deve permitir que o professor revise e corrija manualmente qualquer leitura antes de confirmar a correção. | Correção |
-| RF29 | O sistema deve permitir que o professor lance a nota das questões discursivas na mesma tela de revisão. [validar discursivas] | Correção |
+| RF29 | O sistema deve permitir que o professor lance a nota das questões discursivas na mesma tela de revisão. | Correção |
 | RF30 | O sistema deve permitir que o professor insira uma correção manualmente, sem imagem, quando a leitura falhar ou não houver folha digitalizada. | Correção |
 | RF31 | O sistema deve atribuir a nota automaticamente ao aluno quando a prova tiver identificação, e permitir associação manual por nome/matrícula quando não tiver. | Correção |
 | RF32 | O sistema deve armazenar cada correção com a alternativa marcada em cada questão, o acerto/erro, a nota por questão e a origem (imagem ou manual). | Correção |
@@ -116,6 +124,8 @@ Formato exigido pela professora: cada RF descreve uma ação que pode ser feita 
 | RF44 | O sistema deve acrescentar uma página em branco ao final do PDF quando a prova gerada terminar com número ímpar de páginas, para que a próxima prova não comece no verso da folha anterior na impressão frente e verso. | Aplicações |
 | RF45 | O sistema deve permitir que o professor inclua imagens no enunciado de uma questão, e deve reproduzi-las na prova impressa. | Questões |
 | RF46 | O sistema deve permitir que o professor escolha, por aplicação, se o aluno vê apenas o gabarito ou o gabarito junto com a nota. | Notas |
+| RF47 | O sistema deve corrigir automaticamente as questões objetivas de uma prova que também contenha discursivas, deixando a correção com status "em andamento" até que o professor lance a nota de cada discursiva. | Correção |
+| RF48 | O sistema deve indicar, na lista de correções de uma aplicação, quais estão em andamento por dependerem de nota de questão discursiva. | Correção |
 
 **Minimização (RF07).** O e-mail do aluno é coletado hoje sem nenhuma finalidade no sistema: não existe área do aluno e nada é enviado a ele por e-mail. Coletar dado pessoal sem finalidade contraria o princípio da necessidade (LGPD, Art. 6º, III). Levar ao cliente: o campo tem uso previsto? Se não tiver, sai do cadastro e da importação.
 
@@ -183,6 +193,8 @@ Cada RNF traz um critério mensurável para dizer se foi atendido ou não, como 
 **Correção e notas**
 
 - Nenhuma leitura de imagem vira nota sem confirmação do professor.
+- **Discursiva nunca bloqueia a correção automática.** Numa prova mista, o sistema corrige as objetivas pela leitura da folha e deixa a correção **em andamento** até o professor lançar a nota de cada discursiva. Só então ela fica concluída, e a nota total passa a valer.
+- O gabarito cobre apenas as questões objetivas: discursiva não tem alternativa correta.
 - A nota fica ligada à folha corrigida. Se a prova tinha identificação, vai direto para o aluno; se não, o vínculo folha → aluno fica pendente até o professor associar — mas o aluno já consegue consultar pela própria folha.
 - Duas correções confirmadas para o mesmo aluno na mesma versão geram conflito para revisão — a primeira não é sobrescrita silenciosamente.
 - Gabarito e nota só ficam visíveis na página pública do QR depois que o professor publica o gabarito e libera as notas, respectivamente.
@@ -232,7 +244,6 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 **Levar ao cliente (definido em 28/08):**
 
-1. Questões discursivas — entram? Como ele quer lançar a nota delas?
 1. Importação e exportação de dados via Excel — quais colunas ele já usa hoje (lista de alunos, notas para o sistema acadêmico)?
 1. O cartão-resposta corrigido volta para o aluno? Se não, o código de consulta deve ir também no caderno de prova (ver 6.1).
 1. Finalidade do campo e-mail do aluno — ele tem algum uso previsto? Hoje é coletado sem finalidade no sistema (ver nota do RF07).
@@ -660,7 +671,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Área de upload (arrastar/soltar) para múltiplas imagens ou PDF escaneado
 - No celular: botão “Fotografar folha” abre a câmera direto, permitindo capturar uma folha por vez em sequência
 - Lista de arquivos com status: Processando · Lido · QR não reconhecido · Falha na leitura
-- Por item lido: miniatura, aluno identificado (ou “Versão 2 — sem identificação”), nota prévia, botão “Revisar”
+- Por item lido: miniatura, aluno identificado (ou “Versão 2 — sem identificação”), nota prévia, marcação de “em andamento” quando faltar nota de discursiva (RF48), botão “Revisar”
 - Botão “Inserir correção manualmente” (sem imagem)
 - Botão “Confirmar todas as leituras sem pendência”
 
@@ -680,8 +691,8 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 - Esquerda: imagem da folha (zoom, rotação), ou vazio no modo manual
 - Direita: grade por questão objetiva — alternativa lida (destacada), alternativa correta, ícone acerto/erro, seletor A–E para corrigir a leitura
-- Campos de nota por questão discursiva (com nota máxima ao lado)
-- Nota total ao vivo no topo
+- Campos de nota por questão discursiva (com nota máxima ao lado), destacados enquanto estiverem em branco — são eles que seguram a correção em andamento (RF47)
+- Nota total ao vivo no topo, indicando se ainda é parcial por haver discursiva sem nota
 - Se sem identificação: campo “Associar aluno” (busca por nome/matrícula) ou “Deixar pendente”
 - Campo “Observações”
 - Botões “Confirmar correção”, “Salvar e próxima folha”, “Descartar leitura”
@@ -753,7 +764,7 @@ Mudanças em relação às entidades da Spec, decorrentes do novo escopo:
 - **Exam:** + defaultShuffleQuestions, defaultShuffleAlternatives (herdados por Application); em questions[], + allowShuffleAlternatives por questão desta prova, sobrescrevendo o padrão da questão.
 - **Application:** + gradesReleased: boolean (libera consulta em PUB1). Estado closed ganha endpoint de arquivar.
 - **AnswerSheet (novo):** { id, applicationId, examVersionId, studentId?, sheetNumber, code } — uma por cartão-resposta impresso. sheetNumber é o número curto e legível impresso para o professor organizar as pilhas de papel; code é o token aleatório opaco de no mínimo 128 bits que vai dentro do QR Code e é a única chave de consulta pública. Os dois nunca se confundem. Substitui ExamAssignment e dispensa a separação qrCodePayload/publicCode da Spec — ver 6.1.
-- **Correction:** passa a apontar para answerSheetId (a folha), não só para a versão; objectiveResults ganha selectedAlternativeId; + source: “upload_imagem” | “manual”; + imageUrl?. Saem clientCorrectionId e syncStatus (não há app/offline).
+- **Correction:** passa a apontar para answerSheetId (a folha), não só para a versão; objectiveResults ganha selectedAlternativeId; + source: “upload_imagem” | “manual”; + imageUrl?; + status: “em_andamento” | “concluida”, que distingue a correção que ainda espera nota de discursiva (RF47). O status é derivado das discursivas sem nota e gravado junto, para a listagem não precisar consultar a prova a cada linha. Saem clientCorrectionId e syncStatus (não há app/offline).
 - **Endpoints novos:** import (alunos, questões, provas), export de prova, duplicar prova, gerar prova automática, upload/leitura de folha, liberar notas, página pública por código.
 
 **Student:** o campo email está pendente de validação — hoje é coletado sem finalidade no sistema (ver nota do RF07).
@@ -768,7 +779,7 @@ Mudanças em relação às entidades da Spec, decorrentes do novo escopo:
 
 - **Fora:** app mobile; editor manual de layout do PDF / exportar .doc; área do aluno com login.
 - **Em discussão:** versionamento A/B/C de questões (provas realmente diferentes) — ver 6.3.
-- **Depende de validação:** discursivas, importação/exportação Excel, retorno do cartão-resposta, finalidade do e-mail do aluno, existência de alunos menores de idade — ver seção 7. Com a professora: Firebase Auth no lugar dos endpoints /auth da Spec (seção 1) e versionamento A/B/C (6.3).
+- **Depende de validação:** importação/exportação Excel, retorno do cartão-resposta, finalidade do e-mail do aluno, existência de alunos menores de idade — ver seção 7. Com a professora: Firebase Auth no lugar dos endpoints /auth da Spec (seção 1) e versionamento A/B/C (6.3).
 
 ## 11. Como seguir — até a N1 (11/09)
 

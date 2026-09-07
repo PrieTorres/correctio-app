@@ -26,7 +26,7 @@ Itens marcados com **[validar]** dependem de confirmação do cliente.
 | RF07 | O sistema deve permitir que o professor cadastre alunos em uma turma (nome, matrícula, e-mail opcional). **[validar minimização]** |
 | RF08 | O sistema deve permitir que o professor importe alunos em lote a partir de planilha Excel ou arquivo JSON. **[validar]** |
 | RF09 | O sistema deve permitir que o professor remova um aluno da turma preservando o histórico de notas. |
-| RF10 | O sistema deve permitir que o professor crie, edite e exclua (soft-delete) questões objetivas (2 a 5 alternativas, 1 correta) e discursivas (enunciado + nota máxima). **[validar discursivas]** |
+| RF10 | O sistema deve permitir que o professor crie, edite e exclua (soft-delete) questões objetivas (2 a 5 alternativas, 1 correta) e discursivas (enunciado + nota máxima). |
 | RF11 | O sistema deve permitir que o professor classifique cada questão com tags de categoria/conteúdo. |
 | RF12 | O sistema deve permitir que o professor filtre questões por tipo, tag e texto do enunciado. |
 | RF13 | O sistema deve permitir que o professor defina, para cada questão ao montar a prova, se as alternativas podem ser embaralhadas — com o padrão vindo do cadastro da questão. |
@@ -41,11 +41,11 @@ Itens marcados com **[validar]** dependem de confirmação do cliente.
 | RF22 | O sistema deve permitir que o professor configure a geração do PDF: nº de versões, embaralhamento (herdado da prova, editável por versão) e com/sem identificação do aluno. |
 | RF23 | O sistema deve gerar um único PDF consolidado por Aplicação, com um QR Code único em cada cartão-resposta impresso, identificando a folha e, quando houver, o aluno. |
 | RF24 | O sistema deve permitir que o professor regenere o PDF enquanto não houver correção confirmada, invalidando os QR Codes anteriores. |
-| RF25 | O sistema deve permitir que o professor publique o gabarito por versão ou por Aplicação inteira. |
+| RF25 | O sistema deve permitir que o professor publique o gabarito por versão ou por Aplicação inteira, contendo apenas as questões objetivas — discursivas não têm resposta única e ficam de fora. |
 | RF26 | O sistema deve permitir que o professor envie a imagem (foto/scan) da folha de respostas de cada aluno, individualmente ou em lote. |
 | RF27 | O sistema deve ler o QR Code e as marcações da imagem, comparar com o gabarito da versão e calcular a nota automaticamente. |
 | RF28 | O sistema deve permitir que o professor revise e corrija manualmente qualquer leitura antes de confirmar a correção. |
-| RF29 | O sistema deve permitir que o professor lance a nota das questões discursivas na mesma tela de revisão. **[validar discursivas]** |
+| RF29 | O sistema deve permitir que o professor lance a nota das questões discursivas na mesma tela de revisão. |
 | RF30 | O sistema deve permitir que o professor insira uma correção manualmente, sem imagem, quando a leitura falhar ou não houver folha digitalizada. |
 | RF31 | O sistema deve atribuir a nota automaticamente ao aluno quando a prova tiver identificação, e permitir associação manual por nome/matrícula quando não tiver. |
 | RF32 | O sistema deve armazenar cada correção com a alternativa marcada em cada questão, o acerto/erro, a nota por questão e a origem (imagem ou manual). |
@@ -63,6 +63,8 @@ Itens marcados com **[validar]** dependem de confirmação do cliente.
 | RF44 | O sistema deve acrescentar uma página em branco ao final do PDF quando a prova gerada terminar com número ímpar de páginas, para que a próxima prova não comece no verso da folha anterior na impressão frente e verso. |
 | RF45 | O sistema deve permitir que o professor inclua imagens no enunciado de uma questão, e deve reproduzi-las na prova impressa. |
 | RF46 | O sistema deve permitir que o professor escolha, por aplicação, se o aluno vê apenas o gabarito ou o gabarito junto com a nota. |
+| RF47 | O sistema deve corrigir automaticamente as questões objetivas de uma prova que também contenha discursivas, deixando a correção com status "em andamento" até que o professor lance a nota de cada discursiva. |
+| RF48 | O sistema deve indicar, na lista de correções de uma aplicação, quais estão em andamento por dependerem de nota de questão discursiva. |
 
 > **Minimização (RF07).** O e-mail do aluno é coletado hoje sem nenhuma finalidade no sistema: não existe área do aluno e nada é enviado a ele por e-mail. Coletar dado pessoal sem finalidade contraria o princípio da necessidade (LGPD, Art. 6º, III). Levar ao cliente: o campo tem uso previsto? Se não tiver, sai do cadastro e da importação.
 

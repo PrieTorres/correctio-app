@@ -247,6 +247,17 @@ export interface DiscursiveScore {
 
 export type CorrectionSource = 'upload_imagem' | 'manual';
 
+/**
+ * Group addition. Reading a sheet grades the multiple-choice questions on its
+ * own, but an open-ended question has no single right answer, so a mixed exam
+ * is only partly gradable by machine.
+ *
+ * The presence of open-ended questions must never block the automatic part:
+ * the correction lands as `em_andamento` and becomes `concluida` once the
+ * teacher has scored every open-ended question.
+ */
+export type CorrectionStatus = 'em_andamento' | 'concluida';
+
 export interface Correction {
   id: Id;
   examVersionId: Id;
@@ -273,6 +284,7 @@ export interface Correction {
   clientCorrectionId?: string;
   syncStatus?: 'pending' | 'synced' | 'error';
   /** Group additions. */
+  status: CorrectionStatus;
   answerSheetId: Id;
   source: CorrectionSource;
   imageUrl?: string;
