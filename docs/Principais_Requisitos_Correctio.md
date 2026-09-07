@@ -49,7 +49,7 @@ Itens marcados com **[validar]** dependem de confirmação do cliente.
 | RF30 | O sistema deve permitir que o professor insira uma correção manualmente, sem imagem, quando a leitura falhar ou não houver folha digitalizada. |
 | RF31 | O sistema deve atribuir a nota automaticamente ao aluno quando a prova tiver identificação, e permitir associação manual por nome/matrícula quando não tiver. |
 | RF32 | O sistema deve armazenar cada correção com a alternativa marcada em cada questão, o acerto/erro, a nota por questão e a origem (imagem ou manual). |
-| RF33 | O sistema deve disponibilizar ao aluno a nota e o gabarito da sua prova por meio do QR Code impresso nela, em página pública, após liberação pelo professor. **[validar]** |
+| RF33 | O sistema deve disponibilizar ao aluno a nota e o gabarito da sua prova por meio do QR Code impresso nela, em página pública, após liberação pelo professor. |
 | RF34 | O sistema deve gerar relatório de notas por Aplicação: lista por aluno, média, mediana, desvio padrão e distribuição. |
 | RF35 | O sistema deve gerar estatística por questão (percentual de acerto e alternativa mais marcada) e por tag de categoria (percentual de acerto por conteúdo), para análise pedagógica. |
 | RF36 | O sistema deve exportar relatórios em Excel, CSV e PDF. |
@@ -59,6 +59,10 @@ Itens marcados com **[validar]** dependem de confirmação do cliente.
 | RF40 | O sistema deve registrar em trilha de auditoria toda operação sobre dado pessoal de aluno — criação, edição, anonimização, publicação de gabarito e liberação de notas — com autor, ação, entidade e data/hora. |
 | RF41 | O sistema deve confirmar imediatamente o início de operações demoradas (gerar PDF, ler folhas, importar e exportar em lote), informando que a execução ocorre em segundo plano, mantendo o professor livre para navegar e notificando-o quando o resultado ficar pronto. |
 | RF42 | O sistema deve permitir que o professor desfaça ações destrutivas, restaurando turmas, provas e aplicações arquivadas e questões excluídas, sem perda de vínculo com os registros que já as utilizavam. |
+| RF43 | O sistema deve manter cada questão inteira em uma única página do PDF, movendo-a integralmente para a página seguinte quando não couber no espaço restante, ainda que isso deixe espaço vazio ao fim da página anterior. |
+| RF44 | O sistema deve acrescentar uma página em branco ao final do PDF quando a prova gerada terminar com número ímpar de páginas, para que a próxima prova não comece no verso da folha anterior na impressão frente e verso. |
+| RF45 | O sistema deve permitir que o professor inclua imagens no enunciado de uma questão, e deve reproduzi-las na prova impressa. |
+| RF46 | O sistema deve permitir que o professor escolha, por aplicação, se o aluno vê apenas o gabarito ou o gabarito junto com a nota. |
 
 > **Minimização (RF07).** O e-mail do aluno é coletado hoje sem nenhuma finalidade no sistema: não existe área do aluno e nada é enviado a ele por e-mail. Coletar dado pessoal sem finalidade contraria o princípio da necessidade (LGPD, Art. 6º, III). Levar ao cliente: o campo tem uso previsto? Se não tiver, sai do cadastro e da importação.
 

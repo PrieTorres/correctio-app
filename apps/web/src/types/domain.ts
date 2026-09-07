@@ -288,16 +288,29 @@ export interface PublicLookupHeader {
     | { type: 'sheet'; sheetNumber: number; versionNumber: number };
 }
 
-/** Mutually exclusive states of the public lookup page. */
+export interface AnswerKeyEntry {
+  questionId: Id;
+  correctAlternativeId: Id;
+}
+
+/**
+ * Mutually exclusive states of the public lookup page.
+ *
+ * The teacher controls two levels, and they nest: publishing the answer key
+ * lets a student see the correct alternatives, and releasing grades adds their
+ * own score on top. A score without an answer key is not a state this page can
+ * reach, so it is not a state this type can express.
+ */
 export type PublicLookup =
   | { status: 'invalid-code' }
-  | { status: 'awaiting-release'; header: PublicLookupHeader }
+  | { status: 'nothing-released'; header: PublicLookupHeader }
+  | { status: 'answer-key-only'; header: PublicLookupHeader; answerKey: AnswerKeyEntry[] }
   | {
-      status: 'released';
+      status: 'answer-key-and-score';
       header: PublicLookupHeader;
+      answerKey: AnswerKeyEntry[];
       totalScore: number;
       objectiveResults: ObjectiveResult[];
-      answerKey: { questionId: Id; correctAlternativeId: Id }[] | null;
     };
 
 export type BackgroundJobType = 'generate-pdf' | 'read-sheets' | 'import' | 'export';
