@@ -18,6 +18,17 @@ Se uma decisão de escopo do grupo entrar em conflito com a Spec, ela **não é 
 silêncio**: o campo permanece no contrato, e a decisão é registrada neste documento antes de
 qualquer código. Não tratar um campo é aceitável; removê-lo, não.
 
+### Como os valores literais são escritos
+
+| Origem | Estilo | Exemplos |
+|---|---|---|
+| **Definidos pela Spec** | exatamente como ela escreve, inclusive em português | `"objetiva"`, `"draft"`, `"invite_code"` |
+| **Acrescentados pelo grupo** | `SCREAMING_SNAKE_CASE` em inglês | `"IN_PROGRESS"`, `"IMAGE_UPLOAD"` |
+
+A diferença de caixa não é descuido: ela diz, de relance, qual valor pode ser renomeado e qual
+está preso ao contrato. No código, os valores do grupo são expostos por objeto congelado
+(`CORRECTION_STATUS.DONE`), para nenhum ponto de uso redigitar a string.
+
 ### Duas conversões que não contam como mudança de estrutura
 
 1. **`Date` → string ISO 8601.** A Spec escreve `Date`; sobre JSON isso trafega como string.
@@ -251,7 +262,8 @@ sem identificação.
   clientCorrectionId?: string           // fila offline do app; não usado por este site
   syncStatus?: "pending" | "synced" | "error"
   answerSheetId: string                 // +
-  source: "upload_imagem" | "manual"    // +
+  source: "IMAGE_UPLOAD" | "MANUAL"     // +
+  status: "IN_PROGRESS" | "DONE"        // +  espera nota de discursiva
   imageUrl?: string                     // +
 }
 ```

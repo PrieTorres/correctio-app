@@ -6,6 +6,7 @@
  * responses, plus the Express request bodies, later.
  */
 import { z } from 'zod';
+import { CORRECTION_SOURCE, CORRECTION_STATUS } from '@/types/domain';
 
 const id = z.string().min(1);
 const timestamp = z.string().datetime();
@@ -175,7 +176,7 @@ export const answerSheetSchema = z.object({
   code: z.string().length(26),
 });
 
-export const correctionStatusSchema = z.enum(['em_andamento', 'concluida']);
+export const correctionStatusSchema = z.nativeEnum(CORRECTION_STATUS);
 
 export const objectiveResultSchema = z.object({
   questionId: id,
@@ -201,7 +202,7 @@ export const correctionSchema = z.object({
   syncStatus: z.enum(['pending', 'synced', 'error']).optional(),
   status: correctionStatusSchema,
   answerSheetId: id,
-  source: z.enum(['upload_imagem', 'manual']),
+  source: z.nativeEnum(CORRECTION_SOURCE),
   imageUrl: z.string().optional(),
 });
 

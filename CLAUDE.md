@@ -54,6 +54,10 @@ Duas armadilhas, as duas já corrigidas e cobertas por teste — não reintroduz
 
 - **Todo identificador, arquivo e pasta em inglês.** Português só em texto de interface e
   em documentação.
+- **Valor literal de enum:** o que a Spec define fica exatamente como ela escreve, inclusive
+  `"objetiva"`. O que o grupo acrescenta usa `SCREAMING_SNAKE_CASE` em inglês e é exposto por
+  objeto congelado (`CORRECTION_STATUS.DONE`), nunca string solta no ponto de uso. A caixa
+  diz qual valor pode ser renomeado e qual está preso ao contrato.
 - **Sem comentário `//`.** Apenas JSDoc quando agrega, ou `TODO` quando inevitável.
 - Comentário explica **por que**, nunca o que a linha já diz. Se precisa de explicação ao
   lado, o nome está mal escolhido — renomeie em vez de comentar.

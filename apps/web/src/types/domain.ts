@@ -12,6 +12,17 @@
 
 export type Id = string;
 
+/**
+ * Literal values follow the source that defines them.
+ *
+ * Values the specification dictates keep its spelling exactly, including the
+ * Portuguese ones such as `"objetiva"` — renaming them would break the
+ * contract. Values this project introduces use `SCREAMING_SNAKE_CASE`, so the
+ * casing itself says which is which, and are exposed through a frozen object
+ * rather than bare literals so call sites reference a name instead of retyping
+ * a string.
+ */
+
 /** ISO 8601 instant. Maps to `Date` in the specification. */
 export type Timestamp = string;
 
@@ -245,18 +256,28 @@ export interface DiscursiveScore {
   score: number;
 }
 
-export type CorrectionSource = 'upload_imagem' | 'manual';
+export const CORRECTION_SOURCE = {
+  IMAGE_UPLOAD: 'IMAGE_UPLOAD',
+  MANUAL: 'MANUAL',
+} as const;
+
+export type CorrectionSource = (typeof CORRECTION_SOURCE)[keyof typeof CORRECTION_SOURCE];
 
 /**
- * Group addition. Reading a sheet grades the multiple-choice questions on its
- * own, but an open-ended question has no single right answer, so a mixed exam
- * is only partly gradable by machine.
+ * Reading a sheet grades the multiple-choice questions on its own, but an
+ * open-ended question has no single right answer, so a mixed exam is only
+ * partly gradable by machine.
  *
- * The presence of open-ended questions must never block the automatic part:
- * the correction lands as `em_andamento` and becomes `concluida` once the
- * teacher has scored every open-ended question.
+ * Open-ended questions must never block the automatic part: the correction
+ * lands as `IN_PROGRESS` and becomes `DONE` once the teacher has scored every
+ * one of them.
  */
-export type CorrectionStatus = 'em_andamento' | 'concluida';
+export const CORRECTION_STATUS = {
+  IN_PROGRESS: 'IN_PROGRESS',
+  DONE: 'DONE',
+} as const;
+
+export type CorrectionStatus = (typeof CORRECTION_STATUS)[keyof typeof CORRECTION_STATUS];
 
 export interface Correction {
   id: Id;
@@ -296,8 +317,8 @@ export interface PublicLookupHeader {
   className: string;
   date: Timestamp;
   identity:
-    | { type: 'student'; fullName: string }
-    | { type: 'sheet'; sheetNumber: number; versionNumber: number };
+    | { type: 'STUDENT'; fullName: string }
+    | { type: 'SHEET'; sheetNumber: number; versionNumber: number };
 }
 
 export interface AnswerKeyEntry {
@@ -314,25 +335,32 @@ export interface AnswerKeyEntry {
  * reach, so it is not a state this type can express.
  */
 export type PublicLookup =
-  | { status: 'invalid-code' }
-  | { status: 'nothing-released'; header: PublicLookupHeader }
-  | { status: 'answer-key-only'; header: PublicLookupHeader; answerKey: AnswerKeyEntry[] }
+  | { status: 'INVALID_CODE' }
+  | { status: 'NOTHING_RELEASED'; header: PublicLookupHeader }
+  | { status: 'ANSWER_KEY_ONLY'; header: PublicLookupHeader; answerKey: AnswerKeyEntry[] }
   | {
-      status: 'answer-key-and-score';
+      status: 'ANSWER_KEY_AND_SCORE';
       header: PublicLookupHeader;
       answerKey: AnswerKeyEntry[];
       totalScore: number;
       objectiveResults: ObjectiveResult[];
     };
 
-export type BackgroundJobType = 'generate-pdf' | 'read-sheets' | 'import' | 'export';
+export const BACKGROUND_JOB_TYPE = {
+  GENERATE_PDF: 'GENERATE_PDF',
+  READ_SHEETS: 'READ_SHEETS',
+  IMPORT: 'IMPORT',
+  EXPORT: 'EXPORT',
+} as const;
+
+export type BackgroundJobType = (typeof BACKGROUND_JOB_TYPE)[keyof typeof BACKGROUND_JOB_TYPE];
 
 export type BackgroundJob =
-  | { id: Id; type: BackgroundJobType; status: 'running'; label: string; startedAt: Timestamp }
+  | { id: Id; type: BackgroundJobType; status: 'RUNNING'; label: string; startedAt: Timestamp }
   | {
       id: Id;
       type: BackgroundJobType;
-      status: 'done';
+      status: 'DONE';
       label: string;
       startedAt: Timestamp;
       resultUrl?: string;
@@ -340,7 +368,7 @@ export type BackgroundJob =
   | {
       id: Id;
       type: BackgroundJobType;
-      status: 'failed';
+      status: 'FAILED';
       label: string;
       startedAt: Timestamp;
       error: string;
