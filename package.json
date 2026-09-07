@@ -13,10 +13,11 @@
     "dev": "npm run dev --workspace @correctio/web",
     "build": "npm run build --workspace @correctio/web",
     "preview": "npm run preview --workspace @correctio/web",
-    "lint": "npm run lint --workspace @correctio/web",
+    "lint": "npm run lint --workspace @correctio/web && npm run lint:comments",
     "typecheck": "npm run typecheck --workspace @correctio/web",
     "test": "npm run test --workspace @correctio/web",
     "test:e2e": "npm run test:e2e --workspace @correctio/web",
-    "test:e2e:record": "npm run test:e2e:record --workspace @correctio/web"
+    "test:e2e:record": "npm run test:e2e:record --workspace @correctio/web",
+    "lint:comments": "node scripts/check-comment-language.mjs"
   }
 }

@@ -55,7 +55,14 @@ Duas armadilhas, as duas já corrigidas e cobertas por teste — não reintroduz
 - **Todo identificador, arquivo e pasta em inglês.** Português só em texto de interface e
   em documentação.
 - **Sem comentário `//`.** Apenas JSDoc quando agrega, ou `TODO` quando inevitável.
-- Comentário explica **por que**, nunca o que a linha já diz.
+- Comentário explica **por que**, nunca o que a linha já diz. Se precisa de explicação ao
+  lado, o nome está mal escolhido — renomeie em vez de comentar.
+- **Comentário em inglês em todo arquivo versionado**, incluindo workflows, `.properties` e
+  `.gitignore`. Português vive só em `docs/` e no texto de interface.
+
+As três regras acima são verificadas pelo build, não por revisão:
+`conventions/no-line-comments` e `conventions/english-only-comments` no ESLint para
+`.ts`/`.tsx`/`.js`, e `npm run lint:comments` para os arquivos que o ESLint não alcança.
 - Funções pequenas, com escopo definido e testáveis isoladamente.
 - DRY: antes de criar componente, hook, util ou tipo, procure o que já existe.
 - TypeScript estrito. Sem `any`; `unknown` na fronteira, com validação.

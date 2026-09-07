@@ -1,10 +1,10 @@
-# protótipo de UI (referência local, não versionado)
+# UI prototype, local reference only
 .ui_v1
 
-# documentação interna de trabalho (plano de execução pessoal)
+# internal working plan, not shared
 .plano
 
-# dependências
+# dependencies
 node_modules/
 .pnpm-store/
 
@@ -13,17 +13,17 @@ dist/
 build/
 *.tsbuildinfo
 
-# testes
+# tests
 coverage/
 cypress/screenshots/
 cypress/videos/
 
-# ambiente
+# environment
 .env
 .env.local
 .env.*.local
 
-# editor / SO
+# editor and OS
 .DS_Store
 .idea/
 *.swp

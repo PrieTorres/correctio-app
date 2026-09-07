@@ -26,7 +26,7 @@ jobs:
 
       - run: npm ci
 
-      # A release só sai de um estado que passa no portão de qualidade.
+      # A release only leaves a state that passes the quality gate.
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
@@ -44,8 +44,8 @@ jobs:
           git tag -a "v${{ inputs.version }}" -m "v${{ inputs.version }}"
           git push origin HEAD --follow-tags
 
-      # As notas saem dos PRs mergeados desde a tag anterior, agrupando as
-      # entregas de todo o time naquele período.
+      # Notes come from the PRs merged since the previous tag, grouping what
+      # the whole team delivered in that period.
       - name: Publicar a release
         run: gh release create "v${{ inputs.version }}" --generate-notes --title "v${{ inputs.version }}"
         env:

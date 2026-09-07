@@ -72,10 +72,10 @@ export default tseslint.config(
   { ignores: ['dist', 'coverage', 'node_modules'] },
 
   js.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
 
   {
     files: ['**/*.{ts,tsx}'],
+    extends: [...tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       ecmaVersion: 2023,
       globals: globals.browser,
@@ -145,10 +145,17 @@ export default tseslint.config(
     },
   },
 
-  /** Config files are plain JavaScript and sit outside the TypeScript project. */
+  /**
+   * Config and script files are plain JavaScript, outside the TypeScript
+   * project, so typed rules never reach them.
+   */
   {
-    files: ['**/*.js'],
-    ...tseslint.configs.disableTypeChecked,
+    files: ['**/*.{js,mjs}'],
     languageOptions: { globals: globals.node },
+    plugins: { conventions },
+    rules: {
+      'conventions/no-line-comments': 'error',
+      'conventions/english-only-comments': 'error',
+    },
   },
 );
