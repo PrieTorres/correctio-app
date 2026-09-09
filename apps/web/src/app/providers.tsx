@@ -15,7 +15,7 @@ const queryClient = new QueryClient({
   },
 })
 
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   const services = useMemo<AppServices>(() => {
     const auth = createLocalAuthProvider()
     return {

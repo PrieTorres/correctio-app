@@ -23,7 +23,7 @@ const SIZE_CLASSES = {
  * come for free; hand-rolling those is the usual way an interface fails an
  * accessibility audit.
  */
-export function Modal({ open, onOpenChange, title, children, size = 'md' }: ModalProps) {
+export function Modal({ open, onOpenChange, title, children, size = 'md' }: Readonly<ModalProps>) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>

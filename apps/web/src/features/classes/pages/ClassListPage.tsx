@@ -128,11 +128,11 @@ function ClassCard({
   item,
   onEdit,
   onToggleArchive,
-}: {
+}: Readonly<{
   item: Class;
   onEdit: () => void;
   onToggleArchive: () => void;
-}) {
+}>) {
   const isArchived = item.status === 'archived';
 
   return (
@@ -172,12 +172,12 @@ function ArchiveConfirmDialog({
   pending,
   onOpenChange,
   onConfirm,
-}: {
+}: Readonly<{
   item: Class | null;
   pending: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
-}) {
+}>) {
   const isArchiving = item?.status === 'active';
 
   return (

@@ -5,12 +5,12 @@ export function SearchInput({
   onChange,
   label,
   placeholder,
-}: {
+}: Readonly<{
   value: string
   onChange: (value: string) => void
   label: string
   placeholder: string
-}) {
+}>) {
   return (
     <div className="relative flex-1">
       <Search

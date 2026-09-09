@@ -37,7 +37,7 @@ describe('turmas', () => {
 
     cy.contains('Física II').should('not.exist')
 
-    cy.contains('button', 'Arquivadas').click()
+    cy.findByRadioLabel('Arquivadas').check()
     cy.contains('Física II').should('be.visible')
   })
 

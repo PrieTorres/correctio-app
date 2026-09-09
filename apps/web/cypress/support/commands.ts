@@ -26,11 +26,23 @@ Cypress.Commands.add('findInDialog', (selector: string, text: string) => {
   return cy.get('[role="dialog"]').should('be.visible').contains(selector, text)
 })
 
+/**
+ * Checks a radio whose input is visually hidden behind its styled label.
+ *
+ * The segmented filter hides the input with `sr-only` so the label can carry
+ * the styling. Clicking the input directly is what a user never does, and what
+ * the runner cannot do; clicking the label is both.
+ */
+Cypress.Commands.add('findByRadioLabel', (text: string) => {
+  return cy.contains('label', text).find('input[type="radio"]')
+})
+
 declare global {
   namespace Cypress {
     interface Chainable {
       findByLabelOrPlaceholder(text: string): Chainable<JQuery<HTMLElement>>
       findInDialog(selector: string, text: string): Chainable<JQuery<HTMLElement>>
+      findByRadioLabel(text: string): Chainable<JQuery<HTMLElement>>
     }
   }
 }

@@ -139,10 +139,10 @@ export function ClassDetailPage() {
 function StudentRow({
   student,
   onAction,
-}: {
+}: Readonly<{
   student: Student
   onAction: (action: StudentAction) => void
-}) {
+}>) {
   const isAnonymized = student.anonymizedAt !== undefined
 
   return (

@@ -18,11 +18,11 @@ export function ClassFormModal({
   open,
   onOpenChange,
   editing,
-}: {
+}: Readonly<{
   open: boolean
   onOpenChange: (open: boolean) => void
   editing: Class | null
-}) {
+}>) {
   const save = useSaveClass()
 
   const {

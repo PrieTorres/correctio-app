@@ -17,7 +17,7 @@ export function QueryBoundary({
   isError,
   children,
   pendingLabel = 'Carregando…',
-}: QueryBoundaryProps) {
+}: Readonly<QueryBoundaryProps>) {
   if (isPending) return <p className="text-body text-ink-muted">{pendingLabel}</p>
 
   if (isError) {

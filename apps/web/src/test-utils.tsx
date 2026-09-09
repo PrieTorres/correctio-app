@@ -28,7 +28,7 @@ export function renderHookWithProviders<TResult>(
     ...services,
   };
 
-  function Wrapper({ children }: { children: ReactNode }) {
+  function Wrapper({ children }: Readonly<{ children: ReactNode }>) {
     return (
       <AppServicesContext.Provider value={value}>
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

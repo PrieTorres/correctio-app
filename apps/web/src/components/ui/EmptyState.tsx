@@ -9,12 +9,12 @@ export function EmptyState({
   title,
   description,
   action,
-}: {
+}: Readonly<{
   icon: ReactNode
   title: string
   description: string
   action?: ReactNode
-}) {
+}>) {
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
       <div className="flex size-12 items-center justify-center rounded-full bg-primary-fixed text-primary">

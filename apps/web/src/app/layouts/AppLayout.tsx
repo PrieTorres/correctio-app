@@ -124,11 +124,11 @@ function IconButton({
   label,
   onClick,
   children,
-}: {
+}: Readonly<{
   label: string;
   onClick?: () => void;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <button
       type="button"

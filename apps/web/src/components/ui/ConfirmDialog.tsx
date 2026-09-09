@@ -23,7 +23,7 @@ export function ConfirmDialog({
   onConfirm,
   destructive = false,
   pending = false,
-}: ConfirmDialogProps) {
+}: Readonly<ConfirmDialogProps>) {
   return (
     <Modal open={open} onOpenChange={onOpenChange} title={title} size="sm">
       <div className="text-body text-ink-muted">{description}</div>

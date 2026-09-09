@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Card, PageHeader } from '@/components/ui'
 
 /** Stands in for screens not built yet, so navigation is already complete. */
-export function PlaceholderPage({ screen }: { screen: string }) {
+export function PlaceholderPage({ screen }: Readonly<{ screen: string }>) {
   const navigate = useNavigate()
 
   return (

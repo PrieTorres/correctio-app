@@ -10,7 +10,7 @@ const TONE_CLASSES: Record<BadgeTone, string> = {
   danger: 'bg-danger-surface text-on-danger-surface',
 }
 
-export function Badge({ tone = 'neutral', children }: { tone?: BadgeTone; children: ReactNode }) {
+export function Badge({ tone = 'neutral', children }: Readonly<{ tone?: BadgeTone; children: ReactNode }>) {
   return (
     <span
       className={cn(

@@ -13,11 +13,11 @@ export function StudentFormModal({
   open,
   onOpenChange,
   classId,
-}: {
+}: Readonly<{
   open: boolean
   onOpenChange: (open: boolean) => void
   classId: string
-}) {
+}>) {
   const addStudent = useAddStudent(classId)
 
   const {

@@ -6,7 +6,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
   interactive?: boolean
 }
 
-export function Card({ interactive = false, className, ...rest }: CardProps) {
+export function Card({ interactive = false, className, ...rest }: Readonly<CardProps>) {
   return (
     <div
       className={cn(
