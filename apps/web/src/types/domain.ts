@@ -10,18 +10,9 @@
  * how it crosses JSON. That is a serialization detail, not a shape change.
  */
 
-/**
- * Identifier of a domain record.
- *
- * Kept as a named alias on purpose. It adds no type safety, and a static
- * analyser will call it redundant, but it names the concept at every field
- * that uses it. Branding would only pay off with one brand per entity —
- * `ClassId`, `StudentId` and so on — a far larger change than the bugs it
- * would catch here justify.
- */
 export type Id = string;
 
-/** ISO 8601 instant, not epoch millis. Maps to `Date` in the specification. */
+/** ISO 8601 instant. Maps to `Date` in the specification. */
 export type Timestamp = string;
 
 /**

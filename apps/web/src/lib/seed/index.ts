@@ -56,8 +56,28 @@ export function seedIfEmpty(): void {
   }
 }
 
+/** Wipes everything and seeds again, for a clean demonstration. */
 export function resetDemoData(): void {
   clearAllCollections()
-  window.localStorage.removeItem(SEED_MARKER)
   seed()
+}
+
+/**
+ * Empties every collection and leaves it empty.
+ *
+ * The marker stays behind so the next reload does not silently seed again:
+ * an empty system is a deliberate choice here, not a first visit.
+ */
+export function clearDemoData(): void {
+  clearAllCollections()
+  window.localStorage.setItem(SEED_MARKER, new Date().toISOString())
+}
+
+/** Whether any demo record is currently loaded. */
+export function hasDemoData(): boolean {
+  try {
+    return createCollection('classes', classSchema).readAll().length > 0
+  } catch {
+    return false
+  }
 }

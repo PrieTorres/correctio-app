@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Archive, Plus, RotateCcw, Users } from 'lucide-react';
+import { Archive, Plus, RotateCcw } from 'lucide-react';
+import type { ReactNode } from 'react';
 import {
+  ArchiveIllustration,
   Badge,
   Button,
   Card,
+  ClassesIllustration,
   ConfirmDialog,
   EmptyState,
   PageHeader,
   QueryBoundary,
   SearchInput,
+  SearchIllustration,
   SegmentedControl,
   type Segment,
 } from '@/components/ui';
@@ -80,15 +84,11 @@ export function ClassListPage() {
       <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando turmas…">
         {classes.length === 0 ? (
           <Card>
-            <EmptyState
-              icon={<Users size={24} aria-hidden />}
-              title={showingArchived ? 'Nenhuma turma arquivada' : 'Nenhuma turma ainda'}
-              description={
-                showingArchived
-                  ? 'Turmas arquivadas somem das listas mas continuam nos relatórios, e podem ser restauradas a qualquer momento.'
-                  : 'Crie a primeira turma para começar a cadastrar alunos e aplicar provas.'
-              }
-              action={showingArchived ? undefined : newClassButton}
+            <EmptyClassList
+              searching={search.trim() !== ''}
+              showingArchived={showingArchived}
+              onClearSearch={() => setSearch('')}
+              createButton={newClassButton}
             />
           </Card>
         ) : (
@@ -121,6 +121,58 @@ export function ClassListPage() {
         }}
       />
     </div>
+  );
+}
+
+/**
+ * Three different situations look identical without this split: a system with
+ * no classes at all, a search that matched nothing, and an archive that is
+ * empty. Offering "Nova turma" to someone whose search simply missed would be
+ * answering a question they did not ask.
+ */
+function EmptyClassList({
+  searching,
+  showingArchived,
+  onClearSearch,
+  createButton,
+}: Readonly<{
+  searching: boolean;
+  showingArchived: boolean;
+  onClearSearch: () => void;
+  createButton: ReactNode;
+}>) {
+  if (searching) {
+    return (
+      <EmptyState
+        illustration={<SearchIllustration />}
+        title="Nenhuma turma encontrada"
+        description="Nenhuma turma bate com o que você buscou. Tente outro nome ou disciplina, ou limpe a busca para ver todas."
+        action={
+          <Button variant="secondary" onClick={onClearSearch}>
+            Limpar busca
+          </Button>
+        }
+      />
+    );
+  }
+
+  if (showingArchived) {
+    return (
+      <EmptyState
+        illustration={<ArchiveIllustration />}
+        title="Nenhuma turma arquivada"
+        description="Ao arquivar uma turma, ela sai desta lista mas continua nos relatórios e nas aplicações já feitas. Nada é apagado, e você pode restaurá-la quando quiser."
+      />
+    );
+  }
+
+  return (
+    <EmptyState
+      illustration={<ClassesIllustration />}
+      title="Nenhuma turma ainda"
+      description="Turma é onde ficam seus alunos. É a partir dela que você aplica uma prova e acompanha as notas — comece criando a primeira."
+      action={createButton}
+    />
   );
 }
 

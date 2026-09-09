@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/app/routes';
+import { DemoDataControls } from '@/components/DemoDataControls';
 
 interface NavItem {
   to: string;
@@ -104,8 +105,12 @@ export function AppLayout() {
           ))}
         </ul>
 
-        <div className="border-t border-line px-6 py-4">
-          <NavLink to={ROUTES.privacy} className="text-caption text-ink-subtle hover:text-primary">
+        <div className="flex flex-col gap-4 border-t border-line px-4 py-4">
+          <DemoDataControls />
+          <NavLink
+            to={ROUTES.privacy}
+            className="px-2 text-caption text-ink-subtle hover:text-primary"
+          >
             Aviso de privacidade
           </NavLink>
         </div>

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, ShieldOff, Trash2, Upload, UserPlus, Users } from 'lucide-react'
+import { ArrowLeft, ShieldOff, Trash2, Upload, UserPlus } from 'lucide-react'
 import {
   Badge,
   Button,
   Card,
+  ClassesIllustration,
   ConfirmDialog,
   EmptyState,
   PageHeader,
@@ -95,9 +96,9 @@ export function ClassDetailPage() {
 
             {students.length === 0 ? (
               <EmptyState
-                icon={<Users size={24} aria-hidden />}
-                title="Nenhum aluno ainda"
-                description="Cadastre um a um, ou importe a lista inteira de uma planilha Excel ou arquivo JSON."
+                illustration={<ClassesIllustration />}
+                title="Nenhum aluno nesta turma"
+                description="Os alunos cadastrados aqui recebem a prova e a nota. Cadastre um a um, ou importe a lista inteira de uma planilha Excel ou arquivo JSON."
                 action={addStudentButton}
               />
             ) : (
