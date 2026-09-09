@@ -14,6 +14,16 @@ describe('modais', () => {
     cy.get('[role="dialog"]').should('have.attr', 'data-state', 'open')
   })
 
+  it('cresce a partir do centro, sem arrastar na diagonal', () => {
+    cy.contains('button', 'Nova turma').click()
+
+    cy.get('[role="dialog"]').should(($dialog) => {
+      const style = getComputedStyle($dialog[0])
+      expect(style.translate, 'centragem preservada').to.equal('-50% -50%')
+      expect(style.transform, 'a animação não pode tocar em transform').to.equal('none')
+    })
+  })
+
   it('permanece montado durante a saída e some depois', () => {
     cy.contains('button', 'Nova turma').click()
     cy.get('[role="dialog"]').should('be.visible')
