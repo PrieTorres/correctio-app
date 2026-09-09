@@ -86,6 +86,48 @@
   /* Elevation: none at rest, soft on hover, strong for overlays. */
   --shadow-hover: 0 4px 12px rgb(0 32 69 / 0.08);
   --shadow-overlay: 0 16px 40px rgb(0 32 69 / 0.1);
+
+  /* --- Motion ----------------------------------------------------------- */
+  /*
+    Only opacity and transform are animated, so the compositor handles the
+    whole thing and no layout is recalculated mid-animation. Leaving is faster
+    than entering: a dialog that lingers on the way out feels unresponsive.
+  */
+  --animate-overlay-in: overlay-in 150ms ease-out;
+  --animate-overlay-out: overlay-out 120ms ease-in;
+  --animate-dialog-in: dialog-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-dialog-out: dialog-out 130ms ease-in;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes overlay-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/*
+  The dialog is centred with a translate, so each keyframe has to carry that
+  translate too: declaring only `scale` would drop it and snap the panel to the
+  bottom-right corner for the length of the animation.
+*/
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+}
+
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.97);
+  }
 }
 
 @layer base {

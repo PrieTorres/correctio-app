@@ -118,6 +118,21 @@ npm run build
 | [Versionamento.md](docs/Versionamento.md) | Qual versão publicar |
 | [Tour_Guiado.md](docs/Tour_Guiado.md) | Texto do tour por tela |
 
+## Nomenclatura em inglês, sempre
+
+Vale para **tudo que tem nome**, não só para o código: nome de branch, título e corpo de
+commit, título e descrição de Pull Request, título de issue, nome de workflow e de job.
+
+| | Exemplo |
+|---|---|
+| ✅ | `feat/class-bulk-import`, `fix: keep unknown fields on update` |
+| ❌ | `feat/importacao-turmas`, `fix: nao descartar campos` |
+
+O conteúdo explicativo — descrição de PR, corpo de issue, documentação em `docs/` — pode
+ficar em português, porque é o idioma do grupo e da disciplina. O que precisa ser inglês é a
+**nomenclatura**: aquilo que vira identificador, aparece em listagem ou é lido fora de
+contexto.
+
 ## Regras de trabalho
 
 - Nunca dar `git push` nem abrir PR sem pedido explícito. Commit local é o padrão.

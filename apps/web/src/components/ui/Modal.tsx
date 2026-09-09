@@ -27,9 +27,9 @@ export function Modal({ open, onOpenChange, title, children, size = 'md' }: Read
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-ink/40" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-ink/40 data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out" />
         <Dialog.Content
-          className={`fixed left-1/2 top-1/2 z-50 max-h-[90vh] ${SIZE_CLASSES[size]} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-overlay)]`}
+          className={`fixed left-1/2 top-1/2 z-50 max-h-[90vh] ${SIZE_CLASSES[size]} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[var(--radius-card)] bg-surface p-6 shadow-[var(--shadow-overlay)] data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out`}
         >
           <div className="mb-4 flex items-start justify-between gap-4">
             <Dialog.Title className="text-title text-primary">{title}</Dialog.Title>
