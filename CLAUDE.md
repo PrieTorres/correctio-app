@@ -39,6 +39,12 @@ O mesmo vale para `Correction.clientCorrectionId` e `syncStatus`: servem a um ap
 não existe, este site não os trata, e continuam no contrato porque chegariam pela API se
 alguém migrasse para cá.
 
+### Aliases que o analisador chama de redundantes, e ficam
+
+`Id` e `Timestamp` em `types/domain.ts` são `string` por baixo. O SonarQube aponta os dois
+como alias redundante, e a decisão foi **manter**: eles nomeiam o conceito em cada campo que
+os usa. Não troque por `string` para calar o analisador.
+
 ### Atualização não pode apagar campo que o cliente não conhece
 
 Duas armadilhas, as duas já corrigidas e cobertas por teste — não reintroduza:

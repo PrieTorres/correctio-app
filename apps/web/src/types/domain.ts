@@ -10,8 +10,27 @@
  * how it crosses JSON. That is a serialization detail, not a shape change.
  */
 
+/**
+ * Identifier of a domain record.
+ *
+ * Kept as a named alias on purpose. It adds no type safety, and a static
+ * analyser will call it redundant, but it names the concept at every field
+ * that uses it. Branding would only pay off with one brand per entity —
+ * `ClassId`, `StudentId` and so on — a far larger change than the bugs it
+ * would catch here justify.
+ */
 export type Id = string;
 
+/** ISO 8601 instant, not epoch millis. Maps to `Date` in the specification. */
+export type Timestamp = string;
+
+/**
+ * Both roles the specification defines.
+ *
+ * Only `professor` authenticates in the current scope; `estudante` is kept so
+ * a student area can be added without migrating the data model. Do not narrow
+ * this union because one value is unused today.
+ */
 /**
  * Literal values follow the source that defines them.
  *
@@ -21,17 +40,6 @@ export type Id = string;
  * casing itself says which is which, and are exposed through a frozen object
  * rather than bare literals so call sites reference a name instead of retyping
  * a string.
- */
-
-/** ISO 8601 instant. Maps to `Date` in the specification. */
-export type Timestamp = string;
-
-/**
- * Both roles the specification defines.
- *
- * Only `professor` authenticates in the current scope; `estudante` is kept so
- * a student area can be added without migrating the data model. Do not narrow
- * this union because one value is unused today.
  */
 export type UserRole = 'professor' | 'estudante';
 
