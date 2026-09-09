@@ -6,40 +6,45 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  publicar:
+    name: Publicar a main
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
+
       - run: npm ci
+
       - run: npm run build
         env:
           # Project pages are served from /<repo>/. The router reads this same
           # value, so moving to Firebase Hosting later only drops the prefix.
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: apps/web/dist
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      # `keep_files` is what lets branch previews live under previews/ on the
+      # same site: without it, publishing the main build would wipe them.
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: apps/web/dist
+          keep_files: true
+          commit_message: 'deploy: ${{ github.sha }}'
+
+      - name: Resumo
+        run: |
+          {
+            echo "### Publicado"
+            echo ""
+            echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          } >> "$GITHUB_STEP_SUMMARY"

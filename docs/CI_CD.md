@@ -59,11 +59,31 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 | Gatilho | O que acontece |
 |---|---|
 | Pull Request aberto ou atualizado | portão de qualidade completo, sem publicar nada |
-| Merge em `main` | portão completo + publicação no GitHub Pages |
+| Merge em `main` | publicação do site principal |
+| **Publicar pré-visualização**, sob demanda | portão completo e publicação da branch numa subpasta própria |
+| Branch apagada | a pré-visualização dela é removida |
 
-Na N1 a publicação é o site estático no GitHub Pages, com o `index.html` copiado para `404.html` para as rotas funcionarem. Depois, Firebase Hosting — a troca é do passo de publicação, não do resto do fluxo.
+### Pré-visualização por branch
 
----
+```
+main            https://prietorres.github.io/correctio-app/
+uma branch      https://prietorres.github.io/correctio-app/previews/<branch>/
+```
+
+Serve para mostrar uma tela ao grupo, ao cliente ou à professora **antes** de mergear, e
+para abrir no celular sem precisar do ambiente local.
+
+O Pages precisa estar configurado como **Deploy from a branch → `gh-pages` / root**. Nesse
+modo o site é uma árvore de arquivos que os workflows escrevem, e é isso que permite ter mais
+de uma versão no ar. No modo "GitHub Actions", que era o anterior, o site é substituído
+inteiro a cada publicação e subpasta por branch não existe.
+
+Por isso o deploy da `main` usa `keep_files`: sem ele, publicar a main apagaria as
+pré-visualizações que estão ao lado.
+
+> **Limite conhecido:** recarregar direto numa rota profunda de uma pré-visualização pode
+> cair no `404.html` da raiz, que é o app da `main`. Navegar dentro da pré-visualização
+> funciona normalmente; abrir pela URL raiz dela é o caminho esperado.
 
 ## 5. Detalhes que costumam dar trabalho
 

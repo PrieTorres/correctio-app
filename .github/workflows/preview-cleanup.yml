@@ -1,0 +1,31 @@
+name: Remover pré-visualização
+
+on:
+  delete:
+
+permissions:
+  contents: write
+
+jobs:
+  remover:
+    name: Remover preview da branch apagada
+    if: ${{ github.event.ref_type == 'branch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+
+      - name: Apagar a pasta da branch
+        run: |
+          SLUG=$(echo '${{ github.event.ref }}' | tr '/' '-' | tr -cd '[:alnum:]-_')
+          if [ ! -d "previews/$SLUG" ]; then
+            echo "Sem preview para $SLUG."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git rm -r --quiet "previews/$SLUG"
+          git commit -m "preview: remove $SLUG"
+          git push
