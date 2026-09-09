@@ -1,0 +1,29 @@
+# UI prototype, local reference only
+.ui_v1
+
+# internal working plan, not shared
+.plano
+
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+build/
+*.tsbuildinfo
+
+# tests
+coverage/
+cypress/screenshots/
+cypress/videos/
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# editor and OS
+.DS_Store
+.idea/
+*.swp

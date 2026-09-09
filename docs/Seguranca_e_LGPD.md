@@ -1,6 +1,6 @@
 # Segurança, Proteção de Custo e LGPD — Correctio
 
-Documento de apoio aos requisitos. Os requisitos verificáveis estão em [Principais_Requisitos_Correctio.md](Principais_Requisitos_Correctio.md) — aqui está o **desenho** por trás deles: por que cada medida existe e como é implementada.
+Documento de apoio aos requisitos. Os requisitos verificáveis estão em [Correctio_Requisitos_e_Telas.md](Correctio_Requisitos_e_Telas.md) — aqui está o **desenho** por trás deles: por que cada medida existe e como é implementada.
 
 **Onde cada coisa roda.** Praticamente nada disto é da N1: a N1 é um site estático no GitHub Pages. A implementação é da N2/N3, no Express. O documento existe agora porque essas regras mudam o modelo de dados (retenção, anonimização de aluno, EXIF, código da folha) e é mais barato desenhar antes do que remendar depois.
 
@@ -60,6 +60,7 @@ Como a decisão de produto foi consulta sem digitar matrícula, **o código é a
 | **`noindex` + `robots.txt`** | Sem isso o Google indexa notas de aluno — e o site é totalmente público. |
 | **Resposta mínima** | Só o que a regra autoriza, e só depois de notas liberadas / gabarito publicado. Nunca o registro completo do aluno. |
 | **Invalidação** | Folha de PDF regenerado responde "QR inválido", nunca a nota antiga. |
+| **Dois níveis de liberação** | Publicar o gabarito mostra as alternativas corretas; liberar as notas acrescenta a nota do aluno. A nota nunca aparece sem o gabarito, e nada aparece antes da liberação (RF46). |
 
 ---
 
@@ -127,6 +128,11 @@ Limite por usuário não protege a conta: 600 professores legítimos na semana d
 | **Comunicação de incidente** (Art. 48) | Procedimento documentado: quem detecta, quem comunica, em quanto tempo. |
 
 ### Três pontos que não estavam previstos em lugar nenhum
+
+**Imagens de questão são upload de professor, não dado de aluno.** Valem os mesmos limites
+técnicos do RNF16 — tipo real do arquivo, teto de tamanho e re-processamento no recebimento —
+mas a sensibilidade é outra: são conteúdo autoral, não dado pessoal de terceiro. Ficam no mesmo
+armazenamento privado, e entram no PDF gerado.
 
 **EXIF.** Foto de celular carrega **coordenadas de GPS**, data e modelo do aparelho. A tela de envio de folhas aceita foto direto da câmera. Toda imagem recebida precisa ser **re-processada no servidor**, o que remove os metadados e, de quebra, neutraliza conteúdo malicioso embutido em arquivo de imagem.
 

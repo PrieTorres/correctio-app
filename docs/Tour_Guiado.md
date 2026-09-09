@@ -1,6 +1,6 @@
 # Tour Guiado — Correctio
 
-Especificação do tour de apresentação das telas. Atende **RF37** (tour contextual por tela) e **RNF19** (objetividade e acessibilidade).
+Especificação do tour de apresentação das telas. Atende **RF37** (tour contextual por tela) e **RNF19** (objetividade e acessibilidade). A lista das telas é definida em [Correctio_Requisitos_e_Telas.md](Correctio_Requisitos_e_Telas.md), seção 8.
 
 ---
 
@@ -59,7 +59,7 @@ Os textos abaixo são a redação final, já dentro do limite de 90 caracteres.
 
 **Turma — detalhe** — 3 passos
 1. `Cadastre alunos um a um, ou importe a lista inteira de uma planilha.`
-2. `Remover aluno não apaga as notas dele — o histórico fica.`
+2. `Remover aluno não apaga as notas dele. Anonimizar apaga os dados e mantém a nota.`
 3. `Aqui embaixo aparecem todas as provas já aplicadas nesta turma.`
 
 ### Banco de questões
@@ -128,9 +128,18 @@ Os textos abaixo são a redação final, já dentro do limite de 90 caracteres.
 2. `"Por questão" revela onde a turma errou — e qual alternativa errada atraiu mais.`
 3. `Exporte para levar ao sistema acadêmico ou à coordenação.`
 
-### Página pública do aluno
+### Telas sem tour — e por quê
 
-Sem tour. É uma tela de leitura, aberta uma vez, por quem não vai voltar. Qualquer passo ali é atrito.
+Das 25 telas, 16 têm tour. As outras 9 não têm, deliberadamente:
+
+| Tela | Motivo |
+|---|---|
+| PUB1 (consulta por QR) · PUB2 (aviso de privacidade) | Leitura, abertas uma vez por quem não vai voltar. Qualquer passo ali é atrito. |
+| C1 Login · C3 Recuperar senha | Formulários universais. Ninguém precisa de tour para entrar em um sistema. |
+| P2 Meu perfil · P4 Turma criar/editar · P12 Aplicação criar | Duas a três campos, sem conceito novo. |
+| P10 Prova detalhe · P19 Relatório consolidado | Só leitura do que o professor já entendeu na tela de origem. |
+
+A regra: se a tela não introduz **conceito** novo (Aplicação, versão, embaralhamento, folha), ela não ganha tour.
 
 ---
 

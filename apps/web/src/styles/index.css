@@ -1,0 +1,134 @@
+@import 'tailwindcss';
+
+/*
+  "Academic Precision" design system, extracted from the .ui_v1 prototype.
+  This is the single source of colour, type and spacing. No component should
+  contain a raw hex value or pixel size.
+*/
+@theme {
+  /* --- Colour ----------------------------------------------------------- */
+  /* Institutional blue: navigation, headings, figures. */
+  --color-primary: #002045;
+  --color-primary-container: #1a365d;
+  --color-on-primary: #ffffff;
+  --color-primary-fixed: #d6e3ff;
+  --color-on-primary-fixed: #001b3c;
+
+  /* Gold: reserved for the primary action. At most one per screen. */
+  --color-accent: #ebc072;
+  --color-accent-hover: #fdd181;
+  --color-on-accent: #271900;
+
+  /* Surfaces */
+  --color-canvas: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f3f2;
+  --color-surface-hover: #eae7e7;
+
+  /* Text */
+  --color-ink: #1b1c1c;
+  --color-ink-muted: #43474e;
+  --color-ink-subtle: #74777f;
+
+  /* Borders */
+  --color-line: #e2e8f0;
+  --color-line-strong: #c4c6cf;
+
+  /* States */
+  --color-danger: #ba1a1a;
+  --color-danger-surface: #ffdad6;
+  --color-on-danger-surface: #93000a;
+  --color-success: #146c2e;
+  --color-success-surface: #d7f2dd;
+  --color-warning-surface: #ffdea6;
+  --color-on-warning-surface: #5e4200;
+
+  /* --- Typography ------------------------------------------------------- */
+  --font-heading: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+
+  --text-display: 3rem; /* 48px, used for summary card figures */
+  --text-display--line-height: 3.5rem;
+  --text-display--font-weight: 700;
+  --text-display--letter-spacing: -0.02em;
+
+  --text-headline: 2rem; /* 32px */
+  --text-headline--line-height: 2.5rem;
+  --text-headline--font-weight: 600;
+
+  --text-title: 1.25rem; /* 20px */
+  --text-title--line-height: 1.75rem;
+  --text-title--font-weight: 600;
+
+  --text-body: 1rem; /* 16px */
+  --text-body--line-height: 1.5rem;
+
+  --text-label: 0.875rem; /* 14px */
+  --text-label--line-height: 1.25rem;
+  --text-label--font-weight: 600;
+  --text-label--letter-spacing: 0.01em;
+
+  --text-caption: 0.75rem; /* 12px */
+  --text-caption--line-height: 1rem;
+  --text-caption--font-weight: 500;
+
+  /* --- Rhythm ----------------------------------------------------------- */
+  /*
+    Left at the Tailwind default of 0.25rem: it multiplies every numeric
+    spacing utility, so overriding it silently doubles the whole layout.
+    The 8px rhythm of the design system comes from using even steps
+    (p-2 = 8px, p-4 = 16px, p-6 = 24px gutter).
+  */
+  --radius-card: 1rem;
+  --radius-control: 0.5rem;
+  --radius-chip: 0.25rem;
+
+  /* Elevation: none at rest, soft on hover, strong for overlays. */
+  --shadow-hover: 0 4px 12px rgb(0 32 69 / 0.08);
+  --shadow-overlay: 0 16px 40px rgb(0 32 69 / 0.1);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-body);
+    color: var(--color-ink);
+    background-color: var(--color-canvas);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+  }
+
+  /*
+    Never remove the focus indicator. :focus-visible keeps it out of the way
+    for pointer users while the keyboard always shows where it is.
+  */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Honour the OS-level reduced motion preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /*
+    Minimum 44px hit area, applied to every interactive element
+    instead of repeating min-h/min-w in each component.
+  */
+  .touch-target {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}

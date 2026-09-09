@@ -1,6 +1,6 @@
 # Decisões de Arquitetura — Correctio
 
-Registro das decisões técnicas e do porquê de cada uma. Complementa [Principais_Requisitos_Correctio.md](Principais_Requisitos_Correctio.md) e [Seguranca_e_LGPD.md](Seguranca_e_LGPD.md).
+Registro das decisões técnicas e do porquê de cada uma. A fonte da verdade de requisitos e telas é [Correctio_Requisitos_e_Telas.md](Correctio_Requisitos_e_Telas.md); o desenho de segurança está em [Seguranca_e_LGPD.md](Seguranca_e_LGPD.md).
 
 ---
 
@@ -12,7 +12,7 @@ O decisor não foi o front — foi o back-end, já fixado pela disciplina: **Nod
 
 | O que o Next.js oferece | Vale aqui? |
 |---|---|
-| Renderização no servidor / SEO | **Não.** 20 das 24 telas ficam atrás de login. A única pública mostra a nota de um aluno — que não deve ser indexada. SEO é o oposto do desejado. |
+| Renderização no servidor / SEO | **Não.** 20 das 25 telas ficam atrás de login. A única pública mostra a nota de um aluno — que não deve ser indexada. SEO é o oposto do desejado. |
 | Rotas de API / Server Actions | **Não.** Já existe o Express. Seria um segundo servidor Node só de passagem, e a arquitetura em camadas é justamente o que a disciplina avalia. |
 | React Server Components | **Não.** Todo dado vem da API autenticada por token. RSC obrigaria a repassar credencial no servidor sem ganho. |
 | Otimização de imagem | **Marginal.** As imagens que importam são upload do usuário, servidas pela API, não arquivos estáticos do projeto. |
@@ -29,7 +29,7 @@ O decisor não foi o front — foi o back-end, já fixado pela disciplina: **Nod
 O que dá escalabilidade não é o framework — é ter **uma única fronteira de dados** que a aplicação inteira atravessa, com implementações trocáveis.
 
 ```
-Componentes (24 telas)
+Componentes (25 telas)
         │   nunca sabem de onde vem o dado
         ▼
 TanStack Query          cache, carregamento, repetição, invalidação
@@ -65,7 +65,7 @@ O mesmo vale para autenticação: uma interface `AuthProvider`, com implementaç
 
 ## 3. Publicação e roteamento
 
-**N1: GitHub Pages. Depois: Firebase Hosting. Autenticação: Firebase Auth.**
+**N1: GitHub Pages. Depois: Firebase Hosting. Autenticação: Firebase Auth** — esta última **pendente de validação com a professora**, porque substitui os endpoints `/auth` previstos na Spec (ver seção 1 do documento de requisitos e telas).
 
 **Roteamento por caminho, não por hash.** URL limpa (`/correctio/r/ABC123`), usando o recurso padrão do GitHub Pages de copiar o `index.html` para `404.html` no build, com a base do roteador vinda da variável de build.
 
@@ -88,7 +88,7 @@ Três restrições que definem o que a N1 pode fazer:
 
 **Cerca de 5 MB, e síncrono — não cabe foto de folha de resposta.** Uma foto de celular convertida para texto ocupa de 3 a 7 MB: estoura a cota em **uma única imagem**. Na N1, as telas de correção usam um conjunto fixo de imagens de demonstração e a leitura é simulada com atraso artificial. Upload real fica para a N2.
 
-**É por navegador.** O cliente e a professora abrindo o link veem os dados semeados, não o que a equipe demonstrou. Por isso é obrigatório um conjunto de dados de demonstração realista — turmas, alunos, questões, provas, aplicações e correções já preenchidas — carregado no primeiro acesso, mais um botão "Restaurar dados de demonstração". Sem isso, quem abrir o link vê 24 telas vazias.
+**É por navegador.** O cliente e a professora abrindo o link veem os dados semeados, não o que a equipe demonstrou. Por isso é obrigatório um conjunto de dados de demonstração realista — turmas, alunos, questões, provas, aplicações e correções já preenchidas — carregado no primeiro acesso, mais um botão "Restaurar dados de demonstração". Sem isso, quem abrir o link vê 25 telas vazias.
 
 **O conteúdo é dado externo e não confiável.** O usuário pode editar, ou pode sobrar uma versão antiga do formato depois de um deploy. Toda leitura passa por validação de schema — os **mesmos** schemas que na N2 validam a resposta da API. É isso que faz os tipos da N1 não serem descartáveis.
 
@@ -104,7 +104,7 @@ Três restrições que definem o que a N1 pode fazer:
 | Rotas | React Router (rotas aninhadas) | Modela o layout do professor |
 | Estado de servidor | TanStack Query | Dado remoto não vive em estado local nem em store global |
 | Validação | Schemas compartilhados front/back | Mesma definição valida `localStorage`, API e entrada do Express |
-| Formulários | React Hook Form | Nove das 24 telas são formulário |
+| Formulários | React Hook Form | Nove das 25 telas são formulário |
 | Estilo | Tailwind + componentes próprios no repositório | Customização total, dependência mínima |
 | Acessibilidade | Primitives headless para modal, drawer, abas e combobox | Metade do RNF11 sai pronta |
 | Gráficos | Biblioteca de gráficos para os relatórios | Histograma e barras |
@@ -133,7 +133,7 @@ src/
   types/          domínio compartilhado
 ```
 
-Estrutura por funcionalidade, com `index.ts` como interface pública de cada pasta. Com 24 telas, seis domínios e cinco pessoas, é o que evita conflito de merge e o erro mais comum em equipe: cinco tabelas diferentes fazendo a mesma coisa. Os componentes compartilhados — modal de confirmação, modal de importação, tabela, estado vazio — precisam existir **antes** de qualquer tela.
+Estrutura por funcionalidade, com `index.ts` como interface pública de cada pasta. Com 25 telas, seis domínios e cinco pessoas, é o que evita conflito de merge e o erro mais comum em equipe: cinco tabelas diferentes fazendo a mesma coisa. Os componentes compartilhados — modal de confirmação, modal de importação, tabela, estado vazio — precisam existir **antes** de qualquer tela.
 
 ### Conceitos aplicados
 
@@ -184,3 +184,49 @@ Segue a prioridade definida no documento de requisitos e telas:
 10. Pendentes de atribuição e relatórios
 
 A fundação precisa estar pronta antes da divisão de tarefas entre as cinco pessoas — é ela que permite trabalho paralelo sem conflito.
+
+---
+
+## 9. Extensão futura: área do aluno
+
+A área do aluno **está fora do escopo deste projeto** — decisão de 28/08, e ela não será
+construída aqui. Mas o modelo foi mantido aberto para que quem herde o projeto possa
+adicioná-la sem migrar dados.
+
+### O que já está no lugar
+
+| Costura | Onde | Estado |
+|---|---|---|
+| `role: "estudante"` | `types/domain.ts` | no contrato, só `professor` autentica |
+| `ClassEnrollment` | `types/domain.ts`, `lib/schemas` | modelada, sem repositório |
+| `Student.userId` | `types/domain.ts` | opcional, sempre vazio |
+| `Class.inviteCode` | gerado na criação da turma | preenchido, sem uso na interface |
+| `Correction.studentId` | preenchido quando há identificação | já é a chave da consulta do aluno |
+| `Application.gradesReleased` | em uso | já controla o que o aluno pode ver |
+| `createTeacherRepositories` | `lib/repositories/index.ts` | nomeado pelo escopo, não genérico |
+
+### O que faltaria construir
+
+1. **`createStudentRepositories(studentUserId)`** ao lado da fábrica do professor, devolvendo
+   só o que o aluno pode ver: as próprias correções e as turmas em que está matriculado.
+   **Não** alargar a fábrica existente com um `if` de papel — a separação por escopo é o que
+   torna o isolamento auditável.
+2. **Repositório de `ClassEnrollment`**, mais o fluxo de entrar na turma por `inviteCode`.
+3. **Telas do aluno** em `features/student/`, com layout próprio: o menu do professor não
+   serve, e reaproveitá-lo com condicionais vira a pior parte do código.
+4. **Roteamento por papel** no `router.tsx`, escolhendo o layout pelo `role` da sessão.
+5. **Isolamento no servidor.** Esta é a parte que não pode ser improvisada: toda consulta do
+   aluno filtra pelo id dele na camada de serviço, e recurso de outro aluno responde 404.
+   Ver `Seguranca_e_LGPD.md`.
+
+### O que não fazer
+
+**Não construa nada disso agora.** Rota, tela ou repositório de aluno sem uso é código morto:
+ninguém testa, o portão de qualidade cobra cobertura dele, e a primeira limpeza apaga.
+
+O que ficou pronto foi só o que custa perto de zero e é caro de adicionar depois: campos de
+contrato e nomes que revelam o escopo. Maquinário fica para quem for construir a feature.
+
+**E não apague as costuras por parecerem sem uso.** Estão listadas em
+[Modelo_de_Dados.md](Modelo_de_Dados.md), seção "Reservado para escopo futuro". Removê-las
+transforma "adicionar a área do aluno" em "migrar o banco".

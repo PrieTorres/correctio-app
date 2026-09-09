@@ -48,6 +48,8 @@ Hoje ele resolve com uma ferramenta de mercado (GradePen), que gera a prova emba
 
 **O objetivo do Correctio** é cobrir o ciclo inteiro da prova em um só lugar: montar, aplicar, corrigir e devolver — guardando **qual alternativa o aluno marcou**, não apenas se ele acertou.
 
+**O produto não é feito para um professor só.** O entrevistado é o primeiro cliente, não o único: o que ele não usa continua disponível, opcional em vez de obrigatório. Ele não libera nota por QR Code e não usa questões discursivas — outros clientes usam, e os dois recursos ficam.
+
 **Ganho concreto:** montar a prova deixa de ser trabalho manual repetido a cada turma e a cada semestre, e a correção deixa de ser feita folha a folha na mão.
 
 ---
@@ -73,13 +75,13 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 |---|---|
 | **Contas** | Só o professor tem conta. Cadastro, login, recuperação de senha, encerrar sessões, anonimização de conta |
 | **Turmas** | Criar, editar, arquivar; alunos cadastrados um a um ou importados em lote |
-| **Questões** | Objetivas (2 a 5 alternativas) e discursivas, com tags, filtros, soft-delete e importação em lote |
+| **Questões** | Objetivas (2 a 5 alternativas) e discursivas, com tags, filtros, soft-delete, importação em lote e imagens no enunciado |
 | **Provas** | Montagem manual ou automática por filtros, até 20 questões, duplicação, importação e exportação |
 | **Aplicações** | Associa prova a turma; permite reaplicação |
-| **PDF** | Arquivo único consolidado: nº de versões, embaralhamento configurável, QR Code único por folha, com ou sem identificação |
+| **PDF** | Arquivo único consolidado: nº de versões, embaralhamento configurável, QR Code único por folha, com ou sem identificação. Questão nunca quebra entre páginas, e prova ímpar ganha folha em branco ao final |
 | **Gabarito** | Publicação por versão ou pela aplicação inteira |
 | **Correção** | Envio de foto/scan da folha, leitura automática das marcações, revisão obrigatória do professor, lançamento manual como alternativa |
-| **Notas** | Consulta pelo aluno via QR Code, sem login, após liberação |
+| **Notas** | Consulta pelo aluno via QR Code, sem login. O professor decide se libera só o gabarito ou o gabarito com a nota |
 | **Relatórios** | Por aplicação e consolidado, com exportação |
 
 ### 🚫 Fora do MVP
@@ -88,12 +90,13 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 |---|---|
 | **App mobile nativo** | Fora em qualquer hipótese. Tudo pelo site responsivo. |
 | **Área do aluno com login** | Fora. O aluno é um registro da turma e consulta a nota pelo QR Code da sua folha. |
-| **Editor manual de layout do PDF / exportar .doc** | Fora. Não quebrar questão entre páginas é tratado como qualidade da geração, não como editor. |
+| **Editor manual de layout do PDF / exportar .doc** | Fora. A paginação é comportamento da geração (RF43, RF44), não configuração que o professor ajusta. |
 
 ### 🤔 Em discussão e pendente de validação
 
 - **Em discussão com a professora:** versionamento A/B/C de questões (provas realmente diferentes por aluno, não só embaralhadas).
-- **Pendente de validação com o cliente:** questões discursivas · importação e exportação via Excel · nota disponibilizada por QR Code · retorno do cartão-resposta corrigido ao aluno · finalidade do campo e-mail do aluno.
+- **Pendente de validação com o cliente:** importação e exportação via Excel · retorno do cartão-resposta corrigido ao aluno · finalidade do campo e-mail do aluno · existência de alunos menores de idade.
+- **Pendente de validação com a professora:** uso de Firebase Auth no lugar dos endpoints `/auth` previstos na Spec.
 
 ### 📅 Evolução ao longo do semestre
 
@@ -107,9 +110,9 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 
 ## ✅ 4. Requisitos
 
-São **42 requisitos funcionais** e **20 não-funcionais**, escritos como ações do sistema e com métrica verificável.
+São **48 requisitos funcionais** e **20 não-funcionais**, escritos como ações do sistema e com métrica verificável.
 
-**📋 Lista completa: [docs/Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md)**
+**📋 Lista completa e fonte da verdade: [docs/Correctio_Requisitos_e_Telas.md](docs/Correctio_Requisitos_e_Telas.md)** — resumo rápido em [Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md)
 
 ### Resumo por área
 
@@ -117,18 +120,18 @@ São **42 requisitos funcionais** e **20 não-funcionais**, escritos como açõe
 |---|---|---|
 | Conta | RF01–RF05 | Cadastro, login, recuperação, sessões, anonimização |
 | Turmas e alunos | RF06–RF09, RF38–RF39 | Turmas, alunos, importação em lote, aviso de privacidade, anonimização de aluno |
-| Questões | RF10–RF14 | CRUD, tags, filtros, embaralhamento por questão, importação |
+| Questões | RF10–RF14, RF45 | CRUD, tags, filtros, embaralhamento por questão, importação, imagens no enunciado |
 | Provas | RF15–RF20 | Montagem manual e automática, duplicação, importação/exportação, arquivamento |
-| Aplicações e PDF | RF21–RF25 | Aplicação, configuração e geração do PDF, QR Code, gabarito |
-| Correção | RF26–RF32 | Envio de folhas, leitura automática, revisão, lançamento manual, atribuição |
-| Notas e relatórios | RF33–RF36 | Consulta pública, estatísticas, exportação |
+| Aplicações e PDF | RF21–RF25, RF43–RF44 | Aplicação, geração do PDF, QR Code, gabarito, paginação por questão e folha par |
+| Correção | RF26–RF32, RF47–RF48 | Envio de folhas, leitura automática, revisão, lançamento manual, atribuição, correção parcial quando há discursivas |
+| Notas e relatórios | RF33–RF36, RF46 | Consulta pública em dois níveis, estatísticas, exportação |
 | Transversais | RF37, RF40–RF42 | Tour guiado por tela, trilha de auditoria, execução em segundo plano com notificação, desfazer ações |
 
 ### Requisitos não-funcionais — categorias
 
 | Cód. | Categoria | Métrica resumida |
 |---|---|---|
-| RNF01–03 | Desempenho, escala, disponibilidade | p95 ≤ 300 ms · 600 professores e 10.000 alunos · 99,5% de uptime |
+| RNF01–03 | Desempenho, escala, disponibilidade | p95 ≤ 300 ms · 500–600 professores e 10.000 alunos ativos · 99,5% de uptime |
 | RNF04 | Segurança de acesso | HTTPS integral, token com renovação, bloqueio após 5 falhas em 15 min |
 | RNF05 | Privacidade (LGPD) | Anonimização em até 24 h; nenhum dado pessoal em log |
 | RNF06–07 | Usabilidade e confiabilidade | Ação principal em até 3 cliques · erro de leitura < 1% · 100% confirmado pelo professor |
@@ -151,7 +154,8 @@ São **42 requisitos funcionais** e **20 não-funcionais**, escritos como açõe
 - **Regenerar o PDF invalida** as folhas anteriores, e é bloqueado depois da primeira correção confirmada — o caminho passa a ser criar nova Aplicação.
 - **Nenhuma leitura de imagem vira nota sem confirmação do professor.**
 - **A correção registra qual alternativa o aluno marcou**, não apenas acerto ou erro.
-- **O aluno só vê gabarito e nota depois** que o professor publica e libera, respectivamente.
+- **Discursiva não bloqueia a correção automática.** Numa prova mista o sistema corrige as objetivas sozinho e deixa a correção em andamento até o professor lançar as notas das discursivas.
+- **O aluno vê o que o professor liberou, em dois níveis:** publicar o gabarito mostra as respostas certas; liberar as notas acrescenta a nota dele. Nota sem gabarito não existe.
 - **Remover aluno da turma não apaga notas** — e também não é exclusão de dado pessoal: para isso existe a anonimização (RF38).
 - **Nada é apagado de verdade.** Arquivar e excluir são reversíveis (RF42); nenhum dado é descartado automaticamente por prazo. Exclusão definitiva só sob solicitação.
 - **Operação demorada não trava a tela.** Gerar PDF, ler folhas e exportar confirmam em menos de 1 segundo, rodam em segundo plano e avisam quando ficam prontas — o professor continua trabalhando.
@@ -168,7 +172,7 @@ São **42 requisitos funcionais** e **20 não-funcionais**, escritos como açõe
 | **Públicas, sem login** (2) | Consulta de nota e gabarito por QR Code · Aviso de privacidade |
 | **Web Professor** (20) | Painel · Meu perfil · Turmas (lista, criar/editar, detalhe) · Banco de questões (lista, criar/editar) · Provas (lista, criar/editar, geração automática, detalhe) · Aplicações (lista, criar, gerar PDF, detalhe) · Correção (enviar folhas, revisar, pendentes de atribuição) · Relatórios (por aplicação, consolidado) |
 
-A especificação detalhada de cada tela — conteúdo, elementos e destino de cada ação — está em `docs/Correctio_Requisitos_e_Telas.docx`, seção 8.
+A especificação detalhada de cada tela — conteúdo, elementos e destino de cada ação — está em [docs/Correctio_Requisitos_e_Telas.md](docs/Correctio_Requisitos_e_Telas.md), seção 8.
 
 **Responsivo:** o menu lateral vira menu hambúrguer, as tabelas viram cards empilhados, e a tela de envio de folhas abre a câmera do celular direto. A consulta pública é desenhada primeiro para o celular, já que o aluno a abre escaneando o QR.
 
@@ -186,7 +190,9 @@ A especificação detalhada de cada tela — conteúdo, elementos e destino de c
 
 **Publicação:** GitHub Pages na N1, Firebase Hosting depois. A URL de consulta pública mantém o mesmo formato de caminho nas duas, porque ela vai impressa em papel dentro do QR Code e não pode quebrar.
 
-**Entidades de domínio:** `User` (só professor) · `Class` · `Student` · `Question` · `Exam` · `Application` · `ExamVersion` · `AnswerSheet` · `Correction`
+**Entidades de domínio:** `User` · `RefreshToken` · `Class` · `Student` · `Question` · `Exam` · `Application` · `ExamVersion` · `AnswerSheet` · `Correction`
+
+A estrutura obrigatória de cada uma segue a seção 8 da Spec SGP Católica e está travada em [docs/Modelo_de_Dados.md](docs/Modelo_de_Dados.md): campos podem ser acrescentados, mas nenhuma chave da Spec pode ser removida, renomeada ou ter a forma alterada.
 
 ---
 
@@ -212,12 +218,13 @@ npm run test:e2e  # testes Cypress
 
 | Documento | Conteúdo |
 |---|---|
-| [Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md) | RFs, RNFs, regras de negócio e telas |
+| [Modelo_de_Dados.md](docs/Modelo_de_Dados.md) | **Normativo:** estrutura obrigatória de cada entidade, conforme a Spec SGP Católica |
+| [Correctio_Requisitos_e_Telas.md](docs/Correctio_Requisitos_e_Telas.md) | **Fonte da verdade:** RFs, RNFs, regras de negócio e especificação das 25 telas |
+| [Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md) | Resumo derivado do documento acima, para consulta rápida |
 | [Arquitetura.md](docs/Arquitetura.md) | Decisões técnicas, camada de repositórios, stack, organização do código |
 | [Seguranca_e_LGPD.md](docs/Seguranca_e_LGPD.md) | Autorização, limite de requisições, proteção de custo, LGPD |
 | [Tour_Guiado.md](docs/Tour_Guiado.md) | Tour contextual por tela: regras de escrita, comportamento e o texto de cada passo |
 | [CI_CD.md](docs/CI_CD.md) | Portão de qualidade nos Pull Requests, proteção de branch e publicação |
-| `Correctio_Requisitos_e_Telas.docx` | Especificação detalhada das telas (seção 8) e do modelo de dados (seção 9) |
 | `Escopo do Projeto e Criterios de Avaliacao.md` | Critérios de avaliação da disciplina (documento da professora) |
 
 ---
