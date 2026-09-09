@@ -20,6 +20,13 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    /*
+      A spy left behind by one test is a failure reported in another, far from
+      its cause. Restoring before each test keeps a suite from depending on the
+      order it happens to run in.
+    */
+    restoreMocks: true,
+    clearMocks: true,
     setupFiles: ['./src/test-setup.ts'],
     coverage: {
       provider: 'v8',
@@ -29,7 +36,6 @@ export default defineConfig({
         'src/**/index.ts',
         'src/**/types.ts',
         'src/types/**',
-        'src/lib/seed/**',
         'src/main.tsx',
         'src/test-setup.ts',
         'src/test-utils.tsx',

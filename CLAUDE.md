@@ -76,6 +76,24 @@ As três regras acima são verificadas pelo build, não por revisão:
   estados impossíveis — **exceto** onde a Spec define outra forma, que prevalece.
 - Acessibilidade não é etapa final: alvo de toque de 44 px, foco visível, ARIA correto.
 
+## Todo comportamento novo entra com teste
+
+Não existe "depois eu cubro". Cada elemento, função ou regra nova sai no mesmo PR que o
+teste dela, e o tipo de teste segue o que está sendo criado:
+
+| O que foi criado | Onde testar |
+|---|---|
+| Função pura, regra de negócio, cálculo | **Unitário** em `__tests__` ao lado do módulo |
+| Hook de dado | **Unitário** com `renderHookWithProviders` de `src/test-utils.tsx` |
+| Tela, fluxo, interação, estado vazio | **Cypress** em `apps/web/cypress/e2e` |
+| Componente com comportamento (não só visual) | Cypress pelo fluxo que o usa |
+
+Regra de bolso: se dá para quebrar sem nenhum teste ficar vermelho, falta teste.
+
+Ao acrescentar lógica a um módulo que estava fora da métrica de cobertura, **tire-o da lista
+de exclusão** em `vite.config.ts`. Foi o que aconteceu com `lib/seed`: nasceu como dado fixo,
+ganhou quatro funções e continuou invisível para a cobertura.
+
 ## Estrutura
 
 ```
