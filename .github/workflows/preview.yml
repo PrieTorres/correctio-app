@@ -18,9 +18,20 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # The branch name reaches the shell through the environment, never
+      # through direct interpolation, and is stripped to characters safe in a
+      # path before becoming a folder.
       - name: Derivar o nome da pasta
         id: slug
-        run: echo "value=$(echo '${{ github.ref_name }}' | tr '/' '-' | tr -cd '[:alnum:]-_')" >> "$GITHUB_OUTPUT"
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          SLUG=$(printf '%s' "$BRANCH" | tr '/' '-' | tr -cd '[:alnum:]-_')
+          if [ -z "$SLUG" ]; then
+            echo "::error::Nome de branch sem caracteres utilizáveis para uma pasta: '$BRANCH'"
+            exit 1
+          fi
+          echo "value=$SLUG" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v5
         with:

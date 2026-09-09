@@ -18,8 +18,11 @@ jobs:
           fetch-depth: 0
 
       - name: Apagar a pasta da branch
+        env:
+          DELETED_BRANCH: ${{ github.event.ref }}
         run: |
-          SLUG=$(echo '${{ github.event.ref }}' | tr '/' '-' | tr -cd '[:alnum:]-_')
+          SLUG=$(printf '%s' "$DELETED_BRANCH" | tr '/' '-' | tr -cd '[:alnum:]-_')
+          [ -n "$SLUG" ] || exit 0
           if [ ! -d "previews/$SLUG" ]; then
             echo "Sem preview para $SLUG."
             exit 0

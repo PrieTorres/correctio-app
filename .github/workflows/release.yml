@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Versão a publicar (ex.: 0.3.0). Sem o "v".'
+        description: 'Versão SemVer, sem o "v". Exemplos: 0.2.0, 1.0.0'
         required: true
         type: string
 
@@ -15,6 +15,30 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      # Both guards run before anything else. Finding out the input was wrong
+      # after a full minute of lint, tests and build wastes the run and hides
+      # the real reason at the bottom of a long log.
+      # Inputs reach the shell through the environment, never through direct
+      # interpolation: a value pasted into the script would run as part of it.
+      - name: Validar a versão
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Versão inválida: '$VERSION'"
+            echo "::error::Use o formato MAIOR.MENOR.CORREÇÃO, por exemplo 0.2.0 ou 1.0.0, sem o 'v'."
+            exit 1
+          fi
+
+      - name: Exigir a branch principal
+        if: ${{ github.ref_name != 'main' }}
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          echo "::error::Release sai da main, e esta execução foi disparada em '$BRANCH'."
+          echo "::error::Marcar uma branch de feature criaria uma tag que some quando a branch for apagada."
+          exit 1
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
@@ -33,20 +57,24 @@ jobs:
       - run: npm run build
 
       - name: Fixar a versão nos manifestos
-        run: |
-          npm version "${{ inputs.version }}" --no-git-tag-version --workspaces --include-workspace-root
+        env:
+          VERSION: ${{ inputs.version }}
+        run: npm version "$VERSION" --no-git-tag-version --workspaces --include-workspace-root
 
       - name: Commitar e marcar
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           git config user.name  'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git commit -am "chore(release): v${{ inputs.version }}"
-          git tag -a "v${{ inputs.version }}" -m "v${{ inputs.version }}"
+          git commit -am "chore(release): v$VERSION"
+          git tag -a "v$VERSION" -m "v$VERSION"
           git push origin HEAD --follow-tags
 
       # Notes come from the PRs merged since the previous tag, grouping what
       # the whole team delivered in that period.
       - name: Publicar a release
-        run: gh release create "v${{ inputs.version }}" --generate-notes --title "v${{ inputs.version }}"
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: gh release create "v$VERSION" --generate-notes --title "v$VERSION"
