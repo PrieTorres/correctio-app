@@ -1,5 +1,5 @@
-import type { Class, Student } from '@/types/domain'
-import { classSchema, studentSchema } from '@/lib/schemas'
+import type { Class, Question, Student } from '@/types/domain'
+import { classSchema, questionSchema, studentSchema } from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 
 /**
@@ -41,9 +41,88 @@ const STUDENTS: Student[] = [
   ...buildStudents('class-physics-2', 10, 202801),
 ]
 
+function multipleChoice(
+  id: string,
+  statement: string,
+  tags: string[],
+  options: readonly [string, string, string, string],
+  correctIndex: number,
+  allowShuffleAlternatives = true,
+): Question {
+  const alternatives = options.map((text, index) => ({ id: `${id}-alt-${index}`, text }))
+  return {
+    id,
+    teacherId: TEACHER_ID,
+    type: 'objetiva',
+    statement,
+    tags,
+    alternatives,
+    correctAlternativeId: `${id}-alt-${correctIndex}`,
+    allowShuffleAlternatives,
+  }
+}
+
+const QUESTIONS: Question[] = [
+  multipleChoice(
+    'question-limits',
+    'Qual é o valor de lim(x→0) sen(x)/x?',
+    ['Limites', 'Cálculo I'],
+    ['0', '1', 'Não existe', 'Infinito'],
+    1,
+  ),
+  multipleChoice(
+    'question-derivative',
+    'A derivada de f(x) = x³ é:',
+    ['Derivadas', 'Cálculo I'],
+    ['3x²', 'x²', '3x', 'x⁴/4'],
+    0,
+  ),
+  multipleChoice(
+    'question-matrix',
+    'Uma matriz quadrada é invertível quando:',
+    ['Matrizes', 'Álgebra Linear'],
+    [
+      'Seu determinante é diferente de zero',
+      'Seu determinante é igual a zero',
+      'Ela é simétrica',
+      'Todas as anteriores',
+    ],
+    0,
+    false,
+  ),
+  multipleChoice(
+    'question-newton',
+    'A segunda lei de Newton relaciona força, massa e:',
+    ['Mecânica', 'Física II'],
+    ['Aceleração', 'Velocidade', 'Deslocamento', 'Energia'],
+    0,
+  ),
+  {
+    id: 'question-essay-limits',
+    teacherId: TEACHER_ID,
+    type: 'discursiva',
+    statement:
+      'Explique com suas palavras o que significa dizer que uma função é contínua em um ponto, e dê um exemplo de função que não seja.',
+    tags: ['Limites', 'Cálculo I'],
+    maxScore: 2.5,
+    allowShuffleAlternatives: true,
+  },
+  {
+    id: 'question-essay-vectors',
+    teacherId: TEACHER_ID,
+    type: 'discursiva',
+    statement:
+      'Descreva a interpretação geométrica do produto escalar entre dois vetores e o que acontece quando ele vale zero.',
+    tags: ['Vetores', 'Álgebra Linear'],
+    maxScore: 3,
+    allowShuffleAlternatives: true,
+  },
+]
+
 function seed(): void {
   createCollection('classes', classSchema).writeAll(CLASSES)
   createCollection('students', studentSchema).writeAll(STUDENTS)
+  createCollection('questions', questionSchema).writeAll(QUESTIONS)
   window.localStorage.setItem(SEED_MARKER, new Date().toISOString())
 }
 
