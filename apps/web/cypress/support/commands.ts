@@ -27,14 +27,19 @@ Cypress.Commands.add('findInDialog', (selector: string, text: string) => {
 })
 
 /**
- * Checks a radio whose input is visually hidden behind its styled label.
+ * Picks one option of a segmented control by its visible text.
  *
- * The segmented filter hides the input with `sr-only` so the label can carry
- * the styling. Clicking the input directly is what a user never does, and what
- * the runner cannot do; clicking the label is both.
+ * The control hides the radio with `sr-only` so the label can carry the
+ * styling, which leaves the input with no size and covered by the fieldset:
+ * `cy.check()` refuses it, and rightly so. Clicking the label is what a person
+ * does, and the browser forwards it to the input.
+ *
+ * The assertion that follows is the point — it fails loudly if the label ever
+ * stops being wired to its input, which no click alone would reveal.
  */
-Cypress.Commands.add('findByRadioLabel', (text: string) => {
-  return cy.contains('label', text).find('input[type="radio"]')
+Cypress.Commands.add('chooseSegment', (text: string) => {
+  cy.contains('label', text).click()
+  return cy.contains('label', text).find('input[type="radio"]').should('be.checked')
 })
 
 declare global {
@@ -42,7 +47,7 @@ declare global {
     interface Chainable {
       findByLabelOrPlaceholder(text: string): Chainable<JQuery<HTMLElement>>
       findInDialog(selector: string, text: string): Chainable<JQuery<HTMLElement>>
-      findByRadioLabel(text: string): Chainable<JQuery<HTMLElement>>
+      chooseSegment(text: string): Chainable<JQuery<HTMLElement>>
     }
   }
 }

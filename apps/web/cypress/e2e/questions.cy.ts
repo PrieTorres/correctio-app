@@ -11,7 +11,7 @@ describe('banco de questões', () => {
   })
 
   it('separa objetivas de discursivas', () => {
-    cy.findByRadioLabel('Discursivas').check()
+    cy.chooseSegment('Discursivas')
 
     cy.contains('Explique com suas palavras').should('be.visible')
     cy.contains('sen(x)/x').should('not.exist')
@@ -33,11 +33,11 @@ describe('banco de questões', () => {
     cy.findInDialog('button', 'Excluir').click()
     cy.contains('sen(x)/x').should('not.exist')
 
-    cy.findByRadioLabel('Excluídas').check()
+    cy.chooseSegment('Excluídas')
     cy.contains('sen(x)/x').closest('li').contains('button', 'Restaurar').click()
     cy.findInDialog('button', 'Restaurar').click()
 
-    cy.findByRadioLabel('Ativas').check()
+    cy.chooseSegment('Ativas')
     cy.contains('sen(x)/x').should('be.visible')
   })
 
@@ -65,25 +65,36 @@ describe('formulário de questão', () => {
     cy.contains('Qual a integral de 2x?').should('be.visible')
   })
 
-  it('recusa objetiva sem alternativa correta marcada', () => {
+  it('já vem com a primeira alternativa marcada como correta', () => {
+    cy.get('input[aria-label="Alternativa A é a correta"]').should('be.checked')
+  })
+
+  /**
+   * Radios cannot be unchecked, and A comes marked, so "no correct
+   * alternative" is only reachable by deleting the one that was marked.
+   */
+  it('recusa objetiva cuja alternativa correta foi removida', () => {
     cy.get('#statement').type('Questão sem gabarito')
     cy.get('input[aria-label="Texto da alternativa A"]').type('uma')
     cy.get('input[aria-label="Texto da alternativa B"]').type('outra')
-    cy.get('input[aria-label="Alternativa A é a correta"]').uncheck({ force: true })
+    cy.contains('button', 'Alternativa').click()
+    cy.get('input[aria-label="Texto da alternativa C"]').type('mais uma')
+    cy.get('input[aria-label="Alternativa C é a correta"]').check()
+    cy.get('button[aria-label="Remover alternativa C"]').click()
     cy.contains('button', 'Salvar questão').click()
 
     cy.contains('Marque qual alternativa é a correta').should('be.visible')
   })
 
   it('troca os campos ao alternar para discursiva', () => {
-    cy.findByRadioLabel('Discursiva').check()
+    cy.chooseSegment('Discursiva')
 
     cy.contains('label', 'Nota máxima').should('be.visible')
     cy.contains('Alternativas').should('not.exist')
   })
 
   it('exige nota máxima na discursiva', () => {
-    cy.findByRadioLabel('Discursiva').check()
+    cy.chooseSegment('Discursiva')
     cy.get('#statement').type('Explique o teorema')
     cy.contains('button', 'Salvar questão').click()
 
