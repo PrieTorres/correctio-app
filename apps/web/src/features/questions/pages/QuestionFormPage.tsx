@@ -55,7 +55,16 @@ export function QuestionFormPage() {
     formState: { errors, isSubmitting },
   } = form;
 
-  const alternatives = useFieldArray({ control, name: 'alternatives' });
+  /**
+   * `keyName` moves the array's React key off `id`.
+   *
+   * By default `useFieldArray` overwrites each item's `id` with its own
+   * generated key, so the id bound to the radio stopped matching the one the
+   * schema compares against `correctAlternativeId`, and no multiple-choice
+   * question could be saved. The Spec owns `alternatives[].id`; the key is
+   * react-hook-form's business and now has its own name.
+   */
+  const alternatives = useFieldArray({ control, name: 'alternatives', keyName: 'fieldKey' });
   const type = watch('type');
   const correctAlternativeId = watch('correctAlternativeId');
   const tags = watch('tags');
@@ -165,7 +174,7 @@ function AlternativesField({
   onRemove,
   onMarkCorrect,
 }: Readonly<{
-  fields: { id: string }[];
+  fields: { fieldKey: string; id: string }[];
   correctAlternativeId: string | undefined;
   error?: string;
   register: ReturnType<typeof useForm<QuestionInput>>['register'];
@@ -182,7 +191,7 @@ function AlternativesField({
       </legend>
 
       {fields.map((field, index) => (
-        <div key={field.id} className="flex items-center gap-3">
+        <div key={field.fieldKey} className="flex items-center gap-3">
           <label className="flex cursor-pointer items-center gap-2">
             <input
               type="radio"
