@@ -51,12 +51,12 @@ export function renderHookWithProviders<TResult>(
  */
 export function renderWithProviders(
   ui: ReactNode,
-  services: Partial<AppServices> = {},
+  { path = '/', services = {} }: { path?: string; services?: Partial<AppServices> } = {},
 ): RenderResult {
   const Wrapper = buildWrapper(services);
   return render(
     <Wrapper>
-      <MemoryRouter>{ui}</MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>
     </Wrapper>,
   );
 }

@@ -23,6 +23,25 @@ function blankAlternative() {
   return { id: createId(), text: '' };
 }
 
+/**
+ * Drops the fields belonging to the type that was not chosen.
+ *
+ * The form keeps both shapes alive so switching type does not throw away what
+ * was already typed. What it submits has to be one of them: an open-ended
+ * question kept carrying the two blank alternatives the form starts with, and
+ * the stored schema refuses a blank alternative — so the record was written and
+ * then never read back again.
+ *
+ * The unwanted fields are set to `undefined` rather than omitted, so that
+ * editing a question into the other type clears them instead of leaving the
+ * previous ones behind on the merge.
+ */
+function onlyFieldsOfItsType(input: QuestionInput): QuestionInput {
+  return input.type === 'discursiva'
+    ? { ...input, alternatives: undefined, correctAlternativeId: undefined }
+    : { ...input, maxScore: undefined };
+}
+
 function emptyQuestion(): QuestionInput {
   const alternatives = [blankAlternative(), blankAlternative()];
   return {
@@ -74,7 +93,7 @@ export function QuestionFormPage() {
   }, [existing, reset]);
 
   const onSubmit = async (input: QuestionInput) => {
-    await save.mutateAsync({ id, input });
+    await save.mutateAsync({ id, input: onlyFieldsOfItsType(input) });
     void navigate(ROUTES.questions);
   };
 
@@ -144,7 +163,15 @@ export function QuestionFormPage() {
                 step="0.1"
                 min="0"
                 error={errors.maxScore?.message}
-                {...register('maxScore', { valueAsNumber: true })}
+                {...register('maxScore', {
+                  /**
+                   * `valueAsNumber` turns an empty field into `NaN`, which is a
+                   * number as far as the schema is concerned: the friendly
+                   * message never fired and Zod's own "received nan" reached
+                   * the screen in English. Empty means absent.
+                   */
+                  setValueAs: (value: string) => (value === '' ? undefined : Number(value)),
+                })}
               />
             )}
 
