@@ -8,6 +8,8 @@ interface AutoFillDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   bank: Question[];
+  /** The bank is still on its way, so there is nothing to draw from yet. */
+  bankPending: boolean;
   remainingSlots: number;
   onConfirm: (questions: Question[]) => void;
 }
@@ -23,6 +25,7 @@ export function AutoFillDialog({
   open,
   onOpenChange,
   bank,
+  bankPending,
   remainingSlots,
   onConfirm,
 }: Readonly<AutoFillDialogProps>) {
@@ -133,11 +136,18 @@ export function AutoFillDialog({
         )}
 
         <p className="text-caption text-ink-subtle" aria-live="polite">
-          {available.length} questões disponíveis com estes filtros · cabem {remainingSlots} nesta
-          prova
+          {bankPending
+            ? 'Carregando o banco de questões…'
+            : `${available.length} questões disponíveis com estes filtros · cabem ${remainingSlots} nesta prova`}
         </p>
 
-        <Button variant="secondary" onClick={generate}>
+        {/*
+          Drawing before the bank arrives finds nothing and then blames the
+          bank for being short, which is the one thing that is not true. The
+          screen opens straight into this dialog, so the race is the normal
+          case rather than a corner of it.
+        */}
+        <Button variant="secondary" onClick={generate} disabled={bankPending}>
           Gerar seleção
         </Button>
 

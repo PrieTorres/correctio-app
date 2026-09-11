@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Route, Routes } from 'react-router-dom'
+import { ROUTES } from '@/app/routes'
 import { createTeacherRepositories } from '@/lib/repositories'
 import { clearAllCollections } from '@/lib/storage/collection'
 import { renderWithProviders, TEST_TEACHER_ID } from '@/test-utils'
@@ -202,5 +204,50 @@ describe('ExamFormPage', () => {
     const drawer = await screen.findByRole('dialog')
 
     expect(within(drawer).queryByLabelText('Primeira questão')).toBeNull()
+  })
+})
+
+describe('ExamFormPage, the automatic draw', () => {
+  beforeEach(async () => {
+    clearAllCollections()
+    await seedBank()
+  })
+
+  function renderGenerateRoute() {
+    return renderWithProviders(
+      <Routes>
+        <Route path={ROUTES.generateExam} element={<ExamFormPage />} />
+      </Routes>,
+      { path: ROUTES.generateExam },
+    )
+  }
+
+  /**
+   * This screen opens straight into the dialog, so it is normally on screen
+   * before the bank arrives. Drawing then found nothing and reported that the
+   * bank was short, which is the one thing that was not true.
+   */
+  it('refuses to draw until the bank has arrived', async () => {
+    renderGenerateRoute()
+    const dialog = await screen.findByRole('dialog')
+
+    expect(within(dialog).getByRole('button', { name: /Gerar seleção/ })).toBeDisabled()
+    expect(within(dialog).getByText(/Carregando o banco/)).toBeVisible()
+  })
+
+  it('offers the draw once the bank is there', async () => {
+    renderGenerateRoute()
+    const dialog = await screen.findByRole('dialog')
+
+    await within(dialog).findByText(/questões disponíveis/)
+
+    expect(within(dialog).getByRole('button', { name: /Gerar seleção/ })).not.toBeDisabled()
+  })
+
+  it('does not blame the bank for being short before it has loaded', async () => {
+    renderGenerateRoute()
+    const dialog = await screen.findByRole('dialog')
+
+    expect(within(dialog).queryByRole('status')).toBeNull()
   })
 })

@@ -251,7 +251,21 @@ describe('geração automática', () => {
     cy.findInDialog('h2', 'Gerar prova automaticamente').should('be.visible')
   })
 
+  /**
+   * The screen opens straight into this dialog, so it is normally on screen
+   * before the bank has arrived. Drawing then finds nothing and blames the
+   * bank for being short, which is the one thing that is not true.
+   */
+  it('não deixa sortear enquanto o banco não chegou', () => {
+    cy.findInDialog('button', 'Gerar seleção').should('be.disabled')
+
+    cy.contains('questões disponíveis com estes filtros').should('be.visible')
+
+    cy.findInDialog('button', 'Gerar seleção').should('not.be.disabled')
+  })
+
   it('só libera usar a seleção depois de gerar', () => {
+    cy.contains('questões disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Usar esta seleção').should('be.disabled')
 
     cy.findInDialog('button', 'Gerar seleção').click()
@@ -260,12 +274,14 @@ describe('geração automática', () => {
   })
 
   it('avisa quando o banco não tinha tudo que foi pedido, em vez de falhar', () => {
+    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="status"]').should('contain', 'O banco não tinha tudo que você pediu')
   })
 
   it('filtra por tag antes de sortear', () => {
+    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"]').contains('label', 'Álgebra Linear').click()
     cy.findInDialog('button', 'Gerar seleção').click()
 
@@ -278,6 +294,7 @@ describe('geração automática', () => {
    * case the next test covers.
    */
   it('troca uma questão sorteada por outra do mesmo tipo', () => {
+    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('2')
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.get('[role="dialog"] ul li').should('have.length', 2)
@@ -291,6 +308,7 @@ describe('geração automática', () => {
   })
 
   it('inclui discursivas quando pedido', () => {
+    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('1')
     cy.findInDialog('span', 'Incluir discursivas').click()
     cy.findInDialog('button', 'Gerar seleção').click()
@@ -299,6 +317,7 @@ describe('geração automática', () => {
   })
 
   it('não sorteia discursiva quando não foi pedida', () => {
+    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('4')
     cy.findInDialog('button', 'Gerar seleção').click()
 
@@ -306,6 +325,7 @@ describe('geração automática', () => {
   })
 
   it('diz que não há substituta quando o banco se esgotou', () => {
+    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"]').contains('label', 'Álgebra Linear').click()
     cy.findInDialog('button', 'Gerar seleção').click()
 
@@ -315,6 +335,7 @@ describe('geração automática', () => {
   })
 
   it('remove da prévia sem sortear de novo', () => {
+    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="dialog"] ul li').then((items) => {
@@ -324,6 +345,7 @@ describe('geração automática', () => {
   })
 
   it('leva a prévia para o formulário ao confirmar', () => {
+    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.findInDialog('button', 'Usar esta seleção').click()
 

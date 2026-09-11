@@ -45,7 +45,12 @@ export function ExamFormPage() {
   const save = useSaveExam();
 
   const { data: existing, isPending, isError } = useExam(id);
-  const { data: bankPage } = useQuestionList({ search: '', type: 'all', tags: [], deleted: false });
+  const { data: bankPage, isPending: bankPending } = useQuestionList({
+    search: '',
+    type: 'all',
+    tags: [],
+    deleted: false,
+  });
   const bank = useMemo(() => bankPage?.items ?? [], [bankPage]);
 
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -268,6 +273,7 @@ export function ExamFormPage() {
           open={autoFillOpen}
           onOpenChange={setAutoFillOpen}
           bank={bank}
+          bankPending={bankPending}
           remainingSlots={MAX_QUESTIONS - questions.length}
           onConfirm={addFromBank}
         />
