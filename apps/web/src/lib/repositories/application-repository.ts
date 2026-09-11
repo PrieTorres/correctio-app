@@ -12,8 +12,8 @@ import type { OwnedRepository } from './types'
  * let students see their grades.
  */
 export interface ApplicationRepository extends OwnedRepository<Application, ApplicationInput> {
-  markGenerated: (id: string) => Promise<void>
-  setGradesReleased: (id: string, released: boolean) => Promise<void>
+  markGenerated: (id: string) => Promise<Application>
+  setGradesReleased: (id: string, released: boolean) => Promise<Application>
 }
 
 /**
@@ -43,14 +43,21 @@ export function createLocalApplicationRepository(teacherId: string): Application
     sortKey: (item) => item.date,
   })
 
-  const change = (id: string, transform: (application: Application) => Application): void => {
+  /** Returns what was stored, so a caller can refresh its cache without re-reading. */
+  const change = (
+    id: string,
+    transform: (application: Application) => Application,
+  ): Application => {
     const all = collection.readAll()
     const index = all.findIndex((item) => item.id === id && item.teacherId === teacherId)
     const application = all[index]
     if (application === undefined) {
       throw new StorageError('Aplicação não encontrada.', 'not-found')
     }
-    collection.writeAll(all.with(index, transform(application)))
+
+    const next = transform(application)
+    collection.writeAll(all.with(index, next))
+    return next
   }
 
   return {
@@ -58,12 +65,12 @@ export function createLocalApplicationRepository(teacherId: string): Application
 
     async markGenerated(id) {
       await simulateLatency()
-      change(id, (application) => ({ ...application, status: 'generated' }))
+      return change(id, (application) => ({ ...application, status: 'generated' }))
     },
 
     async setGradesReleased(id, released) {
       await simulateLatency()
-      change(id, (application) => ({ ...application, gradesReleased: released }))
+      return change(id, (application) => ({ ...application, gradesReleased: released }))
     },
   }
 }

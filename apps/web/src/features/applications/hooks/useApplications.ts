@@ -156,13 +156,26 @@ export function usePublishAnswerKey() {
   });
 }
 
+/**
+ * Releasing writes the result straight into the cache before invalidating.
+ *
+ * Invalidating alone marks a screen that is not on display as stale without
+ * refetching it, so coming back to the detail rendered the value from before
+ * the change while the refetch was still in flight. A person clicking in that
+ * window toggles what they are looking at, which is the opposite of what they
+ * meant.
+ */
 export function useReleaseGrades() {
   const { repositories } = useServices();
+  const queryClient = useQueryClient();
   const invalidate = useInvalidateApplications();
 
   return useMutation({
     mutationFn: ({ id, released }: { id: string; released: boolean }) =>
       repositories.applications.setGradesReleased(id, released),
-    onSuccess: invalidate,
+    onSuccess: (application) => {
+      queryClient.setQueryData(applicationKeys.detail(application.id), application);
+      return invalidate();
+    },
   });
 }

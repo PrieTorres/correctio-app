@@ -308,18 +308,18 @@ describe('geração automática', () => {
     cy.get('[role="dialog"] ul li').should('have.length', 2)
 
     /*
-      Compared by the button's own label rather than by the row's text. The
-      statements carry parentheses, a slash and an arrow, and a substring match
-      on that is a selector waiting to be misread; the label names exactly one
-      question and changes when it is swapped.
+      The label is held in a plain variable, not an alias. An alias made from a
+      query is re-run when it is read back, so reading it after the click gave
+      the label the row had by then and the assertion compared it with itself.
     */
-    swapButtonOfFirstRow().invoke('attr', 'aria-label').as('before')
-    swapButtonOfFirstRow().click()
+    swapButtonOfFirstRow()
+      .invoke('attr', 'aria-label')
+      .then((before) => {
+        swapButtonOfFirstRow().click()
 
-    cy.get('@before').then((before) => {
-      swapButtonOfFirstRow().should('not.have.attr', 'aria-label', String(before))
-    })
-    cy.get('[role="dialog"] ul li').should('have.length', 2)
+        swapButtonOfFirstRow().should('not.have.attr', 'aria-label', before)
+        cy.get('[role="dialog"] ul li').should('have.length', 2)
+      })
   })
 
   it('inclui discursivas quando pedido', () => {

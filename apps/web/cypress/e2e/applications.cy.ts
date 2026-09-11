@@ -156,10 +156,25 @@ describe('detalhe da aplicação', () => {
   })
 
   it('libera e recolhe a consulta de nota', () => {
-    cy.contains('label', 'Liberar a consulta de nota').find('input').check()
+    const toggle = () => cy.contains('label', 'Liberar a consulta de nota').find('input')
 
-    cy.visit('/aplicacoes')
+    /*
+      Left through the app's own link rather than `cy.visit`. The write is
+      asynchronous, and reloading the page while it is in flight throws it away
+      — which is what a person does not do, and what made this look broken.
+    */
+    toggle().check()
+    cy.contains('a', 'Aplicações').click()
     cy.contains('a', ALREADY_GENERATED).closest('li').should('contain', 'Notas liberadas')
+
+    cy.contains('a', ALREADY_GENERATED).click()
+    toggle().uncheck()
+    cy.contains('a', 'Aplicações').click()
+    cy.contains('a', ALREADY_GENERATED).closest('li').should('not.contain', 'Notas liberadas')
+
+    /* Reloading only now, to prove the choice was stored and not only cached. */
+    cy.reload()
+    cy.contains('a', ALREADY_GENERATED).closest('li').should('not.contain', 'Notas liberadas')
   })
 
   it('mostra o progresso da correção', () => {
