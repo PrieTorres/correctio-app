@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { classSchema, questionSchema, studentSchema } from '@/lib/schemas'
+import { classSchema, examSchema, questionSchema, studentSchema } from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 import { clearDemoData, hasDemoData, resetDemoData, seedIfEmpty } from '../index'
 
 const classes = () => createCollection('classes', classSchema).readAll()
 const students = () => createCollection('students', studentSchema).readAll()
 const questions = () => createCollection('questions', questionSchema).readAll()
+const exams = () => createCollection('exams', examSchema).readAll()
 
 describe('demo data', () => {
   beforeEach(() => window.localStorage.clear())
@@ -39,6 +40,34 @@ describe('demo data', () => {
       if (question.type !== 'objetiva') continue
       const ids = (question.alternatives ?? []).map((alternative) => alternative.id)
       expect(ids).toContain(question.correctAlternativeId)
+    }
+  })
+
+  it('seeds exams, including an archived one for the filter to show', () => {
+    seedIfEmpty()
+
+    expect(exams().length).toBeGreaterThan(0)
+    expect(exams().some((item) => item.status === 'closed')).toBe(true)
+  })
+
+  it('builds every exam out of questions that are really in the bank', () => {
+    seedIfEmpty()
+
+    const bank = new Set(questions().map((item) => item.id))
+    for (const exam of exams()) {
+      for (const entry of exam.questions) {
+        expect(bank).toContain(entry.questionId)
+      }
+    }
+  })
+
+  it('numbers the questions of an exam from zero, without gaps', () => {
+    seedIfEmpty()
+
+    for (const exam of exams()) {
+      expect(exam.questions.map((entry) => entry.order)).toEqual(
+        exam.questions.map((_, index) => index),
+      )
     }
   })
 
@@ -85,6 +114,7 @@ describe('clearDemoData', () => {
     expect(classes()).toHaveLength(0)
     expect(students()).toHaveLength(0)
     expect(questions()).toHaveLength(0)
+    expect(exams()).toHaveLength(0)
   })
 
   it('keeps the next visit from silently seeding again', () => {

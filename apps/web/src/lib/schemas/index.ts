@@ -209,6 +209,19 @@ export const examSchema = z.object({
   defaultShuffleAlternatives: z.boolean(),
 });
 
+/**
+ * What the exam form submits. Identity and status are the repository's
+ * business, and the score total is deliberately unchecked: closing the exam on
+ * ten points is the teacher's call, not a rule the system enforces.
+ */
+export const examInputSchema = z.object({
+  title: z.string().min(1, 'Informe o título da prova').max(200),
+  description: z.string(),
+  questions: z.array(examQuestionSchema).max(20, 'Máximo de 20 questões por prova'),
+  defaultShuffleQuestions: z.boolean(),
+  defaultShuffleAlternatives: z.boolean(),
+});
+
 export const applicationStatusSchema = z.enum(['draft', 'generated', 'closed']);
 
 export const applicationSchema = z.object({
@@ -285,3 +298,4 @@ export type StudentInput = z.infer<typeof studentInputSchema>;
 export type QuestionInput = z.infer<typeof questionInputSchema>;
 export type SignInInput = z.infer<typeof signInSchema>;
 export type SignUpInput = z.infer<typeof signUpSchema>;
+export type ExamInput = z.infer<typeof examInputSchema>;

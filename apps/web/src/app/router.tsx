@@ -3,6 +3,7 @@ import { AppLayout } from './layouts/AppLayout'
 import { PlaceholderPage } from './PlaceholderPage'
 import { ROUTES } from './routes'
 import { ClassDetailPage, ClassListPage } from '@/features/classes'
+import { ExamDetailPage, ExamFormPage, ExamListPage } from '@/features/exams'
 import { QuestionFormPage, QuestionListPage } from '@/features/questions'
 import { SignInPage, SignUpPage } from '@/features/auth'
 
@@ -15,11 +16,6 @@ const placeholder = (path: string, screen: string): RouteObject => ({
 const TEACHER_PLACEHOLDERS: RouteObject[] = [
   placeholder(ROUTES.dashboard, 'P1. Painel'),
   placeholder(ROUTES.profile, 'P2. Meu perfil'),
-  placeholder(ROUTES.exams, 'P8. Provas'),
-  placeholder(ROUTES.newExam, 'P9. Prova — criar'),
-  placeholder(ROUTES.generateExam, 'P9b. Gerar automaticamente'),
-  placeholder(ROUTES.examDetail, 'P10. Prova — detalhe'),
-  placeholder(ROUTES.editExam, 'P9. Prova — editar'),
   placeholder(ROUTES.applications, 'P11. Aplicações'),
   placeholder(ROUTES.newApplication, 'P12. Aplicação — criar'),
   placeholder(ROUTES.applicationDetail, 'P14. Aplicação — detalhe'),
@@ -55,6 +51,11 @@ export const router = createBrowserRouter(
         { path: ROUTES.questions, element: <QuestionListPage /> },
         { path: ROUTES.newQuestion, element: <QuestionFormPage /> },
         { path: ROUTES.questionDetail, element: <QuestionFormPage /> },
+        { path: ROUTES.exams, element: <ExamListPage /> },
+        { path: ROUTES.newExam, element: <ExamFormPage /> },
+        { path: ROUTES.generateExam, element: <ExamFormPage /> },
+        { path: ROUTES.examDetail, element: <ExamDetailPage /> },
+        { path: ROUTES.editExam, element: <ExamFormPage /> },
         ...TEACHER_PLACEHOLDERS,
       ],
     },

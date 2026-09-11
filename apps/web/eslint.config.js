@@ -9,6 +9,21 @@ const DIRECTIVE = /^\s*(eslint|@ts-|global|prettier|c8|v8|istanbul|type|jsx)/;
 const ACCENTED_LETTER = /[\u00C0-\u00FF]/;
 
 /**
+ * Domain literals and identifiers are quoted, and quoting a Portuguese one
+ * inside an English sentence is correct. Only the prose around them is checked.
+ *
+ * `scripts/check-comment-language.mjs` covers the files ESLint cannot reach and
+ * has to agree with this: two checkers of the same rule disagreeing means one
+ * of them is wrong, and nobody knows which.
+ */
+function proseOnly(text) {
+  return text
+    .replace(/`[^`]*`/g, '')
+    .replace(/'[^']*'/g, '')
+    .replace(/"[^"]*"/g, '');
+}
+
+/**
  * Rules the team agreed on that no published plugin enforces.
  *
  * Both exist because the same mistake kept coming back through review: review
@@ -55,7 +70,7 @@ const conventions = {
         return {
           Program() {
             for (const comment of context.sourceCode.getAllComments()) {
-              if (!ACCENTED_LETTER.test(comment.value)) continue;
+              if (!ACCENTED_LETTER.test(proseOnly(comment.value))) continue;
               context.report({
                 loc: comment.loc,
                 message: 'Write comments in English. Portuguese belongs in the interface and the docs.',
