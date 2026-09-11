@@ -134,11 +134,19 @@ describe('formulário de questão', () => {
     cy.contains('corrige as objetivas sozinho').should('be.visible')
   })
 
+  /**
+   * Scoped to the rows: "Objetiva" is also the text of a filter segment above
+   * them, and an unscoped match lands there instead.
+   */
   it('distingue os dois tipos por cor e por ícone na lista', () => {
     cy.visit('/questoes')
 
-    cy.contains('span', 'Objetiva').find('svg').should('exist')
-    cy.contains('span', 'Discursiva').find('svg').should('exist')
+    cy.contains('sen(x)/x').closest('li').contains('span', 'Objetiva').find('svg').should('exist')
+    cy.contains('Explique com suas palavras')
+      .closest('li')
+      .contains('span', 'Discursiva')
+      .find('svg')
+      .should('exist')
   })
 
   it('mostra as tags como chips próprios', () => {

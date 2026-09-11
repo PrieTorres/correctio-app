@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2 } from 'lucide-react';
-import { Button, Modal } from '@/components/ui';
+import { Button, Modal, NumberInput } from '@/components/ui';
 import { drawQuestions, redrawQuestion } from '@/lib/exams';
 import type { Question } from '@/types/domain';
 
@@ -108,7 +108,7 @@ export function AutoFillDialog({
           </fieldset>
         )}
 
-        <NumberField
+        <CountField
           label="Quantas objetivas"
           value={multipleChoiceCount}
           onChange={setMultipleChoiceCount}
@@ -125,7 +125,7 @@ export function AutoFillDialog({
         </label>
 
         {includeOpenEnded && (
-          <NumberField
+          <CountField
             label="Quantas discursivas"
             value={openEndedCount}
             onChange={setOpenEndedCount}
@@ -214,22 +214,17 @@ function IconButton({
   );
 }
 
-function NumberField({
+function CountField({
   label,
   value,
   onChange,
 }: Readonly<{ label: string; value: number; onChange: (value: number) => void }>) {
   return (
-    <label className="flex items-center justify-between gap-3">
-      <span className="text-label text-ink-muted">{label}</span>
-      <input
-        type="number"
-        min="0"
-        max="20"
-        value={value}
-        onChange={(event) => onChange(Math.max(0, Number(event.target.value)))}
-        className="w-24 rounded-[var(--radius-control)] border border-line px-3 py-2 text-body focus:outline-none focus-visible:border-primary"
-      />
-    </label>
+    <div className="flex items-center justify-between gap-3">
+      <span aria-hidden className="text-label text-ink-muted">
+        {label}
+      </span>
+      <NumberInput value={value} onValueChange={onChange} max={20} label={label} className="w-24" />
+    </div>
   );
 }

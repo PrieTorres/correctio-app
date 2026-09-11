@@ -12,6 +12,7 @@ export {
   SearchIllustration,
 } from './illustrations'
 export { Modal } from './Modal'
+export { NumberInput } from './NumberInput'
 export { PageHeader } from './PageHeader'
 export { QueryBoundary } from './QueryBoundary'
 export { SearchInput } from './SearchInput'

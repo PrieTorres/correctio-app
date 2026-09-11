@@ -184,15 +184,31 @@ describe('formulário de prova', () => {
     cy.get('ol li').last().should('contain', 'sen(x)/x')
   })
 
+  /**
+   * Driven with pointer events rather than a keyboard, because dnd-kit decides
+   * where a drag lands from measured positions: it needs a real pointer moving
+   * past the activation distance and over the row it should displace.
+   */
   it('reordena arrastando pela alça', () => {
     addFromBank(LIMITS, DERIVATIVE)
     cy.get('ol li').first().should('contain', 'sen(x)/x')
 
-    cy.get('button[aria-label="Arrastar a questão 1 de 2"]')
-      .focus()
-      .type(' ', { force: true })
-      .type('{downarrow}', { force: true })
-      .type(' ', { force: true })
+    cy.get('ol li')
+      .eq(1)
+      .then(($target) => {
+        const { top, height } = $target[0].getBoundingClientRect()
+        const landing = top + height / 2
+
+        cy.get('button[aria-label="Arrastar a questão 1 de 2"]').trigger('pointerdown', {
+          button: 0,
+          isPrimary: true,
+          eventConstructor: 'PointerEvent',
+        })
+        cy.get('body')
+          .trigger('pointermove', { clientX: 20, clientY: landing - 40, eventConstructor: 'PointerEvent' })
+          .trigger('pointermove', { clientX: 20, clientY: landing, eventConstructor: 'PointerEvent' })
+          .trigger('pointerup', { eventConstructor: 'PointerEvent' })
+      })
 
     cy.get('ol li').last().should('contain', 'sen(x)/x')
   })
@@ -262,7 +278,7 @@ describe('geração automática', () => {
    * case the next test covers.
    */
   it('troca uma questão sorteada por outra do mesmo tipo', () => {
-    cy.findInDialog('label', 'Quantas objetivas').find('input').clear().type('2')
+    cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('2')
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.get('[role="dialog"] ul li').should('have.length', 2)
     cy.get('[role="dialog"] ul li').first().invoke('text').as('drawn')
@@ -275,15 +291,15 @@ describe('geração automática', () => {
   })
 
   it('inclui discursivas quando pedido', () => {
-    cy.findInDialog('label', 'Quantas objetivas').find('input').clear().type('1')
-    cy.findInDialog('label', 'Incluir discursivas').click()
+    cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('1')
+    cy.findInDialog('span', 'Incluir discursivas').click()
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="dialog"] ul li').should('have.length', 2)
   })
 
   it('não sorteia discursiva quando não foi pedida', () => {
-    cy.findInDialog('label', 'Quantas objetivas').find('input').clear().type('4')
+    cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('4')
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="dialog"] ul li').should('not.contain', 'Explique com suas palavras')
