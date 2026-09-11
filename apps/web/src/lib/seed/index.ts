@@ -1,5 +1,5 @@
-import type { Class, Question, Student } from '@/types/domain'
-import { classSchema, questionSchema, studentSchema } from '@/lib/schemas'
+import type { Class, Exam, ExamQuestion, Question, Student } from '@/types/domain'
+import { classSchema, examSchema, questionSchema, studentSchema } from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 
 /**
@@ -119,10 +119,71 @@ const QUESTIONS: Question[] = [
   },
 ]
 
+function examQuestions(entries: readonly (readonly [string, number])[]): ExamQuestion[] {
+  return entries.map(([questionId, score], order) => ({
+    questionId,
+    order,
+    score,
+    allowShuffleAlternatives:
+      QUESTIONS.find((question) => question.id === questionId)?.allowShuffleAlternatives ?? true,
+  }))
+}
+
+const EXAMS: Exam[] = [
+  {
+    id: 'exam-calculus-midterm',
+    teacherId: TEACHER_ID,
+    title: 'Cálculo I — Prova 1',
+    description: 'Limites e derivadas, conteúdo até a aula 8.',
+    questions: examQuestions([
+      ['question-limits', 2.5],
+      ['question-derivative', 2.5],
+      ['question-essay-limits', 2.5],
+    ]),
+    status: 'ready',
+    defaultShuffleQuestions: true,
+    defaultShuffleAlternatives: true,
+  },
+  {
+    id: 'exam-linear-algebra-midterm',
+    teacherId: TEACHER_ID,
+    title: 'Álgebra Linear — Prova 1',
+    description: 'Matrizes e vetores.',
+    questions: examQuestions([
+      ['question-matrix', 4],
+      ['question-essay-vectors', 6],
+    ]),
+    status: 'draft',
+    defaultShuffleQuestions: true,
+    defaultShuffleAlternatives: false,
+  },
+  {
+    id: 'exam-physics-quiz',
+    teacherId: TEACHER_ID,
+    title: 'Física II — Teste rápido',
+    description: 'Mecânica, sem consulta.',
+    questions: examQuestions([['question-newton', 10]]),
+    status: 'draft',
+    defaultShuffleQuestions: false,
+    defaultShuffleAlternatives: true,
+  },
+  {
+    id: 'exam-calculus-2025',
+    teacherId: TEACHER_ID,
+    title: 'Cálculo I — Prova 1 (2025/2)',
+    description: 'Prova do semestre encerrado, mantida para consulta.',
+    questions: examQuestions([['question-limits', 10]]),
+    status: 'closed',
+    defaultShuffleQuestions: true,
+    defaultShuffleAlternatives: true,
+  },
+]
+
 function seed(): void {
   createCollection('classes', classSchema).writeAll(CLASSES)
   createCollection('students', studentSchema).writeAll(STUDENTS)
   createCollection('questions', questionSchema).writeAll(QUESTIONS)
+  createCollection('exams', examSchema).writeAll(EXAMS)
   window.localStorage.setItem(SEED_MARKER, new Date().toISOString())
 }
 

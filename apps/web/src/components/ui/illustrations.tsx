@@ -77,6 +77,21 @@ export function QuestionsIllustration({ className }: IllustrationProps) {
   );
 }
 
+/** Two stacked sheets: one exam built once and printed many times. */
+export function ExamsIllustration({ className }: IllustrationProps) {
+  return (
+    <Frame className={className}>
+      <rect x="24" y="26" width="72" height="80" rx="8" fill={FILL_SOFT} />
+      <rect x="24" y="26" width="72" height="80" rx="8" stroke={STROKE} strokeWidth="2.5" />
+      <rect x="52" y="14" width="72" height="80" rx="8" fill="var(--color-surface)" />
+      <rect x="52" y="14" width="72" height="80" rx="8" stroke={STROKE} strokeWidth="2.5" />
+      <path d="M66 34h44M66 48h44M66 62h28" stroke={STROKE} strokeWidth="2.5" opacity="0.45" />
+      <circle cx="104" cy="76" r="12" fill={ACCENT} stroke={STROKE} strokeWidth="2.5" />
+      <path d="M99 76l4 4 7-8" stroke={STROKE} strokeWidth="2.5" />
+    </Frame>
+  );
+}
+
 /** A magnifier over a list: the search matched nothing. */
 export function SearchIllustration({ className }: IllustrationProps) {
   return (

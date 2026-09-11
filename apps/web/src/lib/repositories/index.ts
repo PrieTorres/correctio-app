@@ -1,14 +1,16 @@
 import { createLocalClassRepository, type ClassRepository } from './class-repository'
+import { createLocalExamRepository, type ExamRepository } from './exam-repository'
 import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
 import { createLocalStudentRepository, type StudentRepository } from './student-repository'
 
 export * from './types'
-export type { ClassRepository, QuestionRepository, StudentRepository }
+export type { ClassRepository, ExamRepository, QuestionRepository, StudentRepository }
 
 export interface TeacherRepositories {
   classes: ClassRepository
   students: StudentRepository
   questions: QuestionRepository
+  exams: ExamRepository
 }
 
 /**
@@ -26,5 +28,6 @@ export function createTeacherRepositories(teacherId: string): TeacherRepositorie
     classes: createLocalClassRepository(teacherId),
     students: createLocalStudentRepository(),
     questions: createLocalQuestionRepository(teacherId),
+    exams: createLocalExamRepository(teacherId),
   }
 }
