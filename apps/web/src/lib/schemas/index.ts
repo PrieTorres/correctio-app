@@ -22,6 +22,23 @@ export const authenticatedUserSchema = z.object({
   anonymizedAt: timestamp.optional(),
 });
 
+export const signInSchema = z.object({
+  email: z.string().email('Informe um e-mail válido'),
+  password: z.string().min(6, 'A senha precisa ter ao menos 6 caracteres'),
+});
+
+export const signUpSchema = z
+  .object({
+    fullName: z.string().min(1, 'Informe seu nome completo').max(160),
+    email: z.string().email('Informe um e-mail válido'),
+    password: z.string().min(6, 'A senha precisa ter ao menos 6 caracteres'),
+    confirmPassword: z.string().min(1, 'Confirme a senha'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'As senhas não coincidem',
+    path: ['confirmPassword'],
+  });
+
 export const classStatusSchema = z.enum(['active', 'archived']);
 
 export const classSchema = z.object({
@@ -266,3 +283,5 @@ export const correctionSchema = z.object({
 export type ClassInput = z.infer<typeof classInputSchema>;
 export type StudentInput = z.infer<typeof studentInputSchema>;
 export type QuestionInput = z.infer<typeof questionInputSchema>;
+export type SignInInput = z.infer<typeof signInSchema>;
+export type SignUpInput = z.infer<typeof signUpSchema>;

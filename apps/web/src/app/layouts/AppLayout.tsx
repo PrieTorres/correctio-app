@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   ClipboardCheck,
@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/app/routes';
 import { DemoDataControls } from '@/components/DemoDataControls';
+import { useCurrentUser, useSignOut } from '@/features/auth';
 
 interface NavItem {
   to: string;
@@ -34,6 +35,14 @@ const NAV_ITEMS: readonly NavItem[] = [
 export function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = () => setDrawerOpen(false);
+  const navigate = useNavigate();
+  const { data: currentUser } = useCurrentUser();
+  const signOut = useSignOut();
+
+  const handleSignOut = async () => {
+    await signOut.mutateAsync();
+    void navigate(ROUTES.signIn);
+  };
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -106,6 +115,18 @@ export function AppLayout() {
         </ul>
 
         <div className="flex flex-col gap-4 border-t border-line px-4 py-4">
+          {currentUser && (
+            <div className="flex items-center justify-between gap-2 px-2">
+              <span className="truncate text-label text-ink-muted">{currentUser.fullName}</span>
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                className="shrink-0 text-label text-primary hover:underline"
+              >
+                Sair
+              </button>
+            </div>
+          )}
           <DemoDataControls />
           <NavLink
             to={ROUTES.privacy}
