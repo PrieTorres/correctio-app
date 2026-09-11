@@ -8,10 +8,10 @@ describe('autenticação', () => {
     cy.visit('/criar-conta')
     cy.contains('h1', 'Criar conta').should('be.visible')
 
-    cy.findByLabelOrPlaceholder('Nome completo').type('Ana Ribeiro')
-    cy.findByLabelOrPlaceholder('E-mail').type('ana.ribeiro@exemplo.edu.br')
-    cy.findByLabelOrPlaceholder('Senha').type('senha123')
-    cy.findByLabelOrPlaceholder('Confirmar senha').type('senha123')
+    cy.findByLabel('Nome completo').type('Ana Ribeiro')
+    cy.findByLabel('E-mail').type('ana.ribeiro@exemplo.edu.br')
+    cy.findByLabel('Senha').type('senha123')
+    cy.findByLabel('Confirmar senha').type('senha123')
     cy.contains('button', 'Criar conta').click()
 
     cy.location('pathname').should('eq', '/painel')
@@ -21,10 +21,10 @@ describe('autenticação', () => {
     cy.visit('/criar-conta')
     cy.contains('h1', 'Criar conta').should('be.visible')
 
-    cy.findByLabelOrPlaceholder('Nome completo').type('Ana Ribeiro')
-    cy.findByLabelOrPlaceholder('E-mail').type('ana.ribeiro@exemplo.edu.br')
-    cy.findByLabelOrPlaceholder('Senha').type('senha123')
-    cy.findByLabelOrPlaceholder('Confirmar senha').type('outrasenha')
+    cy.findByLabel('Nome completo').type('Ana Ribeiro')
+    cy.findByLabel('E-mail').type('ana.ribeiro@exemplo.edu.br')
+    cy.findByLabel('Senha').type('senha123')
+    cy.findByLabel('Confirmar senha').type('outrasenha')
     cy.contains('button', 'Criar conta').click()
 
     cy.contains('As senhas não coincidem').should('be.visible')
@@ -35,8 +35,8 @@ describe('autenticação', () => {
     cy.visit('/entrar')
     cy.contains('h1', 'Entrar').should('be.visible')
 
-    cy.findByLabelOrPlaceholder('E-mail').type('ana.ribeiro@exemplo.edu.br')
-    cy.findByLabelOrPlaceholder('Senha').type('senha123')
+    cy.findByLabel('E-mail').type('ana.ribeiro@exemplo.edu.br')
+    cy.findByLabel('Senha').type('senha123')
     cy.contains('button', 'Entrar').click()
 
     cy.location('pathname').should('eq', '/painel')
@@ -57,8 +57,8 @@ describe('autenticação', () => {
     cy.visit('/entrar')
     cy.contains('h1', 'Entrar').should('be.visible')
 
-    cy.findByLabelOrPlaceholder('E-mail').type('ana.ribeiro@exemplo.edu.br')
-    cy.findByLabelOrPlaceholder('Senha').type('senha123')
+    cy.findByLabel('E-mail').type('ana.ribeiro@exemplo.edu.br')
+    cy.findByLabel('Senha').type('senha123')
     cy.contains('button', 'Entrar').click()
     cy.location('pathname').should('eq', '/painel')
 
