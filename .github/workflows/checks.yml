@@ -1,0 +1,65 @@
+name: Verificação sob demanda
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_e2e:
+        description: 'Rodar também os testes Cypress'
+        type: boolean
+        default: true
+
+# Lets any branch be checked without opening a Pull Request, which is what the
+# team needs while a screen is still half built.
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Lint, tipos, testes e build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Resumo
+        run: |
+          {
+            echo "### Verificação de \`${{ github.ref_name }}\`"
+            echo ""
+            echo "Lint, tipos, testes unitários e build passaram."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  e2e:
+    name: Cypress
+    runs-on: ubuntu-latest
+    needs: verificar
+    if: ${{ inputs.run_e2e }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:e2e
+
+      # Screenshots are the whole point of running this from a machine that
+      # cannot start Cypress locally.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-screenshots
+          path: apps/web/cypress/screenshots
+          retention-days: 5

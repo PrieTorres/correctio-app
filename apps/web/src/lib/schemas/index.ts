@@ -115,6 +115,63 @@ export const questionSchema = z
     }
   });
 
+/**
+ * What the question form submits. The identity and the soft-delete marker are
+ * the repository's business, not the form's.
+ */
+export const questionInputSchema = z
+  .object({
+    type: questionTypeSchema,
+    statement: z.string().min(1, 'Informe o enunciado'),
+    tags: z.array(z.string().min(1)),
+    alternatives: z.array(z.object({ id, text: z.string() })).optional(),
+    correctAlternativeId: id.optional(),
+    maxScore: z.number().positive('A nota máxima precisa ser maior que zero').optional(),
+    allowShuffleAlternatives: z.boolean(),
+  })
+  .superRefine((question, ctx) => {
+    if (question.type === 'discursiva') {
+      if (question.maxScore === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['maxScore'],
+          message: 'Informe a nota máxima da questão discursiva',
+        })
+      }
+      return
+    }
+
+    const alternatives = question.alternatives ?? []
+    if (alternatives.length < 2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['alternatives'],
+        message: 'Uma questão objetiva precisa de ao menos 2 alternativas',
+      })
+    }
+    if (alternatives.length > 5) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['alternatives'],
+        message: 'Máximo de 5 alternativas',
+      })
+    }
+    if (alternatives.some((item) => item.text.trim() === '')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['alternatives'],
+        message: 'Preencha o texto de todas as alternativas',
+      })
+    }
+    if (!alternatives.some((item) => item.id === question.correctAlternativeId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['correctAlternativeId'],
+        message: 'Marque qual alternativa é a correta',
+      })
+    }
+  })
+
 export const examQuestionSchema = z.object({
   questionId: id,
   order: z.number().int().nonnegative(),
@@ -208,3 +265,4 @@ export const correctionSchema = z.object({
 
 export type ClassInput = z.infer<typeof classInputSchema>;
 export type StudentInput = z.infer<typeof studentInputSchema>;
+export type QuestionInput = z.infer<typeof questionInputSchema>;

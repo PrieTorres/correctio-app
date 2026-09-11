@@ -4,16 +4,46 @@ import { simulateLatency } from '@/lib/storage/collection'
 import { StorageError } from '@/lib/storage/errors'
 import type { ListParams, OwnedRepository, Page } from './types'
 
-/**
- * Shape shared by every teacher-owned entity that can be archived.
- *
- * The specification models archiving as a `status` enum rather than a
- * timestamp, so that is what the factory works with.
- */
 interface OwnedEntity {
   id: string
   teacherId: string
-  status: string
+}
+
+/**
+ * How an entity records that it is out of circulation.
+ *
+ * The specification is not uniform about this: `Class`, `Exam` and
+ * `Application` carry a status enum, while `Question` carries a `deletedAt`
+ * timestamp. Both are soft deletes, so the difference is spelling rather than
+ * behaviour, and it stays here instead of forcing a second repository.
+ */
+export interface ArchivingStrategy<TEntity> {
+  isArchived: (entity: TEntity) => boolean
+  setArchived: (entity: TEntity, archived: boolean) => TEntity
+}
+
+/** For entities the specification gives a status enum. */
+export function archiveByStatus<TEntity extends { status: string }>(
+  active: TEntity['status'],
+  archived: TEntity['status'],
+): ArchivingStrategy<TEntity> {
+  return {
+    isArchived: (entity) => entity.status === archived,
+    setArchived: (entity, isArchived) => ({ ...entity, status: isArchived ? archived : active }),
+  }
+}
+
+/** For entities the specification gives a nullable timestamp. */
+export function archiveByTimestamp<TEntity, TKey extends keyof TEntity>(
+  field: TKey,
+): ArchivingStrategy<TEntity> {
+  return {
+    isArchived: (entity) => entity[field] !== undefined,
+    setArchived: (entity, isArchived) => ({
+      ...entity,
+      [field]: isArchived ? new Date().toISOString() : undefined,
+    }),
+  }
 }
 
 interface Config<TEntity extends OwnedEntity, TInput> {
@@ -21,8 +51,7 @@ interface Config<TEntity extends OwnedEntity, TInput> {
   teacherId: string
   /** Label used in user-facing error messages. */
   label: string
-  /** Status values marking a record as live and as archived, in that order. */
-  statuses: readonly [active: TEntity['status'], archived: TEntity['status']]
+  archiving: ArchivingStrategy<TEntity>
   toEntity: (input: TInput, base: { id: string; teacherId: string }) => TEntity
   searchableFields: (entity: TEntity) => string[]
   sortKey: (entity: TEntity) => string
@@ -39,13 +68,11 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
   collection,
   teacherId,
   label,
-  statuses,
+  archiving,
   toEntity,
   searchableFields,
   sortKey,
 }: Config<TEntity, TInput>): OwnedRepository<TEntity, TInput> {
-  const [ACTIVE, ARCHIVED] = statuses
-
   const readOwned = (): TEntity[] =>
     collection.readAll().filter((entity) => entity.teacherId === teacherId)
 
@@ -61,11 +88,11 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
     return [index, entity]
   }
 
-  const setStatus = async (id: string, status: TEntity['status']): Promise<void> => {
+  const setArchived = async (id: string, archived: boolean): Promise<void> => {
     await simulateLatency()
     const items = readOwned()
     const [index, entity] = requireEntry(items, id)
-    persist(items.with(index, { ...entity, status }))
+    persist(items.with(index, archiving.setArchived(entity, archived)))
   }
 
   return {
@@ -73,10 +100,9 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
       await simulateLatency()
 
       const { search = '', includeArchived = false, page = 1, pageSize = 50 } = params
-      const wanted = includeArchived ? ARCHIVED : ACTIVE
 
       const matches = readOwned()
-        .filter((entity) => entity.status === wanted)
+        .filter((entity) => archiving.isArchived(entity) === includeArchived)
         .filter((entity) => matchesSearch(search, ...searchableFields(entity)))
         .toSorted((a, b) => compareByLocale(sortKey(a), sortKey(b)))
 
@@ -105,7 +131,7 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
       return next
     },
 
-    archive: (id) => setStatus(id, ARCHIVED),
-    restore: (id) => setStatus(id, ACTIVE),
+    archive: (id) => setArchived(id, true),
+    restore: (id) => setArchived(id, false),
   }
 }

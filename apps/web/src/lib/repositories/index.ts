@@ -1,12 +1,14 @@
 import { createLocalClassRepository, type ClassRepository } from './class-repository'
+import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
 import { createLocalStudentRepository, type StudentRepository } from './student-repository'
 
 export * from './types'
-export type { ClassRepository, StudentRepository }
+export type { ClassRepository, QuestionRepository, StudentRepository }
 
 export interface TeacherRepositories {
   classes: ClassRepository
   students: StudentRepository
+  questions: QuestionRepository
 }
 
 /**
@@ -23,5 +25,6 @@ export function createTeacherRepositories(teacherId: string): TeacherRepositorie
   return {
     classes: createLocalClassRepository(teacherId),
     students: createLocalStudentRepository(),
+    questions: createLocalQuestionRepository(teacherId),
   }
 }

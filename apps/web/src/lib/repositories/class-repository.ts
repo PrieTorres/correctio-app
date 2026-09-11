@@ -3,7 +3,7 @@ import type { ClassInput } from '@/lib/schemas'
 import { classSchema } from '@/lib/schemas'
 import { createCollection } from '@/lib/storage/collection'
 import { createInviteCode } from '@/lib/utils'
-import { createOwnedRepository } from './create-owned-repository'
+import { archiveByStatus, createOwnedRepository } from './create-owned-repository'
 import type { OwnedRepository } from './types'
 
 export type ClassRepository = OwnedRepository<Class, ClassInput>
@@ -13,7 +13,7 @@ export function createLocalClassRepository(teacherId: string): ClassRepository {
     collection: createCollection('classes', classSchema),
     teacherId,
     label: 'Turma',
-    statuses: ['active', 'archived'],
+    archiving: archiveByStatus<Class>('active', 'archived'),
     toEntity: (input, base) => ({
       ...base,
       ...input,

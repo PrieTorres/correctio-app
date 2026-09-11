@@ -95,8 +95,8 @@
   */
   --animate-overlay-in: overlay-in 150ms ease-out;
   --animate-overlay-out: overlay-out 120ms ease-in;
-  --animate-dialog-in: dialog-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
-  --animate-dialog-out: dialog-out 130ms ease-in;
+  --animate-dialog-in: dialog-in 240ms cubic-bezier(0.34, 1.35, 0.64, 1);
+  --animate-dialog-out: dialog-out 160ms cubic-bezier(0.4, 0, 1, 0.6);
 }
 
 @keyframes overlay-in {
@@ -112,21 +112,35 @@
 }
 
 /*
-  The dialog is centred with a translate, so each keyframe has to carry that
-  translate too: declaring only `scale` would drop it and snap the panel to the
-  bottom-right corner for the length of the animation.
+  Animate the individual `scale` property, never `transform`.
+
+  The centring comes from `translate: -50% -50%`, which is its own property in
+  this Tailwind version. A keyframe touching `transform` would stack a second
+  translate on top of it, shifting the panel by a further -100% for the length
+  of the animation and dragging it in from the diagonal. Scaling on its own
+  composes with the centring and keeps the origin at the middle of the panel,
+  so the dialog grows out of a point at the centre of the screen and collapses
+  back into it.
 */
 @keyframes dialog-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.96);
+    scale: 0;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
   }
 }
 
 @keyframes dialog-out {
+  from {
+    opacity: 1;
+    scale: 1;
+  }
   to {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.97);
+    scale: 0;
   }
 }
 

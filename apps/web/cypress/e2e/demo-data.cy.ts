@@ -75,7 +75,7 @@ describe('estados vazios', () => {
   })
 
   it('explica que arquivar não apaga', () => {
-    cy.findByRadioLabel('Arquivadas').check()
+    cy.chooseSegment('Arquivadas')
     cy.contains('Cálculo I — Matutino').should('be.visible')
 
     cy.contains('button', 'Limpar').click()

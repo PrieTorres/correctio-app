@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { classSchema, studentSchema } from '@/lib/schemas'
+import { classSchema, questionSchema, studentSchema } from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 import { clearDemoData, hasDemoData, resetDemoData, seedIfEmpty } from '../index'
 
 const classes = () => createCollection('classes', classSchema).readAll()
 const students = () => createCollection('students', studentSchema).readAll()
+const questions = () => createCollection('questions', questionSchema).readAll()
 
 describe('demo data', () => {
   beforeEach(() => window.localStorage.clear())
@@ -14,6 +15,31 @@ describe('demo data', () => {
 
     expect(classes().length).toBeGreaterThan(0)
     expect(students().length).toBeGreaterThan(0)
+  })
+
+  it('seeds both question types, since an exam may mix them', () => {
+    seedIfEmpty()
+
+    expect(questions().some((item) => item.type === 'objetiva')).toBe(true)
+    expect(questions().some((item) => item.type === 'discursiva')).toBe(true)
+  })
+
+  it('seeds a question with shuffling switched off, which the list has to flag', () => {
+    seedIfEmpty()
+
+    expect(
+      questions().some((item) => item.type === 'objetiva' && !item.allowShuffleAlternatives),
+    ).toBe(true)
+  })
+
+  it('points every multiple-choice question at one of its own alternatives', () => {
+    seedIfEmpty()
+
+    for (const question of questions()) {
+      if (question.type !== 'objetiva') continue
+      const ids = (question.alternatives ?? []).map((alternative) => alternative.id)
+      expect(ids).toContain(question.correctAlternativeId)
+    }
   })
 
   it('includes an archived class, so the filter and restore have something to show', () => {
@@ -58,6 +84,7 @@ describe('clearDemoData', () => {
 
     expect(classes()).toHaveLength(0)
     expect(students()).toHaveLength(0)
+    expect(questions()).toHaveLength(0)
   })
 
   it('keeps the next visit from silently seeding again', () => {
