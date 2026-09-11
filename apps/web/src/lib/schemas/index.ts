@@ -235,6 +235,17 @@ export const applicationSchema = z.object({
   gradesReleased: z.boolean(),
 });
 
+/**
+ * What the application form submits. The teacher picks an exam, a class and a
+ * date; the status, the PDF and the release of grades belong to what happens
+ * afterwards.
+ */
+export const applicationInputSchema = z.object({
+  examId: id,
+  classId: id,
+  date: timestamp,
+});
+
 export const examVersionLayoutSchema = z.object({
   questionOrder: z.array(id),
   alternativeOrder: z.array(z.object({ questionId: id, printedOrder: z.array(id) })),
@@ -299,3 +310,4 @@ export type QuestionInput = z.infer<typeof questionInputSchema>;
 export type SignInInput = z.infer<typeof signInSchema>;
 export type SignUpInput = z.infer<typeof signUpSchema>;
 export type ExamInput = z.infer<typeof examInputSchema>;
+export type ApplicationInput = z.infer<typeof applicationInputSchema>;
