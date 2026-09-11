@@ -19,6 +19,14 @@ const MATRIX = 'Uma matriz quadrada é invertível quando:'
 const NEWTON = 'A segunda lei de Newton relaciona força, massa e:'
 const ESSAY_LIMITS = 'Explique com suas palavras o que significa dizer que uma função é contínua em um ponto, e dê um exemplo de função que não seja.'
 
+/** The swap control of the first previewed question, scoped to that row. */
+function swapButtonOfFirstRow() {
+  return cy
+    .get('[role="dialog"] ul li')
+    .first()
+    .find('button[aria-label^="Trocar a questão"]')
+}
+
 /** Ticks the named questions in the picker and confirms. */
 function addFromBank(...statements: readonly string[]): void {
   cy.contains('button', 'Adicionar do banco').click()
@@ -298,13 +306,20 @@ describe('geração automática', () => {
     cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('2')
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.get('[role="dialog"] ul li').should('have.length', 2)
-    cy.get('[role="dialog"] ul li').first().invoke('text').as('drawn')
 
-    cy.get('[role="dialog"] button[aria-label^="Trocar a questão"]').first().click()
+    /*
+      Compared by the button's own label rather than by the row's text. The
+      statements carry parentheses, a slash and an arrow, and a substring match
+      on that is a selector waiting to be misread; the label names exactly one
+      question and changes when it is swapped.
+    */
+    swapButtonOfFirstRow().invoke('attr', 'aria-label').as('before')
+    swapButtonOfFirstRow().click()
 
-    cy.get('@drawn').then((drawn) => {
-      cy.get('[role="dialog"] ul li').first().should('not.contain', String(drawn).trim())
+    cy.get('@before').then((before) => {
+      swapButtonOfFirstRow().should('not.have.attr', 'aria-label', String(before))
     })
+    cy.get('[role="dialog"] ul li').should('have.length', 2)
   })
 
   it('inclui discursivas quando pedido', () => {
