@@ -97,6 +97,8 @@
   --animate-overlay-out: overlay-out 120ms ease-in;
   --animate-dialog-in: dialog-in 240ms cubic-bezier(0.34, 1.35, 0.64, 1);
   --animate-dialog-out: dialog-out 160ms cubic-bezier(0.4, 0, 1, 0.6);
+  --animate-drawer-in: drawer-in 220ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  --animate-drawer-out: drawer-out 160ms cubic-bezier(0.4, 0, 1, 0.6);
 }
 
 @keyframes overlay-in {
@@ -141,6 +143,35 @@
   to {
     opacity: 0;
     scale: 0;
+  }
+}
+
+/*
+  The drawer is pinned to the right edge, so it has no centring translate to
+  compose with and slides on the `translate` property directly. Same reason as
+  the dialog for staying off `transform`: in this Tailwind version they are
+  separate properties, and mixing them stacks movements that were meant to be
+  one.
+*/
+@keyframes drawer-in {
+  from {
+    opacity: 0;
+    translate: 100% 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes drawer-out {
+  from {
+    opacity: 1;
+    translate: 0 0;
+  }
+  to {
+    opacity: 0;
+    translate: 100% 0;
   }
 }
 
