@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { classSchema, examSchema, questionSchema, studentSchema } from '@/lib/schemas'
+import {
+  classSchema,
+  examSchema,
+  questionSchema,
+  recentActivitySchema,
+  studentSchema,
+} from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 import { clearDemoData, hasDemoData, resetDemoData, seedIfEmpty } from '../index'
 
@@ -7,6 +13,7 @@ const classes = () => createCollection('classes', classSchema).readAll()
 const students = () => createCollection('students', studentSchema).readAll()
 const questions = () => createCollection('questions', questionSchema).readAll()
 const exams = () => createCollection('exams', examSchema).readAll()
+const activity = () => createCollection('activity', recentActivitySchema).readAll()
 
 describe('demo data', () => {
   beforeEach(() => window.localStorage.clear())
@@ -16,6 +23,12 @@ describe('demo data', () => {
 
     expect(classes().length).toBeGreaterThan(0)
     expect(students().length).toBeGreaterThan(0)
+  })
+
+  it('seeds enough recent activity for the dashboard list, no more than it shows', () => {
+    seedIfEmpty()
+
+    expect(activity().length).toBeGreaterThanOrEqual(5)
   })
 
   it('seeds both question types, since an exam may mix them', () => {
@@ -115,6 +128,7 @@ describe('clearDemoData', () => {
     expect(students()).toHaveLength(0)
     expect(questions()).toHaveLength(0)
     expect(exams()).toHaveLength(0)
+    expect(activity()).toHaveLength(0)
   })
 
   it('keeps the next visit from silently seeding again', () => {

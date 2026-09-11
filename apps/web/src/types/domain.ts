@@ -372,3 +372,18 @@ export type BackgroundJob =
       startedAt: Timestamp;
       error: string;
     };
+
+/**
+ * Group addition, powering the "Atividade recente" list on the dashboard (P1).
+ *
+ * Distinct from the audit trail RF40/RNF17 describes: that one is an immutable,
+ * LGPD-scoped record of operations on student personal data, written by the
+ * server. This is plain UI content, seeded like the rest of the mock dataset,
+ * with nothing yet writing to it as the teacher acts.
+ */
+export interface RecentActivity {
+  id: Id;
+  teacherId: Id;
+  description: string;
+  occurredAt: Timestamp;
+}
