@@ -94,6 +94,29 @@ Ao acrescentar lógica a um módulo que estava fora da métrica de cobertura, **
 de exclusão** em `vite.config.ts`. Foi o que aconteceu com `lib/seed`: nasceu como dado fixo,
 ganhou quatro funções e continuou invisível para a cobertura.
 
+### O Cypress cobre o sistema inteiro, não só o que acabou de ser feito
+
+A cada feature nova, **todas as regras e funcionalidades do sistema continuam validadas pelo
+Cypress** — a que entrou agora e as que já existiam. Feature nova que muda uma tela existente
+sem revisar o spec dela é como as regressões chegam.
+
+Antes de abrir o PR, para cada tela que a mudança tocou:
+
+1. o spec dela ainda descreve o que a tela faz hoje?
+2. cada regra nova ganhou cenário — inclusive as visuais, que são as que mais escapam?
+3. algum seletor dependia de detalhe de markup que mudou?
+
+Erros que já aconteceram e não podem repetir:
+
+- **Seletor preso à tag.** `input[aria-label="…"]` quebrou quando o campo virou `textarea`.
+  Prenda ao papel ou ao nome acessível (`[aria-label="…"]`), não à tag.
+- **Índice em vez de nome.** `checkbox.eq(0)` apontava para outra questão, porque a lista é
+  ordenada pelo enunciado. Escolha pelo nome do que se quer.
+- **Leitura única do DOM.** `cy.get('body').then(...)` não tenta de novo, então falha em tela
+  ainda carregando. Use os comandos que repetem (`cy.contains`, `cy.get`).
+- **Cenário que o sistema não alcança.** Pedir 5 objetivas de um banco com 4 esvazia o banco,
+  e aí não há o que trocar. Confira se o estado que o teste exige existe.
+
 ## Estrutura
 
 ```

@@ -157,22 +157,33 @@ export function QuestionFormPage() {
                 onMarkCorrect={(alternativeId) => setValue('correctAlternativeId', alternativeId)}
               />
             ) : (
-              <TextField
-                label="Nota máxima"
-                type="number"
-                step="0.1"
-                min="0"
-                error={errors.maxScore?.message}
-                {...register('maxScore', {
-                  /**
-                   * `valueAsNumber` turns an empty field into `NaN`, which is a
-                   * number as far as the schema is concerned: the friendly
-                   * message never fired and Zod's own "received nan" reached
-                   * the screen in English. Empty means absent.
-                   */
-                  setValueAs: (value: string) => (value === '' ? undefined : Number(value)),
-                })}
-              />
+              <section className="flex flex-col gap-3 rounded-[var(--radius-control)] border border-line bg-surface-muted p-4">
+                <div>
+                  <h2 className="text-title text-primary">Resposta discursiva</h2>
+                  <p className="mt-1 text-caption text-ink-subtle">
+                    Sem alternativas e sem gabarito: o sistema corrige as objetivas sozinho e deixa
+                    esta para você atribuir a nota na tela de correção.
+                  </p>
+                </div>
+                <div className="max-w-48">
+                  <TextField
+                    label="Nota máxima"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    error={errors.maxScore?.message}
+                    {...register('maxScore', {
+                      /**
+                       * `valueAsNumber` turns an empty field into `NaN`, which
+                       * is a number as far as the schema is concerned: the
+                       * friendly message never fired and Zod's own "received
+                       * nan" reached the screen in English. Empty means absent.
+                       */
+                      setValueAs: (value: string) => (value === '' ? undefined : Number(value)),
+                    })}
+                  />
+                </div>
+              </section>
             )}
 
             {type === 'objetiva' && <ShuffleToggle form={form} />}
@@ -217,39 +228,65 @@ function AlternativesField({
         Alternativas <span className="text-ink-subtle">— marque a correta</span>
       </legend>
 
-      {fields.map((field, index) => (
-        <div key={field.fieldKey} className="flex items-center gap-3">
-          <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="radio"
-              name={groupName}
-              value={field.id}
-              checked={correctAlternativeId === field.id}
-              onChange={() => onMarkCorrect(field.id)}
-              aria-label={`Alternativa ${LETTERS[index]} é a correta`}
-              className="size-4 accent-[var(--color-primary)]"
+      {fields.map((field, index) => {
+        const isCorrect = correctAlternativeId === field.id;
+        const letter = LETTERS[index];
+
+        return (
+          <div
+            key={field.fieldKey}
+            className={`flex items-start gap-4 rounded-[var(--radius-control)] border p-4 ${
+              isCorrect ? 'border-primary bg-primary-fixed/30' : 'border-line bg-surface'
+            }`}
+          >
+            <label className="flex cursor-pointer flex-col items-center gap-2">
+              {/*
+                The filled letter is the whole point of the card: which option is
+                the answer has to be readable at a glance while scrolling past
+                five of them, not inferred from a 16px dot.
+              */}
+              <span
+                aria-hidden
+                className={`flex size-8 items-center justify-center rounded-full text-label ${
+                  isCorrect
+                    ? 'bg-primary text-on-primary'
+                    : 'border border-line bg-surface-muted text-ink-muted'
+                }`}
+              >
+                {letter}
+              </span>
+              <input
+                type="radio"
+                name={groupName}
+                value={field.id}
+                checked={isCorrect}
+                onChange={() => onMarkCorrect(field.id)}
+                aria-label={`Alternativa ${letter} é a correta`}
+                className="size-4 accent-[var(--color-primary)]"
+              />
+            </label>
+
+            <textarea
+              rows={2}
+              aria-label={`Texto da alternativa ${letter}`}
+              placeholder={`Texto da alternativa ${letter}…`}
+              className="min-h-20 flex-1 resize-y rounded-[var(--radius-control)] border border-line bg-surface p-3 text-body focus:outline-none focus-visible:border-primary"
+              {...register(`alternatives.${index}.text`)}
             />
-            <span className="w-4 text-label text-ink-muted">{LETTERS[index]}</span>
-          </label>
 
-          <input
-            aria-label={`Texto da alternativa ${LETTERS[index]}`}
-            className="touch-target flex-1 rounded-[var(--radius-control)] border border-line bg-surface px-3 text-body focus:outline-none focus-visible:border-primary"
-            {...register(`alternatives.${index}.text`)}
-          />
-
-          {fields.length > 2 && (
-            <button
-              type="button"
-              onClick={() => onRemove(index)}
-              aria-label={`Remover alternativa ${LETTERS[index]}`}
-              className="touch-target inline-flex items-center justify-center rounded-[var(--radius-control)] text-ink-muted hover:bg-surface-muted"
-            >
-              <Trash2 size={16} aria-hidden />
-            </button>
-          )}
-        </div>
-      ))}
+            {fields.length > 2 && (
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                aria-label={`Remover alternativa ${letter}`}
+                className="touch-target inline-flex items-center justify-center rounded-[var(--radius-control)] text-ink-muted hover:bg-danger-surface hover:text-on-danger-surface"
+              >
+                <Trash2 size={16} aria-hidden />
+              </button>
+            )}
+          </div>
+        );
+      })}
 
       {error && (
         <p role="alert" className="text-caption text-danger">

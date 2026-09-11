@@ -16,9 +16,9 @@ describe('turmas', () => {
     cy.visit('/turmas')
 
     cy.contains('button', 'Nova turma').click()
-    cy.findByLabelOrPlaceholder('Nome da turma').type('Estatística I')
-    cy.findByLabelOrPlaceholder('Disciplina').type('Matemática')
-    cy.findByLabelOrPlaceholder('Período').type('2026/2')
+    cy.findByLabel('Nome da turma').type('Estatística I')
+    cy.findByLabel('Disciplina').type('Matemática')
+    cy.findByLabel('Período').type('2026/2')
     cy.contains('button', 'Salvar').click()
 
     cy.contains('Estatística I').should('be.visible')

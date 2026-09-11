@@ -23,6 +23,7 @@ import {
   useQuestionTags,
   type QuestionFilters,
 } from '../hooks/useQuestions';
+import { QuestionTypeBadge } from '../components/QuestionTypeBadge';
 
 type StatusFilter = 'active' | 'deleted';
 
@@ -189,9 +190,12 @@ function QuestionRow({
     <Card interactive className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <Badge tone={question.type === 'objetiva' ? 'neutral' : 'warning'}>
-            {question.type === 'objetiva' ? 'Objetiva' : 'Discursiva'}
-          </Badge>
+          <QuestionTypeBadge type={question.type} />
+          {question.tags.map((tag) => (
+            <Badge key={tag} outline>
+              {tag}
+            </Badge>
+          ))}
           {isMultipleChoice(question) && !question.allowShuffleAlternatives && (
             <span
               title="Alternativas não são embaralhadas nesta questão"
@@ -201,7 +205,7 @@ function QuestionRow({
               ordem fixa
             </span>
           )}
-          {deleted && <Badge>Excluída</Badge>}
+          {deleted && <Badge tone="danger">Excluída</Badge>}
         </div>
 
         <Link
@@ -215,7 +219,6 @@ function QuestionRow({
           {isMultipleChoice(question)
             ? `${question.alternatives.length} alternativas`
             : `Nota máxima ${question.maxScore ?? 0}`}
-          {question.tags.length > 0 && ` · ${question.tags.join(', ')}`}
         </p>
       </div>
 
