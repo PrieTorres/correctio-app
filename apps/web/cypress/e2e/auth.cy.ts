@@ -6,6 +6,7 @@
 describe('autenticação', () => {
   it('cria uma conta e vai para o painel', () => {
     cy.visit('/criar-conta')
+    cy.contains('h1', 'Criar conta').should('be.visible')
 
     cy.findByLabelOrPlaceholder('Nome completo').type('Ana Ribeiro')
     cy.findByLabelOrPlaceholder('E-mail').type('ana.ribeiro@exemplo.edu.br')
@@ -18,6 +19,7 @@ describe('autenticação', () => {
 
   it('avisa quando a confirmação de senha não bate', () => {
     cy.visit('/criar-conta')
+    cy.contains('h1', 'Criar conta').should('be.visible')
 
     cy.findByLabelOrPlaceholder('Nome completo').type('Ana Ribeiro')
     cy.findByLabelOrPlaceholder('E-mail').type('ana.ribeiro@exemplo.edu.br')
@@ -31,6 +33,7 @@ describe('autenticação', () => {
 
   it('faz login e vai para o painel', () => {
     cy.visit('/entrar')
+    cy.contains('h1', 'Entrar').should('be.visible')
 
     cy.findByLabelOrPlaceholder('E-mail').type('ana.ribeiro@exemplo.edu.br')
     cy.findByLabelOrPlaceholder('Senha').type('senha123')
@@ -41,6 +44,7 @@ describe('autenticação', () => {
 
   it('navega entre a tela de login e a de cadastro', () => {
     cy.visit('/entrar')
+    cy.contains('h1', 'Entrar').should('be.visible')
 
     cy.contains('a', 'Criar conta').click()
     cy.location('pathname').should('eq', '/criar-conta')
@@ -51,6 +55,8 @@ describe('autenticação', () => {
 
   it('sai da conta e volta para a tela de login', () => {
     cy.visit('/entrar')
+    cy.contains('h1', 'Entrar').should('be.visible')
+
     cy.findByLabelOrPlaceholder('E-mail').type('ana.ribeiro@exemplo.edu.br')
     cy.findByLabelOrPlaceholder('Senha').type('senha123')
     cy.contains('button', 'Entrar').click()
