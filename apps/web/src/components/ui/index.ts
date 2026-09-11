@@ -5,6 +5,7 @@ export { ConfirmDialog } from './ConfirmDialog'
 export { Drawer } from './Drawer'
 export { EmptyState } from './EmptyState'
 export {
+  ApplicationsIllustration,
   ArchiveIllustration,
   ClassesIllustration,
   ExamsIllustration,
