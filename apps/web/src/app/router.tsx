@@ -5,6 +5,7 @@ import { ROUTES } from './routes'
 import { ClassDetailPage, ClassListPage } from '@/features/classes'
 import { ExamDetailPage, ExamFormPage, ExamListPage } from '@/features/exams'
 import { QuestionFormPage, QuestionListPage } from '@/features/questions'
+import { SignInPage, SignUpPage } from '@/features/auth'
 
 const placeholder = (path: string, screen: string): RouteObject => ({
   path,
@@ -36,8 +37,8 @@ export const router = createBrowserRouter(
   [
     { path: '/', element: <Navigate to={ROUTES.dashboard} replace /> },
 
-    placeholder(ROUTES.signIn, 'C1. Login'),
-    placeholder(ROUTES.signUp, 'C2. Cadastro'),
+    { path: ROUTES.signIn, element: <SignInPage /> },
+    { path: ROUTES.signUp, element: <SignUpPage /> },
     placeholder(ROUTES.passwordReset, 'C3. Recuperar senha'),
     placeholder(ROUTES.publicLookup, 'PUB1. Consulta por QR Code'),
     placeholder(ROUTES.privacy, 'PUB2. Aviso de privacidade'),
