@@ -1,5 +1,11 @@
-import type { Class, Exam, ExamQuestion, Question, Student } from '@/types/domain'
-import { classSchema, examSchema, questionSchema, studentSchema } from '@/lib/schemas'
+import type { Class, Exam, ExamQuestion, Question, RecentActivity, Student } from '@/types/domain'
+import {
+  classSchema,
+  examSchema,
+  questionSchema,
+  recentActivitySchema,
+  studentSchema,
+} from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 
 /**
@@ -179,11 +185,45 @@ const EXAMS: Exam[] = [
   },
 ]
 
+const ACTIVITY: RecentActivity[] = [
+  {
+    id: 'activity-question-vectors',
+    teacherId: TEACHER_ID,
+    description: 'Você criou a questão sobre produto escalar no banco de questões',
+    occurredAt: '2026-09-10T18:40:00.000Z',
+  },
+  {
+    id: 'activity-class-physics-archived',
+    teacherId: TEACHER_ID,
+    description: 'Você arquivou a turma Cálculo I — Matutino',
+    occurredAt: '2026-09-09T13:15:00.000Z',
+  },
+  {
+    id: 'activity-class-physics-created',
+    teacherId: TEACHER_ID,
+    description: 'Você criou a turma Física II',
+    occurredAt: '2026-09-08T09:05:00.000Z',
+  },
+  {
+    id: 'activity-student-added',
+    teacherId: TEACHER_ID,
+    description: 'Você adicionou Ana Beatriz Moreira à turma Cálculo I — Noturno',
+    occurredAt: '2026-09-07T16:22:00.000Z',
+  },
+  {
+    id: 'activity-question-limits',
+    teacherId: TEACHER_ID,
+    description: 'Você criou a questão sobre limites no banco de questões',
+    occurredAt: '2026-09-05T11:50:00.000Z',
+  },
+]
+
 function seed(): void {
   createCollection('classes', classSchema).writeAll(CLASSES)
   createCollection('students', studentSchema).writeAll(STUDENTS)
   createCollection('questions', questionSchema).writeAll(QUESTIONS)
   createCollection('exams', examSchema).writeAll(EXAMS)
+  createCollection('activity', recentActivitySchema).writeAll(ACTIVITY)
   window.localStorage.setItem(SEED_MARKER, new Date().toISOString())
 }
 

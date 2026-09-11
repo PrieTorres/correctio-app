@@ -6,6 +6,7 @@ import { ClassDetailPage, ClassListPage } from '@/features/classes'
 import { ExamDetailPage, ExamFormPage, ExamListPage } from '@/features/exams'
 import { QuestionFormPage, QuestionListPage } from '@/features/questions'
 import { SignInPage, SignUpPage } from '@/features/auth'
+import { DashboardPage } from '@/features/dashboard'
 
 const placeholder = (path: string, screen: string): RouteObject => ({
   path,
@@ -14,7 +15,6 @@ const placeholder = (path: string, screen: string): RouteObject => ({
 
 /** Screens still to be built; each becomes a real element as its step lands. */
 const TEACHER_PLACEHOLDERS: RouteObject[] = [
-  placeholder(ROUTES.dashboard, 'P1. Painel'),
   placeholder(ROUTES.profile, 'P2. Meu perfil'),
   placeholder(ROUTES.applications, 'P11. Aplicações'),
   placeholder(ROUTES.newApplication, 'P12. Aplicação — criar'),
@@ -46,6 +46,7 @@ export const router = createBrowserRouter(
     {
       element: <AppLayout />,
       children: [
+        { path: ROUTES.dashboard, element: <DashboardPage /> },
         { path: ROUTES.classes, element: <ClassListPage /> },
         { path: ROUTES.classDetail, element: <ClassDetailPage /> },
         { path: ROUTES.questions, element: <QuestionListPage /> },

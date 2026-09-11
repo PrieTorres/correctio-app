@@ -293,6 +293,13 @@ export const correctionSchema = z.object({
   imageUrl: z.string().optional(),
 });
 
+export const recentActivitySchema = z.object({
+  id,
+  teacherId: id,
+  description: z.string().min(1),
+  occurredAt: timestamp,
+});
+
 export type ClassInput = z.infer<typeof classInputSchema>;
 export type StudentInput = z.infer<typeof studentInputSchema>;
 export type QuestionInput = z.infer<typeof questionInputSchema>;
