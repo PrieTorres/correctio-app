@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, GripVertical, Trash2 } from 'lucide-react';
@@ -92,18 +93,21 @@ export function SortableExamQuestion({
         </label>
       )}
 
-      <label className="flex items-center gap-2">
-        <span className="text-caption text-ink-muted">Pontos</span>
-        <input
-          type="number"
-          step="0.1"
-          min="0"
-          value={entry.score}
-          onChange={(event) => onScoreChange(Number(event.target.value))}
-          aria-label={`Pontuação da questão ${position}`}
-          className="w-20 rounded-[var(--radius-control)] border border-line px-2 py-1.5 text-body focus:outline-none focus-visible:border-primary"
+      <div className="flex items-center gap-2">
+        {/*
+          The visible word is decorative: the field's own name carries the
+          position too, so a screen reader announces which question the score
+          belongs to instead of "Pontos" five times over.
+        */}
+        <span aria-hidden className="text-caption text-ink-muted">
+          Pontos
+        </span>
+        <ScoreInput
+          score={entry.score}
+          onScoreChange={onScoreChange}
+          label={`Pontuação da questão ${position}`}
         />
-      </label>
+      </div>
 
       <IconButton label={`Remover a questão ${position}`} onClick={onRemove}>
         <Trash2 size={16} aria-hidden />
@@ -134,4 +138,49 @@ function IconButton({
       {children}
     </button>
   );
+}
+
+/**
+ * Score field that survives a half-typed decimal.
+ *
+ * A browser reports `<input type="number">` as empty while its content is not
+ * yet a valid number, and "2." on the way to "2.5" is one of those moments.
+ * Feeding that straight back through a controlled value rewrites the field to
+ * the number so far, so the next keystroke lands beside it: typing "2.5" ends
+ * up as "25" or "5". Keeping the text being typed here and reporting upwards
+ * only what parses lets the teacher type the score they meant.
+ */
+function ScoreInput({
+  score,
+  onScoreChange,
+  label,
+}: Readonly<{ score: number; onScoreChange: (score: number) => void; label: string }>) {
+  const [draft, setDraft] = useState(String(score))
+  const [lastScore, setLastScore] = useState(score)
+
+  if (score !== lastScore) {
+    setLastScore(score)
+    if (Number(draft) !== score) setDraft(String(score))
+  }
+
+  return (
+    <input
+      type="number"
+      step="0.1"
+      min="0"
+      value={draft}
+      onChange={(event) => {
+        const next = event.target.value
+        setDraft(next)
+        if (next !== '' && Number.isFinite(Number(next))) onScoreChange(Number(next))
+      }}
+      onBlur={() => {
+        if (draft === '' || !Number.isFinite(Number(draft))) {
+          setDraft(String(score))
+        }
+      }}
+      aria-label={label}
+      className="w-20 rounded-[var(--radius-control)] border border-line px-2 py-1.5 text-body focus:outline-none focus-visible:border-primary"
+    />
+  )
 }

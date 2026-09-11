@@ -41,6 +41,40 @@ describe('banco de questões', () => {
     cy.contains('sen(x)/x').should('be.visible')
   })
 
+  it('sugere as tags que o banco já usa', () => {
+    cy.contains('Nova questão').click()
+
+    cy.contains('Já usadas:').should('be.visible')
+    cy.contains('button', 'Limites').should('be.visible')
+  })
+
+  it('filtra as sugestões de tag conforme se digita', () => {
+    cy.contains('Nova questão').click()
+
+    cy.get('#tag-input').type('Matr')
+
+    cy.contains('button', 'Matrizes').should('be.visible')
+    cy.contains('button', 'Limites').should('not.exist')
+  })
+
+  it('adota a grafia que o banco já tem, ignorando acento e caixa', () => {
+    cy.contains('Nova questão').click()
+
+    cy.get('#tag-input').type('limites{enter}')
+
+    cy.get('button[aria-label="Remover tag Limites"]').should('exist')
+  })
+
+  it('escolher uma sugestão não adiciona o rascunho ao lado', () => {
+    cy.contains('Nova questão').click()
+
+    cy.get('#tag-input').type('Limi')
+    cy.contains('button', 'Limites').click()
+
+    cy.get('button[aria-label="Remover tag Limites"]').should('exist')
+    cy.get('button[aria-label="Remover tag Limi"]').should('not.exist')
+  })
+
   it('distingue filtro sem resultado de banco vazio', () => {
     cy.get('input[type="search"]').type('zzzz')
 
@@ -57,8 +91,8 @@ describe('formulário de questão', () => {
 
   it('cria uma objetiva e mostra na lista', () => {
     cy.get('#statement').type('Qual a integral de 2x?')
-    cy.get('input[aria-label="Texto da alternativa A"]').type('x² + C')
-    cy.get('input[aria-label="Texto da alternativa B"]').type('2')
+    cy.get('[aria-label="Texto da alternativa A"]').type('x² + C')
+    cy.get('[aria-label="Texto da alternativa B"]').type('2')
     cy.get('input[aria-label="Alternativa A é a correta"]').check()
     cy.contains('button', 'Salvar questão').click()
 
@@ -75,10 +109,10 @@ describe('formulário de questão', () => {
    */
   it('recusa objetiva cuja alternativa correta foi removida', () => {
     cy.get('#statement').type('Questão sem gabarito')
-    cy.get('input[aria-label="Texto da alternativa A"]').type('uma')
-    cy.get('input[aria-label="Texto da alternativa B"]').type('outra')
+    cy.get('[aria-label="Texto da alternativa A"]').type('uma')
+    cy.get('[aria-label="Texto da alternativa B"]').type('outra')
     cy.contains('button', 'Alternativa').click()
-    cy.get('input[aria-label="Texto da alternativa C"]').type('mais uma')
+    cy.get('[aria-label="Texto da alternativa C"]').type('mais uma')
     cy.get('input[aria-label="Alternativa C é a correta"]').check()
     cy.get('button[aria-label="Remover alternativa C"]').click()
     cy.contains('button', 'Salvar questão').click()
@@ -89,8 +123,37 @@ describe('formulário de questão', () => {
   it('troca os campos ao alternar para discursiva', () => {
     cy.chooseSegment('Discursiva')
 
+    cy.contains('h2', 'Resposta discursiva').should('be.visible')
     cy.contains('label', 'Nota máxima').should('be.visible')
-    cy.contains('Alternativas').should('not.exist')
+    cy.contains('legend', 'Alternativas').should('not.exist')
+  })
+
+  it('explica por que a discursiva não tem gabarito', () => {
+    cy.chooseSegment('Discursiva')
+
+    cy.contains('corrige as objetivas sozinho').should('be.visible')
+  })
+
+  it('distingue os dois tipos por cor e por ícone na lista', () => {
+    cy.visit('/questoes')
+
+    cy.contains('span', 'Objetiva').find('svg').should('exist')
+    cy.contains('span', 'Discursiva').find('svg').should('exist')
+  })
+
+  it('mostra as tags como chips próprios', () => {
+    cy.visit('/questoes')
+
+    cy.contains('sen(x)/x').closest('li').contains('span', 'Limites').should('be.visible')
+  })
+
+  it('destaca visualmente a alternativa marcada como correta', () => {
+    cy.get('[aria-label="Texto da alternativa A"]').closest('div').should('have.class', 'border-primary')
+
+    cy.get('input[aria-label="Alternativa B é a correta"]').check()
+
+    cy.get('[aria-label="Texto da alternativa B"]').closest('div').should('have.class', 'border-primary')
+    cy.get('[aria-label="Texto da alternativa A"]').closest('div').should('not.have.class', 'border-primary')
   })
 
   it('exige nota máxima na discursiva', () => {
@@ -114,7 +177,7 @@ describe('formulário de questão', () => {
     cy.contains('button', 'Alternativa').click()
     cy.contains('button', 'Alternativa').click()
 
-    cy.get('input[aria-label="Texto da alternativa E"]').should('exist')
+    cy.get('[aria-label="Texto da alternativa E"]').should('exist')
     cy.contains('button', 'Alternativa').should('not.exist')
   })
 })

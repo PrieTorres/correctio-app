@@ -71,6 +71,47 @@ describe('ExamFormPage', () => {
     await waitFor(() => expect(screen.getByText(/pontuação total 4/)).toBeVisible())
   })
 
+  it('keeps a decimal score while it is being typed', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<ExamFormPage />)
+    await addFromBank(user, 1)
+
+    const score = screen.getByLabelText('Pontuação da questão 1 de 1')
+    await user.clear(score)
+    await user.type(score, '2.5')
+
+    expect(score).toHaveValue(2.5)
+    await waitFor(() => expect(screen.getByText(/pontuação total 2\.5/)).toBeVisible())
+  })
+
+  /**
+   * A browser reports a number field as empty while its content is not yet a
+   * valid number. Pushing that upwards would rewrite the field to zero between
+   * keystrokes, so an emptied field waits rather than reporting a score nobody
+   * typed.
+   */
+  it('does not report a score of zero while the field sits empty', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<ExamFormPage />)
+    await addFromBank(user, 1)
+
+    await user.clear(screen.getByLabelText('Pontuação da questão 1 de 1'))
+
+    expect(screen.getByText(/pontuação total 1/)).toBeVisible()
+  })
+
+  it('puts the score back when the field is left empty', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<ExamFormPage />)
+    await addFromBank(user, 1)
+    const score = screen.getByLabelText('Pontuação da questão 1 de 1')
+
+    await user.clear(score)
+    await user.tab()
+
+    expect(score).toHaveValue(1)
+  })
+
   /**
    * The plan is explicit that the score total is shown but never enforced:
    * closing an exam on ten points is the teacher's decision.

@@ -1,17 +1,18 @@
 /**
- * Finds a form control by its visible label, falling back to the placeholder.
+ * Finds a form control by its visible label.
  *
- * Selecting by what the user sees keeps the tests from breaking on markup
- * changes, and fails when a field loses its accessible name.
+ * Selecting by what the user sees keeps the tests off markup details, and fails
+ * loudly when a field loses the label that names it for a screen reader.
+ *
+ * `cy.contains` retries, which matters: reading the DOM once through
+ * `cy.get('body').then(...)` does not, so on a screen still resolving its query
+ * the form is simply not there yet and the command misses it.
  */
-Cypress.Commands.add('findByLabelOrPlaceholder', (text: string) => {
-  return cy.get('body').then(($body) => {
-    const byLabel = $body.find(`label:contains("${text}")`)
-    if (byLabel.length > 0) {
-      const id = byLabel.attr('for')
-      if (id !== undefined) return cy.get(`#${CSS.escape(id)}`)
-    }
-    return cy.get(`[placeholder="${text}"]`)
+Cypress.Commands.add('findByLabel', (text: string) => {
+  return cy.contains('label', text).then(($label) => {
+    const id = $label.attr('for')
+    if (id === undefined) throw new Error(`O label "${text}" não aponta para nenhum campo.`)
+    return cy.get(`#${CSS.escape(id)}`)
   })
 })
 
@@ -45,7 +46,7 @@ Cypress.Commands.add('chooseSegment', (text: string) => {
 declare global {
   namespace Cypress {
     interface Chainable {
-      findByLabelOrPlaceholder(text: string): Chainable<JQuery<HTMLElement>>
+      findByLabel(text: string): Chainable<JQuery<HTMLElement>>
       findInDialog(selector: string, text: string): Chainable<JQuery<HTMLElement>>
       chooseSegment(text: string): Chainable<JQuery<HTMLElement>>
     }

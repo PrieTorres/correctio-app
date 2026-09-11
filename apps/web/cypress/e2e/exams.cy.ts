@@ -6,13 +6,26 @@
  * serve several classes and several terms.
  */
 
-/** Ticks the first `count` questions the picker offers and confirms. */
-function addFromBank(count: number): void {
+/**
+ * Seeded statements, named rather than taken by position.
+ *
+ * The bank is sorted by statement, so an index says nothing about which
+ * question it is and silently points somewhere else the moment the seed
+ * changes.
+ */
+const LIMITS = 'Qual é o valor de lim(x→0) sen(x)/x?'
+const DERIVATIVE = 'A derivada de f(x) = x³ é:'
+const MATRIX = 'Uma matriz quadrada é invertível quando:'
+const NEWTON = 'A segunda lei de Newton relaciona força, massa e:'
+const ESSAY_LIMITS = 'Explique com suas palavras o que significa dizer que uma função é contínua em um ponto, e dê um exemplo de função que não seja.'
+
+/** Ticks the named questions in the picker and confirms. */
+function addFromBank(...statements: readonly string[]): void {
   cy.contains('button', 'Adicionar do banco').click()
   cy.get('[role="dialog"]').within(() => {
-    for (let index = 0; index < count; index += 1) {
-      cy.get('input[type="checkbox"]').eq(index).check()
-    }
+    statements.forEach((statement) => {
+      cy.get(`input[aria-label="${statement}"]`).check()
+    })
     cy.contains('button', 'Adicionar selecionadas').click()
   })
   cy.get('[role="dialog"]').should('not.exist')
@@ -69,7 +82,7 @@ describe('lista de provas', () => {
     cy.contains('Física II — Teste rápido').closest('li').contains('button', 'Duplicar').click()
 
     cy.location('pathname').should('match', /\/provas\/.+\/editar$/)
-    cy.findByLabelOrPlaceholder('Título').should('have.value', 'Física II — Teste rápido (cópia)')
+    cy.findByLabel('Título').should('have.value', 'Física II — Teste rápido (cópia)')
 
     cy.visit('/provas')
     cy.contains('a', 'Física II — Teste rápido').should('be.visible')
@@ -121,8 +134,8 @@ describe('formulário de prova', () => {
   })
 
   it('adiciona do banco pelo painel lateral e soma a pontuação ao vivo', () => {
-    cy.findByLabelOrPlaceholder('Título').type('Prova de recuperação')
-    addFromBank(1)
+    cy.findByLabel('Título').type('Prova de recuperação')
+    addFromBank(LIMITS)
 
     cy.contains('1/20 questões · pontuação total 1').should('be.visible')
 
@@ -131,8 +144,8 @@ describe('formulário de prova', () => {
   })
 
   it('monta uma prova com 5 questões e pontuação diferente em cada', () => {
-    cy.findByLabelOrPlaceholder('Título').type('Prova com cinco questões')
-    addFromBank(5)
+    cy.findByLabel('Título').type('Prova com cinco questões')
+    addFromBank(LIMITS, DERIVATIVE, MATRIX, NEWTON, ESSAY_LIMITS)
 
     const scores = ['1', '2', '3', '2.5', '1.5']
     scores.forEach((score, index) => {
@@ -146,8 +159,8 @@ describe('formulário de prova', () => {
   })
 
   it('salva mesmo quando a pontuação não fecha em 10', () => {
-    cy.findByLabelOrPlaceholder('Título').type('Prova que não fecha')
-    addFromBank(1)
+    cy.findByLabel('Título').type('Prova que não fecha')
+    addFromBank(LIMITS)
 
     cy.contains('button', 'Salvar prova').click()
 
@@ -155,14 +168,14 @@ describe('formulário de prova', () => {
   })
 
   it('não oferece de novo a questão que já está na prova', () => {
-    addFromBank(1)
+    addFromBank(LIMITS)
     cy.contains('button', 'Adicionar do banco').click()
 
     cy.get('[role="dialog"]').should('not.contain', 'sen(x)/x')
   })
 
   it('reordena pelos botões', () => {
-    addFromBank(2)
+    addFromBank(LIMITS, DERIVATIVE)
     cy.get('ol li').first().should('contain', 'sen(x)/x')
 
     cy.get('button[aria-label="Mover para baixo a questão 1 de 2"]').click()
@@ -172,7 +185,7 @@ describe('formulário de prova', () => {
   })
 
   it('reordena arrastando pela alça', () => {
-    addFromBank(2)
+    addFromBank(LIMITS, DERIVATIVE)
     cy.get('ol li').first().should('contain', 'sen(x)/x')
 
     cy.get('button[aria-label="Arrastar a questão 1 de 2"]')
@@ -185,14 +198,14 @@ describe('formulário de prova', () => {
   })
 
   it('desabilita subir na primeira e descer na última', () => {
-    addFromBank(2)
+    addFromBank(LIMITS, DERIVATIVE)
 
     cy.get('button[aria-label="Mover para cima a questão 1 de 2"]').should('be.disabled')
     cy.get('button[aria-label="Mover para baixo a questão 2 de 2"]').should('be.disabled')
   })
 
   it('remove uma questão da prova sem tocar no banco', () => {
-    addFromBank(1)
+    addFromBank(LIMITS)
     cy.get('button[aria-label="Remover a questão 1 de 1"]').click()
     cy.contains('0/20 questões').should('be.visible')
 
@@ -201,8 +214,8 @@ describe('formulário de prova', () => {
   })
 
   it('mantém as questões escolhidas ao reabrir para edição', () => {
-    cy.findByLabelOrPlaceholder('Título').type('Prova que volta igual')
-    addFromBank(1)
+    cy.findByLabel('Título').type('Prova que volta igual')
+    addFromBank(LIMITS)
     cy.contains('button', 'Salvar prova').click()
 
     cy.contains('a', 'Editar').click()
@@ -243,8 +256,15 @@ describe('geração automática', () => {
     cy.get('[role="dialog"] ul li').should('have.length', 1).and('contain', 'matriz quadrada')
   })
 
+  /**
+   * Two of the four multiple-choice questions are drawn, so the bank still has
+   * spares. Asking for all of them leaves nothing to swap to, which is the
+   * case the next test covers.
+   */
   it('troca uma questão sorteada por outra do mesmo tipo', () => {
+    cy.findInDialog('label', 'Quantas objetivas').find('input').clear().type('2')
     cy.findInDialog('button', 'Gerar seleção').click()
+    cy.get('[role="dialog"] ul li').should('have.length', 2)
     cy.get('[role="dialog"] ul li').first().invoke('text').as('drawn')
 
     cy.get('[role="dialog"] button[aria-label^="Trocar a questão"]').first().click()
@@ -252,6 +272,21 @@ describe('geração automática', () => {
     cy.get('@drawn').then((drawn) => {
       cy.get('[role="dialog"] ul li').first().should('not.contain', String(drawn).trim())
     })
+  })
+
+  it('inclui discursivas quando pedido', () => {
+    cy.findInDialog('label', 'Quantas objetivas').find('input').clear().type('1')
+    cy.findInDialog('label', 'Incluir discursivas').click()
+    cy.findInDialog('button', 'Gerar seleção').click()
+
+    cy.get('[role="dialog"] ul li').should('have.length', 2)
+  })
+
+  it('não sorteia discursiva quando não foi pedida', () => {
+    cy.findInDialog('label', 'Quantas objetivas').find('input').clear().type('4')
+    cy.findInDialog('button', 'Gerar seleção').click()
+
+    cy.get('[role="dialog"] ul li').should('not.contain', 'Explique com suas palavras')
   })
 
   it('diz que não há substituta quando o banco se esgotou', () => {
