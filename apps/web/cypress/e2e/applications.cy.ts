@@ -1,5 +1,5 @@
 /**
- * Applications: where a prova meets a turma on a date, and paper comes out.
+ * Applications: where an exam meets a class on a date, and paper comes out.
  *
  * The PDF itself is a fixed sample in this phase — rendering one is server
  * work. What has to exist for real are the versions and the sheets, because

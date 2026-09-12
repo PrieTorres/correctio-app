@@ -179,3 +179,37 @@ describe('buildAnswerSheets', () => {
     expect(buildAnswerSheets('app-1', buildVersions(criteria()), [])).toEqual([])
   })
 })
+
+describe('buildAnswerSheets, without identification', () => {
+  const students: Student[] = Array.from({ length: 3 }, (_, index) => ({
+    id: `student-${index}`,
+    classId: 'class-1',
+    fullName: `Aluno ${index}`,
+    registration: String(index),
+  }))
+
+  /**
+   * The paper carries no name, so nobody knows who took which one until the
+   * correction says so. Recording a guess would attach grades to the wrong
+   * people without anything saying it had happened.
+   */
+  it('ties a sheet to nobody when the paper carries no name', () => {
+    const sheets = buildAnswerSheets('app-1', buildVersions(criteria()), students, false)
+
+    expect(sheets.every((sheet) => sheet.studentId === undefined)).toBe(true)
+  })
+
+  it('still prints one sheet per student, so the class has enough paper', () => {
+    expect(buildAnswerSheets('app-1', buildVersions(criteria()), students, false)).toHaveLength(3)
+  })
+
+  it('ties each sheet to its student when the paper does carry a name', () => {
+    const sheets = buildAnswerSheets('app-1', buildVersions(criteria()), students, true)
+
+    expect(sheets.map((sheet) => sheet.studentId)).toEqual([
+      'student-0',
+      'student-1',
+      'student-2',
+    ])
+  })
+})

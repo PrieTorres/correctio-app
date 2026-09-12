@@ -25,7 +25,7 @@ describe('question repository', () => {
     await repository.archive(created.id)
 
     expect((await repository.list()).items).toHaveLength(0)
-    expect((await repository.list({ includeArchived: true })).items).toHaveLength(1)
+    expect((await repository.list({ archived: true })).items).toHaveLength(1)
   })
 
   it('marks the deletion with a timestamp instead of removing the record', async () => {

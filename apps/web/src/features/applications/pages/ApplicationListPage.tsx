@@ -14,6 +14,7 @@ import {
   SearchIllustration,
   SearchInput,
   SegmentedControl,
+  Tour,
 } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { formatDate } from '@/lib/utils';
@@ -125,6 +126,8 @@ export function ApplicationListPage() {
           }
         />
       )}
+
+      <Tour screen="applications" ready={applications.length > 0} />
     </div>
   );
 }

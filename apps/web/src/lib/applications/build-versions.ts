@@ -90,11 +90,17 @@ export function buildVersions(
  * Round-robin rather than random so neighbours get different papers, which is
  * the reason for having versions at all. Every sheet carries its own code, and
  * that code is what the public lookup of the later step resolves.
+ *
+ * A sheet printed without identification is deliberately not tied to anyone.
+ * The paper carries no name, so nobody knows which student took which one until
+ * the correction says so — recording a guess here would make that screen
+ * pointless and quietly attach grades to the wrong people.
  */
 export function buildAnswerSheets(
   applicationId: string,
   versions: readonly ExamVersion[],
   students: readonly Student[],
+  withStudentIdentification = true,
 ): AnswerSheet[] {
   if (versions.length === 0) return []
 
@@ -102,7 +108,7 @@ export function buildAnswerSheets(
     id: createId(),
     applicationId,
     examVersionId: versions[index % versions.length]?.id ?? '',
-    studentId: student.id,
+    ...(withStudentIdentification ? { studentId: student.id } : {}),
     sheetNumber: index + 1,
     code: createAnswerSheetCode(),
   }))

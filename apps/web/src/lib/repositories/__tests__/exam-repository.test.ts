@@ -27,7 +27,7 @@ describe('exam repository', () => {
 
     expect((await repository.getById(created.id))?.status).toBe('closed')
     expect((await repository.list()).items).toHaveLength(0)
-    expect((await repository.list({ includeArchived: true })).items).toHaveLength(1)
+    expect((await repository.list({ archived: true })).items).toHaveLength(1)
   })
 
   it('restores to draft rather than to ready', async () => {

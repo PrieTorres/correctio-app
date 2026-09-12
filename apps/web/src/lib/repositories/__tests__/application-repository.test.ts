@@ -23,7 +23,7 @@ describe('application repository', () => {
     await repository.archive(created.id)
 
     expect((await repository.list()).items).toHaveLength(0)
-    expect((await repository.list({ includeArchived: true })).items).toHaveLength(1)
+    expect((await repository.list({ archived: true })).items).toHaveLength(1)
   })
 
   it('restores to draft rather than to generated, since paper is not restored', async () => {

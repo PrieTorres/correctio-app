@@ -38,7 +38,7 @@ export function useQuestionList(filters: QuestionFilters) {
     queryFn: async () => {
       const page = await repositories.questions.list({
         search: filters.search,
-        includeArchived: filters.deleted,
+        archived: filters.deleted,
       });
       return { ...page, items: page.items.filter((item) => matchesFilters(item, filters)) };
     },

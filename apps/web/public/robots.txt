@@ -1,0 +1,5 @@
+# The grade lookup shows a student's name and score to anyone holding the code.
+# Indexing it would put that in a search result, which is the one outcome the
+# page exists to avoid.
+User-agent: *
+Disallow: /r/

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from './layouts/AppLayout'
 import { PlaceholderPage } from './PlaceholderPage'
 import { ROUTES } from './routes'
@@ -9,25 +9,13 @@ import {
   ApplicationListPage,
 } from '@/features/applications'
 import { ClassDetailPage, ClassListPage } from '@/features/classes'
+import { DashboardPage, ProfilePage } from '@/features/dashboard'
+import { GradingSheetPage, GradingUploadPage, UnassignedCorrectionsPage } from '@/features/grading'
+import { PrivacyPage, PublicLookupPage } from '@/features/public'
+import { ApplicationReportPage, ConsolidatedReportPage } from '@/features/reports'
 import { ExamDetailPage, ExamFormPage, ExamListPage } from '@/features/exams'
 import { QuestionFormPage, QuestionListPage } from '@/features/questions'
-import { SignInPage, SignUpPage } from '@/features/auth'
-
-const placeholder = (path: string, screen: string): RouteObject => ({
-  path,
-  element: <PlaceholderPage screen={screen} />,
-})
-
-/** Screens still to be built; each becomes a real element as its step lands. */
-const TEACHER_PLACEHOLDERS: RouteObject[] = [
-  placeholder(ROUTES.dashboard, 'P1. Painel'),
-  placeholder(ROUTES.profile, 'P2. Meu perfil'),
-  placeholder(ROUTES.grading, 'P15. Enviar folhas de respostas'),
-  placeholder(ROUTES.gradingSheet, 'P16. Revisar e confirmar'),
-  placeholder(ROUTES.unassignedCorrections, 'P17. Pendentes de atribuição'),
-  placeholder(ROUTES.applicationReport, 'P18. Relatório da aplicação'),
-  placeholder(ROUTES.reports, 'P19. Relatório consolidado'),
-]
+import { PasswordResetPage, SignInPage, SignUpPage } from '@/features/auth'
 
 /**
  * `basename` comes from the build-time base URL rather than a literal, so the
@@ -41,9 +29,10 @@ export const router = createBrowserRouter(
 
     { path: ROUTES.signIn, element: <SignInPage /> },
     { path: ROUTES.signUp, element: <SignUpPage /> },
-    placeholder(ROUTES.passwordReset, 'C3. Recuperar senha'),
-    placeholder(ROUTES.publicLookup, 'PUB1. Consulta por QR Code'),
-    placeholder(ROUTES.privacy, 'PUB2. Aviso de privacidade'),
+    { path: ROUTES.passwordReset, element: <PasswordResetPage /> },
+
+    { path: ROUTES.publicLookup, element: <PublicLookupPage /> },
+    { path: ROUTES.privacy, element: <PrivacyPage /> },
 
     {
       element: <AppLayout />,
@@ -62,7 +51,13 @@ export const router = createBrowserRouter(
         { path: ROUTES.newApplication, element: <ApplicationFormPage /> },
         { path: ROUTES.applicationPdf, element: <ApplicationGeneratePage /> },
         { path: ROUTES.applicationDetail, element: <ApplicationDetailPage /> },
-        ...TEACHER_PLACEHOLDERS,
+        { path: ROUTES.dashboard, element: <DashboardPage /> },
+        { path: ROUTES.profile, element: <ProfilePage /> },
+        { path: ROUTES.grading, element: <GradingUploadPage /> },
+        { path: ROUTES.gradingSheet, element: <GradingSheetPage /> },
+        { path: ROUTES.unassignedCorrections, element: <UnassignedCorrectionsPage /> },
+        { path: ROUTES.applicationReport, element: <ApplicationReportPage /> },
+        { path: ROUTES.reports, element: <ConsolidatedReportPage /> },
       ],
     },
 

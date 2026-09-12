@@ -7,8 +7,12 @@ export interface ListParams {
   search?: string
   page?: number
   pageSize?: number
-  /** Listings hide archived records unless this is set. */
-  includeArchived?: boolean
+  /**
+   * Which side of the archive to list: the active records by default, the
+   * archived ones when set. It selects rather than adds, because every screen
+   * showing these is a two-way filter and never a combined list.
+   */
+  archived?: boolean
 }
 
 /**

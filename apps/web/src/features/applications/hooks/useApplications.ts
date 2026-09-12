@@ -16,7 +16,7 @@ export function useApplicationList(archived: boolean, search: string) {
 
   return useQuery({
     queryKey: applicationKeys.list(archived, search),
-    queryFn: () => repositories.applications.list({ search, includeArchived: archived }),
+    queryFn: () => repositories.applications.list({ search, archived: archived }),
   });
 }
 
@@ -133,7 +133,7 @@ export function useGenerateApplication() {
         bank: bank.items,
         ...options,
       });
-      const sheets = buildAnswerSheets(id, versions, students);
+      const sheets = buildAnswerSheets(id, versions, students, options.withStudentIdentification);
 
       await repositories.printing.replaceForApplication(id, versions, sheets);
       await repositories.applications.markGenerated(id);

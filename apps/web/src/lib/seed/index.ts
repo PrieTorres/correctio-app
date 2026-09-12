@@ -10,6 +10,7 @@ import {
 } from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 import { buildAnswerSheets, buildVersions } from '@/lib/applications'
+import { createLocalAuthProvider } from '@/lib/auth'
 
 /**
  * Demo dataset for the mock-data phase.
@@ -237,12 +238,29 @@ function printingForDemo() {
     application.id,
     versions,
     STUDENTS.filter((student) => student.classId === application.classId),
+    true,
   )
 
   return { versions, sheets }
 }
 
+/**
+ * Signs the demo teacher in, if nobody is.
+ *
+ * The demo is browsable without a login, and everything it holds belongs to
+ * `teacher-demo`. Recording a correction has to say who made it, so without a
+ * session the grading screens would refuse — correctly, and uselessly, in a
+ * demonstration that has no sign-in step.
+ */
+function signInDemoTeacher(): void {
+  const auth = createLocalAuthProvider()
+  if (auth.getCurrentUser() !== null) return
+
+  void auth.signIn('ana.ribeiro@exemplo.edu.br', 'demonstracao')
+}
+
 function seed(): void {
+  signInDemoTeacher()
   createCollection('classes', classSchema).writeAll(CLASSES)
   createCollection('students', studentSchema).writeAll(STUDENTS)
   createCollection('questions', questionSchema).writeAll(QUESTIONS)

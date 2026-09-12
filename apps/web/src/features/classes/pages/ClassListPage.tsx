@@ -16,6 +16,7 @@ import {
   SearchIllustration,
   SegmentedControl,
   type Segment,
+  Tour,
 } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import type { Class } from '@/types/domain';
@@ -120,6 +121,8 @@ export function ClassListPage() {
           );
         }}
       />
+
+      <Tour screen="classes" ready={classes.length > 0} />
     </div>
   );
 }

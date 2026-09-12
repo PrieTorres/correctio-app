@@ -99,10 +99,10 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
     async list(params: ListParams = {}): Promise<Page<TEntity>> {
       await simulateLatency()
 
-      const { search = '', includeArchived = false, page = 1, pageSize = 50 } = params
+      const { search = '', archived = false, page = 1, pageSize = 50 } = params
 
       const matches = readOwned()
-        .filter((entity) => archiving.isArchived(entity) === includeArchived)
+        .filter((entity) => archiving.isArchived(entity) === archived)
         .filter((entity) => matchesSearch(search, ...searchableFields(entity)))
         .toSorted((a, b) => compareByLocale(sortKey(a), sortKey(b)))
 

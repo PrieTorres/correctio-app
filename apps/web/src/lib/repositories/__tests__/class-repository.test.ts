@@ -44,7 +44,7 @@ describe('class repository', () => {
 
     await repository.archive(created.id)
     expect((await repository.list()).items).toHaveLength(0)
-    expect((await repository.list({ includeArchived: true })).items).toHaveLength(1)
+    expect((await repository.list({ archived: true })).items).toHaveLength(1)
 
     await repository.restore(created.id)
     expect((await repository.list()).items).toHaveLength(1)

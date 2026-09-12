@@ -14,6 +14,7 @@ import {
   SearchIllustration,
   SearchInput,
   SegmentedControl,
+  Tour,
 } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { isMultipleChoice, type Question, type QuestionType } from '@/types/domain';
@@ -146,6 +147,8 @@ export function QuestionListPage() {
           }
         />
       )}
+
+      <Tour screen="questions" ready={questions.length > 0} />
     </div>
   );
 }

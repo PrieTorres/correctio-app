@@ -14,6 +14,7 @@ import {
   SearchIllustration,
   SearchInput,
   SegmentedControl,
+  Tour,
 } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { totalScore } from '@/lib/exams';
@@ -132,6 +133,8 @@ export function ExamListPage() {
           }
         />
       )}
+
+      <Tour screen="exams" ready={exams.length > 0} />
     </div>
   );
 }
