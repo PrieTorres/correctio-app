@@ -3,11 +3,16 @@ import { useServices } from '@/app/services';
 import type { QuestionInput } from '@/lib/schemas';
 import type { Question, QuestionType } from '@/types/domain';
 
+export type QuestionSort = 'newest' | 'statement';
+
 export interface QuestionFilters {
   search: string;
   type: QuestionType | 'all';
   tags: string[];
   deleted: boolean;
+  /** Untagged questions are the ones that never reach an automatic draw. */
+  onlyUntagged?: boolean;
+  sort?: QuestionSort;
 }
 
 export const questionKeys = {
@@ -27,7 +32,8 @@ function matchesFilters(question: Question, filters: QuestionFilters): boolean {
   const matchesType = filters.type === 'all' || question.type === filters.type;
   const matchesTags =
     filters.tags.length === 0 || filters.tags.every((tag) => question.tags.includes(tag));
-  return matchesType && matchesTags;
+  const matchesUntagged = filters.onlyUntagged !== true || question.tags.length === 0;
+  return matchesType && matchesTags && matchesUntagged;
 }
 
 export function useQuestionList(filters: QuestionFilters) {
@@ -40,7 +46,20 @@ export function useQuestionList(filters: QuestionFilters) {
         search: filters.search,
         archived: filters.deleted,
       });
-      return { ...page, items: page.items.filter((item) => matchesFilters(item, filters)) };
+      const items = page.items.filter((item) => matchesFilters(item, filters));
+
+      /*
+        The repository already answers newest first, which is what someone who
+        just wrote a question needs. Sorting by statement is the other way to
+        look at a bank — reading it — and belongs to whoever asked for it.
+      */
+      return {
+        ...page,
+        items:
+          filters.sort === 'statement'
+            ? items.toSorted((a, b) => a.statement.localeCompare(b.statement, 'pt-BR'))
+            : items,
+      };
     },
   });
 }

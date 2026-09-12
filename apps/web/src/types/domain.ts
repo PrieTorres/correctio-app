@@ -134,6 +134,14 @@ export interface Question {
   deletedAt?: Timestamp;
   /** Group addition: per-question default for alternative shuffling. */
   allowShuffleAlternatives: boolean;
+  /**
+   * Group addition: when it entered the bank.
+   *
+   * A bank sorted by statement buries a new question among the old ones, and
+   * the only way to find it again was to remember its wording. Optional
+   * because questions created before this existed do not have it.
+   */
+  createdAt?: Timestamp;
 }
 
 export type MultipleChoiceQuestion = Question & {

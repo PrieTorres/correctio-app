@@ -102,6 +102,7 @@ export const questionSchema = z
     maxScore: z.number().positive('A nota máxima precisa ser maior que zero').optional(),
     deletedAt: timestamp.optional(),
     allowShuffleAlternatives: z.boolean(),
+    createdAt: timestamp.optional(),
   })
   .superRefine((question, ctx) => {
     if (question.type === 'objetiva') {

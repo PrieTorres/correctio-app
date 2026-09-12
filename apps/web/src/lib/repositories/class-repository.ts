@@ -22,5 +22,7 @@ export function createLocalClassRepository(teacherId: string): ClassRepository {
     }),
     searchableFields: (item) => [item.name, item.subject],
     sortKey: (item) => item.name,
+    /** The same name in the same term is the same class, typed twice. */
+    identity: (item) => `${item.name}|${item.term}`,
   })
 }

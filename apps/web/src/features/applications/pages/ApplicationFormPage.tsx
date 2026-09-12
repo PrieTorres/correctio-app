@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft } from 'lucide-react';
-import { Button, Card, PageHeader, QueryBoundary } from '@/components/ui';
+import { Button, Card, PageHeader, QueryBoundary, SaveError } from '@/components/ui';
 import { applicationInputSchema, type ApplicationInput } from '@/lib/schemas';
 import { fromDateInputValue, toDateInputValue } from '@/lib/utils';
 import { buildPath, ROUTES } from '@/app/routes';
@@ -47,9 +47,11 @@ export function ApplicationFormPage() {
   const nothingToApply = !examsPending && availableExams.length === 0;
   const nobodyToApplyTo = !classesPending && availableClasses.length === 0;
 
-  const onSubmit = async (input: ApplicationInput) => {
-    const saved = await save.mutateAsync({ id, input });
-    void navigate(buildPath(ROUTES.applicationPdf, { id: saved.id }));
+  const onSubmit = (input: ApplicationInput) => {
+    save.mutate(
+      { id, input },
+      { onSuccess: (saved) => void navigate(buildPath(ROUTES.applicationPdf, { id: saved.id })) },
+    );
   };
 
   return (
@@ -132,6 +134,8 @@ export function ApplicationFormPage() {
               )}
             </div>
           </Card>
+
+          <SaveError error={save.error} />
 
           <div className="flex justify-end gap-3">
             <Button variant="ghost" onClick={() => void navigate(ROUTES.applications)}>

@@ -41,6 +41,8 @@ export function createLocalApplicationRepository(teacherId: string): Application
     }),
     searchableFields: (item) => [item.date],
     sortKey: (item) => item.date,
+    /** The same exam, to the same class, on the same day is one sitting. */
+    identity: (item) => `${item.examId}|${item.classId}|${item.date.slice(0, 10)}`,
   })
 
   /** Returns what was stored, so a caller can refresh its cache without re-reading. */

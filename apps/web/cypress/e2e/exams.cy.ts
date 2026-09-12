@@ -135,6 +135,13 @@ describe('formulário de prova', () => {
     cy.contains('a', 'Nova prova').click()
   })
 
+  it('recusa uma prova com o mesmo título de outra', () => {
+    cy.findByLabel('Título').type('Cálculo I — Prova 1')
+    cy.contains('button', 'Salvar prova').click()
+
+    cy.contains('Já existe uma prova com estes dados').should('be.visible')
+  })
+
   it('exige título', () => {
     cy.contains('button', 'Salvar prova').click()
 

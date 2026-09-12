@@ -32,6 +32,12 @@ export function createLocalExamRepository(teacherId: string): ExamRepository {
     toEntity: (input, base) => ({ ...base, ...input, status: 'draft' }),
     searchableFields: (item) => [item.title, item.description],
     sortKey: (item) => item.title,
+    /**
+     * The title is how a teacher refers to an exam, so two with the same one
+     * cannot be told apart in any list. Duplicating appends "(cópia)", which
+     * keeps that feature working.
+     */
+    identity: (item) => item.title,
   })
 
   return {

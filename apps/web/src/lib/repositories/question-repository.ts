@@ -13,8 +13,15 @@ export function createLocalQuestionRepository(teacherId: string): QuestionReposi
     teacherId,
     label: 'Questão',
     archiving: archiveByTimestamp('deletedAt'),
-    toEntity: (input, base) => ({ ...base, ...input }),
+    toEntity: (input, base) => ({ ...base, ...input, createdAt: new Date().toISOString() }),
     searchableFields: (item) => [item.statement, ...item.tags],
-    sortKey: (item) => item.statement,
+    /**
+     * Newest first, so a question just written is the first thing on screen.
+     * Sorting by statement buried it among hundreds, and finding it again meant
+     * remembering how it was worded. Questions from before this was stored sort
+     * last, which is where they belong.
+     */
+    sortKey: (item) => `${item.createdAt ?? ''}|${item.statement}`,
+    sortDirection: 'desc',
   })
 }

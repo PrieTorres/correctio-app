@@ -23,6 +23,7 @@ import {
   useQuestionList,
   useQuestionTags,
   type QuestionFilters,
+  type QuestionSort,
 } from '../hooks/useQuestions';
 import { QuestionTypeBadge } from '../components/QuestionTypeBadge';
 
@@ -32,6 +33,11 @@ const STATUS_SEGMENTS = [
   { value: 'active', label: 'Ativas' },
   { value: 'deleted', label: 'Excluídas' },
 ] as const satisfies readonly { value: StatusFilter; label: string }[];
+
+const SORT_SEGMENTS = [
+  { value: 'newest', label: 'Recentes' },
+  { value: 'statement', label: 'A–Z' },
+] as const satisfies readonly { value: QuestionSort; label: string }[];
 
 const TYPE_SEGMENTS = [
   { value: 'all', label: 'Todas' },
@@ -44,15 +50,24 @@ export function QuestionListPage() {
   const [status, setStatus] = useState<StatusFilter>('active');
   const [type, setType] = useState<QuestionType | 'all'>('all');
   const [tags, setTags] = useState<string[]>([]);
+  const [sort, setSort] = useState<QuestionSort>('newest');
+  const [onlyUntagged, setOnlyUntagged] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Question | null>(null);
 
-  const filters: QuestionFilters = { search, type, tags, deleted: status === 'deleted' };
+  const filters: QuestionFilters = {
+    search,
+    type,
+    tags,
+    deleted: status === 'deleted',
+    onlyUntagged,
+    sort,
+  };
   const { data, isPending, isError } = useQuestionList(filters);
   const { data: knownTags = [] } = useQuestionTags();
   const deleteQuestion = useDeleteQuestion();
 
   const questions = data?.items ?? [];
-  const filtering = search.trim() !== '' || type !== 'all' || tags.length > 0;
+  const filtering = search.trim() !== '' || type !== 'all' || tags.length > 0 || onlyUntagged;
 
   const newQuestionButton = (
     <Button variant="primary" icon={<Plus size={18} aria-hidden />}>
@@ -93,10 +108,25 @@ export function QuestionListPage() {
             onChange={setStatus}
             label="Filtrar por situação"
           />
+          <SegmentedControl
+            segments={SORT_SEGMENTS}
+            value={sort}
+            onChange={setSort}
+            label="Ordenar"
+          />
         </div>
 
         {knownTags.length > 0 && (
-          <TagFilter available={knownTags} selected={tags} onChange={setTags} />
+          <TagFilter
+            available={knownTags}
+            selected={tags}
+            onChange={setTags}
+            onlyUntagged={onlyUntagged}
+            onToggleUntagged={() => {
+              setOnlyUntagged((current) => !current);
+              setTags([]);
+            }}
+          />
         )}
       </div>
 
@@ -110,6 +140,7 @@ export function QuestionListPage() {
                 setSearch('');
                 setType('all');
                 setTags([]);
+                setOnlyUntagged(false);
               }}
               createButton={newQuestionButton}
             />
@@ -157,13 +188,37 @@ function TagFilter({
   available,
   selected,
   onChange,
-}: Readonly<{ available: string[]; selected: string[]; onChange: (tags: string[]) => void }>) {
+  onlyUntagged,
+  onToggleUntagged,
+}: Readonly<{
+  available: string[];
+  selected: string[];
+  onChange: (tags: string[]) => void;
+  onlyUntagged: boolean;
+  onToggleUntagged: () => void;
+}>) {
   const toggle = (tag: string) =>
     onChange(selected.includes(tag) ? selected.filter((item) => item !== tag) : [...selected, tag]);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-caption text-ink-subtle">Tags:</span>
+      {/*
+        A question with no tag never reaches an automatic draw, and there is no
+        other way to notice it: every tag filter hides it by definition.
+      */}
+      <button
+        type="button"
+        onClick={onToggleUntagged}
+        aria-pressed={onlyUntagged}
+        className={
+          onlyUntagged
+            ? 'rounded-[var(--radius-chip)] bg-warning-surface px-2 py-1 text-caption text-on-warning-surface'
+            : 'rounded-[var(--radius-chip)] border border-line px-2 py-1 text-caption text-ink-muted hover:bg-surface-muted'
+        }
+      >
+        Sem tag
+      </button>
       {available.map((tag) => (
         <button
           key={tag}

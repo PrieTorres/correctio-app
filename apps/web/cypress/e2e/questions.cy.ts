@@ -75,6 +75,41 @@ describe('banco de questões', () => {
     cy.get('button[aria-label="Remover tag Limi"]').should('not.exist')
   })
 
+  it('busca sem acento encontra o que tem acento', () => {
+    cy.get('input[type="search"]').type('limites')
+
+    cy.contains('sen(x)/x').should('be.visible')
+  })
+
+  it('coloca a questão recém-criada no topo, em vez de perdê-la no meio', () => {
+    cy.contains('a', 'Nova questão').click()
+    cy.get('#statement').type('Questão acabada de escrever')
+    cy.get('[aria-label="Texto da alternativa A"]').type('uma')
+    cy.get('[aria-label="Texto da alternativa B"]').type('outra')
+    cy.contains('button', 'Salvar questão').click()
+
+    cy.get('main ul li').first().should('contain', 'Questão acabada de escrever')
+  })
+
+  it('alterna entre as mais recentes e a ordem alfabética', () => {
+    cy.chooseSegment('A–Z')
+
+    cy.get('main ul li').first().should('contain', 'A derivada')
+  })
+
+  it('encontra as questões sem tag, que nenhum filtro de tag mostra', () => {
+    cy.contains('a', 'Nova questão').click()
+    cy.get('#statement').type('Questão sem nenhuma tag')
+    cy.get('[aria-label="Texto da alternativa A"]').type('uma')
+    cy.get('[aria-label="Texto da alternativa B"]').type('outra')
+    cy.contains('button', 'Salvar questão').click()
+
+    cy.contains('button', 'Sem tag').click()
+
+    cy.contains('Questão sem nenhuma tag').should('be.visible')
+    cy.contains('sen(x)/x').should('not.exist')
+  })
+
   it('distingue filtro sem resultado de banco vazio', () => {
     cy.get('input[type="search"]').type('zzzz')
 
@@ -97,6 +132,14 @@ describe('formulário de questão', () => {
     cy.contains('button', 'Salvar questão').click()
 
     cy.contains('Qual a integral de 2x?').should('be.visible')
+  })
+
+  /** It refused the save and said nothing, which reads as a broken button. */
+  it('diz por que não salva, em vez de recusar calado', () => {
+    cy.get('#statement').type('Questão sem alternativas preenchidas')
+    cy.contains('button', 'Salvar questão').click()
+
+    cy.contains('Preencha o texto de todas as alternativas').should('be.visible')
   })
 
   it('já vem com a primeira alternativa marcada como correta', () => {

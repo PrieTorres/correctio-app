@@ -195,15 +195,23 @@ describe('ExamFormPage', () => {
     expect((await repositories().questions.list()).items).toHaveLength(2)
   })
 
+  /** Named rather than taken by position: the bank lists the newest first. */
   it('does not offer a question that is already in the exam', async () => {
     const user = userEvent.setup()
     renderWithProviders(<ExamFormPage />)
-    await addFromBank(user, 1)
 
     await user.click(screen.getByRole('button', { name: /Adicionar do banco/ }))
-    const drawer = await screen.findByRole('dialog')
+    const picker = await screen.findByRole('dialog')
+    const first = (await within(picker).findAllByRole('checkbox'))[0] as HTMLElement
+    const added = first.getAttribute('aria-label') ?? ''
+    await user.click(first)
+    await user.click(within(picker).getByRole('button', { name: /Adicionar selecionadas/ }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
-    expect(within(drawer).queryByLabelText('Primeira questão')).toBeNull()
+    await user.click(screen.getByRole('button', { name: /Adicionar do banco/ }))
+    const reopened = await screen.findByRole('dialog')
+
+    expect(within(reopened).queryByLabelText(added)).toBeNull()
   })
 })
 

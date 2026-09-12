@@ -70,3 +70,42 @@ describe('exam repository', () => {
     expect((await bruno.list()).items).toHaveLength(0)
   })
 })
+
+describe('exam repository, duplicates', () => {
+  beforeEach(clearAllCollections)
+
+  it('refuses a second exam with the same title', async () => {
+    const repository = createLocalExamRepository('ana')
+    await repository.create(input)
+
+    await expect(repository.create(input)).rejects.toThrow(/já existe uma prova/i)
+  })
+
+  it('refuses it however the accents and the case were typed', async () => {
+    const repository = createLocalExamRepository('ana')
+    await repository.create(input)
+
+    await expect(repository.create({ ...input, title: 'prova 1 - calculo' })).resolves.toBeDefined()
+    await expect(repository.create({ ...input, title: 'PROVA 1 — CÁLCULO' })).rejects.toThrow(
+      /já existe uma prova/i,
+    )
+  })
+
+  /** Duplicating appends "(cópia)", so the feature still works. */
+  it('lets a copy in, because its title differs', async () => {
+    const repository = createLocalExamRepository('ana')
+    await repository.create(input)
+
+    await expect(
+      repository.create({ ...input, title: `${input.title} (cópia)` }),
+    ).resolves.toBeDefined()
+  })
+
+  it('points at the restore when the clash is with an archived exam', async () => {
+    const repository = createLocalExamRepository('ana')
+    const created = await repository.create(input)
+    await repository.archive(created.id)
+
+    await expect(repository.create(input)).rejects.toThrow(/arquivada/i)
+  })
+})
