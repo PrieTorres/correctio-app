@@ -1,6 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from './layouts/AppLayout'
-import { PlaceholderPage } from './PlaceholderPage'
+import { NotFoundPage } from './NotFoundPage'
 import { ROUTES } from './routes'
 import {
   ApplicationDetailPage,
@@ -61,7 +61,7 @@ export const router = createBrowserRouter(
       ],
     },
 
-    { path: '*', element: <PlaceholderPage screen="Página não encontrada" /> },
+    { path: '*', element: <NotFoundPage /> },
   ],
   { basename: import.meta.env.BASE_URL },
 )
