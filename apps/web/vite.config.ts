@@ -28,6 +28,12 @@ export default defineConfig({
     restoreMocks: true,
     clearMocks: true,
     setupFiles: ['./src/test-setup.ts'],
+    /*
+      The repositories simulate latency on every call, and a test that walks a
+      whole flow makes a dozen of them. Five seconds is the default; these need
+      room without each one restating it.
+    */
+    testTimeout: 20000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

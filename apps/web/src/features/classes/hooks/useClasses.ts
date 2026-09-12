@@ -21,7 +21,7 @@ export function useClassList(archived: boolean, search: string) {
 
   return useQuery({
     queryKey: classKeys.list(archived, search),
-    queryFn: () => repositories.classes.list({ includeArchived: archived, search }),
+    queryFn: () => repositories.classes.list({ archived: archived, search }),
   });
 }
 

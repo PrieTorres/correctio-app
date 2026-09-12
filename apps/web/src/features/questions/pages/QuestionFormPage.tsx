@@ -3,9 +3,18 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
-import { Button, Card, PageHeader, QueryBoundary, SegmentedControl, TextField } from '@/components/ui';
+import {
+  Button,
+  Card,
+  PageHeader,
+  QueryBoundary,
+  SaveError,
+  SegmentedControl,
+  TextField,
+} from '@/components/ui';
 import { questionInputSchema, type QuestionInput } from '@/lib/schemas';
 import { createId } from '@/lib/utils';
+import { fieldArrayMessage } from '@/lib/forms';
 import { ROUTES } from '@/app/routes';
 import type { QuestionType } from '@/types/domain';
 import { useQuestion, useSaveQuestion } from '../hooks/useQuestions';
@@ -92,9 +101,16 @@ export function QuestionFormPage() {
     if (existing) reset(existing);
   }, [existing, reset]);
 
-  const onSubmit = async (input: QuestionInput) => {
-    await save.mutateAsync({ id, input: onlyFieldsOfItsType(input) });
-    void navigate(ROUTES.questions);
+  /*
+    `mutate` with a callback rather than awaiting `mutateAsync`: a refused save
+    is shown by `SaveError`, and awaiting a rejection that nothing catches sends
+    an unhandled rejection to the console as well.
+  */
+  const onSubmit = (input: QuestionInput) => {
+    save.mutate(
+      { id, input: onlyFieldsOfItsType(input) },
+      { onSuccess: () => void navigate(ROUTES.questions) },
+    );
   };
 
   return (
@@ -150,7 +166,7 @@ export function QuestionFormPage() {
               <AlternativesField
                 fields={alternatives.fields}
                 correctAlternativeId={correctAlternativeId}
-                error={errors.alternatives?.message ?? errors.correctAlternativeId?.message}
+                error={fieldArrayMessage(errors.alternatives) ?? errors.correctAlternativeId?.message}
                 register={register}
                 onAdd={() => alternatives.append(blankAlternative())}
                 onRemove={(index) => alternatives.remove(index)}
@@ -188,6 +204,10 @@ export function QuestionFormPage() {
 
             {type === 'objetiva' && <ShuffleToggle form={form} />}
           </Card>
+
+          <div className="mt-6">
+            <SaveError error={save.error} />
+          </div>
 
           <div className="mt-6 flex justify-end gap-3">
             <Button variant="ghost" onClick={() => void navigate(ROUTES.questions)}>

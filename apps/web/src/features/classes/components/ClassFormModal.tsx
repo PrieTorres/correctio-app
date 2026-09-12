@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { classInputSchema, type ClassInput } from '@/lib/schemas'
-import { Button, Modal, TextField } from '@/components/ui'
+import { Button, Modal, SaveError, TextField } from '@/components/ui'
 import type { Class } from '@/types/domain'
 import { useSaveClass } from '../hooks/useClasses'
 
@@ -41,9 +41,13 @@ export function ClassFormModal({
     )
   }, [open, editing, reset])
 
-  const onSubmit = async (input: ClassInput) => {
-    await save.mutateAsync({ id: editing?.id, input })
-    onOpenChange(false)
+  /*
+    `mutate` with a callback rather than awaiting `mutateAsync`: a refused save
+    is shown by `SaveError`, and awaiting a rejection that nothing catches sends
+    an unhandled rejection to the console as well.
+  */
+  const onSubmit = (input: ClassInput) => {
+    save.mutate({ id: editing?.id, input }, { onSuccess: () => onOpenChange(false) })
   }
 
   return (
@@ -71,6 +75,8 @@ export function ClassFormModal({
           error={errors.term?.message}
           {...register('term')}
         />
+
+        <SaveError error={save.error} />
 
         <div className="mt-2 flex justify-end gap-3">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

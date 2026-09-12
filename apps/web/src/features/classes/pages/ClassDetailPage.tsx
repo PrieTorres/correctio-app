@@ -10,11 +10,13 @@ import {
   EmptyState,
   PageHeader,
   QueryBoundary,
+  Tour,
 } from '@/components/ui'
 import { ROUTES } from '@/app/routes'
 import type { Student } from '@/types/domain'
 import { useClass, useStudentAction, useStudents, type StudentAction } from '../hooks/useClasses'
 import { StudentFormModal } from '../components/StudentFormModal'
+import { ImportStudentsDialog } from '../components/ImportStudentsDialog'
 
 interface PendingAction {
   action: StudentAction
@@ -45,6 +47,7 @@ const ACTION_COPY: Record<StudentAction, (name: string) => { title: string; desc
 export function ClassDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [formOpen, setFormOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [pending, setPending] = useState<PendingAction | null>(null)
 
   const { data: schoolClass, isPending, isError } = useClass(id)
@@ -81,7 +84,9 @@ export function ClassDetailPage() {
             description={`${schoolClass.subject} · ${schoolClass.term}`}
             actions={
               <>
-                <Button icon={<Upload size={18} aria-hidden />}>Importar alunos</Button>
+                <Button icon={<Upload size={18} aria-hidden />} onClick={() => setImportOpen(true)}>
+                  Importar alunos
+                </Button>
                 {addStudentButton}
               </>
             }
@@ -115,6 +120,14 @@ export function ClassDetailPage() {
           </Card>
 
           <StudentFormModal open={formOpen} onOpenChange={setFormOpen} classId={schoolClass.id} />
+
+          <ImportStudentsDialog
+            classId={schoolClass.id}
+            open={importOpen}
+            onOpenChange={setImportOpen}
+          />
+
+          <Tour screen="classDetail" ready={students.length > 0} />
 
           {pending !== null && (
             <ConfirmDialog

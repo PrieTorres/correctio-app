@@ -1,6 +1,16 @@
-import type { Class, Exam, ExamQuestion, Question, Student } from '@/types/domain'
-import { classSchema, examSchema, questionSchema, studentSchema } from '@/lib/schemas'
+import type { Application, Class, Exam, ExamQuestion, Question, Student } from '@/types/domain'
+import {
+  answerSheetSchema,
+  applicationSchema,
+  classSchema,
+  examSchema,
+  examVersionSchema,
+  questionSchema,
+  studentSchema,
+} from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
+import { buildAnswerSheets, buildVersions } from '@/lib/applications'
+import { createLocalAuthProvider } from '@/lib/auth'
 
 /**
  * Demo dataset for the mock-data phase.
@@ -179,11 +189,87 @@ const EXAMS: Exam[] = [
   },
 ]
 
+/**
+ * One application already generated and one still to generate, so both states
+ * of the screens have something to show without anyone having to click first.
+ */
+const APPLICATIONS: Application[] = [
+  {
+    id: 'application-calculus-midterm',
+    examId: 'exam-calculus-midterm',
+    classId: 'class-calculus-1',
+    teacherId: TEACHER_ID,
+    status: 'generated',
+    date: '2026-10-05T12:00:00.000Z',
+    gradesReleased: false,
+  },
+  {
+    id: 'application-physics-quiz',
+    examId: 'exam-physics-quiz',
+    classId: 'class-physics-2',
+    teacherId: TEACHER_ID,
+    status: 'draft',
+    date: '2026-11-12T12:00:00.000Z',
+    gradesReleased: false,
+  },
+]
+
+/**
+ * The generated application arrives with paper, built by the same functions the
+ * screen uses. Writing the versions out by hand would let the demo drift from
+ * what generating actually produces, and a sheet whose layout does not match
+ * its version is unreadable.
+ */
+function printingForDemo() {
+  const exam = EXAMS.find((item) => item.id === 'exam-calculus-midterm')
+  const application = APPLICATIONS.find((item) => item.status === 'generated')
+  if (exam === undefined || application === undefined) return { versions: [], sheets: [] }
+
+  const versions = buildVersions({
+    applicationId: application.id,
+    exam,
+    bank: QUESTIONS,
+    versionCount: 2,
+    shuffleQuestions: exam.defaultShuffleQuestions,
+    shuffleAlternatives: exam.defaultShuffleAlternatives,
+    withStudentIdentification: true,
+  })
+  const sheets = buildAnswerSheets(
+    application.id,
+    versions,
+    STUDENTS.filter((student) => student.classId === application.classId),
+    true,
+  )
+
+  return { versions, sheets }
+}
+
+/**
+ * Signs the demo teacher in, if nobody is.
+ *
+ * The demo is browsable without a login, and everything it holds belongs to
+ * `teacher-demo`. Recording a correction has to say who made it, so without a
+ * session the grading screens would refuse — correctly, and uselessly, in a
+ * demonstration that has no sign-in step.
+ */
+function signInDemoTeacher(): void {
+  const auth = createLocalAuthProvider()
+  if (auth.getCurrentUser() !== null) return
+
+  void auth.signIn('ana.ribeiro@exemplo.edu.br', 'demonstracao')
+}
+
 function seed(): void {
+  signInDemoTeacher()
   createCollection('classes', classSchema).writeAll(CLASSES)
   createCollection('students', studentSchema).writeAll(STUDENTS)
   createCollection('questions', questionSchema).writeAll(QUESTIONS)
   createCollection('exams', examSchema).writeAll(EXAMS)
+  createCollection('applications', applicationSchema).writeAll(APPLICATIONS)
+
+  const printing = printingForDemo()
+  createCollection('exam-versions', examVersionSchema).writeAll(printing.versions)
+  createCollection('answer-sheets', answerSheetSchema).writeAll(printing.sheets)
   window.localStorage.setItem(SEED_MARKER, new Date().toISOString())
 }
 

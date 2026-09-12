@@ -1,7 +1,7 @@
 {
   "name": "@correctio/web",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,8 +11,8 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "test:e2e": "start-server-and-test preview http://localhost:4173 'cypress run'",
-    "test:e2e:record": "start-server-and-test preview http://localhost:4173 'cypress run --record'"
+    "test:e2e": "env -u ELECTRON_RUN_AS_NODE start-server-and-test preview http://localhost:4173 'cypress run'",
+    "test:e2e:record": "env -u ELECTRON_RUN_AS_NODE start-server-and-test preview http://localhost:4173 'cypress run --record'"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

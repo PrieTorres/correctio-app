@@ -44,7 +44,7 @@ describe('class repository', () => {
 
     await repository.archive(created.id)
     expect((await repository.list()).items).toHaveLength(0)
-    expect((await repository.list({ includeArchived: true })).items).toHaveLength(1)
+    expect((await repository.list({ archived: true })).items).toHaveLength(1)
 
     await repository.restore(created.id)
     expect((await repository.list()).items).toHaveLength(1)
@@ -107,5 +107,68 @@ describe('class repository', () => {
   it('rejects updates to a missing record', async () => {
     const repository = createLocalClassRepository('ana')
     await expect(repository.update('nope', { name: 'x' })).rejects.toThrow(/não encontrada/i)
+  })
+})
+
+describe('class repository, duplicates', () => {
+  beforeEach(clearAllCollections)
+
+  const turma = { name: 'Cálculo I', subject: 'Matemática', term: '2026/2' }
+
+  it('refuses a second class with the same name in the same term', async () => {
+    const repository = createLocalClassRepository('ana')
+    await repository.create(turma)
+
+    await expect(repository.create(turma)).rejects.toThrow(/já existe uma turma/i)
+  })
+
+  /** "Cálculo I" and "calculo i" are the same class to the person typing them. */
+  it('refuses it however the accents and the case were typed', async () => {
+    const repository = createLocalClassRepository('ana')
+    await repository.create(turma)
+
+    await expect(repository.create({ ...turma, name: 'calculo i' })).rejects.toThrow(
+      /já existe uma turma/i,
+    )
+  })
+
+  it('allows the same name in another term, which is the next semester', async () => {
+    const repository = createLocalClassRepository('ana')
+    await repository.create(turma)
+
+    await expect(repository.create({ ...turma, term: '2027/1' })).resolves.toBeDefined()
+  })
+
+  it('points at the restore when the clash is with an archived class', async () => {
+    const repository = createLocalClassRepository('ana')
+    const created = await repository.create(turma)
+    await repository.archive(created.id)
+
+    await expect(repository.create(turma)).rejects.toThrow(/arquivada/i)
+  })
+
+  it('leaves another teacher free to use the same name', async () => {
+    await createLocalClassRepository('ana').create(turma)
+
+    await expect(createLocalClassRepository('bruno').create(turma)).resolves.toBeDefined()
+  })
+
+  it('lets a class keep its own name while being edited', async () => {
+    const repository = createLocalClassRepository('ana')
+    const created = await repository.create(turma)
+
+    await expect(
+      repository.update(created.id, { subject: 'Cálculo aplicado' }),
+    ).resolves.toBeDefined()
+  })
+
+  it('refuses renaming a class onto another one', async () => {
+    const repository = createLocalClassRepository('ana')
+    await repository.create(turma)
+    const other = await repository.create({ ...turma, name: 'Álgebra Linear' })
+
+    await expect(repository.update(other.id, { name: 'Cálculo I' })).rejects.toThrow(
+      /já existe uma turma/i,
+    )
   })
 })

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clearAllCollections } from '@/lib/storage/collection'
+import { clearAllCollections, createCollection } from '@/lib/storage/collection'
+import { questionSchema } from '@/lib/schemas'
 import { createLocalQuestionRepository } from '../question-repository'
 import { archiveByStatus, archiveByTimestamp } from '../create-owned-repository'
 
@@ -25,7 +26,7 @@ describe('question repository', () => {
     await repository.archive(created.id)
 
     expect((await repository.list()).items).toHaveLength(0)
-    expect((await repository.list({ includeArchived: true })).items).toHaveLength(1)
+    expect((await repository.list({ archived: true })).items).toHaveLength(1)
   })
 
   it('marks the deletion with a timestamp instead of removing the record', async () => {
@@ -92,5 +93,55 @@ describe('archiving strategies', () => {
     const strategy = archiveByTimestamp<{ id: string; deletedAt?: string }, 'deletedAt'>('deletedAt')
 
     expect(strategy.setArchived({ id: 'q1' }, true).id).toBe('q1')
+  })
+})
+
+describe('question repository, order', () => {
+  beforeEach(clearAllCollections)
+
+  const newQuestion = (statement: string) => ({
+    type: 'objetiva' as const,
+    statement,
+    tags: [],
+    alternatives: [
+      { id: `${statement}-a`, text: 'uma' },
+      { id: `${statement}-b`, text: 'outra' },
+    ],
+    correctAlternativeId: `${statement}-a`,
+    allowShuffleAlternatives: true,
+  })
+
+  /**
+   * Sorting by statement buried a question just written among hundreds, and
+   * finding it again meant remembering how it was worded.
+   */
+  it('puts the newest question first', async () => {
+    const repository = createLocalQuestionRepository('ana')
+    await repository.create(newQuestion('Antiga'))
+    await repository.create(newQuestion('Zebra, que viria por último em ordem alfabética'))
+
+    const [first] = (await repository.list()).items
+    expect(first?.statement).toContain('Zebra')
+  })
+
+  it('records when a question entered the bank', async () => {
+    const repository = createLocalQuestionRepository('ana')
+
+    const created = await repository.create(newQuestion('Qualquer'))
+
+    expect(created.createdAt).toBeDefined()
+  })
+
+  it('sorts a question from before this was recorded to the end', async () => {
+    const repository = createLocalQuestionRepository('ana')
+    const created = await repository.create(newQuestion('Nova'))
+    const collection = createCollection('questions', questionSchema)
+    collection.writeAll([
+      ...collection.readAll(),
+      { ...created, id: 'legacy', statement: 'Sem data', createdAt: undefined },
+    ])
+
+    const items = (await repository.list()).items
+    expect(items[items.length - 1]?.id).toBe('legacy')
   })
 })

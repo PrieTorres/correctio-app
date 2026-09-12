@@ -63,3 +63,35 @@ describe('turmas', () => {
     cy.contains('Aluno anonimizado').should('be.visible')
   })
 })
+
+describe('turmas duplicadas', () => {
+  beforeEach(() => cy.visit('/turmas'))
+
+  it('recusa uma turma com os mesmos dados de outra', () => {
+    cy.contains('button', 'Nova turma').click()
+    cy.findByLabel('Nome da turma').type('Cálculo I — Noturno')
+    cy.findByLabel('Disciplina').type('Matemática')
+    cy.findByLabel('Período').type('2026/2')
+    cy.findInDialog('button', 'Salvar').click()
+
+    cy.contains('Já existe uma turma com estes dados').should('be.visible')
+  })
+
+  it('aceita o mesmo nome em outro período, que é o semestre seguinte', () => {
+    cy.contains('button', 'Nova turma').click()
+    cy.findByLabel('Nome da turma').type('Cálculo I — Noturno')
+    cy.findByLabel('Disciplina').type('Matemática')
+    cy.findByLabel('Período').type('2027/1')
+    cy.findInDialog('button', 'Salvar').click()
+
+    cy.get('[role="dialog"]').should('not.exist')
+  })
+
+  it('busca por nome e por disciplina sem acento', () => {
+    cy.get('input[type="search"]').type('calculo')
+    cy.contains('Cálculo I — Noturno').should('be.visible')
+
+    cy.get('input[type="search"]').clear().type('matematica')
+    cy.contains('Cálculo I — Noturno').should('be.visible')
+  })
+})

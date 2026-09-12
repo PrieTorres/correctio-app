@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { classSchema, examSchema, questionSchema, studentSchema } from '@/lib/schemas'
+import {
+  answerSheetSchema,
+  applicationSchema,
+  classSchema,
+  examSchema,
+  examVersionSchema,
+  questionSchema,
+  studentSchema,
+} from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 import { clearDemoData, hasDemoData, resetDemoData, seedIfEmpty } from '../index'
 
@@ -7,6 +15,9 @@ const classes = () => createCollection('classes', classSchema).readAll()
 const students = () => createCollection('students', studentSchema).readAll()
 const questions = () => createCollection('questions', questionSchema).readAll()
 const exams = () => createCollection('exams', examSchema).readAll()
+const applications = () => createCollection('applications', applicationSchema).readAll()
+const versions = () => createCollection('exam-versions', examVersionSchema).readAll()
+const sheets = () => createCollection('answer-sheets', answerSheetSchema).readAll()
 
 describe('demo data', () => {
   beforeEach(() => window.localStorage.clear())
@@ -71,6 +82,62 @@ describe('demo data', () => {
     }
   })
 
+  it('seeds one application already generated and one still to generate', () => {
+    seedIfEmpty()
+
+    expect(applications().some((item) => item.status === 'generated')).toBe(true)
+    expect(applications().some((item) => item.status === 'draft')).toBe(true)
+  })
+
+  it('points every application at an exam and a class that exist', () => {
+    seedIfEmpty()
+
+    const examIds = new Set(exams().map((item) => item.id))
+    const classIds = new Set(classes().map((item) => item.id))
+    for (const application of applications()) {
+      expect(examIds).toContain(application.examId)
+      expect(classIds).toContain(application.classId)
+    }
+  })
+
+  it('gives the generated application real paper to show', () => {
+    seedIfEmpty()
+
+    expect(versions().length).toBeGreaterThan(0)
+    expect(sheets().length).toBeGreaterThan(0)
+  })
+
+  it('gives every seeded sheet a code of its own', () => {
+    seedIfEmpty()
+
+    const codes = sheets().map((item) => item.code)
+    expect(new Set(codes).size).toBe(codes.length)
+  })
+
+  it('prints one sheet per student of the applied class', () => {
+    seedIfEmpty()
+
+    const generated = applications().find((item) => item.status === 'generated')
+    const enrolled = students().filter((item) => item.classId === generated?.classId)
+    expect(sheets()).toHaveLength(enrolled.length)
+  })
+
+  it('points every sheet at a version that was actually printed', () => {
+    seedIfEmpty()
+
+    const printed = new Set(versions().map((item) => item.id))
+    for (const sheet of sheets()) {
+      expect(printed).toContain(sheet.examVersionId)
+    }
+  })
+
+  it('leaves the application still to generate without any paper', () => {
+    seedIfEmpty()
+
+    const draft = applications().find((item) => item.status === 'draft')
+    expect(sheets().some((item) => item.applicationId === draft?.id)).toBe(false)
+  })
+
   it('includes an archived class, so the filter and restore have something to show', () => {
     seedIfEmpty()
 
@@ -115,6 +182,9 @@ describe('clearDemoData', () => {
     expect(students()).toHaveLength(0)
     expect(questions()).toHaveLength(0)
     expect(exams()).toHaveLength(0)
+    expect(applications()).toHaveLength(0)
+    expect(versions()).toHaveLength(0)
+    expect(sheets()).toHaveLength(0)
   })
 
   it('keeps the next visit from silently seeding again', () => {

@@ -13,7 +13,7 @@ export function useExamList(archived: boolean, search: string) {
 
   return useQuery({
     queryKey: examKeys.list(archived, search),
-    queryFn: () => repositories.exams.list({ search, includeArchived: archived }),
+    queryFn: () => repositories.exams.list({ search, archived: archived }),
   });
 }
 

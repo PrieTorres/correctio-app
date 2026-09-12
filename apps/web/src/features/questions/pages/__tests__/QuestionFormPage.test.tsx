@@ -25,6 +25,25 @@ describe('QuestionFormPage', () => {
     await user.type(screen.getByLabelText('Texto da alternativa B'), '2')
   }
 
+  /**
+   * The form refused the save and said nothing: react-hook-form files a rule
+   * about the array as a whole under `root` once its items are registered, and
+   * the screen only read the message one level up.
+   */
+  it('says why it will not save, instead of refusing in silence', async () => {
+    clearAllCollections()
+    const user = userEvent.setup()
+    renderWithProviders(<QuestionFormPage />)
+
+    await user.type(statement(), 'Uma questão sem alternativas preenchidas')
+    await user.click(screen.getByRole('button', { name: /Salvar questão/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Preencha o texto de todas as alternativas',
+    )
+    expect((await saved()).items).toHaveLength(0)
+  })
+
   it('marks the first alternative as correct from the start', () => {
     clearAllCollections()
     renderWithProviders(<QuestionFormPage />)

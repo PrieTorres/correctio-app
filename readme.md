@@ -198,19 +198,57 @@ A estrutura obrigatória de cada uma segue a seção 8 da Spec SGP Católica e e
 
 ## ▶️ 7. Como rodar
 
-> ⏳ **Preenchido quando a fundação do projeto for criada.** O repositório contém hoje apenas a documentação — o código entra na primeira issue da N1.
-
-**Versões previstas:** Node 22 LTS · React 19 · Vite · TypeScript
+**Versões em uso:** Node 22 LTS · React 19 · Vite 6 · TypeScript 5.7 · Tailwind 4 · Vitest 3 · Cypress 15
 
 ```bash
-npm install
-npm run dev       # ambiente local
+npm install       # instala o monorepo inteiro (npm workspaces)
+npm run dev       # ambiente local em http://localhost:5173
 npm run build     # gera a versão publicável
-npm run test      # testes unitários com cobertura
-npm run test:e2e  # testes Cypress
+npm run preview   # serve a versão publicável em http://localhost:4173
+npm run typecheck # verificação de tipos
+npm run lint      # ESLint e o verificador de idioma dos comentários
+npm test          # testes unitários com cobertura
+npm run test:e2e  # Cypress contra o build de produção
 ```
 
-**Contribuindo:** todo trabalho entra por Pull Request. O merge só libera depois que lint, tipos, testes, build e o portão do SonarCloud passarem — detalhes em [CI_CD.md](docs/CI_CD.md).
+### A N1 roda sem back-end
+
+Não há servidor nem banco: os dados ficam no `localStorage` do navegador. Abrir o link
+publicado já mostra um sistema cheio — turmas, questões, provas, uma aplicação gerada e outra
+por gerar. Os botões **Aplicar** e **Limpar** no rodapé do menu repõem ou esvaziam essa
+demonstração a qualquer momento.
+
+Três coisas são simuladas de propósito, porque exigem servidor:
+
+| Simulado | O que é real |
+|---|---|
+| A montagem do arquivo PDF | As versões com o layout impresso gravado e as folhas com código único |
+| A leitura da foto da folha | A correção das objetivas, o status parcial e a confirmação do professor |
+| O e-mail de recuperação de senha | O fluxo da tela e a resposta que não revela quem tem conta |
+
+### Se o Cypress não abrir
+
+`bad option: --no-sandbox` significa `ELECTRON_RUN_AS_NODE=1` no ambiente — o VS Code define
+essa variável para o processo de extensões, e com ela o Electron do Cypress roda como Node
+puro. Os scripts já a removem com `env -u`; rodando o binário direto, faça o mesmo.
+
+**Contribuindo:** todo trabalho entra por Pull Request. O merge só libera depois que lint,
+tipos, testes, build e o portão do SonarCloud passarem — detalhes em [CI_CD.md](docs/CI_CD.md).
+
+---
+
+## 🧪 8. Qualidade
+
+| Verificação | Estado |
+|---|---|
+| Testes unitários | 436, cobertura de linhas em 99% |
+| Testes de ponta a ponta | 137 cenários Cypress, em 9 specs |
+| Tipos | `tsc --noEmit` sem erros, em modo estrito |
+| Lint | ESLint sem apontamentos, incluindo as regras próprias do grupo |
+
+As regras críticas — cálculo da nota, paginação do PDF, sorteio de questões, estatísticas e
+o que a consulta pública pode mostrar — vivem em funções puras sob `apps/web/src/lib`,
+testadas sem renderizar tela nenhuma.
 
 ---
 
@@ -231,6 +269,6 @@ npm run test:e2e  # testes Cypress
 
 <div align="center">
 
-*README v1.1 — 02/09/2026*
+*README v2 — 12/09/2026 · versão 1.0.0*
 
 </div>

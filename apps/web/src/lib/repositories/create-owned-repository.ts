@@ -1,4 +1,4 @@
-import { compareByLocale, createId, matchesSearch } from '@/lib/utils'
+import { compareByLocale, createId, matchesSearch, normalize } from '@/lib/utils'
 import type { Collection } from '@/lib/storage/collection'
 import { simulateLatency } from '@/lib/storage/collection'
 import { StorageError } from '@/lib/storage/errors'
@@ -55,6 +55,13 @@ interface Config<TEntity extends OwnedEntity, TInput> {
   toEntity: (input: TInput, base: { id: string; teacherId: string }) => TEntity
   searchableFields: (entity: TEntity) => string[]
   sortKey: (entity: TEntity) => string
+  /** `desc` puts the newest first, for listings ordered by when, not by name. */
+  sortDirection?: 'asc' | 'desc'
+  /**
+   * What makes two records the same one to a teacher, compared without
+   * accents or case. Leaving it out means duplicates are allowed.
+   */
+  identity?: (entity: TEntity) => string
 }
 
 /**
@@ -72,6 +79,8 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
   toEntity,
   searchableFields,
   sortKey,
+  sortDirection = 'asc',
+  identity,
 }: Config<TEntity, TInput>): OwnedRepository<TEntity, TInput> {
   const readOwned = (): TEntity[] =>
     collection.readAll().filter((entity) => entity.teacherId === teacherId)
@@ -88,6 +97,31 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
     return [index, entity]
   }
 
+  /**
+   * Refuses a record a teacher would read as one they already have.
+   *
+   * Compared without accents or case, because "Cálculo I" and "calculo i" are
+   * the same class to the person typing them. Archived records count: a name
+   * that is free only because something was archived is not free, and saying so
+   * points at the restore instead of leaving two of the same thing in the list.
+   */
+  const requireUnique = (candidate: TEntity, items: readonly TEntity[]): void => {
+    if (identity === undefined) return
+
+    const wanted = normalize(identity(candidate))
+    const clash = items.find(
+      (entity) => entity.id !== candidate.id && normalize(identity(entity)) === wanted,
+    )
+    if (clash === undefined) return
+
+    throw new StorageError(
+      archiving.isArchived(clash)
+        ? `Já existe uma ${label.toLocaleLowerCase('pt-BR')} arquivada com estes dados. Restaure em vez de criar outra.`
+        : `Já existe uma ${label.toLocaleLowerCase('pt-BR')} com estes dados.`,
+      'conflict',
+    )
+  }
+
   const setArchived = async (id: string, archived: boolean): Promise<void> => {
     await simulateLatency()
     const items = readOwned()
@@ -99,12 +133,16 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
     async list(params: ListParams = {}): Promise<Page<TEntity>> {
       await simulateLatency()
 
-      const { search = '', includeArchived = false, page = 1, pageSize = 50 } = params
+      const { search = '', archived = false, page = 1, pageSize = 50 } = params
 
       const matches = readOwned()
-        .filter((entity) => archiving.isArchived(entity) === includeArchived)
+        .filter((entity) => archiving.isArchived(entity) === archived)
         .filter((entity) => matchesSearch(search, ...searchableFields(entity)))
-        .toSorted((a, b) => compareByLocale(sortKey(a), sortKey(b)))
+        .toSorted((a, b) =>
+          sortDirection === 'desc'
+            ? compareByLocale(sortKey(b), sortKey(a))
+            : compareByLocale(sortKey(a), sortKey(b)),
+        )
 
       const start = (page - 1) * pageSize
       return { items: matches.slice(start, start + pageSize), total: matches.length }
@@ -118,7 +156,10 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
     async create(input: TInput): Promise<TEntity> {
       await simulateLatency()
       const entity = toEntity(input, { id: createId(), teacherId })
-      persist([...readOwned(), entity])
+
+      const items = readOwned()
+      requireUnique(entity, items)
+      persist([...items, entity])
       return entity
     },
 
@@ -127,6 +168,8 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
       const items = readOwned()
       const [index, entity] = requireEntry(items, id)
       const next = { ...entity, ...input } as TEntity
+
+      requireUnique(next, items)
       persist(items.with(index, next))
       return next
     },

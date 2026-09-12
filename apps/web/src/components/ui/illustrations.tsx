@@ -92,6 +92,22 @@ export function ExamsIllustration({ className }: IllustrationProps) {
   );
 }
 
+/** A sheet with a calendar mark: an exam meeting a class on a date. */
+export function ApplicationsIllustration({ className }: IllustrationProps) {
+  return (
+    <Frame className={className}>
+      <rect x="28" y="20" width="76" height="84" rx="8" fill={FILL_SOFT} />
+      <rect x="28" y="20" width="76" height="84" rx="8" stroke={STROKE} strokeWidth="2.5" />
+      <path d="M42 42h48M42 56h48M42 70h30" stroke={STROKE} strokeWidth="2.5" opacity="0.45" />
+      <rect x="86" y="58" width="46" height="44" rx="8" fill="var(--color-surface)" />
+      <rect x="86" y="58" width="46" height="44" rx="8" stroke={STROKE} strokeWidth="2.5" />
+      <path d="M86 72h46" stroke={STROKE} strokeWidth="2.5" />
+      <path d="M96 58v-8M122 58v-8" stroke={STROKE} strokeWidth="2.5" />
+      <circle cx="109" cy="87" r="7" fill={ACCENT} stroke={STROKE} strokeWidth="2.5" />
+    </Frame>
+  );
+}
+
 /** A magnifier over a list: the search matched nothing. */
 export function SearchIllustration({ className }: IllustrationProps) {
   return (

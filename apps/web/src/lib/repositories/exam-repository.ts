@@ -1,11 +1,18 @@
 import type { Exam } from '@/types/domain'
 import type { ExamInput } from '@/lib/schemas'
 import { examSchema } from '@/lib/schemas'
-import { createCollection } from '@/lib/storage/collection'
+import { createCollection, simulateLatency } from '@/lib/storage/collection'
+import { StorageError } from '@/lib/storage/errors'
 import { archiveByStatus, createOwnedRepository } from './create-owned-repository'
 import type { OwnedRepository } from './types'
 
-export type ExamRepository = OwnedRepository<Exam, ExamInput>
+/**
+ * `markReady` records that the exam has been applied at least once. It is a
+ * fact about its history rather than something the form can set.
+ */
+export interface ExamRepository extends OwnedRepository<Exam, ExamInput> {
+  markReady: (id: string) => Promise<void>
+}
 
 /**
  * Archiving restores to `draft`, never to `ready`.
@@ -15,13 +22,35 @@ export type ExamRepository = OwnedRepository<Exam, ExamInput>
  * archive has no application waiting for it.
  */
 export function createLocalExamRepository(teacherId: string): ExamRepository {
-  return createOwnedRepository<Exam, ExamInput>({
-    collection: createCollection('exams', examSchema),
+  const collection = createCollection('exams', examSchema)
+
+  const base = createOwnedRepository<Exam, ExamInput>({
+    collection,
     teacherId,
     label: 'Prova',
     archiving: archiveByStatus<Exam>('draft', 'closed'),
     toEntity: (input, base) => ({ ...base, ...input, status: 'draft' }),
     searchableFields: (item) => [item.title, item.description],
     sortKey: (item) => item.title,
+    /**
+     * The title is how a teacher refers to an exam, so two with the same one
+     * cannot be told apart in any list. Duplicating appends "(cópia)", which
+     * keeps that feature working.
+     */
+    identity: (item) => item.title,
   })
+
+  return {
+    ...base,
+
+    async markReady(id) {
+      await simulateLatency()
+      const all = collection.readAll()
+      const index = all.findIndex((item) => item.id === id && item.teacherId === teacherId)
+      const exam = all[index]
+      if (exam === undefined) throw new StorageError('Prova não encontrada.', 'not-found')
+
+      if (exam.status === 'draft') collection.writeAll(all.with(index, { ...exam, status: 'ready' }))
+    },
+  }
 }

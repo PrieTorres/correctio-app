@@ -94,6 +94,14 @@ Ao acrescentar lógica a um módulo que estava fora da métrica de cobertura, **
 de exclusão** em `vite.config.ts`. Foi o que aconteceu com `lib/seed`: nasceu como dado fixo,
 ganhou quatro funções e continuou invisível para a cobertura.
 
+### O Cypress roda local
+
+`npm run test:e2e` sobe o preview e roda a suíte inteira. Se aparecer
+`bad option: --no-sandbox`, a causa é `ELECTRON_RUN_AS_NODE=1` no ambiente — o VS Code
+define isso para o processo de extensões, e com ela o Electron do Cypress roda como Node puro
+e recusa as próprias flags. O script já remove a variável com `env -u`; ao rodar o binário
+direto, faça o mesmo.
+
 ### O Cypress cobre o sistema inteiro, não só o que acabou de ser feito
 
 A cada feature nova, **todas as regras e funcionalidades do sistema continuam validadas pelo
@@ -116,6 +124,14 @@ Erros que já aconteceram e não podem repetir:
   ainda carregando. Use os comandos que repetem (`cy.contains`, `cy.get`).
 - **Cenário que o sistema não alcança.** Pedir 5 objetivas de um banco com 4 esvazia o banco,
   e aí não há o que trocar. Confira se o estado que o teste exige existe.
+- **Agir antes do dado chegar.** Sortear com o banco ainda carregando encontra nada e culpa o
+  banco. Espere o que a tela mostra quando está pronta.
+- **`.as()` sobre uma query não congela valor.** Um alias criado de `cy.get(...).invoke(...)`
+  é **reexecutado** ao ser lido com `cy.get('@alias')`, devolvendo o estado de agora e não o
+  de antes. Para comparar antes e depois, guarde em variável dentro de `.then()`.
+- **Recarregar a página mata escrita em voo.** `cy.visit` e `cy.reload` destroem a mutação
+  que ainda não terminou. Navegue pelos links do próprio app quando o que importa é o efeito
+  de algo que acabou de ser salvo.
 
 ## Estrutura
 

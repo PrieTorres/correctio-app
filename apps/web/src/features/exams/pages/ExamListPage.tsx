@@ -14,6 +14,7 @@ import {
   SearchIllustration,
   SearchInput,
   SegmentedControl,
+  Tour,
 } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { totalScore } from '@/lib/exams';
@@ -67,7 +68,7 @@ export function ExamListPage() {
         }
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -132,6 +133,8 @@ export function ExamListPage() {
           }
         />
       )}
+
+      <Tour screen="exams" ready={exams.length > 0} />
     </div>
   );
 }

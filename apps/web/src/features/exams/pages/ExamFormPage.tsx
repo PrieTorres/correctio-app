@@ -17,9 +17,10 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { ArrowLeft, Plus, Sparkles } from 'lucide-react';
-import { Button, Card, PageHeader, QueryBoundary, TextField } from '@/components/ui';
+import { Button, Card, PageHeader, QueryBoundary, SaveError, TextField } from '@/components/ui';
 import { examInputSchema, type ExamInput } from '@/lib/schemas';
 import { totalScore } from '@/lib/exams';
+import { fieldArrayMessage } from '@/lib/forms';
 import { ROUTES, buildPath } from '@/app/routes';
 import type { ExamQuestion, Question } from '@/types/domain';
 import { useQuestionList } from '@/features/questions';
@@ -136,9 +137,11 @@ export function ExamFormPage() {
       );
   };
 
-  const onSubmit = async (input: ExamInput) => {
-    const saved = await save.mutateAsync({ id, input });
-    void navigate(buildPath(ROUTES.examDetail, { id: saved.id }));
+  const onSubmit = (input: ExamInput) => {
+    save.mutate(
+      { id, input },
+      { onSuccess: (saved) => void navigate(buildPath(ROUTES.examDetail, { id: saved.id })) },
+    );
   };
 
   return (
@@ -185,9 +188,9 @@ export function ExamFormPage() {
               </p>
             </div>
 
-            {errors.questions && (
+            {fieldArrayMessage(errors.questions) !== undefined && (
               <p role="alert" className="text-caption text-danger">
-                {errors.questions.message}
+                {fieldArrayMessage(errors.questions)}
               </p>
             )}
 
@@ -250,6 +253,8 @@ export function ExamFormPage() {
               </Button>
             </div>
           </Card>
+
+          <SaveError error={save.error} />
 
           <div className="flex justify-end gap-3">
             <Button variant="ghost" onClick={() => void navigate(ROUTES.exams)}>

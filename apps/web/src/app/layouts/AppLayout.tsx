@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/app/routes';
+import { requestTour } from '@/lib/tour';
 import { DemoDataControls } from '@/components/DemoDataControls';
 import { useCurrentUser, useSignOut } from '@/features/auth';
 
@@ -128,6 +129,14 @@ export function AppLayout() {
             </div>
           )}
           <DemoDataControls />
+          <button
+            type="button"
+            onClick={requestTour}
+            className="touch-target flex items-center gap-2 rounded-[var(--radius-control)] px-2 text-label text-ink-muted hover:bg-surface-muted hover:text-primary"
+          >
+            <HelpCircle size={16} aria-hidden />
+            Ajuda desta tela
+          </button>
           <NavLink
             to={ROUTES.privacy}
             className="px-2 text-caption text-ink-subtle hover:text-primary"

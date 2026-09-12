@@ -19,6 +19,14 @@ const MATRIX = 'Uma matriz quadrada é invertível quando:'
 const NEWTON = 'A segunda lei de Newton relaciona força, massa e:'
 const ESSAY_LIMITS = 'Explique com suas palavras o que significa dizer que uma função é contínua em um ponto, e dê um exemplo de função que não seja.'
 
+/** The swap control of the first previewed question, scoped to that row. */
+function swapButtonOfFirstRow() {
+  return cy
+    .get('[role="dialog"] ul li')
+    .first()
+    .find('button[aria-label^="Trocar a questão"]')
+}
+
 /** Ticks the named questions in the picker and confirms. */
 function addFromBank(...statements: readonly string[]): void {
   cy.contains('button', 'Adicionar do banco').click()
@@ -125,6 +133,13 @@ describe('formulário de prova', () => {
   beforeEach(() => {
     cy.visit('/provas')
     cy.contains('a', 'Nova prova').click()
+  })
+
+  it('recusa uma prova com o mesmo título de outra', () => {
+    cy.findByLabel('Título').type('Cálculo I — Prova 1')
+    cy.contains('button', 'Salvar prova').click()
+
+    cy.contains('Já existe uma prova com estes dados').should('be.visible')
   })
 
   it('exige título', () => {
@@ -298,13 +313,20 @@ describe('geração automática', () => {
     cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('2')
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.get('[role="dialog"] ul li').should('have.length', 2)
-    cy.get('[role="dialog"] ul li').first().invoke('text').as('drawn')
 
-    cy.get('[role="dialog"] button[aria-label^="Trocar a questão"]').first().click()
+    /*
+      The label is held in a plain variable, not an alias. An alias made from a
+      query is re-run when it is read back, so reading it after the click gave
+      the label the row had by then and the assertion compared it with itself.
+    */
+    swapButtonOfFirstRow()
+      .invoke('attr', 'aria-label')
+      .then((before) => {
+        swapButtonOfFirstRow().click()
 
-    cy.get('@drawn').then((drawn) => {
-      cy.get('[role="dialog"] ul li').first().should('not.contain', String(drawn).trim())
-    })
+        swapButtonOfFirstRow().should('not.have.attr', 'aria-label', before)
+        cy.get('[role="dialog"] ul li').should('have.length', 2)
+      })
   })
 
   it('inclui discursivas quando pedido', () => {
