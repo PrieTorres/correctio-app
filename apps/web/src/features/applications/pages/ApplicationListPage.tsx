@@ -52,7 +52,7 @@ export function ApplicationListPage() {
   const className = new Map((classes?.items ?? []).map((item) => [item.id, item.name]));
 
   const newApplicationButton = (
-    <Button variant="primary" icon={<Plus size={18} aria-hidden />}>
+    <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
       <Link to={ROUTES.newApplication}>Nova aplicação</Link>
     </Button>
   );
@@ -60,12 +60,13 @@ export function ApplicationListPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
+        help
         title="Aplicações"
         description="A aplicação é o encontro de uma prova com uma turma numa data. A mesma prova rende quantas aplicações você quiser."
         actions={newApplicationButton}
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div data-tour="filters" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -91,7 +92,7 @@ export function ApplicationListPage() {
             />
           </Card>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul data-tour="list" className="flex flex-col gap-3">
             {applications.map((application) => (
               <li key={application.id}>
                 <ApplicationRow

@@ -130,16 +130,16 @@ describe('detalhe da aplicação', () => {
     cy.contains('a', ALREADY_GENERATED).click()
   })
 
-  it('explica que o PDF desta fase é um exemplo fixo', () => {
+  it('explica que o PDF desta fase é um modelo do formato impresso', () => {
     cy.contains('PDF para impressão').should('be.visible')
-    cy.contains('exemplo fixo').should('be.visible')
+    cy.contains('modelo do formato impresso').should('be.visible')
   })
 
   it('não oferece baixar quando nada foi gerado', () => {
     cy.visit('/aplicacoes')
     cy.contains('a', TO_GENERATE).click()
 
-    cy.contains('button', 'Baixar PDF de exemplo').should('be.disabled')
+    cy.contains('button', 'Ver o modelo impresso').should('be.disabled')
   })
 
   it('mostra as versões e as folhas geradas', () => {

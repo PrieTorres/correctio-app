@@ -50,3 +50,14 @@ export function useSignOut() {
     onSuccess: invalidate,
   })
 }
+
+/** RF05: unlinks the account from the person, and ends the session. */
+export function useAnonymizeAccount() {
+  const { auth } = useServices();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => auth.anonymize(),
+    onSuccess: () => queryClient.clear(),
+  });
+}

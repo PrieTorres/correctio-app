@@ -32,6 +32,7 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
+        help
         title="Painel"
         description="O resumo do semestre e o caminho mais curto para o que você veio fazer."
       />
@@ -39,7 +40,7 @@ export function DashboardPage() {
       <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando o painel…">
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-4 lg:col-span-2">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div data-tour="summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <SummaryCard label="Turmas" value={data?.classes ?? 0} to={ROUTES.classes} />
               <SummaryCard label="Questões" value={data?.questions ?? 0} to={ROUTES.questions} />
               <SummaryCard label="Provas" value={data?.exams ?? 0} to={ROUTES.exams} />
@@ -50,7 +51,7 @@ export function DashboardPage() {
               />
             </div>
 
-            <Card>
+            <Card data-tour="recent">
               <div className="border-b border-line px-5 py-4">
                 <h2 className="text-title text-primary">Atividade recente</h2>
               </div>
@@ -85,7 +86,7 @@ export function DashboardPage() {
             </Card>
           </div>
 
-          <Card className="flex h-fit flex-col gap-2 p-5">
+          <Card data-tour="quick-actions" className="flex h-fit flex-col gap-2 p-5">
             <h2 className="text-title text-primary">Ações rápidas</h2>
             <p className="mb-2 text-caption text-ink-subtle">
               Tudo que você faz com frequência, a um clique.

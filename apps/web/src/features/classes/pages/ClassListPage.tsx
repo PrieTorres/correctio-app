@@ -54,7 +54,12 @@ export function ClassListPage() {
   };
 
   const newClassButton = (
-    <Button variant="primary" icon={<Plus size={18} aria-hidden />} onClick={openCreate}>
+    <Button
+      variant="primary"
+      icon={<Plus size={18} aria-hidden />}
+      data-tour="create"
+      onClick={openCreate}
+    >
       Nova turma
     </Button>
   );
@@ -62,12 +67,13 @@ export function ClassListPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
+        help
         title="Turmas"
         description="Cada turma guarda seus alunos e as provas já aplicadas a eles."
         actions={newClassButton}
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div data-tour="filters" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -93,7 +99,7 @@ export function ClassListPage() {
             />
           </Card>
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul data-tour="list" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {classes.map((item) => (
               <li key={item.id}>
                 <ClassCard

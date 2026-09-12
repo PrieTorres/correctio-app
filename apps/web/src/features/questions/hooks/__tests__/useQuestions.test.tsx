@@ -6,6 +6,7 @@ import type { QuestionInput } from '@/lib/schemas'
 import {
   questionKeys,
   useDeleteQuestion,
+  useDuplicateQuestion,
   useQuestionList,
   useQuestionTags,
   useSaveQuestion,
@@ -107,5 +108,55 @@ describe('question data hooks', () => {
     await act(() => result.current.save.mutateAsync({ input: { ...essay, tags: ['Derivadas'] } }))
 
     await waitFor(() => expect(result.current.tags.data).toEqual(['Cálculo I', 'Derivadas']))
+  })
+})
+
+describe('useDuplicateQuestion', () => {
+  beforeEach(clearAllCollections)
+
+  const original = {
+    type: 'objetiva' as const,
+    statement: 'Questão original',
+    tags: ['Limites'],
+    alternatives: [
+      { id: 'a', text: 'certa' },
+      { id: 'b', text: 'errada' },
+    ],
+    correctAlternativeId: 'a',
+    allowShuffleAlternatives: false,
+  }
+
+  it('copies the content and marks the copy in its statement', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      save: useSaveQuestion(),
+      duplicate: useDuplicateQuestion(),
+    }))
+    const created = await act(() => result.current.save.mutateAsync({ input: original }))
+
+    const copy = await act(() => result.current.duplicate.mutateAsync(created.id))
+
+    expect(copy.statement).toBe('Questão original (cópia)')
+    expect(copy.tags).toEqual(['Limites'])
+    expect(copy.allowShuffleAlternatives).toBe(false)
+  })
+
+  it('gives the copy its own identity, leaving the original alone', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      save: useSaveQuestion(),
+      duplicate: useDuplicateQuestion(),
+      list: useQuestionList({ search: '', type: 'all', tags: [], deleted: false }),
+    }))
+    const created = await act(() => result.current.save.mutateAsync({ input: original }))
+
+    const copy = await act(() => result.current.duplicate.mutateAsync(created.id))
+
+    expect(copy.id).not.toBe(created.id)
+    await waitFor(() => expect(result.current.list.data?.items).toHaveLength(2))
+  })
+
+  it('fails clearly when duplicating something that is not there', async () => {
+    const { result } = renderHookWithProviders(() => useDuplicateQuestion())
+
+    await expect(result.current.mutateAsync('nope')).rejects.toThrow(/não encontrada/i)
   })
 })

@@ -20,6 +20,7 @@ import { buildPath, ROUTES } from '@/app/routes';
 import { isMultipleChoice, type Question, type QuestionType } from '@/types/domain';
 import {
   useDeleteQuestion,
+  useDuplicateQuestion,
   useQuestionList,
   useQuestionTags,
   type QuestionFilters,
@@ -65,12 +66,13 @@ export function QuestionListPage() {
   const { data, isPending, isError } = useQuestionList(filters);
   const { data: knownTags = [] } = useQuestionTags();
   const deleteQuestion = useDeleteQuestion();
+  const duplicateQuestion = useDuplicateQuestion();
 
   const questions = data?.items ?? [];
   const filtering = search.trim() !== '' || type !== 'all' || tags.length > 0 || onlyUntagged;
 
   const newQuestionButton = (
-    <Button variant="primary" icon={<Plus size={18} aria-hidden />}>
+    <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
       <Link to={ROUTES.newQuestion}>Nova questão</Link>
     </Button>
   );
@@ -78,18 +80,25 @@ export function QuestionListPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
+        help
         title="Banco de questões"
         description="Escreva a questão uma vez e reaproveite em quantas provas quiser."
         actions={
           <>
-            <Button icon={<Upload size={18} aria-hidden />}>Importar questões</Button>
+            <Button
+              icon={<Upload size={18} aria-hidden />}
+              disabled
+              title="A importação de questões em lote entra na próxima fase."
+            >
+              Importar questões
+            </Button>
             {newQuestionButton}
           </>
         }
       />
 
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div data-tour="filters" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <SearchInput
             value={search}
             onChange={setSearch}
@@ -149,7 +158,11 @@ export function QuestionListPage() {
           <ul className="flex flex-col gap-3">
             {questions.map((question) => (
               <li key={question.id}>
-                <QuestionRow question={question} onDelete={() => setPendingDelete(question)} />
+                <QuestionRow
+                  question={question}
+                  onDelete={() => setPendingDelete(question)}
+                  onDuplicate={() => duplicateQuestion.mutate(question.id)}
+                />
               </li>
             ))}
           </ul>
@@ -241,7 +254,8 @@ function TagFilter({
 function QuestionRow({
   question,
   onDelete,
-}: Readonly<{ question: Question; onDelete: () => void }>) {
+  onDuplicate,
+}: Readonly<{ question: Question; onDelete: () => void; onDuplicate: () => void }>) {
   const deleted = question.deletedAt !== undefined;
 
   return (
@@ -282,7 +296,7 @@ function QuestionRow({
 
       <div className="flex shrink-0 gap-1">
         {!deleted && (
-          <Button variant="ghost" icon={<Copy size={16} aria-hidden />}>
+          <Button variant="ghost" icon={<Copy size={16} aria-hidden />} onClick={onDuplicate}>
             Duplicar
           </Button>
         )}

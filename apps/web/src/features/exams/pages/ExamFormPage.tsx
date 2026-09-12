@@ -159,7 +159,7 @@ export function ExamFormPage() {
           Provas
         </Link>
 
-        <PageHeader title={id === undefined ? 'Nova prova' : 'Editar prova'} />
+        <PageHeader help title={id === undefined ? 'Nova prova' : 'Editar prova'} />
 
         <form
           onSubmit={(event) => void handleSubmit(onSubmit)(event)}
@@ -183,7 +183,7 @@ export function ExamFormPage() {
           <Card className="flex flex-col gap-4 p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-title text-primary">Questões</h2>
-              <p className="text-label text-ink-muted" aria-live="polite">
+              <p data-tour="total" className="text-label text-ink-muted" aria-live="polite">
                 {questions.length}/{MAX_QUESTIONS} questões · pontuação total {total}
               </p>
             </div>
@@ -204,7 +204,7 @@ export function ExamFormPage() {
                   items={questions.map((item) => item.questionId)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <ol className="flex flex-col gap-2">
+                  <ol data-tour="list" className="flex flex-col gap-2">
                     {fields.map((field, index) => {
                       const entry = questions[index];
                       if (entry === undefined) return null;
@@ -238,6 +238,7 @@ export function ExamFormPage() {
 
             <div className="flex flex-wrap gap-3">
               <Button
+                data-tour="add"
                 icon={<Plus size={18} aria-hidden />}
                 onClick={() => setPickerOpen(true)}
                 disabled={questions.length >= MAX_QUESTIONS}

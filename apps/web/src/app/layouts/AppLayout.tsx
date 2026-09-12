@@ -76,6 +76,7 @@ export function AppLayout() {
       )}
 
       <nav
+        data-tour="nav"
         aria-label="Navegação principal"
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-line bg-surface transition-transform md:translate-x-0',

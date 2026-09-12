@@ -48,7 +48,7 @@ export function ExamListPage() {
   const exams = data?.items ?? [];
 
   const newExamButton = (
-    <Button variant="primary" icon={<Plus size={18} aria-hidden />}>
+    <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
       <Link to={ROUTES.newExam}>Nova prova</Link>
     </Button>
   );
@@ -56,11 +56,12 @@ export function ExamListPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
+        help
         title="Provas"
         description="A prova é o conteúdo. Aplicá-la a uma turma é o passo seguinte, e a mesma prova serve para várias."
         actions={
           <>
-            <Button icon={<Sparkles size={18} aria-hidden />}>
+            <Button icon={<Sparkles size={18} aria-hidden />} data-tour="generate">
               <Link to={ROUTES.generateExam}>Gerar automaticamente</Link>
             </Button>
             {newExamButton}
@@ -68,7 +69,7 @@ export function ExamListPage() {
         }
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div data-tour="filters" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -94,7 +95,7 @@ export function ExamListPage() {
             />
           </Card>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul data-tour="list" className="flex flex-col gap-3">
             {exams.map((exam) => (
               <li key={exam.id}>
                 <ExamRow

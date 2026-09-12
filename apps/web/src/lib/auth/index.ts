@@ -5,6 +5,14 @@ export interface AuthProvider {
   signIn: (email: string, password: string) => Promise<AuthenticatedUser>
   signUp: (fullName: string, email: string, password: string) => Promise<AuthenticatedUser>
   signOut: () => Promise<void>
+  /**
+   * RF05: replaces the name and the e-mail with markers and ends the session.
+   *
+   * The account is not deleted, and neither is anything made with it: classes,
+   * exams and the statistics of every application stay as they are. What goes
+   * is the link between them and a person.
+   */
+  anonymize: () => Promise<void>
 }
 
 const SESSION_KEY = 'correctio:v1:session'
@@ -46,6 +54,21 @@ export function createLocalAuthProvider(): AuthProvider {
       return Promise.resolve(persist({ ...DEMO_TEACHER, fullName, email }))
     },
     signOut() {
+      window.localStorage.removeItem(SESSION_KEY)
+      return Promise.resolve()
+    },
+
+    anonymize() {
+      const user = this.getCurrentUser()
+      if (user !== null) {
+        persist({
+          ...user,
+          fullName: 'Professor anonimizado',
+          email: `anon-${user.id.slice(0, 8)}@removido.invalid`,
+          anonymizedAt: new Date().toISOString(),
+        })
+      }
+
       window.localStorage.removeItem(SESSION_KEY)
       return Promise.resolve()
     },

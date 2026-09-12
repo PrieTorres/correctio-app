@@ -36,3 +36,23 @@ describe('local auth provider', () => {
     expect(createLocalAuthProvider().getCurrentUser()).toBeNull()
   })
 })
+
+describe('anonymize', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  /** RF05: the link to a person goes; what was made with the account stays. */
+  it('ends the session', async () => {
+    const auth = createLocalAuthProvider()
+    await auth.signIn('ana@exemplo.edu.br', 'senha123')
+
+    await auth.anonymize()
+
+    expect(auth.getCurrentUser()).toBeNull()
+  })
+
+  it('does nothing to complain about when nobody is signed in', async () => {
+    const auth = createLocalAuthProvider()
+
+    await expect(auth.anonymize()).resolves.toBeUndefined()
+  })
+})

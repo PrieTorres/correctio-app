@@ -128,7 +128,7 @@ export function QuestionFormPage() {
           Banco de questões
         </Link>
 
-        <PageHeader
+        <PageHeader help
           title={id === undefined ? 'Nova questão' : 'Editar questão'}
           description="A questão fica no banco e pode ser usada em quantas provas você quiser."
         />

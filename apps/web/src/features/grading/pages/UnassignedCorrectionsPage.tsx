@@ -32,7 +32,7 @@ export function UnassignedCorrectionsPage() {
           Folhas
         </Link>
 
-        <PageHeader
+        <PageHeader help
           title="Pendentes de atribuição"
           description="Folhas lidas que ainda não têm dono. Sem aluno associado, a nota não pode ser liberada."
         />

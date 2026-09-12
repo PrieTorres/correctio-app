@@ -4,7 +4,7 @@ import { LogOut, RotateCcw, UserX } from 'lucide-react'
 import { Button, Card, PageHeader, QueryBoundary, TextField } from '@/components/ui'
 import { ROUTES } from '@/app/routes'
 import { resetAllTours } from '@/lib/tour'
-import { useCurrentUser, useSignOut } from '@/features/auth'
+import { useAnonymizeAccount, useCurrentUser, useSignOut } from '@/features/auth'
 
 const CONFIRMATION = 'ANONIMIZAR'
 
@@ -12,6 +12,7 @@ export function ProfilePage() {
   const navigate = useNavigate()
   const { data: user, isPending, isError } = useCurrentUser()
   const signOut = useSignOut()
+  const anonymize = useAnonymizeAccount()
 
   const [typed, setTyped] = useState('')
   const [tourReset, setTourReset] = useState(false)
@@ -88,8 +89,15 @@ export function ProfilePage() {
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
           />
-          <Button variant="danger" icon={<UserX size={18} aria-hidden />} disabled={typed !== CONFIRMATION}>
-            Anonimizar minha conta
+          <Button
+            variant="danger"
+            icon={<UserX size={18} aria-hidden />}
+            disabled={typed !== CONFIRMATION || anonymize.isPending}
+            onClick={() =>
+              anonymize.mutate(undefined, { onSuccess: () => void navigate(ROUTES.signIn) })
+            }
+          >
+            {anonymize.isPending ? 'Anonimizando…' : 'Anonimizar minha conta'}
           </Button>
         </Card>
       </div>

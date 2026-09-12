@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Camera, CheckCircle2, Clock, Loader2, Upload } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, Loader2, Upload } from 'lucide-react';
 import { Badge, Button, Card, PageHeader, QueryBoundary, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { CORRECTION_STATUS } from '@/types/domain';
@@ -50,7 +50,7 @@ export function GradingUploadPage() {
           Aplicação
         </Link>
 
-        <PageHeader
+        <PageHeader help
           title="Enviar folhas de respostas"
           description="Fotografe ou arraste as folhas. A leitura resolve as objetivas sozinha e deixa as discursivas para você."
         />
@@ -61,16 +61,14 @@ export function GradingUploadPage() {
           otherwise would produce a screen that works only until someone tries
           it. What is real is everything after the reading.
         */}
-        <Card className="flex flex-col items-center gap-3 border-2 border-dashed border-line p-10 text-center">
+        <Card data-tour="upload" className="flex flex-col items-center gap-3 border-2 border-dashed border-line p-10 text-center">
           <Upload size={28} aria-hidden className="text-ink-subtle" />
           <p className="text-body text-ink">Arraste as fotos das folhas aqui</p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Button icon={<Camera size={18} aria-hidden />}>Fotografar</Button>
-            <Button variant="secondary">Escolher arquivos</Button>
-          </div>
           <p className="max-w-lg text-caption text-ink-subtle">
-            Nesta fase a leitura é simulada com folhas de demonstração: escolha abaixo quais
-            marcar como lidas. O envio real de imagens entra junto com o servidor.
+            No celular isto abre a câmera; no computador, aceita os arquivos arrastados. Nesta
+            fase a leitura é simulada com folhas de demonstração: marque abaixo quais ler, e o
+            sistema corrige as objetivas de cada uma. O envio real de imagens entra junto com o
+            servidor.
           </p>
         </Card>
 
@@ -97,7 +95,7 @@ export function GradingUploadPage() {
               Esta aplicação ainda não foi gerada, então não há folhas para ler.
             </p>
           ) : (
-            <ul className="divide-y divide-line">
+            <ul data-tour="list" className="divide-y divide-line">
               {sheets.map((sheet) => {
                 const correction = correctionBySheet.get(sheet.id);
 

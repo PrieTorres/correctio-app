@@ -62,7 +62,7 @@ export function ApplicationReportPage() {
           Aplicação
         </Link>
 
-        <PageHeader
+        <PageHeader help
           title="Relatório da aplicação"
           description={exam?.title ?? 'Prova removida'}
           actions={
@@ -111,7 +111,7 @@ export function ApplicationReportPage() {
               <Figure label="Menor e maior" value={`${summary.lowest} – ${summary.highest}`} />
             </div>
 
-            <Card className="flex flex-col gap-4 p-6">
+            <Card data-tour="distribution" className="flex flex-col gap-4 p-6">
               <h2 className="text-title text-primary">Distribuição das notas</h2>
               <ul className="flex items-end gap-3">
                 {bands.map((band) => (

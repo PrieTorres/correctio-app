@@ -106,6 +106,36 @@ export function useSaveQuestion() {
   });
 }
 
+/**
+ * Copies a question so a variant can start from it.
+ *
+ * The copy is created through the same input the form submits, so it enters the
+ * bank as a new question with its own identity — duplicating must never touch
+ * the one being copied.
+ */
+export function useDuplicateQuestion() {
+  const { repositories } = useServices();
+  const invalidate = useInvalidateQuestions();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const original = await repositories.questions.getById(id);
+      if (original === null) throw new Error('Questão não encontrada');
+
+      return repositories.questions.create({
+        type: original.type,
+        statement: `${original.statement} (cópia)`,
+        tags: original.tags,
+        alternatives: original.alternatives,
+        correctAlternativeId: original.correctAlternativeId,
+        maxScore: original.maxScore,
+        allowShuffleAlternatives: original.allowShuffleAlternatives,
+      });
+    },
+    onSuccess: invalidate,
+  });
+}
+
 /** Soft delete and restore are the same operation seen from either side. */
 export function useDeleteQuestion() {
   const { repositories } = useServices();

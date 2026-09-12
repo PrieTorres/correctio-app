@@ -48,7 +48,7 @@ export function ApplicationDetailPage() {
             Aplicações
           </Link>
 
-          <PageHeader
+          <PageHeader help
             title={exam?.title ?? 'Prova removida'}
             description={`Aplicada em ${formatDate(application.date)}`}
             actions={
@@ -162,13 +162,18 @@ function PdfCard({ hasPaper, sheetCount }: Readonly<{ hasPaper: boolean; sheetCo
               : 'Gere a aplicação para produzir o PDF.'}
           </p>
           <p className="mt-1 text-caption text-ink-subtle">
-            Nesta fase o arquivo é um exemplo fixo. A montagem real do PDF, com a paginação que
-            não quebra questão, entra junto com o servidor.
+            Nesta fase o botão abre um modelo do formato impresso, para imprimir pelo navegador.
+            A montagem do arquivo pelo servidor, com a paginação que não quebra questão, entra
+            na próxima fase.
           </p>
         </div>
       </div>
-      <Button icon={<Download size={18} aria-hidden />} disabled={!hasPaper}>
-        Baixar PDF de exemplo
+      <Button
+        icon={<Download size={18} aria-hidden />}
+        disabled={!hasPaper}
+        onClick={() => window.open(`${import.meta.env.BASE_URL}exemplos/prova-exemplo.html`, '_blank')}
+      >
+        Ver o modelo impresso
       </Button>
     </Card>
   );

@@ -211,6 +211,18 @@
 
 @layer components {
   /*
+    What the tour is pointing at. Outline rather than a border, so marking an
+    element never changes its size and nothing on the screen shifts as the tour
+    moves from step to step. The offset keeps the ring off the content itself.
+  */
+  .tour-target {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: var(--radius-control);
+    scroll-margin: 6rem;
+  }
+
+  /*
     Minimum 44px hit area, applied to every interactive element
     instead of repeating min-h/min-w in each component.
   */

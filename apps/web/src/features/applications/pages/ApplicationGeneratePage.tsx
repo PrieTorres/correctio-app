@@ -71,7 +71,7 @@ export function ApplicationGeneratePage() {
           Aplicações
         </Link>
 
-        <PageHeader
+        <PageHeader help
           title="Gerar prova"
           description="Cada versão embaralha de um jeito. Cada aluno recebe uma folha com código próprio, que é o que a consulta de nota vai ler."
         />
@@ -102,7 +102,7 @@ export function ApplicationGeneratePage() {
         )}
 
         <Card className="flex flex-col gap-5 p-6">
-          <div className="flex items-center justify-between gap-3">
+          <div data-tour="versions" className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-title text-primary">Quantas versões</h2>
               <p className="mt-1 text-caption text-ink-subtle">
@@ -139,7 +139,9 @@ export function ApplicationGeneratePage() {
           </fieldset>
 
           <fieldset className="flex flex-col gap-3 border-t border-line pt-5">
-            <legend className="text-label text-ink-muted">Identificação, para a prova inteira</legend>
+            <legend data-tour="identification" className="text-label text-ink-muted">
+              Identificação, para a prova inteira
+            </legend>
             <Toggle
               label="Imprimir o nome do aluno em cada folha"
               checked={withStudentIdentification}

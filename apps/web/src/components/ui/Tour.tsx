@@ -1,12 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import {
-  hasSeenTour,
-  markTourSeen,
-  TOUR_STEPS,
-  useTourRequests,
-  type TourScreen,
-} from '@/lib/tour';
+import { hasSeenTour, markTourSeen, stepsOf, useTourRequests, type TourScreen } from '@/lib/tour';
 
 interface TourProps {
   screen: TourScreen;
@@ -18,17 +12,15 @@ interface TourProps {
   onClose?: () => void;
 }
 
+const HIGHLIGHT_CLASS = 'tour-target';
+
 /**
- * The guided tour of one screen, two to four sentences at a time.
- *
- * It sits at the bottom left on a wide screen, clear of the sidebar and clear
- * of the primary actions, which are right-aligned everywhere in this app: a
- * hint that covers the button the screen exists for is worse than no hint.
+ * The guided tour of one screen, one step at a time, pointing at what to click.
  *
  * It runs on the first visit to each screen rather than once at sign-in: a
  * teacher learns the grading screen when they go to grade, not weeks earlier.
- * The text lives in `lib/tour`, never here, so the wording is reviewed in one
- * place and its limits are a test.
+ * The text and the element each step points at live in `lib/tour`, never here,
+ * so the wording is reviewed in one place and its limits are a test.
  *
  * It never blocks: the screen stays usable underneath, `Esc` closes, and
  * skipping is always one click away. Focus moves to the step when it opens and
@@ -36,14 +28,17 @@ interface TourProps {
  * gets wrong.
  */
 export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
-  const steps = TOUR_STEPS[screen];
+  const steps = stepsOf(screen);
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
+  const [dockedAt, setDockedAt] = useState<'top' | 'bottom'>('bottom');
   const panel = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
 
   const requests = useTourRequests();
-  const firstRequest = useRef(requests);
+  const lastRequest = useRef(requests);
+
+  const step = steps[index];
 
   useEffect(() => {
     if (ready && !hasSeenTour(screen)) setOpen(true);
@@ -51,11 +46,18 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
 
   /** Asking for help reopens this screen's tour from the beginning. */
   useEffect(() => {
-    if (requests === firstRequest.current) return;
-    firstRequest.current = requests;
+    if (requests === lastRequest.current) return;
+    lastRequest.current = requests;
     setIndex(0);
     setOpen(true);
   }, [requests]);
+
+  const close = useCallback(() => {
+    markTourSeen(screen);
+    setOpen(false);
+    opener.current?.focus();
+    onClose?.();
+  }, [screen, onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,51 +70,76 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
       still closes the tour after focus has moved to one of its buttons.
     */
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-
-      markTourSeen(screen);
-      setOpen(false);
-      opener.current?.focus();
-      onClose?.();
+      if (event.key === 'Escape') close();
     };
-
     document.addEventListener('keydown', onKeyDown);
 
-    /*
-      The panel is docked, so it sits over whatever is at the bottom of the
-      page. Reserving its height means the last row of a list or the button at
-      the end of a form can still be scrolled to and clicked while the tour is
-      open, rather than being unreachable until it is dismissed.
-    */
-    const reserved = panel.current?.offsetHeight ?? 0;
-    const previousPadding = document.body.style.paddingBottom;
-    document.body.style.paddingBottom = `${reserved + 24}px`;
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, close]);
 
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.style.paddingBottom = previousPadding;
-    };
-  }, [open, screen, onClose]);
+  /**
+   * Marks the element the step is about, and keeps the panel away from it.
+   *
+   * The outline is drawn on the element itself rather than as an overlay, so it
+   * follows the element when the page scrolls and can never land in the wrong
+   * place. The panel docks at whichever end of the screen the element is not
+   * on: floating it beside the element read better but covered the controls
+   * around it, which is worse than a hint that is merely further away.
+   */
+  useEffect(() => {
+    if (!open || step === undefined) return;
 
-  const close = () => {
-    markTourSeen(screen);
-    setOpen(false);
-    opener.current?.focus();
-    onClose?.();
-  };
+    const target =
+      step.target === undefined
+        ? null
+        : document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`);
 
-  const advance = () => {
-    if (index + 1 >= steps.length) {
-      close();
+    if (target === null) {
+      setDockedAt('bottom');
       return;
     }
-    setIndex(index + 1);
-  };
 
-  if (!open) return null;
+    target.classList.add(HIGHLIGHT_CLASS);
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
 
-  const step = steps[index];
-  if (step === undefined) return null;
+    const keepClear = () => {
+      const rect = target.getBoundingClientRect();
+      setDockedAt(rect.top + rect.height / 2 > window.innerHeight / 2 ? 'top' : 'bottom');
+    };
+
+    keepClear();
+    window.addEventListener('resize', keepClear);
+    window.addEventListener('scroll', keepClear, true);
+
+    return () => {
+      target.classList.remove(HIGHLIGHT_CLASS);
+      window.removeEventListener('resize', keepClear);
+      window.removeEventListener('scroll', keepClear, true);
+    };
+  }, [open, step]);
+
+  /**
+   * The panel sits over whichever end of the page it docks at, so it reserves
+   * its own height there: the last row of a list, or the header above it, stays
+   * reachable while the tour is open rather than being covered until it is
+   * dismissed.
+   */
+  useEffect(() => {
+    if (!open) return;
+
+    const reserved = `${(panel.current?.offsetHeight ?? 0) + 24}px`;
+    const previous = document.body.style.padding;
+    document.body.style.paddingTop = dockedAt === 'top' ? reserved : '';
+    document.body.style.paddingBottom = dockedAt === 'bottom' ? reserved : '';
+
+    return () => {
+      document.body.style.padding = previous;
+    };
+  }, [open, dockedAt]);
+
+  if (!open || step === undefined) return null;
+
+  const isLast = index + 1 >= steps.length;
 
   return (
     <div
@@ -120,17 +147,19 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
       /*
         A region rather than a dialog: it blocks nothing, traps no focus and
         leaves the screen usable underneath. Calling it a dialog would make a
-        screen reader announce it as one, and would put it in the way of every
+        screen reader announce it as one, and would put it in front of every
         query looking for the real dialogs of the app.
       */
       role="region"
       aria-label={`Tour desta tela, passo ${index + 1} de ${steps.length}`}
       tabIndex={-1}
-      className="fixed inset-x-0 bottom-0 z-40 border-t-4 border-t-primary bg-surface p-4 shadow-[var(--shadow-overlay)] focus:outline-none sm:inset-x-auto sm:bottom-6 sm:left-6 sm:w-[min(26rem,calc(100vw-3rem))] sm:rounded-[var(--radius-card)] sm:border-4 md:left-72"
+      className={`fixed inset-x-0 z-40 border-primary bg-surface p-4 shadow-[var(--shadow-overlay)] focus:outline-none sm:inset-x-auto sm:left-6 sm:w-[min(26rem,calc(100vw-3rem))] sm:rounded-[var(--radius-card)] sm:border-4 md:left-72 ${
+        dockedAt === 'top' ? 'top-0 border-b-4 sm:top-6' : 'bottom-0 border-t-4 sm:bottom-6'
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <p aria-live="polite" className="text-body text-ink">
-          {step}
+          {step.text}
         </p>
         <button
           type="button"
@@ -152,6 +181,15 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
         </span>
 
         <div className="flex gap-2">
+          {index > 0 && (
+            <button
+              type="button"
+              onClick={() => setIndex(index - 1)}
+              className="touch-target rounded-[var(--radius-control)] px-3 text-label text-ink-muted hover:bg-surface-muted"
+            >
+              Voltar
+            </button>
+          )}
           <button
             type="button"
             onClick={close}
@@ -161,10 +199,10 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
           </button>
           <button
             type="button"
-            onClick={advance}
+            onClick={() => (isLast ? close() : setIndex(index + 1))}
             className="touch-target rounded-[var(--radius-control)] bg-primary px-4 text-label text-on-primary hover:bg-primary-container"
           >
-            {index + 1 >= steps.length ? 'Entendi' : 'Próximo'}
+            {isLast ? 'Entendi' : 'Próximo'}
           </button>
         </div>
       </div>

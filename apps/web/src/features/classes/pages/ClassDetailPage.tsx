@@ -79,12 +79,12 @@ export function ClassDetailPage() {
             Turmas
           </Link>
 
-          <PageHeader
+          <PageHeader help
             title={schoolClass.name}
             description={`${schoolClass.subject} · ${schoolClass.term}`}
             actions={
               <>
-                <Button icon={<Upload size={18} aria-hidden />} onClick={() => setImportOpen(true)}>
+                <Button icon={<Upload size={18} aria-hidden />} data-tour="import" onClick={() => setImportOpen(true)}>
                   Importar alunos
                 </Button>
                 {addStudentButton}

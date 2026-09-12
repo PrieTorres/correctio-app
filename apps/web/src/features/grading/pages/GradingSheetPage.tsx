@@ -108,7 +108,7 @@ export function GradingSheetPage() {
             Folhas
           </Link>
 
-          <PageHeader
+          <PageHeader help
             title={`Folha ${sheet.sheetNumber}`}
             description={`Versão ${version?.versionNumber ?? '—'} · leitura automática, revisada por você`}
           />

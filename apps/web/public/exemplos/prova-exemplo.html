@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Prova de exemplo — Correctio</title>
+<style>
+  body { font-family: system-ui, sans-serif; color: #1b1c1c; margin: 0; }
+  .page { width: 21cm; min-height: 29.7cm; padding: 2cm; box-sizing: border-box; page-break-after: always; }
+  header { display: flex; justify-content: space-between; border-bottom: 2px solid #002045; padding-bottom: 12px; }
+  h1 { font-size: 18px; color: #002045; margin: 0; }
+  .qr { width: 72px; height: 72px; background: #002045; color: #fff; display: grid; place-items: center; font-size: 10px; }
+  ol { margin-top: 24px; padding-left: 20px; }
+  li { margin-bottom: 20px; page-break-inside: avoid; }
+  .alt { margin: 6px 0 0 8px; }
+  .blank { color: #74777f; font-style: italic; }
+  @media print { .hint { display: none; } }
+</style>
+</head>
+<body>
+  <p class="hint" style="padding: 12px 2cm; color: #43474e;">
+    Exemplo do formato impresso. Use a impressão do navegador para gerar o PDF.
+    A montagem do arquivo pelo servidor entra na próxima fase.
+  </p>
+  <div class="page">
+    <header>
+      <div>
+        <h1>Cálculo I — Prova 1</h1>
+        <p>Turma: Cálculo I — Noturno · 05/10/2026 · Versão 1</p>
+        <p>Aluno: ______________________________________</p>
+      </div>
+      <div class="qr">QR</div>
+    </header>
+    <ol>
+      <li>
+        Qual é o valor de lim(x→0) sen(x)/x?
+        <div class="alt">( ) 0</div><div class="alt">( ) 1</div>
+        <div class="alt">( ) Não existe</div><div class="alt">( ) Infinito</div>
+      </li>
+      <li>
+        A derivada de f(x) = x³ é:
+        <div class="alt">( ) 3x²</div><div class="alt">( ) x²</div>
+        <div class="alt">( ) 3x</div><div class="alt">( ) x⁴/4</div>
+      </li>
+      <li>
+        Explique com suas palavras o que significa dizer que uma função é contínua em um ponto.
+        <p class="blank">_______________________________________________</p>
+        <p class="blank">_______________________________________________</p>
+      </li>
+    </ol>
+  </div>
+  <div class="page">
+    <p class="blank">Página em branco, para a próxima prova não começar no verso desta.</p>
+  </div>
+</body>
+</html>
