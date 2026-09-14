@@ -2,7 +2,10 @@ import type { HTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  /** Adds the hover elevation. Only for cards that are themselves clickable. */
+  /**
+   * Adds the hover lift, for a card that leads somewhere. It also becomes the
+   * hover group, so the link inside it can answer to the whole card.
+   */
   interactive?: boolean
 }
 
@@ -11,7 +14,7 @@ export function Card({ interactive = false, className, ...rest }: Readonly<CardP
     <div
       className={cn(
         'rounded-[var(--radius-card)] border border-line bg-surface',
-        interactive && 'transition-shadow hover:shadow-[var(--shadow-hover)]',
+        interactive && 'card-interactive group',
         className,
       )}
       {...rest}

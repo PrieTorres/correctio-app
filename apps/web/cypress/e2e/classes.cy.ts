@@ -50,6 +50,32 @@ describe('turmas', () => {
     cy.contains('Ana Beatriz Moreira').should('be.visible')
   })
 
+  it('cadastra um aluno sem e-mail, porque o campo é opcional', () => {
+    cy.visit('/turmas')
+    cy.contains('a', 'Cálculo I — Noturno').click()
+
+    cy.contains('button', 'Adicionar aluno').click()
+    cy.findByLabel('Nome completo').type('Rafael Nunes')
+    cy.findByLabel('Matrícula').type('2026099')
+    cy.findInDialog('button', 'Adicionar').click()
+
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.contains('li', 'Rafael Nunes').should('be.visible')
+  })
+
+  it('recusa um e-mail malformado, que é diferente de não informar', () => {
+    cy.visit('/turmas')
+    cy.contains('a', 'Cálculo I — Noturno').click()
+
+    cy.contains('button', 'Adicionar aluno').click()
+    cy.findByLabel('Nome completo').type('Rafael Nunes')
+    cy.findByLabel('Matrícula').type('2026099')
+    cy.findByLabel('E-mail (opcional)').type('rafael@')
+    cy.findInDialog('button', 'Adicionar').click()
+
+    cy.contains('E-mail inválido').should('be.visible')
+  })
+
   it('anonimiza um aluno preservando o registro', () => {
     cy.visit('/turmas')
     cy.contains('a', 'Cálculo I — Noturno').click()

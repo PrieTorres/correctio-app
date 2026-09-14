@@ -190,6 +190,25 @@
   }
 
   /*
+    Everything that answers a click says so under the pointer.
+
+    Tailwind 4 resets buttons to the browser's arrow, which leaves a screen
+    full of controls that look inert. A disabled control keeps the arrow,
+    because it really is inert; `Button` turns it into `not-allowed`. Labels
+    are included because a checkbox is usually clicked by its text.
+  */
+  button:not(:disabled),
+  summary,
+  select:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  label:has(input[type='checkbox']:not(:disabled)),
+  label:has(input[type='radio']:not(:disabled)),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+
+  /*
     Never remove the focus indicator. :focus-visible keeps it out of the way
     for pointer users while the keyboard always shows where it is.
   */
@@ -210,6 +229,35 @@
 }
 
 @layer components {
+  /*
+    A card that leads somewhere.
+
+    The shadow alone was too quiet to read as an invitation, so the card also
+    lifts a little and its border darkens. It moves on `translate`, which the
+    compositor handles without recalculating layout, and the whole card is the
+    hover area — the title inside it underlines at the same moment, which is
+    what says where the click goes.
+  */
+  .card-interactive {
+    transition:
+      translate 150ms ease-out,
+      box-shadow 150ms ease-out,
+      border-color 150ms ease-out;
+  }
+
+  .card-interactive:hover {
+    translate: 0 -2px;
+    box-shadow: var(--shadow-hover);
+    border-color: var(--color-line-strong);
+  }
+
+  /* Reduced motion keeps the shadow and the border, and drops the movement. */
+  @media (prefers-reduced-motion: reduce) {
+    .card-interactive:hover {
+      translate: none;
+    }
+  }
+
   /*
     What the tour is pointing at. Outline rather than a border, so marking an
     element never changes its size and nothing on the screen shifts as the tour

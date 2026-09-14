@@ -160,7 +160,7 @@ function ApplicationRow({
 
         <Link
           to={buildPath(ROUTES.applicationDetail, { id: application.id })}
-          className="text-title text-primary hover:underline"
+          className="text-title text-primary group-hover:underline"
         >
           {examTitle ?? 'Prova removida'}
         </Link>

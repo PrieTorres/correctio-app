@@ -34,7 +34,7 @@ export function StudentFormModal({
 
   const onSubmit = async (input: StudentInput) => {
     try {
-      await addStudent.mutateAsync({ ...input, email: input.email || undefined })
+      await addStudent.mutateAsync(input)
       onOpenChange(false)
     } catch (error) {
       setError('registration', {

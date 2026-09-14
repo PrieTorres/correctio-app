@@ -53,12 +53,25 @@ export const classSchema = z.object({
 
 export const classInputSchema = classSchema.pick({ name: true, subject: true, term: true });
 
+/**
+ * An e-mail the teacher may leave out.
+ *
+ * `.optional()` on its own admits `undefined` and nothing else, so the empty
+ * string that a blank field submits reached the address check and came back as
+ * "E-mail inválido" — on the one field the form calls optional. Here an empty
+ * field means absent, said once instead of at every call site.
+ */
+const optionalEmail = z
+  .union([z.literal(''), z.string().email('E-mail inválido')])
+  .optional()
+  .transform((value) => (value === '' ? undefined : value));
+
 export const studentSchema = z.object({
   id,
   classId: id,
   fullName: z.string().min(1, 'Informe o nome do aluno').max(160),
   registration: z.string().min(1, 'Informe a matrícula').max(40),
-  email: z.string().email('E-mail inválido').optional(),
+  email: optionalEmail,
   anonymizedAt: timestamp.optional(),
   userId: id.optional(),
 });

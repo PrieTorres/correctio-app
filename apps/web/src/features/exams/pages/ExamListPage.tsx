@@ -161,7 +161,7 @@ function ExamRow({
 
         <Link
           to={buildPath(ROUTES.examDetail, { id: exam.id })}
-          className="text-title text-primary hover:underline"
+          className="text-title text-primary group-hover:underline"
         >
           {exam.title}
         </Link>

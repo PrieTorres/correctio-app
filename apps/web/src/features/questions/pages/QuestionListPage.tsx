@@ -282,7 +282,7 @@ function QuestionRow({
 
         <Link
           to={buildPath(ROUTES.questionDetail, { id: question.id })}
-          className="line-clamp-2 text-body text-ink hover:text-primary hover:underline"
+          className="line-clamp-2 text-body text-ink group-hover:text-primary group-hover:underline"
         >
           {question.statement}
         </Link>
