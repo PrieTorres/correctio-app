@@ -74,8 +74,50 @@ describe('revisar e confirmar', () => {
     cy.contains('h2', 'Questões').should('be.visible')
   })
 
-  it('avisa que falta lançar a nota da discursiva', () => {
-    cy.get('[role="status"]').should('contain', 'discursiva')
+  it('avisa que a discursiva começa valendo 0', () => {
+    cy.get('[role="status"]').should('contain', 'discursiva').and('contain', '0')
+    cy.contains('Valendo 0').should('be.visible')
+  })
+
+  /*
+    The path that looked broken: the field already showed a zero, the teacher
+    agreed with it and confirmed, and the sheet came back to the list still
+    waiting — because a zero nobody typed was not a mark.
+  */
+  it('finaliza a correção ao confirmar com a discursiva valendo 0', () => {
+    cy.contains('button', 'Confirmar correção').click()
+
+    cy.contains('h1', 'Enviar folhas de respostas', { timeout: 10000 }).should('be.visible')
+    cy.contains('Corrigida').should('be.visible')
+    cy.contains('Em andamento').should('not.exist')
+  })
+
+  it('salva sem finalizar e a correção continua em andamento', () => {
+    cy.get('input[aria-label^="Nota da questão"]').first().clear().type('2.5')
+    cy.contains('button', 'Salvar sem finalizar').click()
+
+    cy.contains('h1', 'Enviar folhas de respostas', { timeout: 10000 }).should('be.visible')
+    cy.contains('Em andamento').should('be.visible')
+  })
+
+  it('guarda a nota lançada mesmo sem finalizar', () => {
+    cy.get('input[aria-label^="Nota da questão"]').first().clear().type('2.5')
+    cy.contains('button', 'Salvar sem finalizar').click()
+
+    cy.contains('a', 'Revisar', { timeout: 10000 }).first().click()
+    cy.get('input[aria-label^="Nota da questão"]').first().should('have.value', '2.5')
+  })
+
+  it('reabre uma correção pronta e muda a nota', () => {
+    cy.contains('button', 'Confirmar correção').click()
+    cy.contains('Corrigida', { timeout: 10000 }).should('be.visible')
+
+    cy.contains('a', 'Revisar').first().click()
+    cy.get('input[aria-label^="Nota da questão"]').first().clear().type('2.5')
+    cy.contains('button', 'Confirmar correção').click()
+
+    cy.contains('a', 'Revisar', { timeout: 10000 }).first().click()
+    cy.get('input[aria-label^="Nota da questão"]').first().should('have.value', '2.5')
   })
 
   it('recalcula a nota ao lançar a discursiva', () => {

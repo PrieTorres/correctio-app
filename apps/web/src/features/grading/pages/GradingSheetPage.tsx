@@ -7,8 +7,8 @@ import {
   clampDiscursiveScore,
   discursiveQuestionIdsOf,
   gradeObjectives,
-  pendingDiscursiveQuestionIds,
   totalCorrectionScore,
+  withDefaultDiscursiveScores,
   type MarkedAnswer,
 } from '@/lib/grading';
 import { isMultipleChoice, type DiscursiveScore } from '@/types/domain';
@@ -49,11 +49,11 @@ export function GradingSheetPage() {
         ? {}
         : { selectedAlternativeId: result.selectedAlternativeId }),
     }));
-  const currentScores = scores ?? correction?.discursiveScores ?? [];
+  const discursiveIds = exam === null ? [] : discursiveQuestionIdsOf(exam, bank);
+  const currentScores =
+    scores ?? withDefaultDiscursiveScores(discursiveIds, correction?.discursiveScores ?? []);
 
   const graded = exam === null ? null : gradeObjectives(exam, bank, currentAnswers);
-  const discursiveIds = exam === null ? [] : discursiveQuestionIdsOf(exam, bank);
-  const pendingIds = pendingDiscursiveQuestionIds(discursiveIds, currentScores);
   const total = totalCorrectionScore(graded?.results ?? [], currentScores);
 
   const setAnswer = (questionId: string, selectedAlternativeId: string | undefined) =>
@@ -71,7 +71,7 @@ export function GradingSheetPage() {
     setScores([...currentScores.filter((item) => item.questionId !== questionId), next]);
   };
 
-  const confirm = () => {
+  const save = (finalize: boolean) => {
     if (correction === undefined || graded === null) return;
 
     confirmCorrection.mutate(
@@ -81,6 +81,7 @@ export function GradingSheetPage() {
         discursiveScores: currentScores,
         objectiveResults: graded.results,
         discursiveQuestionIds: discursiveIds,
+        finalize,
       },
       { onSuccess: () => void navigate(buildPath(ROUTES.grading, { id: id ?? '' })) },
     );
@@ -162,13 +163,15 @@ export function GradingSheetPage() {
                 />
               )}
 
-              {pendingIds.length > 0 && (
+              {discursiveIds.length > 0 && (
                 <Card className="border-l-4 border-l-accent p-5">
                   <p role="status" className="text-body text-ink-muted">
-                    {pendingIds.length === 1
-                      ? 'Falta lançar a nota de 1 questão discursiva.'
-                      : `Faltam lançar as notas de ${pendingIds.length} questões discursivas.`}{' '}
-                    O sistema já corrigiu as objetivas.
+                    O sistema já corrigiu as objetivas.{' '}
+                    {discursiveIds.length === 1
+                      ? 'A questão discursiva começa valendo 0'
+                      : `As ${discursiveIds.length} questões discursivas começam valendo 0`}
+                    , então confira cada uma antes de confirmar. Se preferir parar no meio, salve
+                    sem finalizar e volte depois.
                   </p>
                 </Card>
               )}
@@ -206,7 +209,8 @@ export function GradingSheetPage() {
                               statement={question.statement}
                               maxScore={question.maxScore ?? 0}
                               score={
-                                currentScores.find((s) => s.questionId === entry.questionId)?.score
+                                currentScores.find((s) => s.questionId === entry.questionId)
+                                  ?.score ?? 0
                               }
                               onScore={(score) => setScore(entry.questionId, score)}
                             />
@@ -219,12 +223,23 @@ export function GradingSheetPage() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Button variant="ghost" onClick={() => void navigate(buildPath(ROUTES.grading, { id: id ?? '' }))}>
               Cancelar
             </Button>
-            <Button variant="primary" disabled={confirmCorrection.isPending} onClick={confirm}>
-              {confirmCorrection.isPending ? 'Confirmando…' : 'Confirmar correção'}
+            {/*
+              Two ways out, because stopping halfway is a real thing to do and
+              leaving the screen used to throw the review away.
+            */}
+            <Button disabled={confirmCorrection.isPending} onClick={() => save(false)}>
+              Salvar sem finalizar
+            </Button>
+            <Button
+              variant="primary"
+              disabled={confirmCorrection.isPending}
+              onClick={() => save(true)}
+            >
+              {confirmCorrection.isPending ? 'Salvando…' : 'Confirmar correção'}
             </Button>
           </div>
         </div>
@@ -307,18 +322,23 @@ function DiscursiveRow({
   index: number;
   statement: string;
   maxScore: number;
-  score: number | undefined;
+  score: number;
   onScore: (score: number) => void;
 }>) {
+  /*
+    A question still worth nothing is marked, and the mark says exactly that
+    rather than "sem nota": the zero is real, it counts in the total, and it
+    closes the correction if the teacher agrees with it.
+  */
+  const atZero = score === 0;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 text-body text-ink">
           <span className="text-ink-subtle">{index + 1}.</span> {statement}
         </p>
-        <Badge tone={score === undefined ? 'warning' : 'neutral'}>
-          {score === undefined ? 'Sem nota' : 'Discursiva'}
-        </Badge>
+        <Badge tone={atZero ? 'warning' : 'neutral'}>{atZero ? 'Valendo 0' : 'Discursiva'}</Badge>
       </div>
 
       <div className="flex items-center gap-2">
@@ -326,12 +346,12 @@ function DiscursiveRow({
           Nota
         </span>
         <NumberInput
-          value={score ?? 0}
+          value={score}
           onValueChange={onScore}
           max={maxScore}
           step="0.1"
           label={`Nota da questão ${index + 1}`}
-          className={`w-24 ${score === undefined ? 'border-accent' : ''}`}
+          className={`w-24 ${atZero ? 'border-accent' : ''}`}
         />
         <span className="text-caption text-ink-subtle">de {maxScore}</span>
       </div>

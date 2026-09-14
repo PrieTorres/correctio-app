@@ -282,7 +282,7 @@ function QuestionRow({
 
         <Link
           to={buildPath(ROUTES.questionDetail, { id: question.id })}
-          className="line-clamp-2 text-body text-ink group-hover:text-primary group-hover:underline"
+          className="card-link line-clamp-2 text-body text-ink group-hover:text-primary group-hover:underline"
         >
           {question.statement}
         </Link>
@@ -294,7 +294,7 @@ function QuestionRow({
         </p>
       </div>
 
-      <div className="flex shrink-0 gap-1">
+      <div className="above-card-link flex shrink-0 gap-1">
         {!deleted && (
           <Button variant="ghost" icon={<Copy size={16} aria-hidden />} onClick={onDuplicate}>
             Duplicar

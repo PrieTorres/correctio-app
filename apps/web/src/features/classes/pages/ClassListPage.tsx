@@ -202,7 +202,7 @@ function ClassCard({
         <div className="mb-3 flex items-start justify-between gap-2">
           <Link
             to={buildPath(ROUTES.classDetail, { id: item.id })}
-            className="text-title text-primary group-hover:underline"
+            className="card-link text-title text-primary group-hover:underline"
           >
             {item.name}
           </Link>
@@ -212,7 +212,7 @@ function ClassCard({
         <p className="text-caption text-ink-subtle">{item.term}</p>
       </div>
 
-      <div className="mt-5 flex gap-2">
+      <div className="above-card-link mt-5 flex gap-2">
         <Button variant="ghost" onClick={onEdit}>
           Editar
         </Button>

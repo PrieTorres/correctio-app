@@ -79,6 +79,28 @@ export function discursiveQuestionIdsOf(exam: Exam, bank: readonly Question[]): 
 }
 
 /**
+ * Gives every open-ended question a mark, starting the ones with none at zero.
+ *
+ * The review screen always showed a zero in the empty field, so a teacher who
+ * agreed with it and confirmed expected a finished correction. They did not get
+ * one: nothing had been typed, so no mark existed, the status stayed open and
+ * the sheet went back to the list still waiting — while the screen had said
+ * zero all along. The zero is a real mark from the moment the screen opens,
+ * deliberate and editable like any other.
+ *
+ * A mark for a question the exam no longer carries is dropped, which is what
+ * keeps the total equal to the sum of what is on screen.
+ */
+export function withDefaultDiscursiveScores(
+  discursiveQuestionIds: readonly string[],
+  scores: readonly DiscursiveScore[],
+): DiscursiveScore[] {
+  const given = new Map(scores.map((entry) => [entry.questionId, entry]))
+
+  return discursiveQuestionIds.map((questionId) => given.get(questionId) ?? { questionId, score: 0 })
+}
+
+/**
  * Caps a mark at what the question is worth in this exam.
  *
  * A teacher typing 12 into a question worth 10 is a slip, and letting it

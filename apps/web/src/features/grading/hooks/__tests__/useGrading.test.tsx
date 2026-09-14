@@ -137,6 +137,7 @@ describe('grading hooks', () => {
         ],
         discursiveScores: [{ questionId: seeded.discursiveQuestionId, score: 4 }],
         discursiveQuestionIds: [seeded.discursiveQuestionId],
+        finalize: true,
       }),
     )
 
@@ -166,10 +167,72 @@ describe('grading hooks', () => {
         objectiveResults: [],
         discursiveScores: [{ questionId: seeded.discursiveQuestionId, score: 0 }],
         discursiveQuestionIds: [seeded.discursiveQuestionId],
+        finalize: true,
       }),
     )
 
     expect(confirmed.status).toBe(CORRECTION_STATUS.DONE)
+  })
+
+  /** Stopping halfway is a real thing to do, and what was reviewed has to survive it. */
+  it('keeps a correction open when the teacher saves without finishing', async () => {
+    const seeded = await seedGenerated()
+    const sheets = await repositories().printing.listSheets(seeded.applicationId)
+    const { result } = renderHookWithProviders(() => ({
+      read: useReadSheets(),
+      confirm: useConfirmCorrection(),
+    }))
+    const [correction] = await act(() =>
+      result.current.read.mutateAsync({
+        applicationId: seeded.applicationId,
+        sheetIds: [sheets[0]?.id ?? ''],
+      }),
+    )
+
+    const saved = await act(() =>
+      result.current.confirm.mutateAsync({
+        correction: correction!,
+        answers: [],
+        objectiveResults: [{ questionId: seeded.objectiveQuestionId, correct: true, score: 6 }],
+        discursiveScores: [{ questionId: seeded.discursiveQuestionId, score: 4 }],
+        discursiveQuestionIds: [seeded.discursiveQuestionId],
+        finalize: false,
+      }),
+    )
+
+    expect(saved.status).toBe(CORRECTION_STATUS.IN_PROGRESS)
+    expect(saved.totalScore).toBe(10)
+  })
+
+  it('finishes a correction that was saved open, without grading it again', async () => {
+    const seeded = await seedGenerated()
+    const sheets = await repositories().printing.listSheets(seeded.applicationId)
+    const { result } = renderHookWithProviders(() => ({
+      read: useReadSheets(),
+      confirm: useConfirmCorrection(),
+    }))
+    const [correction] = await act(() =>
+      result.current.read.mutateAsync({
+        applicationId: seeded.applicationId,
+        sheetIds: [sheets[0]?.id ?? ''],
+      }),
+    )
+    const input = {
+      answers: [],
+      objectiveResults: [{ questionId: seeded.objectiveQuestionId, correct: true, score: 6 }],
+      discursiveScores: [{ questionId: seeded.discursiveQuestionId, score: 4 }],
+      discursiveQuestionIds: [seeded.discursiveQuestionId],
+    }
+
+    const open = await act(() =>
+      result.current.confirm.mutateAsync({ correction: correction!, ...input, finalize: false }),
+    )
+    const finished = await act(() =>
+      result.current.confirm.mutateAsync({ correction: open, ...input, finalize: true }),
+    )
+
+    expect(finished.id).toBe(correction!.id)
+    expect(finished.status).toBe(CORRECTION_STATUS.DONE)
   })
 
   it('assigns a student to a correction that had none', async () => {

@@ -5,6 +5,7 @@ import {
   discursiveQuestionIdsOf,
   gradeObjectives,
   totalCorrectionScore,
+  withDefaultDiscursiveScores,
 } from '../score'
 
 function objective(id: string): Question {
@@ -208,5 +209,50 @@ describe('clampDiscursiveScore', () => {
 
   it('treats nothing typed as zero rather than as not a number', () => {
     expect(clampDiscursiveScore(Number.NaN, 10)).toBe(0)
+  })
+})
+
+/**
+ * The review screen always showed a zero in the field of an open-ended question
+ * with no mark. A teacher who agreed with it and confirmed got the sheet back
+ * in the list still waiting, because nothing had been typed and so no mark
+ * existed. The zero is a real mark now.
+ */
+describe('withDefaultDiscursiveScores', () => {
+  it('starts an unmarked question at zero', () => {
+    expect(withDefaultDiscursiveScores(['q1'], [])).toEqual([{ questionId: 'q1', score: 0 }])
+  })
+
+  it('leaves a mark that was given, zero included', () => {
+    expect(
+      withDefaultDiscursiveScores(['q1', 'q2'], [{ questionId: 'q1', score: 0 }]),
+    ).toEqual([
+      { questionId: 'q1', score: 0 },
+      { questionId: 'q2', score: 0 },
+    ])
+  })
+
+  it('does not overwrite a mark the teacher already typed', () => {
+    expect(withDefaultDiscursiveScores(['q1'], [{ questionId: 'q1', score: 3.5 }])).toEqual([
+      { questionId: 'q1', score: 3.5 },
+    ])
+  })
+
+  it('keeps the order the exam puts the questions in', () => {
+    expect(
+      withDefaultDiscursiveScores(['q3', 'q1'], [{ questionId: 'q1', score: 2 }]).map(
+        (entry) => entry.questionId,
+      ),
+    ).toEqual(['q3', 'q1'])
+  })
+
+  it('drops a mark for a question the exam no longer carries', () => {
+    expect(withDefaultDiscursiveScores(['q1'], [{ questionId: 'gone', score: 9 }])).toEqual([
+      { questionId: 'q1', score: 0 },
+    ])
+  })
+
+  it('returns nothing for an exam with no open-ended question', () => {
+    expect(withDefaultDiscursiveScores([], [])).toEqual([])
   })
 })

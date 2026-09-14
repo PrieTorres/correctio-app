@@ -55,6 +55,23 @@ describe('o que é clicável se comporta como clicável', () => {
       })
   })
 
+  it('navega ao clicar em qualquer ponto do card, não só no título', () => {
+    cy.visit('/turmas')
+
+    cy.contains('li', 'Cálculo I — Noturno').click('center')
+
+    cy.contains('h1', 'Cálculo I — Noturno').should('be.visible')
+  })
+
+  it('deixa os botões do card acima do link, e não engolidos por ele', () => {
+    cy.visit('/turmas')
+
+    cy.contains('li', 'Física II').contains('button', 'Arquivar').click()
+
+    cy.findInDialog('button', 'Arquivar').should('be.visible')
+    cy.contains('h1', 'Turmas').should('be.visible')
+  })
+
   it('não anima o card que é só um painel', () => {
     cy.visit('/turmas')
     cy.contains('a', 'Cálculo I — Noturno').click()

@@ -239,6 +239,7 @@
     what says where the click goes.
   */
   .card-interactive {
+    position: relative;
     transition:
       translate 150ms ease-out,
       box-shadow 150ms ease-out,
@@ -256,6 +257,30 @@
     .card-interactive:hover {
       translate: none;
     }
+  }
+
+  /*
+    The whole card is the click target, not the title inside it.
+
+    Aiming at the title of a card that already lifts under the pointer is the
+    kind of thing that reads as broken. One link still carries the destination
+    — wrapping the card in a second one would put two links in the
+    accessibility tree and swallow the buttons — so the link stretches an empty
+    pseudo-element over the card it sits in, and the controls that do something
+    else rise above it. The positioned ancestor it needs is `.card-interactive`.
+
+    The cost is text selection, which the overlay takes over the card. On a row
+    of a name, a term and two buttons there is nothing worth selecting.
+  */
+  .card-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+
+  .above-card-link {
+    position: relative;
+    z-index: 1;
   }
 
   /*

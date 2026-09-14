@@ -161,7 +161,7 @@ function ExamRow({
 
         <Link
           to={buildPath(ROUTES.examDetail, { id: exam.id })}
-          className="text-title text-primary group-hover:underline"
+          className="card-link text-title text-primary group-hover:underline"
         >
           {exam.title}
         </Link>
@@ -171,7 +171,7 @@ function ExamRow({
         </p>
       </div>
 
-      <div className="flex shrink-0 gap-1">
+      <div className="above-card-link flex shrink-0 gap-1">
         {!archived && (
           <Button variant="ghost" icon={<Copy size={16} aria-hidden />} onClick={onDuplicate}>
             Duplicar

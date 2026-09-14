@@ -16,12 +16,3 @@ export function resolveCorrectionStatus(
   const allScored = discursiveQuestionIds.every((questionId) => scored.has(questionId))
   return allScored ? CORRECTION_STATUS.DONE : CORRECTION_STATUS.IN_PROGRESS
 }
-
-/** Open-ended questions still missing a score, in the exam's own order. */
-export function pendingDiscursiveQuestionIds(
-  discursiveQuestionIds: readonly Id[],
-  discursiveScores: readonly DiscursiveScore[],
-): Id[] {
-  const scored = new Set(discursiveScores.map((entry) => entry.questionId))
-  return discursiveQuestionIds.filter((questionId) => !scored.has(questionId))
-}

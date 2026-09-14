@@ -160,7 +160,7 @@ function ApplicationRow({
 
         <Link
           to={buildPath(ROUTES.applicationDetail, { id: application.id })}
-          className="text-title text-primary group-hover:underline"
+          className="card-link text-title text-primary group-hover:underline"
         >
           {examTitle ?? 'Prova removida'}
         </Link>
@@ -170,7 +170,7 @@ function ApplicationRow({
         </p>
       </div>
 
-      <div className="flex shrink-0 gap-1">
+      <div className="above-card-link flex shrink-0 gap-1">
         <Button
           variant="ghost"
           icon={archived ? <RotateCcw size={16} aria-hidden /> : <Archive size={16} aria-hidden />}

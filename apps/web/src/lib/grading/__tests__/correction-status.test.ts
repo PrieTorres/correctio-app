@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CORRECTION_STATUS } from '@/types/domain'
-import { pendingDiscursiveQuestionIds, resolveCorrectionStatus } from '../correction-status'
+import { resolveCorrectionStatus } from '../correction-status'
 
 describe('resolveCorrectionStatus', () => {
   it('completes an exam that has no open-ended questions', () => {
@@ -37,21 +37,5 @@ describe('resolveCorrectionStatus', () => {
     expect(resolveCorrectionStatus(['q1'], [{ questionId: 'ghost', score: 3 }])).toBe(
       CORRECTION_STATUS.IN_PROGRESS,
     )
-  })
-})
-
-describe('pendingDiscursiveQuestionIds', () => {
-  it('returns nothing when everything is scored', () => {
-    expect(pendingDiscursiveQuestionIds(['q1'], [{ questionId: 'q1', score: 1 }])).toEqual([])
-  })
-
-  it('lists what is missing, keeping the exam order', () => {
-    expect(
-      pendingDiscursiveQuestionIds(['q1', 'q2', 'q3'], [{ questionId: 'q2', score: 1 }]),
-    ).toEqual(['q1', 'q3'])
-  })
-
-  it('lists every question when nothing was scored', () => {
-    expect(pendingDiscursiveQuestionIds(['q1', 'q2'], [])).toEqual(['q1', 'q2'])
   })
 })

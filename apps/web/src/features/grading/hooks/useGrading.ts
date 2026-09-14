@@ -12,6 +12,7 @@ import {
 import { createId } from '@/lib/utils';
 import {
   CORRECTION_SOURCE,
+  CORRECTION_STATUS,
   type Correction,
   type DiscursiveScore,
   type ObjectiveResult,
@@ -151,9 +152,15 @@ export interface ConfirmCorrectionInput {
   discursiveScores: DiscursiveScore[];
   objectiveResults: ObjectiveResult[];
   discursiveQuestionIds: string[];
+  /**
+   * False keeps the correction open on purpose, for a teacher who stops in the
+   * middle. What was reviewed is stored either way — leaving the screen is
+   * what used to throw it away.
+   */
+  finalize: boolean;
 }
 
-/** Stores what the teacher confirmed, with the status the scores imply. */
+/** Stores what the teacher reviewed, finished or deliberately left open. */
 export function useConfirmCorrection() {
   const { repositories } = useServices();
   const invalidate = useInvalidateGrading();
@@ -164,12 +171,15 @@ export function useConfirmCorrection() {
       discursiveScores,
       objectiveResults,
       discursiveQuestionIds,
+      finalize,
     }: ConfirmCorrectionInput) =>
       repositories.corrections.save({
         ...correction,
         objectiveResults,
         discursiveScores,
-        status: resolveCorrectionStatus(discursiveQuestionIds, discursiveScores),
+        status: finalize
+          ? resolveCorrectionStatus(discursiveQuestionIds, discursiveScores)
+          : CORRECTION_STATUS.IN_PROGRESS,
         totalScore: totalCorrectionScore(objectiveResults, discursiveScores),
         confirmedAt: new Date().toISOString(),
       }),
