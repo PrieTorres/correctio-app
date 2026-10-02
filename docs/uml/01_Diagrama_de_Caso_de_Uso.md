@@ -16,13 +16,13 @@ fica para os diagramas de atividade, de sequência e de classe.
 Primeiro, decidir o que está **dentro** do Correctio e o que está **fora** dele. Tudo dentro
 da fronteira é responsabilidade do sistema; tudo fora é ator.
 
-| Dentro do sistema | Fora do sistema |
-|---|---|
-| Cadastro e login do professor | O professor e o aluno (pessoas) |
-| Turmas, alunos, banco de questões, provas | O serviço que entrega e-mail |
-| Geração do PDF com QR Code | A impressora e o papel |
-| Leitura da foto da folha e cálculo da nota | A câmera do celular |
-| Relatórios e página pública de resultado | O sistema acadêmico da instituição |
+| Dentro do sistema                          | Fora do sistema                    |
+| ------------------------------------------ | ---------------------------------- |
+| Cadastro e login do professor              | O professor e o aluno (pessoas)    |
+| Turmas, alunos, banco de questões, provas  | O serviço que entrega e-mail       |
+| Geração do PDF com QR Code                 | A impressora e o papel             |
+| Leitura da foto da folha e cálculo da nota | A câmera do celular                |
+| Relatórios e página pública de resultado   | O sistema acadêmico da instituição |
 
 **Por que a impressora e a câmera não viram atores:** o sistema não conversa com elas. Ele
 entrega um PDF e recebe uma imagem; quem imprime e fotografa é o professor.
@@ -34,11 +34,11 @@ entrega um PDF e recebe uma imagem; quem imprime e fotografa é o professor.
 Ator é **um papel** que interage com o sistema, não uma pessoa específica. A pergunta para
 encontrar cada um: *quem inicia uma ação, ou quem o sistema precisa acionar?*
 
-| Ator | Tipo | Quem é | Como interage |
-|---|---|---|---|
-| **Professor** | Primário | Único usuário com login | Faz praticamente tudo: turmas, questões, provas, aplicações, correções e relatórios |
-| **Aluno** | Primário | Não tem conta; é um registro dentro da turma | Escaneia o QR Code da própria folha e vê o resultado em uma página pública |
-| **Serviço de E-mail** | Secundário | Sistema externo | É acionado pelo Correctio para entregar o link de recuperação de senha |
+| Ator                  | Tipo       | Quem é                                       | Como interage                                                                       |
+| --------------------- | ---------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **Professor**         | Primário   | Único usuário com login                      | Faz praticamente tudo: turmas, questões, provas, aplicações, correções e relatórios |
+| **Aluno**             | Primário   | Não tem conta; é um registro dentro da turma | Escaneia o QR Code da própria folha e vê o resultado em uma página pública          |
+| **Serviço de E-mail** | Secundário | Sistema externo                              | É acionado pelo Correctio para entregar o link de recuperação de senha              |
 
 Atores primários **iniciam** casos de uso; o secundário **é acionado** pelo sistema para
 completar um deles. Por isso o Professor e o Aluno ficam à esquerda do diagrama e o Serviço de
@@ -46,12 +46,12 @@ E-mail à direita.
 
 ### Atores descartados, e por quê
 
-| Candidato | Por que não entrou |
-|---|---|
-| Administrador | Não existe no escopo: nenhum RF descreve um papel acima do professor. |
-| Aluno com login | A área do aluno está fora do escopo. O aluno só consulta pelo QR Code, sem conta (RF33). |
-| Coordenador / instituição | Recebe relatórios exportados, mas não usa o sistema (RF36 é ação do professor). |
-| Leitor de QR / OCR | É parte interna do sistema, não algo externo a ele. |
+| Candidato                 | Por que não entrou                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------- |
+| Administrador             | Não existe no escopo: nenhum RF descreve um papel acima do professor.                    |
+| Aluno com login           | A área do aluno está fora do escopo. O aluno só consulta pelo QR Code, sem conta (RF33). |
+| Coordenador / instituição | Recebe relatórios exportados, mas não usa o sistema (RF36 é ação do professor).          |
+| Leitor de QR / OCR        | É parte interna do sistema, não algo externo a ele.                                      |
 
 ---
 
@@ -64,47 +64,47 @@ satisfeito se só isso acontecesse?*
 Vários RFs viram um caso de uso só quando são partes do mesmo objetivo — criar, editar e
 arquivar turma são o objetivo "Gerenciar turmas".
 
-| UC | Caso de uso | Ator | RFs |
-|---|---|---|---|
-| UC01 | Cadastrar-se | Professor | RF01, RF39 |
-| UC02 | Fazer login | Professor | RF02 |
-| UC03 | Recuperar senha | Professor, Serviço de E-mail | RF03 |
-| UC04 | Encerrar sessão | Professor | RF04 |
-| UC05 | Gerenciar a própria conta | Professor | RF05 |
-| UC06 | Gerenciar turmas | Professor | RF06, RF42 |
-| UC07 | Gerenciar alunos da turma | Professor | RF07, RF09, RF38 |
-| UC08 | Importar alunos em lote | Professor | RF08 |
-| UC09 | Gerenciar questões | Professor | RF10, RF11, RF42, RF45 |
-| UC10 | Filtrar questões | Professor | RF12 |
-| UC11 | Importar questões em lote | Professor | RF14 |
-| UC12 | Montar prova | Professor | RF13, RF15, RF17, RF20 |
-| UC13 | Gerar prova automaticamente | Professor | RF16 |
-| UC14 | Duplicar prova | Professor | RF18 |
-| UC15 | Importar / exportar prova | Professor | RF19 |
-| UC16 | Aplicar prova a uma turma | Professor | RF21 |
-| UC17 | Gerar PDF da aplicação | Professor | RF22, RF23, RF43, RF44 |
-| UC18 | Regenerar PDF | Professor | RF24 |
-| UC19 | Publicar gabarito | Professor | RF25 |
-| UC20 | Liberar resultado ao aluno | Professor | RF46 |
-| UC21 | Corrigir folha por imagem | Professor | RF26, RF27, RF32, RF47 |
-| UC22 | Revisar correção | Professor | RF28, RF48 |
-| UC23 | Lançar nota discursiva | Professor | RF29, RF47 |
-| UC24 | Corrigir manualmente | Professor | RF30 |
-| UC25 | Associar folha ao aluno | Professor | RF31 |
-| UC26 | Consultar relatório de notas | Professor | RF34, RF35 |
-| UC27 | Exportar relatório | Professor | RF36 |
-| UC28 | Ver tour guiado | Professor | RF37 |
-| UC29 | Consultar resultado pelo QR Code | Aluno | RF33 |
-| UC30 | Registrar auditoria | *(interno)* | RF40 |
+| UC   | Caso de uso                      | Ator                         | RFs                    |
+| ---- | -------------------------------- | ---------------------------- | ---------------------- |
+| UC01 | Cadastrar-se                     | Professor                    | RF01, RF39             |
+| UC02 | Fazer login                      | Professor                    | RF02                   |
+| UC03 | Recuperar senha                  | Professor, Serviço de E-mail | RF03                   |
+| UC04 | Encerrar sessão                  | Professor                    | RF04                   |
+| UC05 | Gerenciar a própria conta        | Professor                    | RF05                   |
+| UC06 | Gerenciar turmas                 | Professor                    | RF06, RF42             |
+| UC07 | Gerenciar alunos da turma        | Professor                    | RF07, RF09, RF38       |
+| UC08 | Importar alunos em lote          | Professor                    | RF08                   |
+| UC09 | Gerenciar questões               | Professor                    | RF10, RF11, RF42, RF45 |
+| UC10 | Filtrar questões                 | Professor                    | RF12                   |
+| UC11 | Importar questões em lote        | Professor                    | RF14                   |
+| UC12 | Montar prova                     | Professor                    | RF13, RF15, RF17, RF20 |
+| UC13 | Gerar prova automaticamente      | Professor                    | RF16                   |
+| UC14 | Duplicar prova                   | Professor                    | RF18                   |
+| UC15 | Importar / exportar prova        | Professor                    | RF19                   |
+| UC16 | Aplicar prova a uma turma        | Professor                    | RF21                   |
+| UC17 | Gerar PDF da aplicação           | Professor                    | RF22, RF23, RF43, RF44 |
+| UC18 | Regenerar PDF                    | Professor                    | RF24                   |
+| UC19 | Publicar gabarito                | Professor                    | RF25                   |
+| UC20 | Liberar resultado ao aluno       | Professor                    | RF46                   |
+| UC21 | Corrigir folha por imagem        | Professor                    | RF26, RF27, RF32, RF47 |
+| UC22 | Revisar correção                 | Professor                    | RF28, RF48             |
+| UC23 | Lançar nota discursiva           | Professor                    | RF29, RF47             |
+| UC24 | Corrigir manualmente             | Professor                    | RF30                   |
+| UC25 | Associar folha ao aluno          | Professor                    | RF31                   |
+| UC26 | Consultar relatório de notas     | Professor                    | RF34, RF35             |
+| UC27 | Exportar relatório               | Professor                    | RF36                   |
+| UC28 | Ver tour guiado                  | Professor                    | RF37                   |
+| UC29 | Consultar resultado pelo QR Code | Aluno                        | RF33                   |
+| UC30 | Registrar auditoria              | *(interno)*                  | RF40                   |
 
 ### Requisitos que não viraram caso de uso
 
-| RF | Por que não |
-|---|---|
-| RF39 — aviso de privacidade | É um passo dentro de UC01 e UC08, não um objetivo do professor. |
+| RF                               | Por que não                                                                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| RF39 — aviso de privacidade      | É um passo dentro de UC01 e UC08, não um objetivo do professor.                                                                |
 | RF41 — operação em segundo plano | Descreve **como** o sistema responde, não **o que** o ator quer. É comportamento, fica nos diagramas de atividade e sequência. |
-| RF43, RF44 — paginação do PDF | Regras de UC17. Aparecem na especificação dele, não como caso de uso. |
-| RNF01 a RNF20 | Requisitos não funcionais nunca viram caso de uso. |
+| RF43, RF44 — paginação do PDF    | Regras de UC17. Aparecem na especificação dele, não como caso de uso.                                                          |
+| RNF01 a RNF20                    | Requisitos não funcionais nunca viram caso de uso.                                                                             |
 
 ---
 
@@ -113,16 +113,16 @@ arquivar turma são o objetivo "Gerenciar turmas".
 Com 30 casos de uso, o diagrama fica ilegível se tudo estiver solto. Agrupar pelo módulo do
 sistema (o mesmo das telas) deixa claro onde cada um mora:
 
-| Módulo | Casos de uso |
-|---|---|
-| Acesso e conta | UC01 a UC05, UC28 |
-| Turmas | UC06 a UC08 |
-| Banco de questões | UC09 a UC11 |
-| Provas | UC12 a UC15 |
-| Aplicações | UC16 a UC20 |
-| Correção | UC21 a UC25 |
-| Relatórios | UC26, UC27 |
-| Consulta pública | UC29 |
+| Módulo            | Casos de uso      |
+| ----------------- | ----------------- |
+| Acesso e conta    | UC01 a UC05, UC28 |
+| Turmas            | UC06 a UC08       |
+| Banco de questões | UC09 a UC11       |
+| Provas            | UC12 a UC15       |
+| Aplicações        | UC16 a UC20       |
+| Correção          | UC21 a UC25       |
+| Relatórios        | UC26, UC27        |
+| Consulta pública  | UC29              |
 
 ---
 
@@ -130,34 +130,34 @@ sistema (o mesmo das telas) deixa claro onde cada um mora:
 
 São três tipos de ligação, e a escolha entre eles é a parte que mais gera dúvida:
 
-| Relação | Significado | Seta | Teste rápido |
-|---|---|---|---|
-| **Associação** | O ator participa do caso de uso | linha cheia ator → UC | O ator inicia ou é acionado? |
-| **«include»** | O caso base **sempre** executa o incluído | tracejada, **da base para o incluído** | Dá para terminar a base sem ele? Se não, é include. |
-| **«extend»** | O caso estendido **às vezes** acrescenta comportamento | tracejada, **da extensão para a base** | É opcional ou depende de condição? Então é extend. |
+| Relação        | Significado                                            | Seta                                   | Teste rápido                                        |
+| -------------- | ------------------------------------------------------ | -------------------------------------- | --------------------------------------------------- |
+| **Associação** | O ator participa do caso de uso                        | linha cheia ator → UC                  | O ator inicia ou é acionado?                        |
+| **«include»**  | O caso base **sempre** executa o incluído              | tracejada, **da base para o incluído** | Dá para terminar a base sem ele? Se não, é include. |
+| **«extend»**   | O caso estendido **às vezes** acrescenta comportamento | tracejada, **da extensão para a base** | É opcional ou depende de condição? Então é extend.  |
 
 ### Relacionamentos escolhidos
 
-| De | Relação | Para | Justificativa |
-|---|---|---|---|
-| UC03 Recuperar senha | «extend» | UC02 Fazer login | Só acontece quando o professor esqueceu a senha. |
-| UC08 Importar alunos | «extend» | UC07 Gerenciar alunos | Alternativa opcional ao cadastro um a um. |
-| UC07 Gerenciar alunos | «include» | UC30 Registrar auditoria | Toda operação sobre dado pessoal de aluno é auditada (RF40). |
-| UC10 Filtrar questões | «extend» | UC09 Gerenciar questões | Filtrar é opcional ao navegar no banco. |
-| UC11 Importar questões | «extend» | UC09 Gerenciar questões | Alternativa opcional ao cadastro uma a uma. |
-| UC13 Gerar automaticamente | «extend» | UC12 Montar prova | Outra forma de montar, escolhida pelo professor. |
-| UC14 Duplicar prova | «extend» | UC12 Montar prova | Parte de uma prova existente em vez de começar do zero. |
-| UC15 Importar / exportar | «extend» | UC12 Montar prova | Opcional. |
-| UC16 Aplicar prova | «include» | UC17 Gerar PDF | Aplicação existe para ser impressa: sem PDF, não há folha para corrigir. |
-| UC18 Regenerar PDF | «extend» | UC17 Gerar PDF | Só enquanto não há correção confirmada (RF24). |
-| UC19 Publicar gabarito | «include» | UC30 Registrar auditoria | Exigido pelo RF40. |
-| UC20 Liberar resultado | «include» | UC30 Registrar auditoria | Exigido pelo RF40. |
-| UC21 Corrigir por imagem | «include» | UC22 Revisar correção | Nenhuma leitura vira nota sem confirmação do professor. |
-| UC24 Corrigir manualmente | «include» | UC22 Revisar correção | A correção manual também passa pela tela de revisão antes de confirmar. |
-| UC24 Corrigir manualmente | «extend» | UC21 Corrigir por imagem | Usada quando a leitura da imagem falha (RF30). |
-| UC23 Lançar nota discursiva | «extend» | UC22 Revisar correção | Só quando a prova tem questão discursiva (RF47). |
-| UC25 Associar folha ao aluno | «extend» | UC22 Revisar correção | Só quando a prova foi impressa sem identificação (RF31). |
-| UC27 Exportar relatório | «extend» | UC26 Consultar relatório | Opcional. |
+| De                           | Relação   | Para                     | Justificativa                                                            |
+| ---------------------------- | --------- | ------------------------ | ------------------------------------------------------------------------ |
+| UC03 Recuperar senha         | «extend»  | UC02 Fazer login         | Só acontece quando o professor esqueceu a senha.                         |
+| UC08 Importar alunos         | «extend»  | UC07 Gerenciar alunos    | Alternativa opcional ao cadastro um a um.                                |
+| UC07 Gerenciar alunos        | «include» | UC30 Registrar auditoria | Toda operação sobre dado pessoal de aluno é auditada (RF40).             |
+| UC10 Filtrar questões        | «extend»  | UC09 Gerenciar questões  | Filtrar é opcional ao navegar no banco.                                  |
+| UC11 Importar questões       | «extend»  | UC09 Gerenciar questões  | Alternativa opcional ao cadastro uma a uma.                              |
+| UC13 Gerar automaticamente   | «extend»  | UC12 Montar prova        | Outra forma de montar, escolhida pelo professor.                         |
+| UC14 Duplicar prova          | «extend»  | UC12 Montar prova        | Parte de uma prova existente em vez de começar do zero.                  |
+| UC15 Importar / exportar     | «extend»  | UC12 Montar prova        | Opcional.                                                                |
+| UC16 Aplicar prova           | «include» | UC17 Gerar PDF           | Aplicação existe para ser impressa: sem PDF, não há folha para corrigir. |
+| UC18 Regenerar PDF           | «extend»  | UC17 Gerar PDF           | Só enquanto não há correção confirmada (RF24).                           |
+| UC19 Publicar gabarito       | «include» | UC30 Registrar auditoria | Exigido pelo RF40.                                                       |
+| UC20 Liberar resultado       | «include» | UC30 Registrar auditoria | Exigido pelo RF40.                                                       |
+| UC21 Corrigir por imagem     | «include» | UC22 Revisar correção    | Nenhuma leitura vira nota sem confirmação do professor.                  |
+| UC24 Corrigir manualmente    | «include» | UC22 Revisar correção    | A correção manual também passa pela tela de revisão antes de confirmar.  |
+| UC24 Corrigir manualmente    | «extend»  | UC21 Corrigir por imagem | Usada quando a leitura da imagem falha (RF30).                           |
+| UC23 Lançar nota discursiva  | «extend»  | UC22 Revisar correção    | Só quando a prova tem questão discursiva (RF47).                         |
+| UC25 Associar folha ao aluno | «extend»  | UC22 Revisar correção    | Só quando a prova foi impressa sem identificação (RF31).                 |
+| UC27 Exportar relatório      | «extend»  | UC26 Consultar relatório | Opcional.                                                                |
 
 **Por que UC30 não tem ator:** "Registrar auditoria" é feito pelo sistema, nunca pedido
 pelo professor. Ele só existe como caso incluído — desenhá-lo deixa visível no diagrama que
@@ -299,13 +299,13 @@ que envolve o aluno.
 
 ### UC21 — Corrigir folha por imagem
 
-| Campo | Conteúdo |
-|---|---|
-| **Ator principal** | Professor |
-| **Objetivo** | Obter a nota de uma folha de respostas a partir de uma foto ou scan. |
-| **Pré-condições** | Professor autenticado; existe uma aplicação com PDF gerado (UC17). |
-| **Pós-condição** | Correção salva com a alternativa marcada em cada questão, acerto/erro, nota por questão e origem "imagem" (RF32). |
-| **RFs** | RF26, RF27, RF32, RF47 |
+| Campo              | Conteúdo                                                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| **Ator principal** | Professor                                                                                                         |
+| **Objetivo**       | Obter a nota de uma folha de respostas a partir de uma foto ou scan.                                              |
+| **Pré-condições**  | Professor autenticado; existe uma aplicação com PDF gerado (UC17).                                                |
+| **Pós-condição**   | Correção salva com a alternativa marcada em cada questão, acerto/erro, nota por questão e origem "imagem" (RF32). |
+| **RFs**            | RF26, RF27, RF32, RF47                                                                                            |
 
 **Fluxo principal**
 
@@ -331,13 +331,13 @@ que envolve o aluno.
 
 ### UC29 — Consultar resultado pelo QR Code
 
-| Campo | Conteúdo |
-|---|---|
-| **Ator principal** | Aluno (sem login) |
-| **Objetivo** | Ver o gabarito e, se liberado, a própria nota. |
-| **Pré-condições** | O professor publicou o gabarito (UC19) e liberou o resultado (UC20). |
-| **Pós-condição** | Nenhuma alteração no sistema; é só leitura. |
-| **RFs** | RF33, RF46 |
+| Campo              | Conteúdo                                                             |
+| ------------------ | -------------------------------------------------------------------- |
+| **Ator principal** | Aluno (sem login)                                                    |
+| **Objetivo**       | Ver o gabarito e, se liberado, a própria nota.                       |
+| **Pré-condições**  | O professor publicou o gabarito (UC19) e liberou o resultado (UC20). |
+| **Pós-condição**   | Nenhuma alteração no sistema; é só leitura.                          |
+| **RFs**            | RF33, RF46                                                           |
 
 **Fluxo principal**
 
