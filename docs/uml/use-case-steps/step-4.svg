@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1290 1768" width="1290" height="1768" role="img" aria-label="Etapa 4: os casos de uso agrupados em oito módulos."><style>
+text{font-family:'Hanken Grotesk','Segoe UI',Arial,sans-serif}
+.bg{fill:#ffffff}.sys{fill:#ffffff;stroke:#002045;stroke-width:1.5}
+.sys-title{font-family:Montserrat,'Segoe UI',Arial,sans-serif;font-weight:700;font-size:15px;fill:#002045}
+.pkg{fill:#f8fafc;stroke:#c4c6cf;stroke-dasharray:5 4}
+.pkg-title{font-size:10.5px;font-weight:700;letter-spacing:.08em;fill:#74777f}
+.uc{fill:#eef3fb;stroke:#1a365d;stroke-width:1.2}.uc.internal{fill:#f1f1f1;stroke:#74777f;stroke-dasharray:4 3}
+.uc.new{fill:#fff4dc;stroke:#c98a12;stroke-width:2.4}
+.uc-code{font-size:10px;font-weight:700;fill:#1a365d;letter-spacing:.04em}.uc-name{font-size:11.5px;fill:#1b1c1c}
+.assoc{stroke:#43474e;stroke-width:1.1;fill:none}
+.rel{fill:none;stroke-width:1.2;stroke-dasharray:5 4}.rel.include{stroke:#002045}.rel.extend{stroke:#8a5a00}
+.head-include{fill:#002045}.head-extend{fill:#8a5a00}
+.rel-label{font-size:10.5px;font-weight:600;paint-order:stroke;stroke:#f8fafc;stroke-width:4px}
+.rel-label.include{fill:#002045}.rel-label.extend{fill:#8a5a00}
+.actor{fill:#ffffff;stroke:#002045;stroke-width:2}
+.actor-label{font-family:Montserrat,'Segoe UI',Arial,sans-serif;font-weight:700;font-size:12.5px;fill:#002045}
+.actor-sub{font-size:10.5px;fill:#74777f}
+</style><rect class="bg" width="100%" height="100%"/><defs>
+<marker id="arrow-include" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="head-include" d="M0 0L10 5L0 10z"/></marker>
+<marker id="arrow-extend" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path class="head-extend" d="M0 0L10 5L0 10z"/></marker>
+</defs><rect class="sys" x="140" y="30" width="1020" height="1708" rx="6"/>
+<text class="sys-title" x="160" y="58">Sistema Correctio</text>
+<rect class="pkg" x="165" y="78" width="785" height="346" rx="4"/>
+<text class="pkg-title" x="177" y="96">ACESSO E CONTA</text>
+<rect class="pkg" x="165" y="440" width="785" height="160" rx="4"/>
+<text class="pkg-title" x="177" y="458">BANCO DE QUESTÕES</text>
+<rect class="pkg" x="165" y="616" width="785" height="222" rx="4"/>
+<text class="pkg-title" x="177" y="634">PROVAS</text>
+<rect class="pkg" x="165" y="854" width="785" height="160" rx="4"/>
+<text class="pkg-title" x="177" y="872">TURMAS</text>
+<rect class="pkg" x="165" y="1030" width="785" height="222" rx="4"/>
+<text class="pkg-title" x="177" y="1048">APLICAÇÕES</text>
+<rect class="pkg" x="165" y="1268" width="785" height="222" rx="4"/>
+<text class="pkg-title" x="177" y="1286">CORREÇÃO</text>
+<rect class="pkg" x="165" y="1506" width="785" height="98" rx="4"/>
+<text class="pkg-title" x="177" y="1524">RELATÓRIOS</text>
+<rect class="pkg" x="165" y="1620" width="785" height="98" rx="4"/>
+<text class="pkg-title" x="177" y="1638">CONSULTA PÚBLICA</text>
+<line class="assoc" x1="86" y1="839" x2="180" y2="139"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="201"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="263"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="325"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="387"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="532"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="739"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="915"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="977"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="1091"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="1153"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="1215"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="1329"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="1453"/>
+<line class="assoc" x1="86" y1="839" x2="180" y2="1567"/>
+<line class="assoc" x1="86" y1="1673" x2="181.6" y2="1676.9"/>
+<ellipse class="uc" cx="280" cy="201" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="197" text-anchor="middle">UC02</text>
+<text class="uc-name" x="280" y="212" text-anchor="middle">Fazer login</text>
+<ellipse class="uc" cx="280" cy="915" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="911" text-anchor="middle">UC06</text>
+<text class="uc-name" x="280" y="926" text-anchor="middle">Gerenciar turmas</text>
+<ellipse class="uc" cx="280" cy="977" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="973" text-anchor="middle">UC07</text>
+<text class="uc-name" x="280" y="988" text-anchor="middle">Gerenciar alunos da turma</text>
+<ellipse class="uc" cx="280" cy="532" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="528" text-anchor="middle">UC09</text>
+<text class="uc-name" x="280" y="543" text-anchor="middle">Gerenciar questões</text>
+<ellipse class="uc" cx="280" cy="739" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="735" text-anchor="middle">UC12</text>
+<text class="uc-name" x="280" y="750" text-anchor="middle">Montar prova</text>
+<ellipse class="uc" cx="280" cy="1091" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="1087" text-anchor="middle">UC16</text>
+<text class="uc-name" x="280" y="1102" text-anchor="middle">Aplicar prova a uma turma</text>
+<ellipse class="uc" cx="280" cy="1329" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="1325" text-anchor="middle">UC21</text>
+<text class="uc-name" x="280" y="1340" text-anchor="middle">Corrigir folha por imagem</text>
+<ellipse class="uc" cx="280" cy="1567" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="1563" text-anchor="middle">UC26</text>
+<text class="uc-name" x="280" y="1578" text-anchor="middle">Consultar relatório de notas</text>
+<ellipse class="uc" cx="280" cy="139" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="135" text-anchor="middle">UC01</text>
+<text class="uc-name" x="280" y="150" text-anchor="middle">Cadastrar-se</text>
+<ellipse class="uc" cx="280" cy="263" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="259" text-anchor="middle">UC04</text>
+<text class="uc-name" x="280" y="274" text-anchor="middle">Encerrar sessão</text>
+<ellipse class="uc" cx="280" cy="325" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="321" text-anchor="middle">UC05</text>
+<text class="uc-name" x="280" y="336" text-anchor="middle">Gerenciar a própria conta</text>
+<ellipse class="uc" cx="280" cy="387" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="383" text-anchor="middle">UC28</text>
+<text class="uc-name" x="280" y="398" text-anchor="middle">Ver tour guiado</text>
+<ellipse class="uc" cx="280" cy="1153" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="1149" text-anchor="middle">UC19</text>
+<text class="uc-name" x="280" y="1164" text-anchor="middle">Publicar gabarito</text>
+<ellipse class="uc" cx="280" cy="1215" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="1211" text-anchor="middle">UC20</text>
+<text class="uc-name" x="280" y="1226" text-anchor="middle">Liberar resultado ao aluno</text>
+<ellipse class="uc" cx="280" cy="1453" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="1449" text-anchor="middle">UC24</text>
+<text class="uc-name" x="280" y="1464" text-anchor="middle">Corrigir manualmente</text>
+<ellipse class="uc" cx="280" cy="1681" rx="100" ry="23"/>
+<text class="uc-code" x="280" y="1677" text-anchor="middle">UC29</text>
+<text class="uc-name" x="280" y="1692" text-anchor="middle">Consultar resultado pelo QR Code</text>
+<g class="actor"><circle cx="70" cy="817" r="10"/><path d="M70 827V855M55 838H85M70 855L58 875M70 855L82 875"/></g><text class="actor-label" x="70" y="797" text-anchor="middle">Professor</text>
+<g class="actor"><circle cx="70" cy="1651" r="10"/><path d="M70 1661V1689M55 1672H85M70 1689L58 1709M70 1689L82 1709"/></g><text class="actor-sub" x="70" y="1725" text-anchor="middle">sem login</text><text class="actor-label" x="70" y="1741" text-anchor="middle">Aluno</text>
+<g class="actor"><circle cx="1228" cy="179" r="10"/><path d="M1228 189V217M1213 200H1243M1228 217L1216 237M1228 217L1240 237"/></g><text class="actor-sub" x="1228" y="253" text-anchor="middle">«sistema externo»</text><text class="actor-label" x="1228" y="269" text-anchor="middle">Serviço de E-mail</text></svg>
