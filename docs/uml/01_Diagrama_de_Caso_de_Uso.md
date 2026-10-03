@@ -178,48 +178,6 @@ Convenções usadas no desenho:
 - elipses são casos de uso; atores ficam fora da fronteira;
 - linha cheia é associação; linha tracejada rotulada é «include» ou «extend».
 
-O diagrama foi montado em seis etapas, cada uma acrescentando uma camada sobre a anterior.
-Em cada imagem, **o que entrou naquela etapa aparece em dourado**.
-
-**Etapa 1 — Fronteira e atores.** Desenhamos o retângulo do sistema e os três atores do
-Passo 2, ainda sem nenhum caso de uso: Professor e Aluno à esquerda, porque iniciam ações;
-Serviço de E-mail à direita, porque é acionado pelo sistema.
-
-![Etapa 1](use-case-steps/step-1.svg)
-
-**Etapa 2 — O ciclo da prova.** Começamos pelo caminho principal do professor, que é o
-motivo de o sistema existir: entrar, cadastrar turmas e alunos, montar o banco de questões,
-montar a prova, aplicar, corrigir e ver o relatório.
-
-![Etapa 2](use-case-steps/step-2.svg)
-
-**Etapa 3 — Completar o professor e incluir o aluno.** Revisando os RFs, entraram o que
-falta para o professor (cadastro, sessão, conta, tour, publicar gabarito, liberar resultado e
-correção manual) e o único caso de uso do aluno: consultar o resultado pelo QR Code, sem
-login.
-
-![Etapa 3](use-case-steps/step-3.svg)
-
-**Etapa 4 — Agrupar em módulos.** Com 16 casos de uso, separamos por módulo do sistema (o
-mesmo das telas), deixando espaço para o que ainda vai entrar em cada um.
-
-![Etapa 4](use-case-steps/step-4.svg)
-
-**Etapa 5 — «include».** Entraram os casos que outros **sempre** executam: aplicar inclui
-gerar o PDF, corrigir inclui revisar, e as operações sobre dado pessoal incluem registrar
-auditoria.
-
-![Etapa 5](use-case-steps/step-5.svg)
-
-**Etapa 6 — «extend» e versão final.** Por último, os casos que **às vezes** acrescentam
-comportamento: importar em lote, filtrar, gerar automaticamente, duplicar, regenerar PDF,
-lançar nota discursiva, associar folha, exportar relatório e recuperar senha, que liga o
-Serviço de E-mail.
-
-![Etapa 6](use-case-steps/step-6.svg)
-
-### Versão final
-
 ![Diagrama de caso de uso do Correctio](use-case-diagram.svg)
 
 <details>
