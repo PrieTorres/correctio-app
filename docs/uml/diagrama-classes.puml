@@ -1,0 +1,160 @@
+@startuml
+!theme plain
+skinparam classAttributeIconSize 0
+hide circle
+
+class User {
+  +id: String
+  +role: "professor" | "estudante"
+  +fullName: String
+  +email: String
+  +passwordHash: String
+  +createdAt: Date
+  +anonymizedAt?: Date
+}
+
+class RefreshToken {
+  +id: String
+  +userId: String
+  +tokenHash: String
+  +deviceInfo?: String
+  +issuedAt: Date
+  +expiresAt: Date
+  +revokedAt?: Date
+}
+
+class Class {
+  +id: String
+  +teacherId: String
+  +name: String
+  +subject: String
+  +term: String
+  +status: "active" | "archived"
+  +inviteCode: String
+}
+
+class Student {
+  +id: String
+  +classId: String
+  +fullName: String
+  +registration: String
+  +email?: String
+  +anonymizedAt?: Date
+  +userId?: String
+}
+
+class ClassEnrollment {
+  +id: String
+  +classId: String
+  +studentId: String
+  +status: "active" | "removed"
+  +enrolledVia: "teacher" | "invite_code"
+}
+
+class Question {
+  +id: String
+  +teacherId: String
+  +type: "objetiva" | "discursiva"
+  +statement: String
+  +tags: String[]
+  +alternatives?: { id: String; text: String }[]
+  +correctAlternativeId?: String
+  +maxScore?: Number
+  +deletedAt?: Date
+  +allowShuffleAlternatives: Boolean
+}
+
+class Exam {
+  +id: String
+  +teacherId: String
+  +title: String
+  +questions: { questionId: String; order: Number; score: Number; allowShuffleAlternatives: Boolean }[]
+  +status: "draft" | "ready" | "closed"
+  +description: String
+  +defaultShuffleQuestions: Boolean
+  +defaultShuffleAlternatives: Boolean
+}
+
+class ExamAssignment {
+  +id: String
+  +examVersionId: String
+  +studentId: String
+  +qrCodePayload: String
+}
+
+class Application {
+  +id: String
+  +examId: String
+  +classId: String
+  +teacherId: String
+  +status: "draft" | "generated" | "closed"
+  +pdfUrl?: String
+  +date: Date
+  +gradesReleased: Boolean
+}
+
+class ExamVersion {
+  +id: String
+  +applicationId: String
+  +versionNumber: Number
+  +shuffleQuestions: Boolean
+  +shuffleAlternatives: Boolean
+  +withStudentIdentification: Boolean
+  +layout: { questionOrder: String[]; alternativeOrder: { questionId: String; printedOrder: String[] }[] }
+  +answerKeyPublished: Boolean
+  +answerKeyPublishedAt?: Date
+  +publicCode: String
+  +qrCodePayload: String
+}
+
+class AnswerSheet {
+  +id: String
+  +applicationId: String
+  +examVersionId: String
+  +studentId?: String
+  +sheetNumber: Number
+  +code: String
+}
+
+class Correction {
+  +id: String
+  +examVersionId: String
+  +studentId?: String
+  +reportedStudentName?: String
+  +reportedStudentRegistration?: String
+  +objectiveResults: { questionId: String; correct: Boolean; score: Number; selectedAlternativeId?: String }[]
+  +discursiveScores: { questionId: String; score: Number }[]
+  +totalScore: Number
+  +notes?: String
+  +confirmedAt: Date
+  +correctedBy: String
+  +isAutomaticallyAssigned: Boolean
+  +clientCorrectionId?: String
+  +syncStatus?: "pending" | "synced" | "error"
+  +answerSheetId: String
+  +source: "IMAGE_UPLOAD" | "MANUAL"
+  +status: "IN_PROGRESS" | "DONE"
+  +imageUrl?: String
+}
+
+User "1" -- "*" RefreshToken : has
+User "1" -- "*" Class : teaches
+User "1" -- "*" Question : creates
+User "1" -- "*" Exam : creates
+User "1" -- "0..1" Student : maps_to
+Class "1" -- "*" Student : contains
+Class "1" -- "*" ClassEnrollment : contains
+Student "1" -- "*" ClassEnrollment : enrolls
+Exam "1" -- "*" Application : applied_as
+Class "1" -- "*" Application : receives
+Application "1" -- "*" ExamVersion : generates
+ExamVersion "1" -- "*" ExamAssignment : assigns_to
+Student "1" -- "*" ExamAssignment : assigned_via
+Application "1" -- "*" AnswerSheet : prints
+ExamVersion "1" -- "*" AnswerSheet : prints
+Student "0..1" -- "*" AnswerSheet : answers
+AnswerSheet "1" -- "0..1" Correction : results_in
+ExamVersion "1" -- "*" Correction : corrected_from
+Student "0..1" -- "*" Correction : identified_as
+
+@enduml
