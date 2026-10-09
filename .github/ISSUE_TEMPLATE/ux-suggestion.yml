@@ -1,0 +1,41 @@
+name: UX suggestion
+description: Improvement to layout, text, flow or accessibility
+title: "[ux] "
+labels: [ux, enhancement]
+body:
+  - type: input
+    id: screen
+    attributes:
+      label: Tela / URL
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: O que atrapalha o usuário
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+      description: Pode incluir print anotado ou rascunho.
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impacto
+      options: [Alto — bloqueia ou confunde a tarefa, Médio — atrasa a tarefa, Baixo — acabamento]
+    validations:
+      required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist de aceite
+      value: |
+        - [ ] Proposta aprovada pela PM
+        - [ ] Implementada com teste
+        - [ ] Vídeo do antes/depois anexado no PR
+    validations:
+      required: true

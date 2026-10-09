@@ -1,0 +1,34 @@
+name: Task
+description: Backlog item — small, testable, with an owner
+title: "[area] "
+labels: [N2]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto
+      description: O que e por quê. Cite RF/RNF e telas envolvidas.
+    validations:
+      required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist de aceite
+      description: Cada item é conferido no vídeo do teste. Sem checklist a issue recebe o label missing-checklist.
+      value: |
+        - [ ] 
+        - [ ] Testes automatizados do caso principal
+        - [ ] Vídeo do teste anexado no PR
+    validations:
+      required: true
+  - type: input
+    id: due-date
+    attributes:
+      label: Prazo (AAAA-MM-DD)
+    validations:
+      required: true
+  - type: input
+    id: depends-on
+    attributes:
+      label: Depende de
+      placeholder: "#12, #13"
