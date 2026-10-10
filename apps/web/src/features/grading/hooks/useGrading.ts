@@ -98,12 +98,12 @@ export function useReadSheets() {
         repositories.questions.list({ pageSize: 1000 }),
       ]);
 
-      /*
-        Refusing loudly rather than recording an empty author: the stored schema
-        requires one, so a correction saved without it is written and then
-        dropped on every read afterwards — a grade that vanishes with nobody
-        being told.
-      */
+      /**
+       * Refusing loudly rather than recording an empty author: the stored schema
+       * requires one, so a correction saved without it is written and then
+       * dropped on every read afterwards — a grade that vanishes with nobody
+       * being told.
+       */
       const teacher = auth.getCurrentUser();
       if (teacher === null) {
         throw new Error('Sessão encerrada. Entre novamente para registrar a correção.');

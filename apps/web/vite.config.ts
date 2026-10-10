@@ -20,19 +20,19 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    /*
-      A spy left behind by one test is a failure reported in another, far from
-      its cause. Restoring before each test keeps a suite from depending on the
-      order it happens to run in.
-    */
+    /**
+     * A spy left behind by one test is a failure reported in another, far from
+     * its cause. Restoring before each test keeps a suite from depending on the
+     * order it happens to run in.
+     */
     restoreMocks: true,
     clearMocks: true,
     setupFiles: ['./src/test-setup.ts'],
-    /*
-      The repositories simulate latency on every call, and a test that walks a
-      whole flow makes a dozen of them. Five seconds is the default; these need
-      room without each one restating it.
-    */
+    /**
+     * The repositories simulate latency on every call, and a test that walks a
+     * whole flow makes a dozen of them. Five seconds is the default; these need
+     * room without each one restating it.
+     */
     testTimeout: 20000,
     coverage: {
       provider: 'v8',

@@ -26,6 +26,14 @@ const HIGHLIGHT_CLASS = 'tour-target';
  * skipping is always one click away. Focus moves to the step when it opens and
  * returns to where it was when it closes, which is the part a tour usually
  * gets wrong.
+ *
+ * A region rather than a dialog: it blocks nothing, traps no focus and leaves
+ * the screen usable underneath. Calling it a dialog would make a screen reader
+ * announce it as one, and would put it in front of every query looking for the
+ * real dialogs of the app.
+ *
+ * The position is spelled out as well as shown: a row of dots carries the same
+ * information only for people who can see and distinguish them.
  */
 export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
   const steps = stepsOf(screen);
@@ -65,10 +73,10 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
     opener.current = document.activeElement as HTMLElement | null;
     panel.current?.focus();
 
-    /*
-      Escape is listened for on the document rather than on the panel, so it
-      still closes the tour after focus has moved to one of its buttons.
-    */
+    /**
+     * Escape is listened for on the document rather than on the panel, so it
+     * still closes the tour after focus has moved to one of its buttons.
+     */
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close();
     };
@@ -144,12 +152,6 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
   return (
     <div
       ref={panel}
-      /*
-        A region rather than a dialog: it blocks nothing, traps no focus and
-        leaves the screen usable underneath. Calling it a dialog would make a
-        screen reader announce it as one, and would put it in front of every
-        query looking for the real dialogs of the app.
-      */
       role="region"
       aria-label={`Tour desta tela, passo ${index + 1} de ${steps.length}`}
       tabIndex={-1}
@@ -172,10 +174,6 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        {/*
-          The position is spelled out as well as shown: a row of dots carries
-          the same information only for people who can see and distinguish them.
-        */}
         <span className="text-caption text-ink-subtle">
           Passo {index + 1} de {steps.length}
         </span>

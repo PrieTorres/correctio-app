@@ -63,6 +63,11 @@ function emptyQuestion(): QuestionInput {
   };
 }
 
+/**
+ * The filled letter is the whole point of the card: which option is the answer
+ * has to be readable at a glance while scrolling past five of them, not
+ * inferred from a 16px dot.
+ */
 export function QuestionFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -101,11 +106,11 @@ export function QuestionFormPage() {
     if (existing) reset(existing);
   }, [existing, reset]);
 
-  /*
-    `mutate` with a callback rather than awaiting `mutateAsync`: a refused save
-    is shown by `SaveError`, and awaiting a rejection that nothing catches sends
-    an unhandled rejection to the console as well.
-  */
+  /**
+   * `mutate` with a callback rather than awaiting `mutateAsync`: a refused save
+   * is shown by `SaveError`, and awaiting a rejection that nothing catches sends
+   * an unhandled rejection to the console as well.
+   */
   const onSubmit = (input: QuestionInput) => {
     save.mutate(
       { id, input: onlyFieldsOfItsType(input) },
@@ -260,11 +265,6 @@ function AlternativesField({
             }`}
           >
             <label className="flex cursor-pointer flex-col items-center gap-2">
-              {/*
-                The filled letter is the whole point of the card: which option is
-                the answer has to be readable at a glance while scrolling past
-                five of them, not inferred from a 16px dot.
-              */}
               <span
                 aria-hidden
                 className={`flex size-8 items-center justify-center rounded-full text-label ${

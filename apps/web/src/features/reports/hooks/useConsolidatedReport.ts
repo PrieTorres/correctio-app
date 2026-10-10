@@ -20,11 +20,11 @@ export function useConsolidatedReport() {
   return useQuery({
     queryKey: reportKeys.consolidated,
     queryFn: async (): Promise<ConsolidatedRow[]> => {
-      /*
-        Both sides of the archive, because an exam archived after being applied
-        still names the row it produced. `archived` selects rather than adds,
-        so reading both is two calls rather than one flag.
-      */
+      /**
+       * Both sides of the archive, because an exam archived after being applied
+       * still names the row it produced. `archived` selects rather than adds,
+       * so reading both is two calls rather than one flag.
+       */
       const [applications, exams, archivedExams, classes, archivedClasses] = await Promise.all([
         repositories.applications.list({ pageSize: 1000 }),
         repositories.exams.list({ pageSize: 1000 }),
