@@ -198,7 +198,7 @@ A estrutura obrigatória de cada uma segue a seção 8 da Spec SGP Católica e e
 
 ## ▶️ 7. Como rodar
 
-**Versões em uso:** Node 22 LTS · React 19 · Vite 6 · TypeScript 5.7 · Tailwind 4 · Vitest 3 · Cypress 15
+**Versões em uso:** Node 22 LTS · React 19 · Vite 6 · TypeScript 5.7 · Tailwind 4 · Vitest 5 · Cypress 15
 
 ```bash
 npm install       # instala o monorepo inteiro (npm workspaces)
