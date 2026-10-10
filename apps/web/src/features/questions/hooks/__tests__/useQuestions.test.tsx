@@ -83,6 +83,27 @@ describe('question data hooks', () => {
     await waitFor(() => expect(result.current.missing.data?.items).toHaveLength(0))
   })
 
+  it('lists the newest first, and by statement only when asked', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      save: useSaveQuestion(),
+      newest: useQuestionList(ALL),
+      byStatement: useQuestionList({ ...ALL, sort: 'statement' }),
+    }))
+    await act(() => result.current.save.mutateAsync({ input: objective }))
+    await act(() => result.current.save.mutateAsync({ input: essay }))
+
+    await waitFor(() => expect(result.current.newest.data?.items).toHaveLength(2))
+    await waitFor(() => expect(result.current.byStatement.data?.items).toHaveLength(2))
+    expect(result.current.newest.data?.items.map((item) => item.statement)).toEqual([
+      essay.statement,
+      objective.statement,
+    ])
+    expect(result.current.byStatement.data?.items.map((item) => item.statement)).toEqual([
+      objective.statement,
+      essay.statement,
+    ])
+  })
+
   it('moves a question between the active and deleted listings', async () => {
     const { result } = renderHookWithProviders(() => ({
       save: useSaveQuestion(),
