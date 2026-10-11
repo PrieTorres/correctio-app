@@ -102,11 +102,13 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       # A deploy that answers anything but 200 failed, even if every step above
-      # passed: it is the database or a secret that the build cannot see.
+      # passed: it is the database or a secret that the build cannot see. A new
+      # preview channel answers 404 on /api for a minute or two before Hosting
+      # starts forwarding to the function, so the check waits up to three.
       - name: Check the published API
         env:
           URL: ${{ steps.hosting.outputs.url }}
-        run: curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 10 "$URL/api/health"
+        run: curl --fail --silent --show-error --retry 18 --retry-all-errors --retry-delay 10 --retry-max-time 180 "$URL/api/health"
 
       - name: Summary
         env:
