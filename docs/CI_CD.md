@@ -157,7 +157,7 @@ na interface do GitHub, que nenhum arquivo versionado consegue ligar:
 | Workload Identity Federation e conta de serviço do deploy, em cada projeto | Google Cloud, IAM | ⬜ pendente |
 | Segredos da API no Secret Manager de cada projeto | Google Cloud, Secret Manager | ⬜ pendente |
 | Ambientes `production` (só `main`) e `preview` | Settings → Environments | ⬜ pendente |
-| GitHub Pages desligado | Settings → Pages | ⬜ depois da primeira publicação no Firebase |
+| Link da N1 no GitHub Pages redirecionando para o Firebase | Actions → "Redirect GitHub Pages to Firebase" | ⬜ rodar uma vez, depois da primeira release no Firebase |
 
 > **Workflow sob demanda só aparece depois de estar na `main`.** O GitHub lista em Actions apenas
 > os workflows que existem na branch padrão, então o "Preview link" e o "Republish a version"
