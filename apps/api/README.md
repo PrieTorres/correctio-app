@@ -1,7 +1,7 @@
 # @correctio/api — Back-end
 
 Node.js 22 + Express 5 + TypeScript, em camadas: **rota → controle → serviço → repositório →
-model**, como a disciplina pede. O banco MySQL entra na #32.
+model**, como a disciplina pede. Os dados ficam em MySQL (ver "Banco de dados" abaixo).
 
 ## Como rodar localmente
 
