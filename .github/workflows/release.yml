@@ -1,18 +1,24 @@
 name: Release do dia
 
+# Manual, in three stages: the quality gate, then production, then the tag.
+# Anyone on the team can start it, but the publish job runs in the production
+# environment, whose required reviewer is the PM: nothing reaches production or
+# becomes a version until she approves the run. The tag is created last, so a
+# version number always means "this is what production is running".
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Versão SemVer, sem o "v". Exemplos: 0.2.0, 1.0.0'
+        description: 'Versão SemVer, sem o "v". Exemplos: 1.1.0, 2.0.0'
         required: true
         type: string
 
 jobs:
-  release:
+  gate:
+    name: Quality gate
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     # A real MySQL for the schema test, as in the pull request gate: the release
     # runs the same tests and would fail without it.
     services:
@@ -39,7 +45,7 @@ jobs:
         run: |
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::Versão inválida: '$VERSION'"
-            echo "::error::Use o formato MAIOR.MENOR.CORREÇÃO, por exemplo 0.2.0 ou 1.0.0, sem o 'v'."
+            echo "::error::Use o formato MAIOR.MENOR.CORREÇÃO, por exemplo 1.1.0 ou 2.0.0, sem o 'v'."
             exit 1
           fi
 
@@ -77,28 +83,37 @@ jobs:
       - run: npm test
       - run: npm run build
 
-      # The tag is created through the API on the commit that passed the gate,
-      # never pushed: main only takes changes through a pull request, so a
-      # release commit would be refused. Nothing reads the version from
-      # package.json, and the tag is where the version lives. Notes come from
-      # the PRs merged since the previous tag, grouping what the whole team
-      # delivered in that period.
-      - name: Publicar a release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
-        run: gh release create "v$VERSION" --target "$GITHUB_SHA" --generate-notes --title "v$VERSION"
-
-  # Production only ever receives a numbered version. A failed publication
-  # leaves the release in place; "Republish a version" retries it.
+  # Waits for the PM's approval: the production environment requires her as
+  # reviewer. The exact commit that passed the gate is what gets published.
   publish:
     name: Publish to production
-    needs: release
+    needs: gate
     permissions:
       contents: read
       id-token: write
     uses: ./.github/workflows/deploy.yml
     with:
       environment: production
-      ref: v${{ inputs.version }}
+      ref: ${{ github.sha }}
     secrets: inherit
+
+  # Only after production answered 200. The tag is created through the API on
+  # the published commit, never pushed: main only takes changes through a pull
+  # request, and the version lives in the tag, not in package.json. Notes come
+  # from the PRs merged since the previous tag, grouping what the whole team
+  # delivered in that period.
+  release:
+    name: Tag and release notes
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          URL: ${{ needs.publish.outputs.url }}
+        run: |
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --generate-notes --title "v$VERSION"
+          echo "### v$VERSION em produção: $URL" >> "$GITHUB_STEP_SUMMARY"
