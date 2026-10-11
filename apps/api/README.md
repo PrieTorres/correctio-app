@@ -1,14 +1,16 @@
 # @correctio/api — Back-end
 
 Node.js 22 + Express 5 + TypeScript, em camadas: **rota → controle → serviço → repositório →
-model**, como a disciplina pede. O banco MySQL entra na #32.
+model**, como a disciplina pede. Os dados ficam em MySQL (ver "Banco de dados" abaixo).
 
 ## Como rodar localmente
 
 ```bash
 nvm use 22                         # o projeto exige Node 22.12 ou mais novo
 npm install                        # na raiz do repositório
-cp apps/api/.env.example apps/api/.env   # opcional: todos os valores têm padrão
+cp apps/api/.env.example apps/api/.env   # sem DATABASE_URL a API não sobe
+docker compose up -d mysql         # MySQL local na porta 3307
+npm run db:migrate                 # cria as tabelas
 npm run dev:api                    # http://localhost:3000, recarrega ao salvar
 curl localhost:3000/health         # {"status":"UP"}
 ```
@@ -21,6 +23,48 @@ curl localhost:3000/health         # {"status":"UP"}
 | `npm run build` | gera `dist/server.js` com o esbuild (`build.mjs`) |
 | `npm start` | roda o `dist/server.js` |
 
+## Banco de dados (MySQL)
+
+```bash
+docker compose up -d mysql   # na raiz: MySQL 8.4 local na porta 3307
+npm run db:migrate           # aplica as migrations pendentes
+npm run db:rollback          # desfaz a última
+npm run db:reset             # desfaz todas
+```
+
+- **Kysely + mysql2:** toda consulta é montada em TypeScript, sempre parametrizada, e o tipo
+  das tabelas (`src/models/tables.ts`) usa os tipos do `@correctio/domain`. Nome de coluna
+  errado não compila.
+- **Migrations em `src/db/migrations`,** listadas em `index.ts`, com subida e descida. Uma
+  migration nova pega o próximo número e nunca muda depois de mergeada.
+- **Sempre TLS.** `DATABASE_TLS=local` aceita o certificado autoassinado do Docker.
+  Em produção, `verify` com `DATABASE_CA_CERT` é obrigatório. Conexão sem criptografia é recusada.
+- **Hospedagem:** o MySQL hospedado é o plano gratuito do Aiven, e a API roda no Firebase
+  (Cloud Functions), com o deploy na #39. As credenciais ficam só no gerenciador de segredos.
+
+### Um banco por ambiente
+
+| Ambiente | Banco | Usuário | Onde ficam as credenciais |
+|---|---|---|---|
+| Local | `correctio` no Docker (porta 3307) | `correctio` | `apps/api/.env`, valores do `.env.example` |
+| CI | banco descartável por execução | `root` do serviço MySQL do job | `pr.yml`, só valores de teste |
+| Pré-produção (links de preview, #11) | `correctio_preview` no Aiven | um usuário que só enxerga `correctio_preview` | segredos do projeto Firebase de pré-produção e do ambiente `preview` do GitHub |
+| Produção | `correctio` no Aiven | um usuário que só enxerga `correctio` | segredos do projeto Firebase de produção e do ambiente `production` do GitHub |
+
+- **O `.env` local aponta sempre para o Docker.** Credencial do Aiven não fica salva na máquina:
+  uma conferência pontual usa um `.env.<ambiente>.local`, que o git ignora, apagado logo depois.
+- **Pré-produção e produção são projetos Firebase separados**, então um link de preview nunca
+  chama a API de produção.
+- **Cada ambiente tem o próprio usuário**, com acesso só ao próprio banco: um engano de
+  configuração na pré-produção esbarra num "acesso negado", e não apaga dado real. O `avnadmin`
+  do Aiven fica só para administração, nunca na API.
+- **Teste de contrato:** `src/db/__tests__/schema.test.ts` cria um banco descartável, aplica
+  as migrations e confere que toda tabela tem todos os campos de `docs/Modelo_de_Dados.md`, que
+  nenhuma chave apaga em cascata e que a conexão é TLS. Ele roda quando `DATABASE_TEST_URL` existe
+  (no `.env` local ou na CI), e na CI nunca é pulado.
+
+Como o modelo vira tabelas: `docs/Modelo_de_Dados.md`, seção "Como o modelo vira tabelas".
+
 ## Pastas
 
 ```
@@ -31,8 +75,9 @@ src/
   routes/           só liga caminho a controle
   controllers/      lê a requisição, chama o serviço, escreve a resposta
   services/         regra de negócio e escopo pelo professor
-  repositories/     acesso ao banco (#32)
-  models/           forma das tabelas (#32)
+  repositories/     acesso ao banco (Kysely)
+  models/           tipos das tabelas (tables.ts)
+  db/               conexão, migrations e o comando de migrar
   middlewares/      autenticação, erro, rota inexistente
   lib/              ApiError, paginação, logger
 ```

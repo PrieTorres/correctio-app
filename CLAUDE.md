@@ -35,9 +35,9 @@ e a seção 9 de [docs/Arquitetura.md](docs/Arquitetura.md).
 
 Pelo mesmo motivo, **não construa** rota, tela ou repositório de aluno: seria código morto.
 
-O mesmo vale para `Correction.clientCorrectionId` e `syncStatus`: servem a um app mobile que
-não existe, este site não os trata, e continuam no contrato porque chegariam pela API se
-alguém migrasse para cá.
+`Correction.clientCorrectionId` e `syncStatus` são obrigatórios, como na Spec: o site gera o
+`clientCorrectionId` no servidor e grava `syncStatus: "synced"`. Um app que migre para cá manda
+os seus, e a API preserva.
 
 ### Atualização não pode apagar campo que o cliente não conhece
 

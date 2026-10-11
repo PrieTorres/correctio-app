@@ -14,6 +14,20 @@ jobs:
   verificar:
     name: Lint, tipos, testes e build
     runs-on: ubuntu-latest
+    # A real MySQL for the schema test: it applies the migrations and checks
+    # every table against the data model. Without it that test would fail.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_TEST_URL: mysql://root:root@127.0.0.1:3306
     steps:
       - uses: actions/checkout@v5
         with:
@@ -149,6 +163,20 @@ jobs:
     # Only runs where the secret exists, so a PR from a fork does not fail for
     # a reason its author cannot fix.
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    # A real MySQL for the schema test: it applies the migrations and checks
+    # every table against the data model. Without it that test would fail.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_TEST_URL: mysql://root:root@127.0.0.1:3306
     steps:
       - uses: actions/checkout@v5
         with:

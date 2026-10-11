@@ -74,6 +74,7 @@ export const studentSchema = z.object({
   email: optionalEmail,
   anonymizedAt: timestamp.optional(),
   userId: id.optional(),
+  removedAt: timestamp.optional(),
 });
 
 export const enrollmentStatusSchema = z.enum(['active', 'removed']);

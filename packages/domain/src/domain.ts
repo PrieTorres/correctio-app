@@ -104,6 +104,11 @@ export interface Student {
   anonymizedAt?: Timestamp;
   /** Set only once a student area exists. */
   userId?: Id;
+  /**
+   * Group addition: set when the teacher removes the student from the class.
+   * The record stays, so the grades already given keep their owner (RF09).
+   */
+  removedAt?: Timestamp;
 }
 
 export type QuestionType = 'objetiva' | 'discursiva';
