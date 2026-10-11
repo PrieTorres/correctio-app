@@ -39,6 +39,23 @@ npm run db:reset             # desfaz todas
   Em produção, `verify` com `DATABASE_CA_CERT` é obrigatório. Conexão sem criptografia é recusada.
 - **Hospedagem:** o MySQL hospedado é o plano gratuito do Aiven, e a API roda no Firebase
   (Cloud Functions), com o deploy na #39. As credenciais ficam só no gerenciador de segredos.
+
+### Um banco por ambiente
+
+| Ambiente | Banco | Usuário | Onde ficam as credenciais |
+|---|---|---|---|
+| Local | `correctio` no Docker (porta 3307) | `correctio` | `apps/api/.env`, valores do `.env.example` |
+| CI | banco descartável por execução | `root` do serviço MySQL do job | `pr.yml`, só valores de teste |
+| Pré-produção (links de preview) | `correctio_preview` no Aiven | um usuário que só enxerga `correctio_preview` | segredos do projeto Firebase de pré-produção e do ambiente `preview` do GitHub |
+| Produção | `correctio` no Aiven | um usuário que só enxerga `correctio` | segredos do projeto Firebase de produção e do ambiente `production` do GitHub |
+
+- **Credencial de produção nunca vai para um `.env` local.** Para conferir a conexão com o
+  Aiven, use a de pré-produção: é o mesmo servidor e o mesmo certificado.
+- **Pré-produção e produção são projetos Firebase separados**, então um link de preview nunca
+  chama a API de produção.
+- **Cada ambiente tem o próprio usuário**, com acesso só ao próprio banco: um engano de
+  configuração na pré-produção esbarra num "acesso negado", e não apaga dado real. O `avnadmin`
+  do Aiven fica só para administração, nunca na API.
 - **Teste de contrato:** `src/db/__tests__/schema.test.ts` cria um banco descartável, aplica
   as migrations e confere que toda tabela tem todos os campos de `docs/Modelo_de_Dados.md`, que
   nenhuma chave apaga em cascata e que a conexão é TLS. Ele roda quando `DATABASE_TEST_URL` existe
