@@ -1,45 +1,121 @@
-name: Publicar no GitHub Pages
+name: Publish to Firebase
 
+# Reused by the three ways something gets published: the daily release
+# (production), the preview link (pre-production) and republishing an older
+# version. Each passes the GitHub environment, which picks the Firebase project,
+# the database and the secrets, so this file never names one of them.
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      environment:
+        description: production or preview
+        required: true
+        type: string
+      ref:
+        description: Branch or tag to publish
+        required: true
+        type: string
+      channel:
+        description: Hosting channel; live is the address users open
+        type: string
+        default: live
+    outputs:
+      url:
+        description: Address where the published version answers
+        value: ${{ jobs.publish.outputs.url }}
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
+env:
+  FIREBASE_TOOLS: firebase-tools@15.33.0
 
 jobs:
-  build:
+  publish:
+    name: Publish (${{ inputs.environment }})
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.hosting.outputs.url }}
+    # The API and the database are shared by everything published to one
+    # environment, so two runs never migrate or deploy at the same time.
+    concurrency:
+      group: firebase-${{ inputs.environment }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      url: ${{ steps.hosting.outputs.url }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
+
       - run: npm ci
       - run: npm run build
-        env:
-          # Project pages are served from /<repo>/. The router reads this same
-          # value, so moving to Firebase Hosting later only drops the prefix.
-          VITE_BASE_PATH: /${{ github.event.repository.name }}/
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: apps/web/dist
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      # Firebase loads the function locally to find it before uploading, so its
+      # own dependencies have to be installed next to it.
+      - name: Install the function dependencies
+        working-directory: apps/api/dist/function
+        run: npm install --omit=dev --no-audit --no-fund
+
+      # Keyless: GitHub proves which repository is asking and Google hands out a
+      # short-lived token, so there is no service account key to leak or rotate.
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      # Before the new API goes live: a migration only adds, so the version
+      # still running keeps working against the new schema.
+      - name: Apply the migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_CA_CERT: ${{ secrets.DATABASE_CA_CERT }}
+          DATABASE_TLS: verify
+
+      # The API goes first, so the new web app never calls an older one.
+      - name: Deploy the API
+        run: npx --yes "$FIREBASE_TOOLS" deploy --only functions --project "$PROJECT" --force --non-interactive
+        env:
+          PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
+
+      - name: Deploy the web app
+        id: hosting
+        env:
+          PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          if [ "$CHANNEL" = live ]; then
+            npx --yes "$FIREBASE_TOOLS" deploy --only hosting --project "$PROJECT" --non-interactive
+            url="https://$PROJECT.web.app"
+          else
+            npx --yes "$FIREBASE_TOOLS" hosting:channel:deploy "$CHANNEL" --expires 7d \
+              --project "$PROJECT" --non-interactive --json > channel.json
+            url=$(node -e 'const { result } = require("./channel.json"); console.log(Object.values(result)[0].url)')
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      # A deploy that answers anything but 200 failed, even if every step above
+      # passed: it is the database or a secret that the build cannot see.
+      - name: Check the published API
+        env:
+          URL: ${{ steps.hosting.outputs.url }}
+        run: curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 10 "$URL/api/health"
+
+      - name: Summary
+        env:
+          URL: ${{ steps.hosting.outputs.url }}
+          REF: ${{ inputs.ref }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          {
+            echo "### \`$REF\` publicado em $ENVIRONMENT"
+            echo ""
+            echo "$URL"
+          } >> "$GITHUB_STEP_SUMMARY"

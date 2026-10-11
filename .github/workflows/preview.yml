@@ -1,0 +1,65 @@
+name: Preview link
+
+# On demand: publishes any branch to the pre-production Firebase project, with
+# its own database, so a screen can be tried on a real link before the merge.
+# Each branch gets its own address; the API behind them is the one of the last
+# branch published.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch para publicar na pré-produção. Exemplo: feat/class-routes'
+        required: true
+        type: string
+
+jobs:
+  channel:
+    name: Channel name
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.slug.outputs.id }}
+    steps:
+      # A channel name is lowercase letters, digits and hyphens, and short enough
+      # to fit in the address Firebase builds from it.
+      - id: slug
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          id=$(printf '%s' "$REF" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//' | cut -c1-30 | sed -E 's/-+$//')
+          if [ -z "$id" ] || [ "$id" = live ]; then
+            echo "::error::A branch '$REF' não vira um nome de canal válido."
+            exit 1
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: channel
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: preview
+      ref: ${{ inputs.ref }}
+      channel: ${{ needs.channel.outputs.id }}
+    secrets: inherit
+
+  comment:
+    name: Link in the pull request
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ inputs.ref }}
+          URL: ${{ needs.publish.outputs.url }}
+        run: |
+          pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$REF" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$pr" ]; then
+            echo "Sem PR aberto para $REF: o link está no resumo da execução."
+            exit 0
+          fi
+          gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" \
+            --body "Link de pré-produção de \`$REF\`: $URL (expira em 7 dias; a API é a da última branch publicada)."

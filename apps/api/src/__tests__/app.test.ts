@@ -84,6 +84,30 @@ describe('request limits and headers', () => {
   })
 })
 
+describe('under the path Firebase Hosting forwards', () => {
+  const hosted = createApp({ env, logger, verifyToken, basePath: '/api' })
+
+  it('answers the routes under /api', async () => {
+    const response = await request(hosted).get('/api/health')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ status: 'UP' })
+  })
+
+  it('keeps every route under /api closed without a token', async () => {
+    const response = await request(hosted).get('/api/classes')
+
+    expect(response.status).toBe(401)
+  })
+
+  it('answers nothing outside /api', async () => {
+    const response = await request(hosted).get('/health')
+
+    expect(response.status).toBe(404)
+    expect(response.body.code).toBe('not-found')
+  })
+})
+
 describe('CORS', () => {
   it('allows the configured origin', async () => {
     const response = await request(buildApp()).get('/health').set('Origin', ALLOWED_ORIGIN)

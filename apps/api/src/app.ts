@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import type { Logger } from 'pino'
 import { pinoHttp } from 'pino-http'
 import type { Env } from './config/env'
+import { BODY_LIMIT_BYTES, limitBodySize } from './middlewares/body-limit'
 import { createErrorHandler } from './middlewares/error-handler'
 import { noStore } from './middlewares/no-store'
 import { notFound } from './middlewares/not-found'
@@ -25,6 +26,12 @@ export interface AppDependencies {
   healthChecks?: readonly HealthCheck[]
   /** Overridable so tests reach a limit in a few requests instead of hundreds. */
   rateLimits?: { failedAuth: RateLimitTier; read: RateLimitTier; write: RateLimitTier }
+  /**
+   * Where the routes answer. Locally the API owns its origin and answers at
+   * `/`; on Firebase, Hosting forwards `/api/**` to the function with the
+   * prefix intact, so the same routes answer under `/api`.
+   */
+  basePath?: string
 }
 
 const DEFAULT_RATE_LIMITS = { failedAuth: RATE_LIMITS.FAILED_AUTH, read: RATE_LIMITS.READ, write: RATE_LIMITS.WRITE }
@@ -43,6 +50,7 @@ export function createApp({
   verifyToken = rejectAllTokens,
   healthChecks = [],
   rateLimits = DEFAULT_RATE_LIMITS,
+  basePath = '/',
 }: AppDependencies): Express {
   const app = express()
 
@@ -50,10 +58,12 @@ export function createApp({
   app.use(helmet())
   app.use(noStore)
   app.use(cors({ origin: [...env.CORS_ORIGINS] }))
-  app.use(express.json({ limit: '100kb' }))
+  app.use(limitBodySize)
+  app.use(express.json({ limit: BODY_LIMIT_BYTES }))
   app.use(pinoHttp({ logger }))
 
   app.use(
+    basePath,
     createRouter({
       healthService: createHealthService(healthChecks),
       failedAuthLimit: createRateLimit(rateLimits.failedAuth, { key: byClientAddress, countOnlyUnauthorized: true }),

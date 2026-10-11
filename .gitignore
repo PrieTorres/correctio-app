@@ -18,6 +18,11 @@ coverage/
 **/cypress/screenshots/
 **/cypress/videos/
 
+# Firebase CLI deploy cache and logs
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+
 # environment
 .env
 .env.local
