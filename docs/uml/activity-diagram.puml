@@ -1,9 +1,9 @@
 @startuml activity-diagram
 ' Activity diagram of the grading flow in the N2, from creating an application
 ' to the student reading the result through the QR code on the answer sheet.
-' The planned style draws a point dashed when the requirements plan it but the
-' N2 leaves it out: add <<planned>> to the activity and -[dashed]-> to its arrows.
-' No point of this flow is dashed in the N2, so nothing uses it yet.
+' Dashed means planned for the N2: the point turns solid when the issue next to
+' it is merged. PlantUML cannot dash a diamond, so a planned decision gets the
+' planned style, which only paints it white, and says "previsto" in its label.
 <style>
 activityDiagram {
   .planned {
@@ -32,9 +32,11 @@ start
 :Enviar as fotos para a API;
 |API|
 :Ler o QR Code e as marcações da foto;
-if (Leitura reconhecida?) then ([Não])
+if <<planned>> (Leitura reconhecida?\n<i>previsto (#48 e #78)</i>) then ([Não])
+  -[dashed]->
   |Professor|
-  :Inserir a correção manualmente;
+  :Inserir a correção manualmente (#48); <<planned>>
+  -[dashed]->
 else ([Sim])
   |API|
   :Corrigir as objetivas e gravar a leitura no banco;
@@ -67,10 +69,12 @@ repeat while (Finalizar?) is ([Não]) not ([Sim])
 |Site|
 :Enviar a publicação e a liberação para a API;
 |API|
-if (Gabarito publicado?) then ([Sim])
+if <<planned>> (Gabarito publicado?\n<i>previsto (#46)</i>) then ([Sim])
   :Gravar a publicação e a liberação no banco;
 else ([Não])
-  :Recusar a liberação das notas;
+  -[dashed]->
+  :Recusar a liberação das notas (#46); <<planned>>
+  -[dashed]->
 endif
 |Aluno|
 :Escanear o QR Code da folha;
@@ -79,8 +83,14 @@ endif
 |API|
 if (Código válido?) then ([Sim])
   if (Gabarito da versão publicado?) then ([Sim])
-    if (Notas liberadas e correção confirmada?) then ([Sim])
-      :Devolver gabarito, nota e acertos;
+    if (Notas liberadas e folha corrigida?) then ([Sim])
+      if <<planned>> (Correção confirmada e concluída?\n<i>previsto (#47)</i>) then ([Sim])
+        :Devolver gabarito, nota e acertos;
+      else ([Não])
+        -[dashed]->
+        :Devolver só o gabarito (#47); <<planned>>
+        -[dashed]->
+      endif
     else ([Não])
       :Devolver só o gabarito;
     endif

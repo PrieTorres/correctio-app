@@ -1,5 +1,6 @@
 ' Stages 1 to 4 of the activity diagram, each one adding to the previous.
-' Stage 5 is the final diagram, kept in activity-diagram.puml.
+' Stage 5 is the final diagram, kept in activity-diagram.puml, which explains
+' the dashed style used from stage 3 on.
 
 @startuml activity-diagram-step-1
 start
@@ -64,6 +65,14 @@ stop
 @enduml
 
 @startuml activity-diagram-step-3
+<style>
+activityDiagram {
+  .planned {
+    LineStyle 6-4
+    BackgroundColor #FFFFFF
+  }
+}
+</style>
 |Professor|
 start
 :Criar a aplicação: prova, turma e data;
@@ -83,9 +92,11 @@ start
 :Enviar as fotos para a API;
 |API|
 :Ler o QR Code e as marcações da foto;
-if (Leitura reconhecida?) then ([Não])
+if <<planned>> (Leitura reconhecida?\n<i>previsto (#48 e #78)</i>) then ([Não])
+  -[dashed]->
   |Professor|
-  :Inserir a correção manualmente;
+  :Inserir a correção manualmente (#48); <<planned>>
+  -[dashed]->
 else ([Sim])
   |API|
   :Corrigir as objetivas e gravar a leitura no banco;
@@ -124,6 +135,14 @@ stop
 @enduml
 
 @startuml activity-diagram-step-4
+<style>
+activityDiagram {
+  .planned {
+    LineStyle 6-4
+    BackgroundColor #FFFFFF
+  }
+}
+</style>
 |Professor|
 start
 :Criar a aplicação: prova, turma e data;
@@ -143,9 +162,11 @@ start
 :Enviar as fotos para a API;
 |API|
 :Ler o QR Code e as marcações da foto;
-if (Leitura reconhecida?) then ([Não])
+if <<planned>> (Leitura reconhecida?\n<i>previsto (#48 e #78)</i>) then ([Não])
+  -[dashed]->
   |Professor|
-  :Inserir a correção manualmente;
+  :Inserir a correção manualmente (#48); <<planned>>
+  -[dashed]->
 else ([Sim])
   |API|
   :Corrigir as objetivas e gravar a leitura no banco;
