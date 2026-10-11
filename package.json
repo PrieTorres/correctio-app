@@ -23,7 +23,10 @@
     "lint:root": "eslint eslint.config.js tooling scripts",
     "test:tooling": "node --test \"tooling/**/*.test.js\"",
     "test:e2e:journey": "npm run test:e2e:journey --workspace @correctio/web",
-    "dev:api": "npm run dev --workspace @correctio/api"
+    "dev:api": "npm run dev --workspace @correctio/api",
+    "db:migrate": "npm run db:migrate --workspace @correctio/api",
+    "db:rollback": "npm run db:rollback --workspace @correctio/api",
+    "db:reset": "npm run db:reset --workspace @correctio/api"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

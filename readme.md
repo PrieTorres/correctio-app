@@ -204,6 +204,8 @@ A estrutura obrigatória de cada uma segue a seção 8 da Spec SGP Católica e e
 nvm use 22                 # o projeto exige Node 22.12 ou mais novo
 npm install                # instala o monorepo inteiro (npm workspaces)
 npm run dev                # front em http://localhost:5173
+docker compose up -d mysql # MySQL 8.4 local na porta 3307 (a API e os testes dela usam)
+npm run db:migrate         # cria as tabelas no MySQL local
 npm run dev:api            # API em http://localhost:3000 (ver apps/api/README.md)
 npm run build              # build do front e da API
 npm run preview            # serve o build do front em http://localhost:4173
@@ -243,6 +245,7 @@ Rode na raiz, nesta ordem. É o mesmo portão que a CI aplica, então o que pass
 ```bash
 nvm use 22
 npm ci
+docker compose up -d mysql   # os testes de banco da API precisam dele
 npm run lint
 npm run typecheck
 npm test

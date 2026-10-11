@@ -21,6 +21,31 @@ curl localhost:3000/health         # {"status":"UP"}
 | `npm run build` | gera `dist/server.js` com o esbuild (`build.mjs`) |
 | `npm start` | roda o `dist/server.js` |
 
+## Banco de dados (MySQL)
+
+```bash
+docker compose up -d mysql   # na raiz: MySQL 8.4 local na porta 3307
+npm run db:migrate           # aplica as migrations pendentes
+npm run db:rollback          # desfaz a última
+npm run db:reset             # desfaz todas
+```
+
+- **Kysely + mysql2:** toda consulta é montada em TypeScript, sempre parametrizada, e o tipo
+  das tabelas (`src/models/tables.ts`) usa os tipos do `@correctio/domain`. Nome de coluna
+  errado não compila.
+- **Migrations em `src/db/migrations`,** listadas em `index.ts`, com subida e descida. Uma
+  migration nova pega o próximo número e nunca muda depois de mergeada.
+- **Sempre TLS.** `DATABASE_TLS=local` aceita o certificado autoassinado do Docker.
+  Em produção, `verify` com `DATABASE_CA_CERT` é obrigatório. Conexão sem criptografia é recusada.
+- **Hospedagem:** o MySQL hospedado é o plano gratuito do Aiven, e a API roda no Firebase
+  (Cloud Functions), com o deploy na #39. As credenciais ficam só no gerenciador de segredos.
+- **Teste de contrato:** `src/db/__tests__/schema.test.ts` cria um banco descartável, aplica
+  as migrations e confere que toda tabela tem todos os campos de `docs/Modelo_de_Dados.md`, que
+  nenhuma chave apaga em cascata e que a conexão é TLS. Ele roda quando `DATABASE_TEST_URL` existe
+  (no `.env` local ou na CI), e na CI nunca é pulado.
+
+Como o modelo vira tabelas: `docs/Modelo_de_Dados.md`, seção "Como o modelo vira tabelas".
+
 ## Pastas
 
 ```
@@ -31,8 +56,9 @@ src/
   routes/           só liga caminho a controle
   controllers/      lê a requisição, chama o serviço, escreve a resposta
   services/         regra de negócio e escopo pelo professor
-  repositories/     acesso ao banco (#32)
-  models/           forma das tabelas (#32)
+  repositories/     acesso ao banco (Kysely)
+  models/           tipos das tabelas (tables.ts)
+  db/               conexão, migrations e o comando de migrar
   middlewares/      autenticação, erro, rota inexistente
   lib/              ApiError, paginação, logger
 ```
