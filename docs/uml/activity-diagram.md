@@ -38,9 +38,10 @@ criação até a nota chegar ao aluno.
 Antes de desenhar, listamos o processo na ordem em que ele acontece na N2. Na N1, tudo rodava
 no navegador, e o PDF e a leitura da foto eram simulados. Na N2, o site manda os dados para a
 API, a API grava no MySQL, o PDF é gerado de verdade e a leitura do QR Code e das marcações é
-real. Os itens marcados com _Previsto na N2_ dependem de uma issue que ainda não foi
-mergeada: eles aparecem tracejados no diagrama, com o número da issue ao lado, e viram linha
-cheia quando a issue mergear (veja a legenda no Passo 5).
+real. Os itens marcados com _Previsto na N2_ são os três pontos que já eram tracejados na N1:
+estão nos requisitos, mas o sistema publicado ainda não os faz. Eles aparecem tracejados no
+diagrama, com a issue que os implementa ao lado, e viram linha cheia quando essa issue mergear
+(veja a legenda no Passo 5).
 
 1. O Professor cria a aplicação, escolhendo a prova, a turma e a data.
 2. O Professor define o número de versões, o embaralhamento (herdado da prova) e se a prova
@@ -211,8 +212,8 @@ Checklist usado para conferir o resultado antes de fechar:
       seguir.
 - [x] O laço "Salvar sem finalizar" volta para a revisão, sem repetir o envio da foto.
 - [x] Quem grava no banco é sempre a API, e o nome da atividade diz isso.
-- [x] O que ainda não existe no sistema publicado está tracejado, com a issue ao lado, e a
-      legenda diz quando vira linha cheia.
+- [x] Os três pontos previstos (RF30, RNF07 e RF47, P14) estão tracejados, com a issue ao
+      lado, e a legenda diz quando viram linha cheia.
 - [x] O fluxo cobre RF26 a RF33, RF46, RF47, RNF07 e as telas P14, P15, P16, P17 e PUB1.
 
 ---
