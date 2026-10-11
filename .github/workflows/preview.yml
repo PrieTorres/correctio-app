@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Branch para publicar na pré-produção. Exemplo: feat/class-routes'
+        description: 'Branch ou número do PR para publicar na pré-produção. Exemplos: feat/class-routes ou 98'
         required: true
         type: string
 
@@ -16,14 +16,40 @@ jobs:
   channel:
     name: Channel name
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
+      ref: ${{ steps.branch.outputs.ref }}
       id: ${{ steps.slug.outputs.id }}
     steps:
+      # People think in pull requests, so a number is taken as the PR and turned
+      # into its branch. Checking that the branch exists here gives a message
+      # saying what is wrong, instead of a failed checkout minutes later.
+      - id: branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT: ${{ inputs.ref }}
+        run: |
+          branch="$INPUT"
+          if [[ "$INPUT" =~ ^#?[0-9]+$ ]]; then
+            number="${INPUT#\#}"
+            if ! branch=$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json headRefName --jq .headRefName); then
+              echo "::error::O PR #$number não existe."
+              exit 1
+            fi
+          fi
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --silent; then
+            echo "::error::A branch '$branch' não existe (ou já foi apagada no merge). Informe o nome da branch, como feat/class-routes, ou o número de um PR aberto, como 98."
+            exit 1
+          fi
+          echo "ref=$branch" >> "$GITHUB_OUTPUT"
+
       # A channel name is lowercase letters, digits and hyphens, and short enough
       # to fit in the address Firebase builds from it.
       - id: slug
         env:
-          REF: ${{ inputs.ref }}
+          REF: ${{ steps.branch.outputs.ref }}
         run: |
           id=$(printf '%s' "$REF" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//' | cut -c1-30 | sed -E 's/-+$//')
           if [ -z "$id" ] || [ "$id" = live ]; then
@@ -40,20 +66,20 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     with:
       environment: preview
-      ref: ${{ inputs.ref }}
+      ref: ${{ needs.channel.outputs.ref }}
       channel: ${{ needs.channel.outputs.id }}
     secrets: inherit
 
   comment:
     name: Link in the pull request
-    needs: publish
+    needs: [channel, publish]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
-          REF: ${{ inputs.ref }}
+          REF: ${{ needs.channel.outputs.ref }}
           URL: ${{ needs.publish.outputs.url }}
         run: |
           pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$REF" --state open --json number --jq '.[0].number // empty')
