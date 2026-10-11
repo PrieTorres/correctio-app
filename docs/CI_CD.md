@@ -61,7 +61,7 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 | Pull Request aberto ou atualizado | portão de qualidade completo, sem publicar nada |
 | Merge em `main` | nada é publicado: a `main` junta o trabalho do dia |
 | Release do dia (`release.yml`) | portão completo, tag e **publicação em produção**, no projeto Firebase `correctio-app` |
-| "Preview link" (`preview.yml`), sob demanda | publica qualquer branch na **pré-produção**, no projeto `correctio-app-preview`, num link próprio que expira em 7 dias e é comentado no PR |
+| "Preview link" (`preview.yml`), sob demanda | publica qualquer branch, pelo nome ou pelo número do PR, na **pré-produção**, no projeto `correctio-app-preview`, num link próprio que expira em 7 dias e é comentado no PR |
 | "Republish a version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada: o caminho de volta quando uma release dá errado |
 
 **Produção só recebe versão numerada.** Na N1 cada merge publicava no GitHub Pages; a partir da
