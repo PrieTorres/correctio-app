@@ -4,7 +4,11 @@ import { healthRoutes } from './health-routes'
 
 export interface RouteDependencies {
   healthService: HealthService
+  /** Counts refused tokens per address, ahead of the gate, against guessing. */
+  failedAuthLimit: RequestHandler
   requireAuth: RequestHandler
+  /** Per-teacher budgets, behind the gate, where the teacher is known. */
+  teacherLimit: RequestHandler
 }
 
 /**
@@ -13,9 +17,9 @@ export interface RouteDependencies {
  * closed unless someone opens it on purpose. Only `/health`, the sign-in routes
  * of #40 and the public lookup of #49 belong above the gate.
  */
-export function createRouter({ healthService, requireAuth }: RouteDependencies): Router {
+export function createRouter({ healthService, failedAuthLimit, requireAuth, teacherLimit }: RouteDependencies): Router {
   const router = Router()
   router.use('/health', healthRoutes(healthService))
-  router.use(requireAuth)
+  router.use(failedAuthLimit, requireAuth, teacherLimit)
   return router
 }

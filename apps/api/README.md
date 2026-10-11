@@ -53,6 +53,9 @@ com as mesmas regras das telas, sem cópia.
 | Dono | O professor vem do token, nunca do corpo. Recurso de outro professor responde **404, nunca 403** |
 | Acesso | Fechado por padrão: tudo que é montado depois do `requireAuth` exige token. Ficam antes dele só `/health`, as rotas de login (#40) e a consulta pública (#49) |
 | Datas | String ISO 8601 no JSON |
+| Limite | Camadas de `RATE_LIMITS` (`middlewares/rate-limit.ts`). Por professor atrás do `requireAuth`: leitura 300/min e escrita 60/min. Por endereço, só respostas 401 (30/min), contra quem tenta adivinhar token. Login, consulta pública e rotas caras aplicam a própria camada (`createRateLimit`) |
+| Cache | `Cache-Control: no-store` em toda resposta: dado pessoal não fica em proxy nem em disco. O front guarda em memória (TanStack Query) |
+| Segurança | Regras completas em `docs/Seguranca_e_LGPD.md`, seção 7 |
 
 ### Rotas que o grupo acrescentou à tabela da Spec
 
