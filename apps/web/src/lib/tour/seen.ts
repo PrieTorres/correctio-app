@@ -23,21 +23,24 @@ export function hasSeenTour(screen: TourScreen): boolean {
   return read().includes(screen)
 }
 
+/**
+ * Remembers that a screen showed its tour. With storage unavailable the mark is
+ * lost and the tour simply shows again next time, which costs nothing.
+ */
 export function markTourSeen(screen: TourScreen): void {
   try {
     const seen = read()
     if (seen.includes(screen)) return
     window.localStorage.setItem(KEY, JSON.stringify([...seen, screen]))
-  } catch {
-    /* Storage unavailable: the tour simply shows again next time. */
-  }
+  } catch {}
 }
 
-/** Clears every screen, which is what "rever tour" in the profile does. */
+/**
+ * Clears every screen, which is what "rever tour" in the profile does. With
+ * storage unavailable there is nothing to clear.
+ */
 export function resetAllTours(): void {
   try {
     window.localStorage.removeItem(KEY)
-  } catch {
-    /* Nothing to clear when storage is unavailable. */
-  }
+  } catch {}
 }

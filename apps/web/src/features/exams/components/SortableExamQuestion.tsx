@@ -24,6 +24,10 @@ interface SortableExamQuestionProps {
  * the only way that works on a touch screen without a long press and the only
  * way that is obvious to someone reading the screen with a keyboard. dnd-kit
  * also makes the grip itself keyboard-operable, so the three paths agree.
+ *
+ * The visible word is decorative: the field's own name carries the position
+ * too, so a screen reader announces which question the score belongs to instead
+ * of "Pontos" five times over.
  */
 export function SortableExamQuestion({
   entry,
@@ -94,11 +98,6 @@ export function SortableExamQuestion({
       )}
 
       <div className="flex items-center gap-2">
-        {/*
-          The visible word is decorative: the field's own name carries the
-          position too, so a screen reader announces which question the score
-          belongs to instead of "Pontos" five times over.
-        */}
         <span aria-hidden className="text-caption text-ink-muted">
           Pontos
         </span>

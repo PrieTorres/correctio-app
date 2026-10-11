@@ -79,11 +79,11 @@ describe('revisar e confirmar', () => {
     cy.contains('Valendo 0').should('be.visible')
   })
 
-  /*
-    The path that looked broken: the field already showed a zero, the teacher
-    agreed with it and confirmed, and the sheet came back to the list still
-    waiting — because a zero nobody typed was not a mark.
-  */
+  /**
+   * The path that looked broken: the field already showed a zero, the teacher
+   * agreed with it and confirmed, and the sheet came back to the list still
+   * waiting — because a zero nobody typed was not a mark.
+   */
   it('finaliza a correção ao confirmar com a discursiva valendo 0', () => {
     cy.contains('button', 'Confirmar correção').click()
 

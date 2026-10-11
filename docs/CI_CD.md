@@ -17,9 +17,9 @@ O portão de qualidade transforma isso em algo automático, em vez de depender d
 | # | Verificação | Bloqueia o merge se |
 |---|---|---|
 | 1 | **Instalação** (`npm ci`, Node fixado) | o lockfile estiver inconsistente |
-| 2 | **Lint** | houver erro de ESLint |
+| 2 | **Lint** (regras de `tooling/eslint/`, mais o idioma dos comentários) | houver erro de ESLint, função acima dos limites de complexidade ou comentário que não seja JSDoc |
 | 3 | **Verificação de tipos** (`tsc --noEmit`) | houver erro de tipo |
-| 4 | **Testes unitários + cobertura** | algum teste falhar ou a cobertura de código novo ficar abaixo de 80% |
+| 4 | **Testes unitários + cobertura** (inclui os testes das regras de lint, com `node:test`) | algum teste falhar ou a cobertura de código novo ficar abaixo de 80% |
 | 5 | **Build de produção** | o build quebrar |
 | 6 | **Testes E2E (Cypress)** | algum fluxo principal falhar |
 | 7 | **Auditoria de dependências** | houver vulnerabilidade alta ou crítica |

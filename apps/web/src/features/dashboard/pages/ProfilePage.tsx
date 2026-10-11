@@ -8,6 +8,11 @@ import { useAnonymizeAccount, useCurrentUser, useSignOut } from '@/features/auth
 
 const CONFIRMATION = 'ANONIMIZAR'
 
+/**
+ * Typing the word rather than ticking a box: anonymising cannot be undone, and
+ * a confirmation that costs one click is one a tired person gives without
+ * reading.
+ */
 export function ProfilePage() {
   const navigate = useNavigate()
   const { data: user, isPending, isError } = useCurrentUser()
@@ -73,11 +78,6 @@ export function ProfilePage() {
           </Button>
         </Card>
 
-        {/*
-          Typing the word rather than ticking a box: anonymising cannot be
-          undone, and a confirmation that costs one click is one a tired person
-          gives without reading.
-        */}
         <Card className="flex flex-col items-start gap-3 border-l-4 border-l-danger p-6">
           <h2 className="text-title text-danger">Anonimizar a conta</h2>
           <p className="text-body text-ink-muted">

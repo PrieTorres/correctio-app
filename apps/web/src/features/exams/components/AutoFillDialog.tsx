@@ -20,6 +20,11 @@ interface AutoFillDialogProps {
  * The draw is shown rather than applied straight away because a random
  * selection is a suggestion, not a decision: swapping one question out is far
  * more common than accepting all of them untouched.
+ *
+ * Drawing before the bank arrives finds nothing and then blames the bank for
+ * being short, which is the one thing that is not true. The screen opens
+ * straight into this dialog, so the race is the normal case rather than a
+ * corner of it.
  */
 export function AutoFillDialog({
   open,
@@ -141,12 +146,6 @@ export function AutoFillDialog({
             : `${available.length} questões disponíveis com estes filtros · cabem ${remainingSlots} nesta prova`}
         </p>
 
-        {/*
-          Drawing before the bank arrives finds nothing and then blames the
-          bank for being short, which is the one thing that is not true. The
-          screen opens straight into this dialog, so the race is the normal
-          case rather than a corner of it.
-        */}
         <Button variant="secondary" onClick={generate} disabled={bankPending}>
           Gerar seleção
         </Button>

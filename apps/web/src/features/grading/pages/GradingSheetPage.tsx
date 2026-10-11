@@ -16,6 +16,10 @@ import { useAssignStudent, useConfirmCorrection, useGradingOverview } from '../h
 
 const DEMO_SHEET = '/demo-sheets/folha-01.svg';
 
+/**
+ * Two ways out, because stopping halfway is a real thing to do and leaving the
+ * screen used to throw the review away.
+ */
 export function GradingSheetPage() {
   const { id, sheetId } = useParams<{ id: string; sheetId: string }>();
   const navigate = useNavigate();
@@ -227,10 +231,6 @@ export function GradingSheetPage() {
             <Button variant="ghost" onClick={() => void navigate(buildPath(ROUTES.grading, { id: id ?? '' }))}>
               Cancelar
             </Button>
-            {/*
-              Two ways out, because stopping halfway is a real thing to do and
-              leaving the screen used to throw the review away.
-            */}
             <Button disabled={confirmCorrection.isPending} onClick={() => save(false)}>
               Salvar sem finalizar
             </Button>
@@ -325,11 +325,11 @@ function DiscursiveRow({
   score: number;
   onScore: (score: number) => void;
 }>) {
-  /*
-    A question still worth nothing is marked, and the mark says exactly that
-    rather than "sem nota": the zero is real, it counts in the total, and it
-    closes the correction if the teacher agrees with it.
-  */
+  /**
+   * A question still worth nothing is marked, and the mark says exactly that
+   * rather than "sem nota": the zero is real, it counts in the total, and it
+   * closes the correction if the teacher agrees with it.
+   */
   const atZero = score === 0;
 
   return (

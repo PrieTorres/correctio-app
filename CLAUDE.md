@@ -58,16 +58,31 @@ Duas armadilhas, as duas já corrigidas e cobertas por teste — não reintroduz
   `"objetiva"`. O que o grupo acrescenta usa `SCREAMING_SNAKE_CASE` em inglês e é exposto por
   objeto congelado (`CORRECTION_STATUS.DONE`), nunca string solta no ponto de uso. A caixa
   diz qual valor pode ser renomeado e qual está preso ao contrato.
-- **Sem comentário `//`.** Apenas JSDoc quando agrega, ou `TODO` quando inevitável.
+- **Só JSDoc.** Nenhum comentário `//` ou `/* */`: o porquê vai num bloco `/** */` na
+  declaração que ele explica (componente, função, constante, propriedade). Dentro de JSX,
+  o motivo sobe para o JSDoc do componente. Exceções: diretivas de ferramenta
+  (`eslint-…`, `@ts-expect-error`, `/// <reference>`) e `TODO(#issue):`, que nomeia a issue
+  que o remove.
 - Comentário explica **por que**, nunca o que a linha já diz. Se precisa de explicação ao
   lado, o nome está mal escolhido — renomeie em vez de comentar.
 - **Comentário em inglês em todo arquivo versionado**, incluindo workflows, `.properties` e
   `.gitignore`. Português vive só em `docs/` e no texto de interface.
 
 As três regras acima são verificadas pelo build, não por revisão:
-`conventions/no-line-comments` e `conventions/english-only-comments` no ESLint para
-`.ts`/`.tsx`/`.js`, e `npm run lint:comments` para os arquivos que o ESLint não alcança.
-- Funções pequenas, com escopo definido e testáveis isoladamente.
+`conventions/jsdoc-only-comments` e `conventions/english-only-comments` (em
+`tooling/eslint/conventions.js`), mais `jsdoc/informative-docs`, que recusa JSDoc que só repete
+o nome, no ESLint para `.ts`/`.tsx`/`.js`; e `npm run lint:comments` para os arquivos que o
+ESLint não alcança.
+- Funções pequenas, com escopo definido e testáveis isoladamente. O lint barra função acima
+  de complexidade ciclomática 10, complexidade cognitiva 15 (a mesma regra e o mesmo limite do
+  SonarCloud), 3 níveis de aninhamento ou 4 parâmetros (`tooling/eslint/base.js`). Acima de
+  4 parâmetros, receba um objeto de opções.
+- **Lista de pendência de complexidade.** As funções que já passavam dos limites estão
+  congeladas no valor de hoje em `LEGACY_COMPLEXITY` (`apps/web/eslint.config.js`): não podem
+  piorar. Quem mexer num desses arquivos quebra a função em partes com nome e apaga a entrada.
+  A lista só diminui; nunca acrescente.
+- **Regras de lint vivem em `tooling/eslint/`.** Cada workspace compõe `createBaseConfig` e só
+  acrescenta o que é do seu runtime (os plugins de React, no web). Não repita regra no app.
 - DRY: antes de criar componente, hook, util ou tipo, procure o que já existe.
 - TypeScript estrito. Sem `any`; `unknown` na fronteira, com validação.
 - Dado remoto vive no TanStack Query — nunca em `useState` nem em store global.
