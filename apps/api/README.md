@@ -46,11 +46,11 @@ npm run db:reset             # desfaz todas
 |---|---|---|---|
 | Local | `correctio` no Docker (porta 3307) | `correctio` | `apps/api/.env`, valores do `.env.example` |
 | CI | banco descartável por execução | `root` do serviço MySQL do job | `pr.yml`, só valores de teste |
-| Pré-produção (links de preview) | `correctio_preview` no Aiven | um usuário que só enxerga `correctio_preview` | segredos do projeto Firebase de pré-produção e do ambiente `preview` do GitHub |
+| Pré-produção (links de preview, #11) | `correctio_preview` no Aiven | um usuário que só enxerga `correctio_preview` | segredos do projeto Firebase de pré-produção e do ambiente `preview` do GitHub |
 | Produção | `correctio` no Aiven | um usuário que só enxerga `correctio` | segredos do projeto Firebase de produção e do ambiente `production` do GitHub |
 
-- **Credencial de produção nunca vai para um `.env` local.** Para conferir a conexão com o
-  Aiven, use a de pré-produção: é o mesmo servidor e o mesmo certificado.
+- **O `.env` local aponta sempre para o Docker.** Credencial do Aiven não fica salva na máquina:
+  uma conferência pontual usa um `.env.<ambiente>.local`, que o git ignora, apagado logo depois.
 - **Pré-produção e produção são projetos Firebase separados**, então um link de preview nunca
   chama a API de produção.
 - **Cada ambiente tem o próprio usuário**, com acesso só ao próprio banco: um engano de
