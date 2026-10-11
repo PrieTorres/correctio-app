@@ -4,20 +4,30 @@
   "version": "1.0.0",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12"
   },
   "workspaces": [
     "apps/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspace @correctio/web",
-    "build": "npm run build --workspace @correctio/web",
+    "build": "npm run build --workspaces --if-present",
     "preview": "npm run preview --workspace @correctio/web",
-    "lint": "npm run lint --workspace @correctio/web && npm run lint:comments",
-    "typecheck": "npm run typecheck --workspace @correctio/web",
-    "test": "npm run test --workspace @correctio/web",
+    "lint": "npm run lint:root && npm run lint --workspaces --if-present && npm run lint:comments",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test:tooling && npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e --workspace @correctio/web",
     "test:e2e:record": "npm run test:e2e:record --workspace @correctio/web",
-    "lint:comments": "node scripts/check-comment-language.mjs"
+    "lint:comments": "node scripts/check-comment-language.mjs",
+    "lint:root": "eslint eslint.config.js tooling scripts",
+    "test:tooling": "node --test \"tooling/**/*.test.js\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "eslint-plugin-jsdoc": "~60.8.3",
+    "eslint-plugin-sonarjs": "^4.2.2",
+    "globals": "^15.15.0",
+    "typescript-eslint": "^8.71.1"
   }
 }

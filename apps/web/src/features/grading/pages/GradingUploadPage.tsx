@@ -6,6 +6,12 @@ import { buildPath, ROUTES } from '@/app/routes';
 import { CORRECTION_STATUS } from '@/types/domain';
 import { useGradingOverview, useReadSheets } from '../hooks/useGrading';
 
+/**
+ * The phase reads demonstration sheets instead of photographs. A phone photo in
+ * base64 exceeds the storage this phase has, and pretending otherwise would
+ * produce a screen that works only until someone tries it. What is real is
+ * everything after the reading.
+ */
 export function GradingUploadPage() {
   const { id } = useParams<{ id: string }>();
   const { data, isPending, isError } = useGradingOverview(id);
@@ -55,12 +61,6 @@ export function GradingUploadPage() {
           description="Fotografe ou arraste as folhas. A leitura resolve as objetivas sozinha e deixa as discursivas para você."
         />
 
-        {/*
-          The phase reads demonstration sheets instead of photographs. A phone
-          photo in base64 exceeds the storage this phase has, and pretending
-          otherwise would produce a screen that works only until someone tries
-          it. What is real is everything after the reading.
-        */}
         <Card data-tour="upload" className="flex flex-col items-center gap-3 border-2 border-dashed border-line p-10 text-center">
           <Upload size={28} aria-hidden className="text-ink-subtle" />
           <p className="text-body text-ink">Arraste as fotos das folhas aqui</p>
