@@ -198,17 +198,21 @@ A estrutura obrigatória de cada uma segue a seção 8 da Spec SGP Católica e e
 
 ## ▶️ 7. Como rodar
 
-**Versões em uso:** Node 22 LTS · React 19 · Vite 6 · TypeScript 5.7 · Tailwind 4 · Vitest 5 · Cypress 15
+**Versões em uso:** Node 22 LTS (22.12 ou mais novo) · React 19 · Vite 6 · TypeScript 5 · Tailwind 4 · Express 5 · Vitest 5 · Cypress 15
 
 ```bash
-npm install       # instala o monorepo inteiro (npm workspaces)
-npm run dev       # ambiente local em http://localhost:5173
-npm run build     # gera a versão publicável
-npm run preview   # serve a versão publicável em http://localhost:4173
-npm run typecheck # verificação de tipos
-npm run lint      # ESLint e o verificador de idioma dos comentários
-npm test          # testes unitários com cobertura
-npm run test:e2e  # Cypress contra o build de produção
+nvm use 22                 # o projeto exige Node 22.12 ou mais novo
+npm install                # instala o monorepo inteiro (npm workspaces)
+npm run dev                # front em http://localhost:5173
+npm run dev:api            # API em http://localhost:3000 (ver apps/api/README.md)
+npm run build              # build do front e da API
+npm run preview            # serve o build do front em http://localhost:4173
+npm run typecheck          # verificação de tipos de todos os workspaces
+npm run lint               # ESLint (complexidade, só JSDoc) e idioma dos comentários
+npm test                   # testes unitários com cobertura, de todos os workspaces
+npm run test:e2e           # Cypress contra o build de produção
+npm run test:e2e:journey   # jornada completa em câmera lenta, gravando vídeo
+npm audit --audit-level=high
 ```
 
 ### A N1 roda sem back-end
@@ -232,8 +236,30 @@ Três coisas são simuladas de propósito, porque exigem servidor:
 essa variável para o processo de extensões, e com ela o Electron do Cypress roda como Node
 puro. Os scripts já a removem com `env -u`; rodando o binário direto, faça o mesmo.
 
-**Contribuindo:** todo trabalho entra por Pull Request. O merge só libera depois que lint,
-tipos, testes, build e o portão do SonarCloud passarem — detalhes em [CI_CD.md](docs/CI_CD.md).
+### Antes de abrir o PR
+
+Rode na raiz, nesta ordem. É o mesmo portão que a CI aplica, então o que passa aqui passa lá:
+
+```bash
+nvm use 22
+npm ci
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
+npm audit --audit-level=high
+```
+
+Depois, no GitHub:
+
+1. **Branch, commits e título do PR em inglês** (`feat/...`, `fix/...`). Nada direto na `main`.
+2. **Use o template do PR,** com `Closes #N` apontando a issue da tarefa.
+3. **Vá marcando os checklists conforme entrega,** o do PR e o da issue ligada. O check *Issue, checklist and video* barra o merge enquanto houver item desmarcado em qualquer um dos dois. Marque só o que já está feito de verdade, e anexe a evidência na issue.
+4. **O vídeo vem sozinho.** O job *Journey video* grava a jornada completa no Cypress, sobe o vídeo como artifact e escreve o link na seção "Vídeo do teste" do PR. Feature nova precisa entrar na jornada (`apps/web/cypress/journey/journey.cy.ts`). PRs com label `docs`, `infra`, `process`, `qa`, `ux` ou `po` dispensam o vídeo.
+5. **Aprovação da PM e merge.** O ruleset exige a aprovação dela e todos os checks verdes: lint, tipos, testes e build; Cypress; SonarCloud; e Issue, checklist and video. Só a PM conclui issues.
+
+Detalhes do portão em [CI_CD.md](docs/CI_CD.md).
 
 ---
 

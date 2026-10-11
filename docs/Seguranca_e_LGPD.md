@@ -162,6 +162,35 @@ armazenamento privado, e entram no PDF gerado.
 | Observabilidade | Log estruturado em JSON com id de correlação por requisição, sem dado pessoal. |
 | Ciclo de vida | Encerramento gracioso em `SIGTERM`; erro desconhecido derruba o processo em vez de seguir em estado corrompido. |
 | Processamento pesado | Leitura de imagem é uso intensivo de CPU e **não pode** rodar na thread principal — trava a API inteira. Vai para worker ou serviço separado, o mesmo motivo que empurra o trabalho caro para fila. |
+| Cache das respostas | `Cache-Control: no-store` em toda resposta da API (`middlewares/no-store.ts`). O cache existe só na memória do app — ver "Cache" abaixo. |
+| Limite de requisições | As camadas da seção 4 estão em `apps/api/src/middlewares/rate-limit.ts` (`RATE_LIMITS`). Cada rota especial aplica a sua camada. |
+
+### Credenciais em trânsito
+
+- **Só HTTPS.** O `helmet` envia HSTS, e a partir daí o navegador nunca mais volta para HTTP naquele domínio. É o que impede que alguém leia o token no tráfego de uma rede compartilhada.
+- **Token só no cabeçalho `Authorization`.** Nunca na URL (fica em histórico, log de proxy e cabeçalho `Referer`) e nunca no log. O log da API apaga `Authorization` e `Cookie`.
+- **Access token curto (15 min) e refresh token rotativo, com detecção de reuso.** Se a #83 decidir por JWT próprio, o refresh token mora num cookie `httpOnly` + `Secure` + `SameSite=Strict`, fora do alcance de qualquer JavaScript, e o access token fica só na memória do front. Com Firebase, o SDK cuida disso (Regra 3).
+- **Barreira contra adivinhar token.** No máximo 30 respostas 401 por minuto por endereço. Só 401 conta, então um professor logado nunca gasta esse limite, nem num NAT compartilhado.
+
+### Criptografia de dados
+
+| Dado | Proteção |
+|---|---|
+| Senha | Hash **argon2id**. Nunca criptografia reversível: nem o sistema consegue recuperar a senha. |
+| Refresh token | Só o hash (`tokenHash` da Spec). Quem lê o banco não consegue usar o token. |
+| E-mail do aluno | **Criptografia de campo AES-256-GCM.** A chave vem de `DATA_ENCRYPTION_KEY`, guardada no gerenciador de segredos, nunca no repositório nem no bundle. |
+| Nome, matrícula e notas | Criptografia em repouso do provedor, no disco e nos backups. Criptografia de campo aqui quebraria a busca e a ordenação por nome no servidor. |
+| Imagens das folhas | Armazenamento privado com criptografia em repouso. Saem só por rota autenticada (N2) e, na N3, por URL assinada de curta validade. |
+| Tráfego | TLS entre navegador e API, e entre API e MySQL. Conexão com o banco sem TLS é recusada. |
+
+### Cache
+
+O objetivo é não refazer a mesma leitura a cada troca de tela, sem nunca guardar dado pessoal onde outra pessoa alcance.
+
+- **No front, TanStack Query só em memória.** `staleTime` de 5 minutos para o que só muda por ação do próprio professor: toda ação já invalida as chaves que afeta. O painel é invalidado por qualquer escrita. A consulta pública por QR não usa cache. Nada é persistido em `localStorage`.
+- **Cache apagado no logout e em qualquer 401.** O próximo usuário do mesmo navegador não vê nada do anterior.
+- **Na API, `no-store`.** Nenhum proxy, CDN ou disco de navegador guarda resposta com dado de professor ou aluno.
+- **A economia vem do app não perguntar de novo**, e nunca de um cache compartilhado de dado pessoal.
 
 ---
 
@@ -170,5 +199,5 @@ armazenamento privado, e entram no PDF gerado.
 | Fase | Entrega desta área |
 |---|---|
 | **N1** (11/09) | Este documento e os requisitos. No código: escopo por professor já na camada de repositório, DTO estreito na consulta pública, `noindex`. |
-| **N2** (23/10) | Autenticação real, isolamento por conta com teste automatizado, validação na fronteira, SQL parametrizado, CORS, cabeçalhos de segurança, limite de requisições. |
+| **N2** (23/10) | Autenticação real, isolamento por conta com teste automatizado, validação na fronteira, SQL parametrizado, CORS, cabeçalhos de segurança (HSTS incluído), limite de requisições em camadas, hash de senha e de token, criptografia do e-mail do aluno, TLS até o banco, `no-store` na API e cache só em memória no front. |
 | **N3** (27/11) | Fila com confirmação imediata e notificação, re-processamento de imagem e remoção de EXIF, URLs assinadas, trilha de auditoria, anonimização de aluno, alertas de orçamento. |
