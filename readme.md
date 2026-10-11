@@ -205,6 +205,7 @@ nvm use 22                 # o projeto exige Node 22.12 ou mais novo
 npm install                # instala o monorepo inteiro (npm workspaces)
 npm run dev                # front em http://localhost:5173
 docker compose up -d mysql # MySQL 8.4 local na porta 3307 (a API e os testes dela usam)
+cp apps/api/.env.example apps/api/.env  # conexão com o MySQL local; sem ela a API não sobe
 npm run db:migrate         # cria as tabelas no MySQL local
 npm run dev:api            # API em http://localhost:3000 (ver apps/api/README.md)
 npm run build              # build do front e da API

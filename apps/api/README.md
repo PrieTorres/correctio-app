@@ -8,7 +8,9 @@ model**, como a disciplina pede. Os dados ficam em MySQL (ver "Banco de dados" a
 ```bash
 nvm use 22                         # o projeto exige Node 22.12 ou mais novo
 npm install                        # na raiz do repositório
-cp apps/api/.env.example apps/api/.env   # opcional: todos os valores têm padrão
+cp apps/api/.env.example apps/api/.env   # sem DATABASE_URL a API não sobe
+docker compose up -d mysql         # MySQL local na porta 3307
+npm run db:migrate                 # cria as tabelas
 npm run dev:api                    # http://localhost:3000, recarrega ao salvar
 curl localhost:3000/health         # {"status":"UP"}
 ```
