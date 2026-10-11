@@ -8,7 +8,7 @@ Closes #
 1.
 
 ## Vídeo do teste
-<!-- Arraste o vídeo aqui (limite de upload do GitHub ~10 MB no plano free) ou cole link do Drive/Loom/YouTube com acesso liberado. -->
+<!-- A CI escreve aqui, sozinha, o link do vídeo da jornada completa gravada pelo Cypress. Se quiser mostrar um detalhe da feature, acrescente outro vídeo (upload no PR ou link do Drive/Loom/YouTube). -->
 
 ## Checklist
 - [ ] Todo o checklist da issue ligada está marcado

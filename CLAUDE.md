@@ -123,6 +123,13 @@ A cada feature nova, **todas as regras e funcionalidades do sistema continuam va
 Cypress** — a que entrou agora e as que já existiam. Feature nova que muda uma tela existente
 sem revisar o spec dela é como as regressões chegam.
 
+**A jornada é o vídeo de todo PR.** `cypress/journey/journey.cy.ts` é um teste único que parte
+de uma conta vazia e percorre o sistema inteiro, do cadastro ao relatório, com 800 ms entre
+cada ação e um título numerado por etapa. A CI grava o vídeo dela em todo PR
+(`npm run test:e2e:journey`), sobe como artifact e escreve o link na seção "Vídeo do teste".
+Feature nova entra também na jornada, na ordem em que o professor a usaria: se ela não aparece
+no vídeo, o PR não mostra o que entregou.
+
 Antes de abrir o PR, para cada tela que a mudança tocou:
 
 1. o spec dela ainda descreve o que a tela faz hoje?

@@ -15,8 +15,8 @@ build/
 
 # tests
 coverage/
-cypress/screenshots/
-cypress/videos/
+**/cypress/screenshots/
+**/cypress/videos/
 
 # environment
 .env

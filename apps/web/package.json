@@ -12,7 +12,8 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "env -u ELECTRON_RUN_AS_NODE start-server-and-test preview http://localhost:4173 'cypress run'",
-    "test:e2e:record": "env -u ELECTRON_RUN_AS_NODE start-server-and-test preview http://localhost:4173 'cypress run --record'"
+    "test:e2e:record": "env -u ELECTRON_RUN_AS_NODE start-server-and-test preview http://localhost:4173 'cypress run --record'",
+    "test:e2e:journey": "env -u ELECTRON_RUN_AS_NODE start-server-and-test preview http://localhost:4173 \"cypress run --config 'specPattern=cypress/journey/**/*.cy.ts,video=true'\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -40,6 +41,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^5.0.3",
     "cypress": "^15.21.1",
+    "cypress-slow-down": "^1.4.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.26",
