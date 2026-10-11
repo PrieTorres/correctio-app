@@ -48,9 +48,9 @@ As entregas são agrupadas em **uma release por dia de trabalho**, e não uma po
 
 ### Como sair
 
-1. Confirme que a `main` está verde e publicada.
+1. Confirme que a `main` está verde. Para testar antes num link de verdade, publique a `main` na pré-produção pelo workflow **Preview link**.
 2. Rode o workflow **Release do dia** (aba Actions → Run workflow) informando a versão, por exemplo `0.4.0`.
-3. O workflow roda o portão de qualidade inteiro, fixa a versão nos `package.json`, cria a tag `v0.4.0` e publica a release com as notas geradas a partir dos PRs mergeados desde a tag anterior.
+3. O workflow roda o portão de qualidade inteiro, fixa a versão nos `package.json`, cria a tag `v0.4.0`, publica a release com as notas geradas a partir dos PRs mergeados desde a tag anterior e **publica essa versão em produção** (`https://correctio-app.web.app`). Se a publicação falhar, a release continua criada, e o workflow **Republish a version** tenta de novo.
 
 Nenhuma release sai de código que não passa no portão — é a mesma barreira do merge, aplicada de novo antes de publicar.
 

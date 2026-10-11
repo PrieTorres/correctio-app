@@ -8,12 +8,25 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
-
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # A real MySQL for the schema test, as in the pull request gate: the release
+    # runs the same tests and would fail without it.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_TEST_URL: mysql://root:root@127.0.0.1:3306
     steps:
       # Both guards run before anything else. Finding out the input was wrong
       # after a full minute of lint, tests and build wastes the run and hides
@@ -78,3 +91,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: gh release create "v$VERSION" --generate-notes --title "v$VERSION"
+
+  # Production only ever receives a numbered version. A failed publication
+  # leaves the release in place; "Republish a version" retries it.
+  publish:
+    name: Publish to production
+    needs: release
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+      ref: v${{ inputs.version }}
+    secrets: inherit

@@ -11,9 +11,9 @@ const verifyToken: VerifyToken = (token) => {
   return Promise.resolve(teacherId === undefined ? null : { teacherId })
 }
 
-function buildApp() {
+function buildApp(source: NodeJS.ProcessEnv = {}) {
   return createApp({
-    env: loadEnv({ NODE_ENV: 'test', LOG_LEVEL: 'silent' }),
+    env: loadEnv({ NODE_ENV: 'test', LOG_LEVEL: 'silent', ...source }),
     logger: createLogger('silent'),
     verifyToken,
     rateLimits: {
@@ -44,6 +44,22 @@ describe('failed authentication limit', () => {
     const response = await request(app).get('/classes')
 
     expect(response.status).toBe(401)
+  })
+})
+
+describe('behind Firebase Hosting', () => {
+  /** The shape measured on the first deploy: the client, then the Google proxy every request passes through. */
+  const throughHosting = (client: string) => `${client}, 66.102.8.106`
+
+  it('counts each client on its own, not the proxy they all share', async () => {
+    const app = buildApp({ TRUST_PROXY_HOPS: '2' })
+    await request(app).get('/classes').set('X-Forwarded-For', throughHosting('203.0.113.1'))
+    await request(app).get('/classes').set('X-Forwarded-For', throughHosting('203.0.113.1'))
+    const sameClient = await request(app).get('/classes').set('X-Forwarded-For', throughHosting('203.0.113.1'))
+    const otherClient = await request(app).get('/classes').set('X-Forwarded-For', throughHosting('203.0.113.2'))
+
+    expect(sameClient.status).toBe(429)
+    expect(otherClient.status).toBe(401)
   })
 })
 

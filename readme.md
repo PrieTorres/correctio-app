@@ -188,7 +188,7 @@ A especificação detalhada de cada tela — conteúdo, elementos e destino de c
 
 **A camada que torna a evolução barata:** a aplicação inteira conversa com uma única fronteira de repositórios. Na N1, a implementação lê do `localStorage`; na N2, do Express com MySQL. Os mesmos schemas de validação e os mesmos hooks servem aos dois — **nenhuma tela muda na migração**.
 
-**Publicação:** GitHub Pages na N1, Firebase Hosting depois. A URL de consulta pública mantém o mesmo formato de caminho nas duas, porque ela vai impressa em papel dentro do QR Code e não pode quebrar.
+**Publicação:** GitHub Pages na N1; a partir da N2, Firebase Hosting para o front e Cloud Functions para a API, no mesmo endereço. Produção em `https://correctio-app.web.app`, atualizada a cada release; pré-produção sob demanda, por branch (`docs/CI_CD.md`, seção 4). A rota de consulta pública mantém o mesmo formato de caminho nos dois hosts.
 
 **Entidades de domínio:** `User` · `RefreshToken` · `Class` · `Student` · `Question` · `Exam` · `Application` · `ExamVersion` · `AnswerSheet` · `Correction`
 

@@ -1,0 +1,41 @@
+name: Republish a version
+
+# Puts a version that was already released back into production: the way back
+# when a release goes wrong, and the way to retry when its publication failed.
+# Only tags created by the release workflow are accepted.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Versão já lançada, com o "v". Exemplo: v2.0.0'
+        required: true
+        type: string
+
+jobs:
+  check:
+    name: Check the version
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Versão inválida: '$TAG'. Use o formato v2.0.0."
+            exit 1
+          fi
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --silent; then
+            echo "::error::A versão $TAG não existe. Veja as releases do repositório."
+            exit 1
+          fi
+
+  publish:
+    needs: check
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+      ref: ${{ inputs.tag }}
+    secrets: inherit

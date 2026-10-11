@@ -65,9 +65,9 @@ O mesmo vale para autenticação: uma interface `AuthProvider`, com implementaç
 
 ## 3. Publicação e roteamento
 
-**N1: GitHub Pages. Depois: Firebase Hosting. Autenticação: Firebase Auth** — esta última **pendente de validação com a professora**, porque substitui os endpoints `/auth` previstos na Spec (ver seção 1 do documento de requisitos e telas).
+**N1: GitHub Pages. N2: Firebase Hosting para o front e Cloud Functions para a API, no mesmo endereço (o Hosting encaminha `/api/**` para a função). Autenticação: Firebase Auth** — esta última **pendente de validação com a professora**, porque substitui os endpoints `/auth` previstos na Spec (ver seção 1 do documento de requisitos e telas).
 
-**Roteamento por caminho, não por hash.** URL limpa (`/correctio/r/ABC123`), usando o recurso padrão do GitHub Pages de copiar o `index.html` para `404.html` no build, com a base do roteador vinda da variável de build.
+**Roteamento por caminho, não por hash.** URL limpa (`/correctio/r/ABC123`), com a base do roteador vinda da variável de build. Na N1 isso usava o recurso do GitHub Pages de copiar o `index.html` para `404.html`; no Firebase, o `firebase.json` devolve o `index.html` para todo caminho que não é arquivo nem `/api`.
 
 O motivo é específico deste projeto e é o **único ponto verdadeiramente irreversível**: a URL de consulta vai impressa em papel dentro do QR Code. Se a N1 imprimir `.../#/r/ABC` e depois o sistema migrar de host, toda folha impressa quebra. Por isso:
 

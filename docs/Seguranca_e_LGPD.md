@@ -151,7 +151,7 @@ armazenamento privado, e entram no PDF gerado.
 | Item | Detalhe |
 |---|---|
 | Cabeçalhos de segurança + CSP | Via `helmet`. Não depender de `X-XSS-Protection`, hoje desativado nos navegadores. |
-| CORS | Lista de origens conhecidas (GitHub Pages e domínio do Firebase Hosting). Nunca `*`. |
+| CORS | Só os endereços do próprio projeto Firebase (`<projeto>.web.app` e `<projeto>.firebaseapp.com`), derivados do projeto em que a API roda (`config/hosted-env.ts`). Nunca `*`. Front e API dividem o mesmo endereço, então o navegador nem faz chamada entre origens. |
 | Validação de entrada | Schemas na fronteira, reaproveitando os mesmos do front. |
 | Limite de payload | JSON pequeno por rota; upload com teto próprio. |
 | Upload | Validar pelo **tipo real do arquivo**, não pela extensão. Teto de tamanho e de dimensão. |

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>O Correctio mudou de endereço</title>
+    <script>
+      const NEW_ORIGIN = 'https://correctio-app.web.app';
+      const pathInsideRepository = location.pathname.split('/').slice(2).join('/');
+      location.replace(`${NEW_ORIGIN}/${pathInsideRepository}${location.search}${location.hash}`);
+    </script>
+    <noscript><meta http-equiv="refresh" content="0; url=https://correctio-app.web.app/" /></noscript>
+  </head>
+  <body>
+    <p>O Correctio mudou de endereço: <a href="https://correctio-app.web.app/">correctio-app.web.app</a></p>
+  </body>
+</html>
