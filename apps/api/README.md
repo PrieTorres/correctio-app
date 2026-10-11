@@ -112,9 +112,10 @@ com as mesmas regras das telas, sem cópia.
 
 ## Variáveis de ambiente
 
-Ver `.env.example` para rodar local. No Firebase, `NODE_ENV=production`, `DATABASE_TLS=verify` e
-`CORS_ORIGINS` (os endereços do próprio projeto) vêm de `src/config/hosted-env.ts`, e nenhuma
-variável do host consegue desligar os dois primeiros. Os segredos vêm do Secret Manager do projeto.
+Ver `.env.example` para rodar local. No Firebase, `NODE_ENV=production`, `DATABASE_TLS=verify`,
+`CORS_ORIGINS` (os endereços do próprio projeto) e `TRUST_PROXY_HOPS=2` vêm de
+`src/config/hosted-env.ts`, e nenhuma variável do host consegue desligar os dois primeiros. Os 2 saltos
+foram medidos no primeiro deploy: a requisição chega com `X-Forwarded-For: <cliente>, <proxy do Google>`. Os segredos vêm do Secret Manager do projeto.
 
 ## Publicação
 
@@ -127,5 +128,8 @@ encaminha `/api/**` para ela, então em produção as rotas respondem em
   nas versões exatas que os testes usaram.
 - `src/server.ts` e `src/function.ts` só recebem requisições; tudo o que respondem é montado em
   `bootstrapApi` (`src/bootstrap.ts`), então local e publicado não divergem.
+- A função também responde no endereço direto do Google, sem passar pelo Hosting, e ali o
+  `X-Forwarded-For` pode ser forjado: os limites por endereço valem para quem usa o site, não para
+  quem chama a função direto. Os limites por professor não dependem do endereço.
 - Quem publica é o workflow `deploy.yml`, chamado pela release (produção) e pelo "Preview link"
   (pré-produção). Ordem e segredos: `docs/CI_CD.md`, seção 4.

@@ -26,6 +26,12 @@ describe('hostedEnvSource', () => {
     ])
   })
 
+  it('reads the client address behind the two proxies of Firebase Hosting', () => {
+    const env = loadEnv(hostedEnvSource({ GCLOUD_PROJECT: 'correctio-app', ...SECRETS }))
+
+    expect(env.TRUST_PROXY_HOPS).toBe(2)
+  })
+
   it('cannot be turned into development or a connection without the certificate check', () => {
     const source = hostedEnvSource({ GCLOUD_PROJECT: 'correctio-app', NODE_ENV: 'development', DATABASE_TLS: 'local' })
 

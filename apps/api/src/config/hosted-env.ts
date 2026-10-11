@@ -1,5 +1,13 @@
 import { DATABASE_TLS } from './env'
 
+/**
+ * Proxies between the browser and the function on the web address, measured on
+ * the first deploy: `X-Forwarded-For` arrives as `<client>, <Google proxy>`.
+ * With one hop the API would read the Google proxy as everyone's address, and
+ * the per-address limits would throttle all users together.
+ */
+const FIREBASE_PROXY_HOPS = 2
+
 /** The two addresses Firebase Hosting gives every project; the web app is served from both. */
 function firebaseOrigins(projectId: string): string {
   return `https://${projectId}.web.app,https://${projectId}.firebaseapp.com`
@@ -21,6 +29,7 @@ export function hostedEnvSource(runtime: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 
   return {
     CORS_ORIGINS: firebaseOrigins(projectId),
+    TRUST_PROXY_HOPS: String(FIREBASE_PROXY_HOPS),
     ...runtime,
     NODE_ENV: 'production',
     DATABASE_TLS: DATABASE_TLS.VERIFY,
