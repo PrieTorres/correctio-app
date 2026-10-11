@@ -7,7 +7,8 @@
     "node": ">=22.12"
   },
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspace @correctio/web",
@@ -21,7 +22,8 @@
     "lint:comments": "node scripts/check-comment-language.mjs",
     "lint:root": "eslint eslint.config.js tooling scripts",
     "test:tooling": "node --test \"tooling/**/*.test.js\"",
-    "test:e2e:journey": "npm run test:e2e:journey --workspace @correctio/web"
+    "test:e2e:journey": "npm run test:e2e:journey --workspace @correctio/web",
+    "dev:api": "npm run dev --workspace @correctio/api"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

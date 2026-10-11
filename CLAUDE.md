@@ -158,11 +158,12 @@ Erros que já aconteceram e não podem repetir:
 ## Estrutura
 
 ```
-apps/web/     front-end React + Vite (N1 em localStorage)
-apps/api/     back-end Express + MySQL (a partir da N2)
-docs/         documentação — ver índice no readme.md
-.plano/       plano de execução interno, fora do controle de versão
-.ui_v1/       protótipo visual de referência, fora do controle de versão
+apps/web/          front-end React + Vite (N1 em localStorage)
+apps/api/          back-end Express + MySQL, em camadas (a partir da N2)
+packages/domain/   tipos e schemas Zod do contrato, usados pelo front e pela API
+docs/              documentação — ver índice no readme.md
+.plano/            plano de execução interno, fora do controle de versão
+.ui_v1/            protótipo visual de referência, fora do controle de versão
 ```
 
 A fronteira de dados fica em `apps/web/src/lib/repositories`. Nenhum componente chama
@@ -173,6 +174,7 @@ de dados na N2 muda só a fábrica.
 
 ```bash
 npm run dev        # ambiente local
+npm run dev:api    # API em http://localhost:3000
 npm run typecheck
 npm test           # unitários com cobertura
 npm run test:e2e   # Cypress
