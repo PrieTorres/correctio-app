@@ -1,0 +1,98 @@
+@startuml activity-diagram
+' Activity diagram of the grading flow in the N2, from creating an application
+' to the student reading the result through the QR code on the answer sheet.
+' The planned style draws a point dashed when the requirements plan it but the
+' N2 leaves it out: add <<planned>> to the activity and -[dashed]-> to its arrows.
+' No point of this flow is dashed in the N2, so nothing uses it yet.
+<style>
+activityDiagram {
+  .planned {
+    LineStyle 6-4
+    BackgroundColor #FFFFFF
+  }
+}
+</style>
+
+|Professor|
+start
+:Criar a aplicação: prova, turma e data;
+:Definir versões, embaralhamento e identificação;
+|Site|
+:Enviar a aplicação para a API;
+|API|
+:Gerar versões, folhas com QR Code e PDF;
+:Gravar versões e folhas no banco;
+|Professor|
+:Baixar o PDF, imprimir e aplicar a prova;
+|Aluno|
+:Preencher a folha de respostas;
+|Professor|
+:Fotografar as folhas pelo site;
+|Site|
+:Enviar as fotos para a API;
+|API|
+:Ler o QR Code e as marcações da foto;
+if (Leitura reconhecida?) then ([Não])
+  |Professor|
+  :Inserir a correção manualmente;
+else ([Sim])
+  |API|
+  :Corrigir as objetivas e gravar a leitura no banco;
+  if (Tem discursivas?) then ([Sim])
+    :Deixar a correção em andamento;
+  else ([Não])
+    :Deixar a correção aguardando confirmação;
+  endif
+  if (Prova com identificação?) then ([Não])
+    |Professor|
+    :Associar a folha pendente ao aluno;
+  else ([Sim])
+    |API|
+    :Vincular a correção ao aluno;
+  endif
+endif
+|Professor|
+repeat
+  :Revisar a leitura e lançar as discursivas, se houver;
+backward:Salvar sem finalizar;
+repeat while (Finalizar?) is ([Não]) not ([Sim])
+:Confirmar a correção;
+|Site|
+:Enviar a confirmação para a API;
+|API|
+:Gravar a correção confirmada no banco;
+|Professor|
+:Publicar o gabarito das versões;
+:Liberar as notas da aplicação;
+|Site|
+:Enviar a publicação e a liberação para a API;
+|API|
+if (Gabarito publicado?) then ([Sim])
+  :Gravar a publicação e a liberação no banco;
+else ([Não])
+  :Recusar a liberação das notas;
+endif
+|Aluno|
+:Escanear o QR Code da folha;
+|Site|
+:Abrir a página pública e pedir o resultado à API;
+|API|
+if (Código válido?) then ([Sim])
+  if (Gabarito da versão publicado?) then ([Sim])
+    if (Notas liberadas e correção confirmada?) then ([Sim])
+      :Devolver gabarito, nota e acertos;
+    else ([Não])
+      :Devolver só o gabarito;
+    endif
+  else ([Não])
+    :Devolver “ainda não liberado”;
+  endif
+else ([Não])
+  :Devolver “QR inválido”;
+endif
+|Site|
+:Exibir a resposta na página pública;
+|Aluno|
+:Consultar o resultado;
+stop
+@enduml

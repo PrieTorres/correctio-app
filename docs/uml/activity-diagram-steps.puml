@@ -1,0 +1,193 @@
+' Stages 1 to 4 of the activity diagram, each one adding to the previous.
+' Stage 5 is the final diagram, kept in activity-diagram.puml.
+
+@startuml activity-diagram-step-1
+start
+:Criar a aplicação;
+:Gerar versões, folhas com QR Code e PDF;
+:Imprimir e aplicar a prova;
+:Aluno preenche a folha de respostas;
+:Enviar as fotos das folhas para a API;
+:Ler o QR Code e corrigir as objetivas;
+:Revisar e confirmar a correção;
+:Gravar a correção no banco;
+:Publicar o gabarito e liberar as notas;
+:Aluno consulta o resultado pelo QR Code;
+stop
+@enduml
+
+@startuml activity-diagram-step-2
+|Professor|
+start
+:Criar a aplicação: prova, turma e data;
+:Definir versões, embaralhamento e identificação;
+|Site|
+:Enviar a aplicação para a API;
+|API|
+:Gerar versões, folhas com QR Code e PDF;
+:Gravar versões e folhas no banco;
+|Professor|
+:Baixar o PDF, imprimir e aplicar a prova;
+|Aluno|
+:Preencher a folha de respostas;
+|Professor|
+:Fotografar as folhas pelo site;
+|Site|
+:Enviar as fotos para a API;
+|API|
+:Ler o QR Code e as marcações da foto;
+:Corrigir as objetivas e gravar a leitura no banco;
+|Professor|
+:Revisar a leitura e confirmar a correção;
+|Site|
+:Enviar a confirmação para a API;
+|API|
+:Gravar a correção confirmada no banco;
+|Professor|
+:Publicar o gabarito das versões;
+:Liberar as notas da aplicação;
+|Site|
+:Enviar a publicação e a liberação para a API;
+|API|
+:Gravar a publicação e a liberação no banco;
+|Aluno|
+:Escanear o QR Code da folha;
+|Site|
+:Abrir a página pública e pedir o resultado à API;
+|API|
+:Devolver o resultado da folha;
+|Site|
+:Exibir a resposta na página pública;
+|Aluno|
+:Consultar o resultado;
+stop
+@enduml
+
+@startuml activity-diagram-step-3
+|Professor|
+start
+:Criar a aplicação: prova, turma e data;
+:Definir versões, embaralhamento e identificação;
+|Site|
+:Enviar a aplicação para a API;
+|API|
+:Gerar versões, folhas com QR Code e PDF;
+:Gravar versões e folhas no banco;
+|Professor|
+:Baixar o PDF, imprimir e aplicar a prova;
+|Aluno|
+:Preencher a folha de respostas;
+|Professor|
+:Fotografar as folhas pelo site;
+|Site|
+:Enviar as fotos para a API;
+|API|
+:Ler o QR Code e as marcações da foto;
+if (Leitura reconhecida?) then ([Não])
+  |Professor|
+  :Inserir a correção manualmente;
+else ([Sim])
+  |API|
+  :Corrigir as objetivas e gravar a leitura no banco;
+  if (Prova com identificação?) then ([Não])
+    |Professor|
+    :Associar a folha pendente ao aluno;
+  else ([Sim])
+    |API|
+    :Vincular a correção ao aluno;
+  endif
+endif
+|Professor|
+:Revisar a leitura e confirmar a correção;
+|Site|
+:Enviar a confirmação para a API;
+|API|
+:Gravar a correção confirmada no banco;
+|Professor|
+:Publicar o gabarito das versões;
+:Liberar as notas da aplicação;
+|Site|
+:Enviar a publicação e a liberação para a API;
+|API|
+:Gravar a publicação e a liberação no banco;
+|Aluno|
+:Escanear o QR Code da folha;
+|Site|
+:Abrir a página pública e pedir o resultado à API;
+|API|
+:Devolver o resultado da folha;
+|Site|
+:Exibir a resposta na página pública;
+|Aluno|
+:Consultar o resultado;
+stop
+@enduml
+
+@startuml activity-diagram-step-4
+|Professor|
+start
+:Criar a aplicação: prova, turma e data;
+:Definir versões, embaralhamento e identificação;
+|Site|
+:Enviar a aplicação para a API;
+|API|
+:Gerar versões, folhas com QR Code e PDF;
+:Gravar versões e folhas no banco;
+|Professor|
+:Baixar o PDF, imprimir e aplicar a prova;
+|Aluno|
+:Preencher a folha de respostas;
+|Professor|
+:Fotografar as folhas pelo site;
+|Site|
+:Enviar as fotos para a API;
+|API|
+:Ler o QR Code e as marcações da foto;
+if (Leitura reconhecida?) then ([Não])
+  |Professor|
+  :Inserir a correção manualmente;
+else ([Sim])
+  |API|
+  :Corrigir as objetivas e gravar a leitura no banco;
+  if (Tem discursivas?) then ([Sim])
+    :Deixar a correção em andamento;
+  else ([Não])
+    :Deixar a correção aguardando confirmação;
+  endif
+  if (Prova com identificação?) then ([Não])
+    |Professor|
+    :Associar a folha pendente ao aluno;
+  else ([Sim])
+    |API|
+    :Vincular a correção ao aluno;
+  endif
+endif
+|Professor|
+repeat
+  :Revisar a leitura e lançar as discursivas, se houver;
+backward:Salvar sem finalizar;
+repeat while (Finalizar?) is ([Não]) not ([Sim])
+:Confirmar a correção;
+|Site|
+:Enviar a confirmação para a API;
+|API|
+:Gravar a correção confirmada no banco;
+|Professor|
+:Publicar o gabarito das versões;
+:Liberar as notas da aplicação;
+|Site|
+:Enviar a publicação e a liberação para a API;
+|API|
+:Gravar a publicação e a liberação no banco;
+|Aluno|
+:Escanear o QR Code da folha;
+|Site|
+:Abrir a página pública e pedir o resultado à API;
+|API|
+:Devolver o resultado da folha;
+|Site|
+:Exibir a resposta na página pública;
+|Aluno|
+:Consultar o resultado;
+stop
+@enduml
