@@ -41,11 +41,11 @@ export function ClassFormModal({
     )
   }, [open, editing, reset])
 
-  /*
-    `mutate` with a callback rather than awaiting `mutateAsync`: a refused save
-    is shown by `SaveError`, and awaiting a rejection that nothing catches sends
-    an unhandled rejection to the console as well.
-  */
+  /**
+   * `mutate` with a callback rather than awaiting `mutateAsync`: a refused save
+   * is shown by `SaveError`, and awaiting a rejection that nothing catches sends
+   * an unhandled rejection to the console as well.
+   */
   const onSubmit = (input: ClassInput) => {
     save.mutate({ id: editing?.id, input }, { onSuccess: () => onOpenChange(false) })
   }

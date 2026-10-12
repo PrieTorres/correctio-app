@@ -17,9 +17,9 @@ O portão de qualidade transforma isso em algo automático, em vez de depender d
 | # | Verificação | Bloqueia o merge se |
 |---|---|---|
 | 1 | **Instalação** (`npm ci`, Node fixado) | o lockfile estiver inconsistente |
-| 2 | **Lint** | houver erro de ESLint |
+| 2 | **Lint** (regras de `tooling/eslint/`, mais o idioma dos comentários) | houver erro de ESLint, função acima dos limites de complexidade ou comentário que não seja JSDoc |
 | 3 | **Verificação de tipos** (`tsc --noEmit`) | houver erro de tipo |
-| 4 | **Testes unitários + cobertura** | algum teste falhar ou a cobertura de código novo ficar abaixo de 80% |
+| 4 | **Testes unitários + cobertura** (inclui os testes das regras de lint, com `node:test`, e os da API contra um MySQL de verdade, que aplicam as migrations num banco vazio) | algum teste falhar ou a cobertura de código novo ficar abaixo de 80% |
 | 5 | **Build de produção** | o build quebrar |
 | 6 | **Testes E2E (Cypress)** | algum fluxo principal falhar |
 | 7 | **Auditoria de dependências** | houver vulnerabilidade alta ou crítica |
@@ -59,9 +59,36 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 | Gatilho | O que acontece |
 |---|---|
 | Pull Request aberto ou atualizado | portão de qualidade completo, sem publicar nada |
-| Merge em `main` | portão completo + publicação no GitHub Pages |
+| Merge em `main` | publica só o front no **GitHub Pages** (`pages.yml`), para teste: sem API nem banco, como na N1 |
+| Release do dia (`release.yml`) | portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
+| "Preview link" (`preview.yml`), sob demanda | publica qualquer branch, pelo nome ou pelo número do PR, na **pré-produção**, no projeto `correctio-app-preview`, num link próprio que expira em 7 dias e é comentado no PR |
+| "Republish a version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada, também com aprovação da PM: o caminho de volta quando uma release dá errado |
 
-Na N1 a publicação é o site estático no GitHub Pages, com o `index.html` copiado para `404.html` para as rotas funcionarem. Depois, Firebase Hosting — a troca é do passo de publicação, não do resto do fluxo.
+**Só a PM põe algo em produção.** Qualquer pessoa do time pode iniciar a release, mas o job que
+publica roda no ambiente `production` do GitHub, que tem a PM como revisora obrigatória: a execução
+para depois do portão e só segue quando ela aprova, na própria página da execução. A tag `vX.Y.Z`
+é criada por último, depois que a produção respondeu 200, então o número de uma versão sempre é o
+que está no ar.
+
+**Produção só recebe versão numerada.** A produção, no Firebase, acompanha a release do dia
+(`docs/Versionamento.md`). O GitHub Pages continua recebendo o front de cada merge, como na N1, para
+testar tela rápido; a pré-produção é onde se testa com API e banco.
+
+**Front e API no mesmo endereço.** O Firebase Hosting serve o front e encaminha `/api/**` para a
+função `api` (Cloud Functions, Node 22, região `us-west1`, perto do banco). Sem chamada entre
+origens, o navegador não precisa de CORS, e cada link de pré-produção fala com a API do próprio
+projeto.
+
+**A ordem de uma publicação** (`deploy.yml`, usado pelos três gatilhos acima):
+
+1. `npm ci` e build do front e da API
+2. migrations no banco do ambiente, antes da versão nova entrar no ar (migration só acrescenta,
+   então a versão em execução continua funcionando)
+3. publicação da API e depois do front, para o front novo nunca chamar uma API antiga
+4. `GET /api/health` no endereço publicado: qualquer resposta diferente de 200 reprova a publicação
+
+Duas publicações no mesmo ambiente nunca rodam juntas. Na pré-produção os links são por branch,
+mas a API é uma só: a da última branch publicada.
 
 ---
 
@@ -86,7 +113,30 @@ porque quem os cobre é o Cypress.
 
 **Cache das dependências.** `npm ci` sem cache é o passo mais lento do fluxo inteiro.
 
-**Segredos necessários:** apenas o token do SonarCloud. Publicação no GitHub Pages usa a credencial do próprio Actions.
+**Todo workflow que roda `npm test` sobe um MySQL.** O teste do schema da API falha na CI sem
+banco, de propósito: um teste de contrato pulado é por onde passaria uma coluna renomeada. O
+`pr.yml`, o `checks.yml` e o `release.yml` têm o mesmo serviço `mysql`.
+
+**Nenhuma chave de conta de serviço.** O GitHub prova ao Google qual repositório está pedindo
+(Workload Identity Federation) e recebe um token de poucos minutos. Não há chave para vazar nem
+para trocar.
+
+**No Firebase o corpo da requisição chega lido.** O runtime das Functions lê e interpreta o corpo
+antes do Express, com limite próprio de 10 MB, e o `express.json` não reaplica o dele. O limite de
+100 KB fica em `middlewares/body-limit.ts`, que mede o corpo já lido.
+
+**Segredos e variáveis:**
+
+| Onde | O quê |
+|---|---|
+| Secrets do repositório | `SONAR_TOKEN`, `CYPRESS_RECORD_KEY` |
+| Ambientes `production` e `preview` do GitHub, secrets | `DATABASE_URL` e `DATABASE_CA_CERT` do banco daquele ambiente, usados pelas migrations |
+| Ambientes `production` e `preview` do GitHub, variáveis | `FIREBASE_PROJECT_ID`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_DEPLOY_SERVICE_ACCOUNT` |
+| Secret Manager de cada projeto Firebase | `DATABASE_URL`, `DATABASE_CA_CERT`, `DATA_ENCRYPTION_KEY`, lidos pela API em execução |
+
+O mesmo nome em cada ambiente: o job declara `environment: production` ou `environment: preview`
+e recebe o conjunto certo. O ambiente `production` só aceita execuções da `main` e exige a
+aprovação da PM.
 
 ---
 
@@ -95,7 +145,7 @@ porque quem os cobre é o Cypress.
 | Fase | Fluxo |
 |---|---|
 | **N1** | Lint, tipos, testes unitários com cobertura, build, Sonar e publicação no GitHub Pages. O Cypress entra assim que houver fluxo navegável para testar. |
-| **N2** | Mesmo fluxo, mais os testes do back-end e as migrações do banco. Publicação passa a incluir a API. |
+| **N2** | Mesmo fluxo, mais os testes do back-end e as migrações do banco. Publicação passa a incluir a API, no Firebase: produção a cada release, pré-produção sob demanda. |
 | **N3** | Acrescenta verificação de acessibilidade automatizada (RNF11) e auditoria de dependências como bloqueio, não como aviso. |
 
 ---
@@ -107,11 +157,16 @@ na interface do GitHub, que nenhum arquivo versionado consegue ligar:
 
 | Item | Onde | Situação |
 |---|---|---|
-| GitHub Pages via Actions | Settings → Pages | ✅ ligado |
 | `SONAR_TOKEN` | Settings → Secrets | ✅ cadastrado |
 | `CYPRESS_RECORD_KEY` | Settings → Secrets | ✅ cadastrado |
-| Proteção da `main` | Settings → Rules | ⬜ **pendente** |
+| Proteção da `main` | Settings → Rules | ✅ ligada |
+| Projetos Firebase `correctio-app` e `correctio-app-preview`, no plano Blaze | console do Firebase, conta `correctioapp@gmail.com` | ✅ |
+| Workload Identity Federation e conta de serviço do deploy, em cada projeto | Google Cloud, IAM | ✅ |
+| Segredos da API no Secret Manager de cada projeto | Google Cloud, Secret Manager | ✅ |
+| Ambientes `production` (só `main`, PM como revisora obrigatória) e `preview` | Settings → Environments | ✅ |
+| Tags de versão `v*` não podem ser movidas nem apagadas (só a admin passa por cima) | Settings → Rules, "release tags" | ✅ |
+| GitHub Pages publicando o front da `main`, para teste | Settings → Pages, fonte GitHub Actions | ✅ |
 
-> **O Pages só publica depois que o workflow estiver na `main`.** O `deploy.yml` dispara em
-> push para a branch padrão, e o GitHub nem lista um workflow que ainda não existe lá. Antes
-> do primeiro merge, não há o que publicar — não é falha de configuração.
+> **Workflow sob demanda só aparece depois de estar na `main`.** O GitHub lista em Actions apenas
+> os workflows que existem na branch padrão, então o "Preview link" e o "Republish a version"
+> ficam disponíveis a partir do merge que os cria.

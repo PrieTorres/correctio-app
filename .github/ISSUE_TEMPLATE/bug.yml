@@ -1,0 +1,42 @@
+name: Bug
+description: Something on the system does not behave as expected
+title: "[bug] "
+labels: [bug]
+body:
+  - type: input
+    id: screen
+    attributes:
+      label: Tela / URL
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      value: |
+        1. 
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Esperado x obtido
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Vídeo ou print
+      description: Arraste o arquivo aqui ou cole o link.
+    validations:
+      required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist de aceite
+      value: |
+        - [ ] Corrigido e reproduzido de novo sem o erro
+        - [ ] Cenário do bug coberto por teste
+        - [ ] Vídeo do reteste anexado no PR
+    validations:
+      required: true

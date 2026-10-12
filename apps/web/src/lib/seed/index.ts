@@ -273,13 +273,14 @@ function seed(): void {
   window.localStorage.setItem(SEED_MARKER, new Date().toISOString())
 }
 
-/** Runs once per browser, at application boot. */
+/**
+ * Runs once per browser, at application boot. With storage unavailable (private
+ * window, blocked cookies) the app renders without demo data.
+ */
 export function seedIfEmpty(): void {
   try {
     if (window.localStorage.getItem(SEED_MARKER) === null) seed()
-  } catch {
-    /* Storage unavailable (private window, blocked cookies): render without demo data. */
-  }
+  } catch {}
 }
 
 /** Wipes everything and seeds again, for a clean demonstration. */

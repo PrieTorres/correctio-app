@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { studentInputSchema, studentSchema } from '../index'
+import { studentInputSchema, studentSchema } from '../schemas'
 
 /**
  * The e-mail of a student is optional, and a blank field has to mean that.
