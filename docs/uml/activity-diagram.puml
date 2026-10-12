@@ -1,0 +1,108 @@
+@startuml activity-diagram
+' Activity diagram of the grading flow in the N2, from creating an application
+' to the student reading the result through the QR code on the answer sheet.
+' Dashed means planned for the N2: the point turns solid when the issue next to
+' it is merged. PlantUML cannot dash a diamond, so a planned decision gets the
+' planned style, which only paints it white, and says "previsto" in its label.
+<style>
+activityDiagram {
+  .planned {
+    LineStyle 6-4
+    BackgroundColor #FFFFFF
+  }
+}
+</style>
+
+|Professor|
+start
+:Criar a aplicação: prova, turma e data;
+:Definir versões, embaralhamento e identificação;
+|Site|
+:Enviar a aplicação para a API;
+|API|
+:Gerar versões, folhas com QR Code e PDF;
+:Gravar versões e folhas no banco;
+|Professor|
+:Baixar o PDF, imprimir e aplicar a prova;
+|Aluno|
+:Preencher a folha de respostas;
+|Professor|
+:Fotografar as folhas pelo site;
+|Site|
+:Enviar as fotos para a API;
+|API|
+:Ler o QR Code e as marcações da foto;
+if <<planned>> (Leitura reconhecida?\n<i>previsto (#48 e #78)</i>) then ([Não])
+  -[dashed]->
+  |Professor|
+  :Inserir a correção manualmente (#48); <<planned>>
+  -[dashed]->
+else ([Sim])
+  |API|
+  :Corrigir as objetivas e gravar a leitura no banco;
+  if (Tem discursivas?) then ([Sim])
+    :Deixar a correção em andamento;
+  else ([Não])
+    :Deixar a correção aguardando confirmação;
+  endif
+  if (Prova com identificação?) then ([Não])
+    |Professor|
+    :Associar a folha pendente ao aluno;
+  else ([Sim])
+    |API|
+    :Vincular a correção ao aluno;
+  endif
+endif
+|Professor|
+repeat
+  :Revisar a leitura e lançar as discursivas, se houver;
+backward:Salvar sem finalizar;
+repeat while (Finalizar?) is ([Não]) not ([Sim])
+:Confirmar a correção;
+|Site|
+:Enviar a confirmação para a API;
+|API|
+:Gravar a correção confirmada no banco;
+|Professor|
+:Publicar o gabarito das versões;
+:Liberar as notas da aplicação;
+|Site|
+:Enviar a publicação e a liberação para a API;
+|API|
+if <<planned>> (Gabarito publicado?\n<i>previsto (#46)</i>) then ([Sim])
+  :Gravar a publicação e a liberação no banco;
+else ([Não])
+  -[dashed]->
+  :Recusar a liberação das notas (#46); <<planned>>
+  -[dashed]->
+endif
+|Aluno|
+:Escanear o QR Code da folha;
+|Site|
+:Abrir a página pública e pedir o resultado à API;
+|API|
+if (Código válido?) then ([Sim])
+  if (Gabarito da versão publicado?) then ([Sim])
+    if (Notas liberadas e folha corrigida?) then ([Sim])
+      if <<planned>> (Correção confirmada e concluída?\n<i>previsto (#47)</i>) then ([Sim])
+        :Devolver gabarito, nota e acertos;
+      else ([Não])
+        -[dashed]->
+        :Devolver só o gabarito (#47); <<planned>>
+        -[dashed]->
+      endif
+    else ([Não])
+      :Devolver só o gabarito;
+    endif
+  else ([Não])
+    :Devolver “ainda não liberado”;
+  endif
+else ([Não])
+  :Devolver “QR inválido”;
+endif
+|Site|
+:Exibir a resposta na página pública;
+|Aluno|
+:Consultar o resultado;
+stop
+@enduml
