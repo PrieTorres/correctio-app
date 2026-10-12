@@ -60,9 +60,15 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 |---|---|
 | Pull Request aberto ou atualizado | portão de qualidade completo, sem publicar nada |
 | Merge em `main` | nada é publicado: a `main` junta o trabalho do dia |
-| Release do dia (`release.yml`) | portão completo, tag e **publicação em produção**, no projeto Firebase `correctio-app` |
+| Release do dia (`release.yml`) | portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
 | "Preview link" (`preview.yml`), sob demanda | publica qualquer branch, pelo nome ou pelo número do PR, na **pré-produção**, no projeto `correctio-app-preview`, num link próprio que expira em 7 dias e é comentado no PR |
-| "Republish a version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada: o caminho de volta quando uma release dá errado |
+| "Republish a version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada, também com aprovação da PM: o caminho de volta quando uma release dá errado |
+
+**Só a PM põe algo em produção.** Qualquer pessoa do time pode iniciar a release, mas o job que
+publica roda no ambiente `production` do GitHub, que tem a PM como revisora obrigatória: a execução
+para depois do portão e só segue quando ela aprova, na própria página da execução. A tag `vX.Y.Z`
+é criada por último, depois que a produção respondeu 200, então o número de uma versão sempre é o
+que está no ar.
 
 **Produção só recebe versão numerada.** Na N1 cada merge publicava no GitHub Pages; a partir da
 N2 a publicação acompanha a release do dia (`docs/Versionamento.md`), e a pré-produção é onde se
@@ -129,7 +135,8 @@ antes do Express, com limite próprio de 10 MB, e o `express.json` não reaplica
 | Secret Manager de cada projeto Firebase | `DATABASE_URL`, `DATABASE_CA_CERT`, `DATA_ENCRYPTION_KEY`, lidos pela API em execução |
 
 O mesmo nome em cada ambiente: o job declara `environment: production` ou `environment: preview`
-e recebe o conjunto certo. O ambiente `production` só aceita execuções da `main`.
+e recebe o conjunto certo. O ambiente `production` só aceita execuções da `main` e exige a
+aprovação da PM.
 
 ---
 
@@ -153,10 +160,11 @@ na interface do GitHub, que nenhum arquivo versionado consegue ligar:
 | `SONAR_TOKEN` | Settings → Secrets | ✅ cadastrado |
 | `CYPRESS_RECORD_KEY` | Settings → Secrets | ✅ cadastrado |
 | Proteção da `main` | Settings → Rules | ✅ ligada |
-| Projetos Firebase `correctio-app` e `correctio-app-preview`, no plano Blaze | console do Firebase, conta `correctioapp@gmail.com` | ⬜ pendente |
-| Workload Identity Federation e conta de serviço do deploy, em cada projeto | Google Cloud, IAM | ⬜ pendente |
-| Segredos da API no Secret Manager de cada projeto | Google Cloud, Secret Manager | ⬜ pendente |
-| Ambientes `production` (só `main`) e `preview` | Settings → Environments | ⬜ pendente |
+| Projetos Firebase `correctio-app` e `correctio-app-preview`, no plano Blaze | console do Firebase, conta `correctioapp@gmail.com` | ✅ |
+| Workload Identity Federation e conta de serviço do deploy, em cada projeto | Google Cloud, IAM | ✅ |
+| Segredos da API no Secret Manager de cada projeto | Google Cloud, Secret Manager | ✅ |
+| Ambientes `production` (só `main`, PM como revisora obrigatória) e `preview` | Settings → Environments | ✅ |
+| Tags de versão `v*` não podem ser movidas nem apagadas (só a admin passa por cima) | Settings → Rules, "release tags" | ✅ |
 | Link da N1 no GitHub Pages redirecionando para o Firebase | Actions → "Redirect GitHub Pages to Firebase" | ⬜ rodar uma vez, depois da primeira release no Firebase |
 
 > **Workflow sob demanda só aparece depois de estar na `main`.** O GitHub lista em Actions apenas

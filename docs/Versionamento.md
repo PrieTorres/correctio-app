@@ -49,8 +49,10 @@ As entregas são agrupadas em **uma release por dia de trabalho**, e não uma po
 ### Como sair
 
 1. Confirme que a `main` está verde. Para testar antes num link de verdade, publique a `main` na pré-produção pelo workflow **Preview link**.
-2. Rode o workflow **Release do dia** (aba Actions → Run workflow) informando a versão, por exemplo `0.4.0`.
-3. O workflow roda o portão de qualidade inteiro, fixa a versão nos `package.json`, cria a tag `v0.4.0`, publica a release com as notas geradas a partir dos PRs mergeados desde a tag anterior e **publica essa versão em produção** (`https://correctio-app.web.app`). Se a publicação falhar, a release continua criada, e o workflow **Republish a version** tenta de novo.
+2. Rode o workflow **Release do dia** (aba Actions → Run workflow) informando a versão, por exemplo `1.2.0`.
+3. O workflow recusa uma versão que já existe e roda o portão de qualidade inteiro.
+4. **A PM aprova a publicação** na página da execução ("Review deployments"). Sem a aprovação dela, nada vai para produção e nenhuma tag é criada.
+5. O workflow **publica em produção** (`https://correctio-app.web.app`) exatamente o commit que passou no portão e, com a produção respondendo, cria a tag `v1.2.0` e a release com as notas geradas a partir dos PRs mergeados desde a tag anterior. Se a publicação falhar, nenhuma tag é criada: corrija e rode de novo com a mesma versão.
 
 Nenhuma release sai de código que não passa no portão — é a mesma barreira do merge, aplicada de novo antes de publicar.
 
@@ -71,8 +73,8 @@ O projeto usa Conventional Commits nos títulos de PR e nos commits:
 
 ## 4. Onde a versão vive
 
-Em `package.json` na raiz e em `apps/web/package.json`, mantidos em sincronia pelo workflow. **Ninguém edita a versão à mão** — quem faz isso é o workflow, para que a tag, o commit e o manifesto nunca divirjam.
+**Na tag e na release**, criadas pelo workflow. A `main` só aceita mudança por Pull Request, então a release não faz commit: ela marca com a tag o commit que passou no portão. O campo `version` dos `package.json` fica parado e não é lido por nada do app; a versão publicada é sempre a da tag. **Ninguém cria tag à mão** — quem faz isso é o workflow, para que tag, release e produção nunca divirjam.
 
 ## 5. Estado atual
 
-**`0.0.0`** — fundação. Estrutura, portão de qualidade, camada de dados e a primeira tela funcionando. Ver o plano de execução para os próximos passos.
+**`1.1.0`** — primeira release com tag: a N1 completa mais a infraestrutura da N2 (API, banco MySQL e publicação no Firebase), ainda sem telas ligadas ao banco. A `2.0.0` sai na entrega da N2.
