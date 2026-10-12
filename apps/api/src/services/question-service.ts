@@ -11,7 +11,7 @@ export class QuestionService {
     const parsed = questionInputSchema.safeParse(data);
 
     if (!parsed.success) {
-      throw new ApiError('invalid', 'Invalid question data.');
+      throw new ApiError('invalid', 'Dados da questão inválidos.');
     }
 
     const id = randomUUID();
@@ -22,7 +22,7 @@ export class QuestionService {
     const question = await this.repository.findById(id, teacherId);
 
     if (!question) {
-      throw new ApiError('not-found', 'Question not found.');
+      throw new ApiError('not-found', 'Questão não encontrada.');
     }
 
     return question;
