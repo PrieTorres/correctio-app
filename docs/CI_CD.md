@@ -59,7 +59,7 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 | Gatilho | O que acontece |
 |---|---|
 | Pull Request aberto ou atualizado | portão de qualidade completo, sem publicar nada |
-| Merge em `main` | nada é publicado: a `main` junta o trabalho do dia |
+| Merge em `main` | publica só o front no **GitHub Pages** (`pages.yml`), para teste: sem API nem banco, como na N1 |
 | Release do dia (`release.yml`) | portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
 | "Preview link" (`preview.yml`), sob demanda | publica qualquer branch, pelo nome ou pelo número do PR, na **pré-produção**, no projeto `correctio-app-preview`, num link próprio que expira em 7 dias e é comentado no PR |
 | "Republish a version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada, também com aprovação da PM: o caminho de volta quando uma release dá errado |
@@ -70,9 +70,9 @@ para depois do portão e só segue quando ela aprova, na própria página da exe
 é criada por último, depois que a produção respondeu 200, então o número de uma versão sempre é o
 que está no ar.
 
-**Produção só recebe versão numerada.** Na N1 cada merge publicava no GitHub Pages; a partir da
-N2 a publicação acompanha a release do dia (`docs/Versionamento.md`), e a pré-produção é onde se
-testa antes.
+**Produção só recebe versão numerada.** A produção, no Firebase, acompanha a release do dia
+(`docs/Versionamento.md`). O GitHub Pages continua recebendo o front de cada merge, como na N1, para
+testar tela rápido; a pré-produção é onde se testa com API e banco.
 
 **Front e API no mesmo endereço.** O Firebase Hosting serve o front e encaminha `/api/**` para a
 função `api` (Cloud Functions, Node 22, região `us-west1`, perto do banco). Sem chamada entre
@@ -165,7 +165,7 @@ na interface do GitHub, que nenhum arquivo versionado consegue ligar:
 | Segredos da API no Secret Manager de cada projeto | Google Cloud, Secret Manager | ✅ |
 | Ambientes `production` (só `main`, PM como revisora obrigatória) e `preview` | Settings → Environments | ✅ |
 | Tags de versão `v*` não podem ser movidas nem apagadas (só a admin passa por cima) | Settings → Rules, "release tags" | ✅ |
-| Link da N1 no GitHub Pages redirecionando para o Firebase | Actions → "Redirect GitHub Pages to Firebase" | ⬜ rodar uma vez, depois da primeira release no Firebase |
+| GitHub Pages publicando o front da `main`, para teste | Settings → Pages, fonte GitHub Actions | ✅ |
 
 > **Workflow sob demanda só aparece depois de estar na `main`.** O GitHub lista em Actions apenas
 > os workflows que existem na branch padrão, então o "Preview link" e o "Republish a version"

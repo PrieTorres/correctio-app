@@ -20,13 +20,13 @@ describe('loadEnv', () => {
   })
 
   it('reads a list of origins separated by commas', () => {
-    const env = loadEnv({ NODE_ENV: 'test', CORS_ORIGINS: ' https://prietorres.github.io , http://localhost:5173 ' })
+    const env = loadEnv({ NODE_ENV: 'test', CORS_ORIGINS: ' https://correctio-app.web.app , http://localhost:5173 ' })
 
-    expect(env.CORS_ORIGINS).toEqual(['https://prietorres.github.io', 'http://localhost:5173'])
+    expect(env.CORS_ORIGINS).toEqual(['https://correctio-app.web.app', 'http://localhost:5173'])
   })
 
   it('refuses an origin with a path, which a browser would never send', () => {
-    expect(() => loadEnv({ NODE_ENV: 'test', CORS_ORIGINS: 'https://prietorres.github.io/correctio-app/' })).toThrow(
+    expect(() => loadEnv({ NODE_ENV: 'test', CORS_ORIGINS: 'https://correctio-app.web.app/turmas/' })).toThrow(
       /CORS_ORIGINS/,
     )
   })
