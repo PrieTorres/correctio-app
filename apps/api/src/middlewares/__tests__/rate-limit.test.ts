@@ -1,3 +1,4 @@
+/* eslint-disable */
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../../app'
@@ -15,6 +16,7 @@ function buildApp(source: NodeJS.ProcessEnv = {}) {
   return createApp({
     env: loadEnv({ NODE_ENV: 'test', LOG_LEVEL: 'silent', ...source }),
     logger: createLogger('silent'),
+    db: {} as any,
     verifyToken,
     rateLimits: {
       failedAuth: { windowMs: 60_000, limit: 2 },

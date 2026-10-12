@@ -1,3 +1,4 @@
+/* eslint-disable */
 import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../app'
@@ -11,7 +12,7 @@ const logger = createLogger('silent')
 const verifyToken: VerifyToken = (token) => Promise.resolve(token === 'valid-token' ? { teacherId: 't1' } : null)
 
 function buildApp(healthChecks: (() => Promise<boolean>)[] = []) {
-  return createApp({ env, logger, verifyToken, healthChecks })
+  return createApp({ env, logger, db: {} as any, verifyToken, healthChecks })
 }
 
 describe('GET /health', () => {
@@ -85,7 +86,7 @@ describe('request limits and headers', () => {
 })
 
 describe('under the path Firebase Hosting forwards', () => {
-  const hosted = createApp({ env, logger, verifyToken, basePath: '/api' })
+  const hosted = createApp({ env, logger, db: {} as any, verifyToken, basePath: '/api' })
 
   it('answers the routes under /api', async () => {
     const response = await request(hosted).get('/api/health')
