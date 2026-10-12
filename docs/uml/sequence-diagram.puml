@@ -1,0 +1,70 @@
+@startuml
+!theme plain
+skinparam responseMessageBelowArrow true
+
+actor "Professor" as Prof
+participant "Site (React)" as Front
+box "API Express" #LightYellow
+    participant "Router" as Rota
+    participant "Controller" as Ctrl
+    participant "Service" as Serv
+    participant "Repository" as Repo
+end box
+participant "Armazenamento\nde Imagens" as Storage
+database "MySQL" as DB
+
+== Envio da Foto (Upload) ==
+Prof -> Front: 1. Tira foto da folha de respostas
+Front -> Front: Lê o QR Code e as marcações
+Front -> Rota: 2. POST /corrections\n(Token JWT no cabeçalho)
+Rota -> Rota: Valida JWT
+
+alt Token Inválido ou Ausente
+    Rota --> Front: 401 Unauthorized
+end
+
+Rota -> Ctrl: Encaminha requisição
+Ctrl -> Serv: validateAndProcessImage(file)
+
+alt Arquivo não é imagem ou excede tamanho
+    Serv --> Ctrl: Erro de Validação
+    Ctrl --> Front: 400 Bad Request { "code": "invalid" }
+end
+
+Serv -> Storage: 3. Salva a imagem
+Storage --> Serv: URL da Imagem
+Serv -> Repo: 4. saveDraftCorrection(dados)
+Repo -> DB: INSERT na tabela Correction (status="IN_PROGRESS")
+DB --> Repo: Confirmação
+Repo --> Serv: Correction ID
+Serv --> Ctrl: Retorna dados preliminares
+Ctrl --> Rota: 201 Created
+Rota --> Front: Retorna ID da Correção
+Front --> Prof: Exibe a tela P16 (Revisão da Correção)
+
+== Confirmação da Correção ==
+Prof -> Front: 5. Confirma a nota e correções
+Front -> Rota: 6. POST /corrections/{id}/confirm\n(Token JWT no cabeçalho)
+Rota -> Rota: Valida JWT
+Rota -> Ctrl: Encaminha requisição
+Ctrl -> Serv: confirmCorrection(id, professorId)
+Serv -> Repo: findCorrectionById(id)
+Repo -> DB: SELECT * FROM Correction WHERE id
+DB --> Repo: Resultado
+
+alt Correção pertence a outro professor
+    Repo --> Serv: Acesso negado
+    Serv --> Ctrl: Erro de Autorização
+    Ctrl --> Front: 404 Not Found { "code": "not-found" }
+end
+
+Serv -> Repo: 7. updateConfirmation(id)
+Repo -> DB: UPDATE Correction SET status="DONE", \nconfirmedAt=NOW()
+DB --> Repo: Confirmação (RNF07 - Nota passa a valer)
+Repo --> Serv: Sucesso
+Serv --> Ctrl: Retorna sucesso
+Ctrl --> Rota: 200 OK
+Rota --> Front: Confirmação de salvamento
+Front --> Prof: Exibe mensagem de sucesso
+
+@enduml
