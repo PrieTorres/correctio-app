@@ -1,70 +1,77 @@
-@startuml
+@startuml sequence-diagram
+' Sequence of the grading flow in the N2: the teacher sends the photo of one
+' answer sheet, reviews what the API read and confirms. Routes and timing follow
+' issue #47: sending a photo stores no correction; the correction is only
+' written when the teacher saves the review, and the grade counts once it is
+' finalized (RNF07). Errors use break, because each one ends the request.
 !theme plain
 skinparam responseMessageBelowArrow true
 
 actor "Professor" as Prof
 participant "Site (React)" as Front
-box "API Express" #LightYellow
-    participant "Router" as Rota
+box "API (Express)" #LightYellow
+    participant "Router" as Route
+    participant "requireAuth" as Auth
     participant "Controller" as Ctrl
     participant "Service" as Serv
+    participant "SheetReader\n(fora da thread principal)" as Reader
     participant "Repository" as Repo
 end box
-participant "Armazenamento\nde Imagens" as Storage
+participant "Armazenamento\nde imagens" as Storage
 database "MySQL" as DB
 
-== Envio da Foto (Upload) ==
-Prof -> Front: 1. Tira foto da folha de respostas
-Front -> Front: Lê o QR Code e as marcações
-Front -> Rota: 2. POST /corrections\n(Token JWT no cabeçalho)
-Rota -> Rota: Valida JWT
-
-alt Token Inválido ou Ausente
-    Rota --> Front: 401 Unauthorized
+== 1. Envio da foto (P15) ==
+Prof -> Front: Fotografa a folha de respostas
+Front -> Route: POST /applications/:id/sheet-images\nAuthorization: Bearer <token>\nmultipart, campo "image"
+Route -> Auth: Confere o token
+break token ausente ou inválido
+    Auth --> Front: 401 { code: "unauthorized" }
 end
-
-Rota -> Ctrl: Encaminha requisição
-Ctrl -> Serv: validateAndProcessImage(file)
-
-alt Arquivo não é imagem ou excede tamanho
-    Serv --> Ctrl: Erro de Validação
-    Ctrl --> Front: 400 Bad Request { "code": "invalid" }
+Auth --> Route: teacherId do token
+Route -> Ctrl: Encaminha a requisição
+Ctrl -> Serv: Recebe a foto (aplicação, imagem, teacherId)
+Serv -> Serv: Confere tipo e tamanho do arquivo
+break não é imagem ou passa do limite
+    Serv --> Ctrl: Erro de validação
+    Ctrl --> Front: 400 { code: "invalid", message }
 end
-
-Serv -> Storage: 3. Salva a imagem
-Storage --> Serv: URL da Imagem
-Serv -> Repo: 4. saveDraftCorrection(dados)
-Repo -> DB: INSERT na tabela Correction (status="IN_PROGRESS")
-DB --> Repo: Confirmação
-Repo --> Serv: Correction ID
-Serv --> Ctrl: Retorna dados preliminares
-Ctrl --> Rota: 201 Created
-Rota --> Front: Retorna ID da Correção
-Front --> Prof: Exibe a tela P16 (Revisão da Correção)
-
-== Confirmação da Correção ==
-Prof -> Front: 5. Confirma a nota e correções
-Front -> Rota: 6. POST /corrections/{id}/confirm\n(Token JWT no cabeçalho)
-Rota -> Rota: Valida JWT
-Rota -> Ctrl: Encaminha requisição
-Ctrl -> Serv: confirmCorrection(id, professorId)
-Serv -> Repo: findCorrectionById(id)
-Repo -> DB: SELECT * FROM Correction WHERE id
-DB --> Repo: Resultado
-
-alt Correção pertence a outro professor
-    Repo --> Serv: Acesso negado
-    Serv --> Ctrl: Erro de Autorização
-    Ctrl --> Front: 404 Not Found { "code": "not-found" }
+Serv -> Storage: Guarda a imagem
+Storage --> Serv: Referência da imagem
+Serv -> Reader: Lê o QR Code e as marcações
+Reader --> Serv: READ, QR_NOT_RECOGNIZED ou READ_FAILED
+opt leitura falhou
+    Serv -> Repo: Registra a falha (sem dado pessoal)
+    Repo -> DB: INSERT INTO activity_logs
 end
+Serv --> Ctrl: Referência da imagem e resultado da leitura
+Ctrl --> Front: 201 { imagem, leitura }
+note over Front, DB: Nenhuma correção é gravada no envio: a leitura fica no site até a revisão
+Front --> Prof: Abre a revisão (P16)
 
-Serv -> Repo: 7. updateConfirmation(id)
-Repo -> DB: UPDATE Correction SET status="DONE", \nconfirmedAt=NOW()
-DB --> Repo: Confirmação (RNF07 - Nota passa a valer)
-Repo --> Serv: Sucesso
-Serv --> Ctrl: Retorna sucesso
-Ctrl --> Rota: 200 OK
-Rota --> Front: Confirmação de salvamento
-Front --> Prof: Exibe mensagem de sucesso
+== 2. Revisão e confirmação (P16) ==
+Prof -> Front: Revisa a leitura, lança as discursivas e confirma
+Front -> Route: POST /applications/:id/corrections\nAuthorization: Bearer <token>\n{ answerSheetId, alternativas marcadas,\ndiscursiveScores, finalize: true }
+Route -> Auth: Confere o token (mesmo 401 do envio)
+Auth --> Route: teacherId do token
+Route -> Ctrl: Encaminha a requisição
+Ctrl -> Serv: Grava a revisão
+Serv -> Repo: Busca a folha nesta aplicação do professor
+Repo -> DB: SELECT ... FROM answer_sheets JOIN applications\nWHERE id = ? AND teacherId = ?
+break nenhuma linha: folha de outro professor ou inexistente
+    DB --> Repo: Nada encontrado
+    Repo --> Serv: Não encontrada
+    Serv --> Ctrl: Não encontrada
+    Ctrl --> Front: 404 { code: "not-found" }, nunca 403
+end
+DB --> Repo: Folha
+Serv -> Serv: Recalcula acertos, nota e status\n(DONE com todas as discursivas lançadas)
+Serv -> Repo: Grava a correção
+Repo -> DB: INSERT INTO corrections\n(status = "DONE", correctedBy, confirmedAt = agora)
+note right of DB: Só aqui a nota passa a valer (RNF07)
+DB --> Repo: Correção gravada
+Repo --> Serv: Correção
+Serv --> Ctrl: Correção
+Ctrl --> Front: 201 { correção }
+Front --> Prof: Mostra a correção confirmada
 
 @enduml
