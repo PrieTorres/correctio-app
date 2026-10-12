@@ -11,9 +11,9 @@ const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'
 export const DATABASE_TLS = Object.freeze({ VERIFY: 'verify', LOCAL: 'local' } as const)
 
 /**
- * An origin is scheme and host only. A browser sends `https://prietorres.github.io`
- * even when the page lives under `/correctio-app/`, so a path here would match
- * nothing and every request from the published site would be refused.
+ * An origin is scheme and host only. A browser sends `https://correctio-app.web.app`
+ * even when the page is `/turmas/42`, so a path here would match nothing and
+ * every request from the published site would be refused.
  */
 const origin = z
   .string()
