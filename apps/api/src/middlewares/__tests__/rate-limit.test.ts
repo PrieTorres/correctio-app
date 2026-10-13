@@ -1,9 +1,10 @@
-/* eslint-disable */
 import request from 'supertest'
+import type { Kysely } from 'kysely'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../../app'
 import { loadEnv } from '../../config/env'
 import { createLogger } from '../../lib/logger'
+import type { Database } from '../../models/tables'
 import type { VerifyToken } from '../require-auth'
 
 const TOKENS: Readonly<Record<string, string>> = { 'token-ana': 'ana', 'token-bia': 'bia' }
@@ -16,7 +17,7 @@ function buildApp(source: NodeJS.ProcessEnv = {}) {
   return createApp({
     env: loadEnv({ NODE_ENV: 'test', LOG_LEVEL: 'silent', ...source }),
     logger: createLogger('silent'),
-    db: {} as any,
+    db: {} as Kysely<Database>,
     verifyToken,
     rateLimits: {
       failedAuth: { windowMs: 60_000, limit: 2 },

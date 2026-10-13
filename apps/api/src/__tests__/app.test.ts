@@ -1,9 +1,10 @@
-/* eslint-disable */
 import request from 'supertest'
+import type { Kysely } from 'kysely'
 import { describe, expect, it } from 'vitest'
 import { createApp } from '../app'
 import { loadEnv } from '../config/env'
 import { createLogger } from '../lib/logger'
+import type { Database } from '../models/tables'
 import type { VerifyToken } from '../middlewares/require-auth'
 
 const ALLOWED_ORIGIN = 'http://localhost:5173'
@@ -12,7 +13,7 @@ const logger = createLogger('silent')
 const verifyToken: VerifyToken = (token) => Promise.resolve(token === 'valid-token' ? { teacherId: 't1' } : null)
 
 function buildApp(healthChecks: (() => Promise<boolean>)[] = []) {
-  return createApp({ env, logger, db: {} as any, verifyToken, healthChecks })
+  return createApp({ env, logger, db: {} as Kysely<Database>, verifyToken, healthChecks })
 }
 
 describe('GET /health', () => {
@@ -86,7 +87,7 @@ describe('request limits and headers', () => {
 })
 
 describe('under the path Firebase Hosting forwards', () => {
-  const hosted = createApp({ env, logger, db: {} as any, verifyToken, basePath: '/api' })
+  const hosted = createApp({ env, logger, db: {} as Kysely<Database>, verifyToken, basePath: '/api' })
 
   it('answers the routes under /api', async () => {
     const response = await request(hosted).get('/api/health')
