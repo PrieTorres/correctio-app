@@ -62,6 +62,7 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 | Merge em `main` | publica só o front no **GitHub Pages** (`pages.yml`), para teste: sem API nem banco, como na N1 |
 | Release do dia (`release.yml`) | portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
 | "Preview link" (`preview.yml`), sob demanda | publica qualquer branch, pelo nome ou pelo número do PR, na **pré-produção**, no projeto `correctio-app-preview`, num link próprio que expira em 7 dias e é comentado no PR |
+| A cada 6 horas (`keep-alive.yml`) | chama o `/api/health` da produção. O plano gratuito do Aiven desliga o banco depois de 24 horas sem consulta, e a produção cai junto; uma execução que falha avisa por e-mail que a produção está respondendo 503 |
 | "Republish a version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada, também com aprovação da PM: o caminho de volta quando uma release dá errado |
 
 **Só a PM põe algo em produção.** Qualquer pessoa do time pode iniciar a release, mas o job que

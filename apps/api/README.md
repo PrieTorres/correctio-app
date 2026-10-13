@@ -41,6 +41,9 @@ npm run db:reset             # desfaz todas
   Em produção, `verify` com `DATABASE_CA_CERT` é obrigatório. Conexão sem criptografia é recusada.
 - **Hospedagem:** o MySQL hospedado é o plano gratuito do Aiven, e a API roda no Firebase
   (Cloud Functions), com o deploy na #39. As credenciais ficam só no gerenciador de segredos.
+  O Aiven gratuito desliga o serviço depois de 24 horas sem consulta; o workflow
+  `keep-alive.yml` chama o `/api/health` a cada 6 horas para isso não acontecer. Se acontecer,
+  religue em **Power on** no console do Aiven.
 
 ### Um banco por ambiente
 
