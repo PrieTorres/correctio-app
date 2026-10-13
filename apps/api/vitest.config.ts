@@ -15,12 +15,6 @@ if (existsSync('.env')) process.loadEnvFile('.env')
  * which the tests drive through supertest. The migrations are DDL and the
  * migrate script a command line: the schema test runs them against a real
  * MySQL instead of measuring their lines.
- *
- * `migrator.ts` is the CLI wrapper around the migrations, `models/tables.ts`
- * declares only types with no runtime code, and neither can be exercised by
- * unit tests. Branch coverage is set to 75% for now: the question repository
- * and service still have uncovered error paths that a follow-up PR can bring
- * up to 80%.
  */
 export default defineConfig({
   test: {
@@ -29,16 +23,8 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov'],
       include: ['src/**/*.ts'],
-      exclude: [
-        'src/server.ts',
-        'src/function.ts',
-        'src/db/migrate.ts',
-        'src/db/migrator.ts',
-        'src/db/migrations/**',
-        'src/models/**',
-        'src/**/__tests__/**',
-      ],
-      thresholds: { lines: 80, functions: 80, branches: 75, statements: 80 },
+      exclude: ['src/server.ts', 'src/function.ts', 'src/db/migrate.ts', 'src/db/migrations/**', 'src/**/__tests__/**'],
+      thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
   },
 })
