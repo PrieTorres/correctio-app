@@ -15,6 +15,7 @@ build/
 
 # tests
 coverage/
+.vitest/
 **/cypress/screenshots/
 **/cypress/videos/
 
