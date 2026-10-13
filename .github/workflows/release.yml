@@ -1,4 +1,4 @@
-name: Release do dia
+name: "2. Release: publish to production"
 
 # Manual, in three stages: the quality gate, then production, then the tag.
 # Anyone on the team can start it, but the publish job runs in the production
@@ -64,7 +64,7 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" --silent 2>/dev/null; then
-            echo "::error::A versão v$VERSION já existe. Para publicar de novo em produção, use o workflow Republish a version."
+            echo "::error::A versão v$VERSION já existe. Para publicar de novo em produção, use o workflow \"Rollback: republish a released version\"."
             exit 1
           fi
 

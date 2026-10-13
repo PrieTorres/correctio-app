@@ -134,5 +134,5 @@ encaminha `/api/**` para ela, então em produção as rotas respondem em
 - A função também responde no endereço direto do Google, sem passar pelo Hosting, e ali o
   `X-Forwarded-For` pode ser forjado: os limites por endereço valem para quem usa o site, não para
   quem chama a função direto. Os limites por professor não dependem do endereço.
-- Quem publica é o workflow `deploy.yml`, chamado pela release (produção) e pelo "Preview link"
+- Quem publica é o workflow `deploy.yml`, chamado pela release (produção) e pelo "1. Pre-release"
   (pré-produção). Ordem e segredos: `docs/CI_CD.md`, seção 4.

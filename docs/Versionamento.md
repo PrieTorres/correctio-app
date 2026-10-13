@@ -48,11 +48,17 @@ As entregas são agrupadas em **uma release por dia de trabalho**, e não uma po
 
 ### Como sair
 
-1. Confirme que a `main` está verde. Para testar antes num link de verdade, publique a `main` na pré-produção pelo workflow **Preview link**.
-2. Rode o workflow **Release do dia** (aba Actions → Run workflow) informando a versão, por exemplo `1.2.0`.
-3. O workflow recusa uma versão que já existe e roda o portão de qualidade inteiro.
-4. **A PM aprova a publicação** na página da execução ("Review deployments"). Sem a aprovação dela, nada vai para produção e nenhuma tag é criada.
-5. O workflow **publica em produção** (`https://correctio-app.web.app`) exatamente o commit que passou no portão e, com a produção respondendo, cria a tag `v1.2.0` e a release com as notas geradas a partir dos PRs mergeados desde a tag anterior. Se a publicação falhar, nenhuma tag é criada: corrija e rode de novo com a mesma versão.
+**Pré-versão:** a `main` junta os PRs do dia, e o merge não publica nada em produção.
+
+1. Rode **"1. Pre-release: publish to pre-production"** (aba Actions → Run workflow) com `main`. A PM aprova em "Review deployments", e a pré-versão do dia sobe no link de pré-produção, com API e banco próprios.
+2. Testem no link. Achou problema, corrige por PR na `main` e publica a pré de novo.
+
+**Versão oficial:**
+
+1. Rode **"2. Release: publish to production"** informando a versão, por exemplo `1.2.0`.
+2. O workflow recusa uma versão que já existe e roda o portão de qualidade inteiro.
+3. **A PM aprova a publicação** na página da execução ("Review deployments"). Sem a aprovação dela, nada vai para produção e nenhuma tag é criada.
+4. O workflow **publica em produção** (`https://correctio-app.web.app`) exatamente o commit que passou no portão e, com a produção respondendo, cria a tag `v1.2.0` e a release com as notas geradas a partir dos PRs mergeados desde a tag anterior. Se a publicação falhar, nenhuma tag é criada: corrija e rode de novo com a mesma versão.
 
 Nenhuma release sai de código que não passa no portão — é a mesma barreira do merge, aplicada de novo antes de publicar.
 
