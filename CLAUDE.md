@@ -35,9 +35,9 @@ e a seção 9 de [docs/Arquitetura.md](docs/Arquitetura.md).
 
 Pelo mesmo motivo, **não construa** rota, tela ou repositório de aluno: seria código morto.
 
-O mesmo vale para `Correction.clientCorrectionId` e `syncStatus`: servem a um app mobile que
-não existe, este site não os trata, e continuam no contrato porque chegariam pela API se
-alguém migrasse para cá.
+`Correction.clientCorrectionId` e `syncStatus` são obrigatórios, como na Spec: o site gera o
+`clientCorrectionId` no servidor e grava `syncStatus: "synced"`. Um app que migre para cá manda
+os seus, e a API preserva.
 
 ### Atualização não pode apagar campo que o cliente não conhece
 
@@ -58,16 +58,31 @@ Duas armadilhas, as duas já corrigidas e cobertas por teste — não reintroduz
   `"objetiva"`. O que o grupo acrescenta usa `SCREAMING_SNAKE_CASE` em inglês e é exposto por
   objeto congelado (`CORRECTION_STATUS.DONE`), nunca string solta no ponto de uso. A caixa
   diz qual valor pode ser renomeado e qual está preso ao contrato.
-- **Sem comentário `//`.** Apenas JSDoc quando agrega, ou `TODO` quando inevitável.
+- **Só JSDoc.** Nenhum comentário `//` ou `/* */`: o porquê vai num bloco `/** */` na
+  declaração que ele explica (componente, função, constante, propriedade). Dentro de JSX,
+  o motivo sobe para o JSDoc do componente. Exceções: diretivas de ferramenta
+  (`eslint-…`, `@ts-expect-error`, `/// <reference>`) e `TODO(#issue):`, que nomeia a issue
+  que o remove.
 - Comentário explica **por que**, nunca o que a linha já diz. Se precisa de explicação ao
   lado, o nome está mal escolhido — renomeie em vez de comentar.
 - **Comentário em inglês em todo arquivo versionado**, incluindo workflows, `.properties` e
   `.gitignore`. Português vive só em `docs/` e no texto de interface.
 
 As três regras acima são verificadas pelo build, não por revisão:
-`conventions/no-line-comments` e `conventions/english-only-comments` no ESLint para
-`.ts`/`.tsx`/`.js`, e `npm run lint:comments` para os arquivos que o ESLint não alcança.
-- Funções pequenas, com escopo definido e testáveis isoladamente.
+`conventions/jsdoc-only-comments` e `conventions/english-only-comments` (em
+`tooling/eslint/conventions.js`), mais `jsdoc/informative-docs`, que recusa JSDoc que só repete
+o nome, no ESLint para `.ts`/`.tsx`/`.js`; e `npm run lint:comments` para os arquivos que o
+ESLint não alcança.
+- Funções pequenas, com escopo definido e testáveis isoladamente. O lint barra função acima
+  de complexidade ciclomática 10, complexidade cognitiva 15 (a mesma regra e o mesmo limite do
+  SonarCloud), 3 níveis de aninhamento ou 4 parâmetros (`tooling/eslint/base.js`). Acima de
+  4 parâmetros, receba um objeto de opções.
+- **Lista de pendência de complexidade.** As funções que já passavam dos limites estão
+  congeladas no valor de hoje em `LEGACY_COMPLEXITY` (`apps/web/eslint.config.js`): não podem
+  piorar. Quem mexer num desses arquivos quebra a função em partes com nome e apaga a entrada.
+  A lista só diminui; nunca acrescente.
+- **Regras de lint vivem em `tooling/eslint/`.** Cada workspace compõe `createBaseConfig` e só
+  acrescenta o que é do seu runtime (os plugins de React, no web). Não repita regra no app.
 - DRY: antes de criar componente, hook, util ou tipo, procure o que já existe.
 - TypeScript estrito. Sem `any`; `unknown` na fronteira, com validação.
 - Dado remoto vive no TanStack Query — nunca em `useState` nem em store global.
@@ -108,6 +123,13 @@ A cada feature nova, **todas as regras e funcionalidades do sistema continuam va
 Cypress** — a que entrou agora e as que já existiam. Feature nova que muda uma tela existente
 sem revisar o spec dela é como as regressões chegam.
 
+**A jornada é o vídeo de todo PR.** `cypress/journey/journey.cy.ts` é um teste único que parte
+de uma conta vazia e percorre o sistema inteiro, do cadastro ao relatório, com 800 ms entre
+cada ação e um título numerado por etapa. A CI grava o vídeo dela em todo PR
+(`npm run test:e2e:journey`), sobe como artifact e escreve o link na seção "Vídeo do teste".
+Feature nova entra também na jornada, na ordem em que o professor a usaria: se ela não aparece
+no vídeo, o PR não mostra o que entregou.
+
 Antes de abrir o PR, para cada tela que a mudança tocou:
 
 1. o spec dela ainda descreve o que a tela faz hoje?
@@ -136,11 +158,12 @@ Erros que já aconteceram e não podem repetir:
 ## Estrutura
 
 ```
-apps/web/     front-end React + Vite (N1 em localStorage)
-apps/api/     back-end Express + MySQL (a partir da N2)
-docs/         documentação — ver índice no readme.md
-.plano/       plano de execução interno, fora do controle de versão
-.ui_v1/       protótipo visual de referência, fora do controle de versão
+apps/web/          front-end React + Vite (N1 em localStorage)
+apps/api/          back-end Express + MySQL, em camadas (a partir da N2)
+packages/domain/   tipos e schemas Zod do contrato, usados pelo front e pela API
+docs/              documentação — ver índice no readme.md
+.plano/            plano de execução interno, fora do controle de versão
+.ui_v1/            protótipo visual de referência, fora do controle de versão
 ```
 
 A fronteira de dados fica em `apps/web/src/lib/repositories`. Nenhum componente chama
@@ -151,6 +174,7 @@ de dados na N2 muda só a fábrica.
 
 ```bash
 npm run dev        # ambiente local
+npm run dev:api    # API em http://localhost:3000
 npm run typecheck
 npm test           # unitários com cobertura
 npm run test:e2e   # Cypress

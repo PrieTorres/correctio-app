@@ -36,6 +36,17 @@ function matchesFilters(question: Question, filters: QuestionFilters): boolean {
   return matchesType && matchesTags && matchesUntagged;
 }
 
+/**
+ * The repository already answers newest first, which is what someone who just
+ * wrote a question needs. Sorting by statement is the other way to look at a
+ * bank — reading it — and belongs to whoever asked for it.
+ */
+function sortQuestions(items: Question[], sort: QuestionSort | undefined): Question[] {
+  return sort === 'statement'
+    ? items.toSorted((a, b) => a.statement.localeCompare(b.statement, 'pt-BR'))
+    : items;
+}
+
 export function useQuestionList(filters: QuestionFilters) {
   const { repositories } = useServices();
 
@@ -47,19 +58,7 @@ export function useQuestionList(filters: QuestionFilters) {
         archived: filters.deleted,
       });
       const items = page.items.filter((item) => matchesFilters(item, filters));
-
-      /*
-        The repository already answers newest first, which is what someone who
-        just wrote a question needs. Sorting by statement is the other way to
-        look at a bank — reading it — and belongs to whoever asked for it.
-      */
-      return {
-        ...page,
-        items:
-          filters.sort === 'statement'
-            ? items.toSorted((a, b) => a.statement.localeCompare(b.statement, 'pt-BR'))
-            : items,
-      };
+      return { ...page, items: sortQuestions(items, filters.sort) };
     },
   });
 }

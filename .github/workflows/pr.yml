@@ -14,6 +14,20 @@ jobs:
   verificar:
     name: Lint, tipos, testes e build
     runs-on: ubuntu-latest
+    # A real MySQL for the schema test: it applies the migrations and checks
+    # every table against the data model. Without it that test would fail.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_TEST_URL: mysql://root:root@127.0.0.1:3306
     steps:
       - uses: actions/checkout@v5
         with:
@@ -76,6 +90,72 @@ jobs:
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
 
+  # The evidence video of every PR: one test that walks the whole system from
+  # an empty account, slowed down so each action can be followed. It runs beside
+  # the E2E suite rather than after it, so the slow recording adds no wait.
+  journey:
+    name: Journey video
+    runs-on: ubuntu-latest
+    needs: verificar
+    # Writing the video link into the PR and re-running the delivery check need
+    # these two scopes; everything else stays read-only.
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: Record the full journey
+        run: npm run test:e2e:journey
+
+      - name: Upload the journey video
+        id: journey-video
+        uses: actions/upload-artifact@v4
+        with:
+          name: journey-video
+          path: apps/web/cypress/videos/**/*.mp4
+          retention-days: 30
+          if-no-files-found: error
+
+      # A token-made edit starts no workflow, so the delivery check is re-run
+      # by hand once the link is in the body.
+      - name: Link the video in the pull request
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        uses: actions/github-script@v7
+        env:
+          VIDEO_URL: ${{ steps.journey-video.outputs.artifact-url }}
+        with:
+          script: |
+            const START = '<!-- journey-video:start -->';
+            const END = '<!-- journey-video:end -->';
+            const HEADING = /^## Vídeo do teste[^\n]*$/m;
+            const MARKED = new RegExp(`${START}[\\s\\S]*?${END}`);
+            const pull_number = context.payload.pull_request.number;
+            const { data: pr } = await github.rest.pulls.get({ ...context.repo, pull_number });
+            const block = `${START}\nVídeo da jornada completa, gravado pelo Cypress neste commit: ${process.env.VIDEO_URL}\n${END}`;
+            const current = pr.body || '';
+            let body = `${current}\n\n## Vídeo do teste\n${block}`;
+            if (MARKED.test(current)) body = current.replace(MARKED, block);
+            else if (HEADING.test(current)) body = current.replace(HEADING, (heading) => `${heading}\n${block}`);
+            if (body !== current) await github.rest.pulls.update({ ...context.repo, pull_number, body });
+
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              ...context.repo,
+              workflow_id: 'delivery-rules.yml',
+              head_sha: pr.head.sha,
+              per_page: 1,
+            });
+            const run = data.workflow_runs[0];
+            if (run?.status === 'completed') await github.rest.actions.reRunWorkflow({ ...context.repo, run_id: run.id });
+            else core.info('The delivery check is still running and reads the body on its own.');
+
   sonar:
     name: SonarCloud
     runs-on: ubuntu-latest
@@ -83,6 +163,20 @@ jobs:
     # Only runs where the secret exists, so a PR from a fork does not fail for
     # a reason its author cannot fix.
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    # A real MySQL for the schema test: it applies the migrations and checks
+    # every table against the data model. Without it that test would fail.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_TEST_URL: mysql://root:root@127.0.0.1:3306
     steps:
       - uses: actions/checkout@v5
         with:

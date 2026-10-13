@@ -1,106 +1,39 @@
-import js from '@eslint/js';
 import globals from 'globals';
-import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
-
-const DIRECTIVE = /^\s*(eslint|@ts-|global|prettier|c8|v8|istanbul|type|jsx)/;
-const ACCENTED_LETTER = /[\u00C0-\u00FF]/;
+import { createBaseConfig, ratchet } from '../../tooling/eslint/base.js';
 
 /**
- * Domain literals and identifiers are quoted, and quoting a Portuguese one
- * inside an English sentence is correct. Only the prose around them is checked.
+ * Functions that already exceeded the complexity limits when the rule arrived,
+ * frozen at their current values so they cannot get worse.
  *
- * `scripts/check-comment-language.mjs` covers the files ESLint cannot reach and
- * has to agree with this: two checkers of the same rule disagreeing means one
- * of them is wrong, and nobody knows which.
+ * A task that touches one of these files splits the function into named
+ * pieces and deletes its entry. Entries are only ever removed, never added.
  */
-function proseOnly(text) {
-  return text
-    .replace(/`[^`]*`/g, '')
-    .replace(/'[^']*'/g, '')
-    .replace(/"[^"]*"/g, '');
-}
-
-/**
- * Rules the team agreed on that no published plugin enforces.
- *
- * Both exist because the same mistake kept coming back through review: review
- * catches it only when someone happens to look, and the build catches it every
- * time.
- */
-const conventions = {
-  rules: {
-    'no-line-comments': {
-      meta: {
-        type: 'problem',
-        docs: {
-          description:
-            'A comment that earns its place is a JSDoc block on the declaration. Anything needing a note beside it is saying the name is wrong, and the fix is to rename.',
-        },
-        schema: [],
-      },
-      create(context) {
-        return {
-          Program() {
-            for (const comment of context.sourceCode.getAllComments()) {
-              if (comment.type !== 'Line' || DIRECTIVE.test(comment.value)) continue;
-              context.report({
-                loc: comment.loc,
-                message:
-                  'Use a JSDoc block on the declaration, or rename so the comment is unnecessary.',
-              });
-            }
-          },
-        };
-      },
-    },
-
-    'english-only-comments': {
-      meta: {
-        type: 'problem',
-        docs: {
-          description:
-            'Comments are written in English. Accented letters give away Portuguese; typographic punctuation such as an em dash is fine.',
-        },
-        schema: [],
-      },
-      create(context) {
-        return {
-          Program() {
-            for (const comment of context.sourceCode.getAllComments()) {
-              if (!ACCENTED_LETTER.test(proseOnly(comment.value))) continue;
-              context.report({
-                loc: comment.loc,
-                message: 'Write comments in English. Portuguese belongs in the interface and the docs.',
-              });
-            }
-          },
-        };
-      },
-    },
-  },
+const LEGACY_COMPLEXITY = {
+  'src/features/applications/pages/ApplicationDetailPage.tsx': { cyclomatic: 16 },
+  'src/features/applications/pages/ApplicationFormPage.tsx': { cyclomatic: 17 },
+  'src/features/applications/pages/ApplicationGeneratePage.tsx': { cyclomatic: 22 },
+  'src/features/applications/pages/ApplicationListPage.tsx': { cyclomatic: 12 },
+  'src/features/dashboard/pages/DashboardPage.tsx': { cyclomatic: 15 },
+  'src/features/grading/pages/GradingSheetPage.tsx': { cyclomatic: 30 },
+  'src/features/grading/pages/GradingUploadPage.tsx': { cyclomatic: 19 },
+  'src/features/questions/pages/QuestionFormPage.tsx': { cyclomatic: 11 },
+  'src/features/questions/pages/QuestionListPage.tsx': { cyclomatic: 13 },
+  'src/features/reports/pages/ApplicationReportPage.tsx': { cyclomatic: 24 },
+  'src/lib/import/parse-students.ts': { cyclomatic: 11 },
+  'src/lib/public-lookup/resolve.ts': { cyclomatic: 14 },
+  'src/lib/exams/draw-questions.ts': { params: 5 },
+  'src/lib/seed/index.ts': { params: 6 },
 };
 
-export default tseslint.config(
-  { ignores: ['dist', 'coverage', 'node_modules'] },
-
-  js.configs.recommended,
+export default [
+  ...createBaseConfig({ tsconfigRootDir: import.meta.dirname, runtimeGlobals: globals.browser }),
 
   {
     files: ['**/*.{ts,tsx}'],
-    extends: [...tseslint.configs.recommendedTypeChecked],
-    languageOptions: {
-      ecmaVersion: 2023,
-      globals: globals.browser,
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
     plugins: {
-      conventions,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
       'jsx-a11y': jsxA11y,
@@ -116,27 +49,6 @@ export default tseslint.config(
        * value, use an updater, split the effect.
        */
       'react-hooks/exhaustive-deps': 'error',
-
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
-      '@typescript-eslint/consistent-type-imports': [
-        'error',
-        { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
-      ],
-      '@typescript-eslint/no-non-null-assertion': 'warn',
-
-      'conventions/no-line-comments': 'error',
-      'conventions/english-only-comments': 'error',
-
-      /** Anything left behind must be traceable. */
-      'no-warning-comments': ['warn', { terms: ['fixme', 'xxx'], location: 'anywhere' }],
-      'no-console': ['error', { allow: ['warn', 'error'] }],
-      eqeqeq: ['error', 'always', { null: 'ignore' }],
-      'prefer-const': 'error',
-      'no-var': 'error',
     },
   },
 
@@ -160,17 +72,5 @@ export default tseslint.config(
     },
   },
 
-  /**
-   * Config and script files are plain JavaScript, outside the TypeScript
-   * project, so typed rules never reach them.
-   */
-  {
-    files: ['**/*.{js,mjs}'],
-    languageOptions: { globals: globals.node },
-    plugins: { conventions },
-    rules: {
-      'conventions/no-line-comments': 'error',
-      'conventions/english-only-comments': 'error',
-    },
-  },
-);
+  ...ratchet(LEGACY_COMPLEXITY),
+];

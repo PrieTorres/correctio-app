@@ -18,6 +18,19 @@ jobs:
   verificar:
     name: Lint, tipos, testes e build
     runs-on: ubuntu-latest
+    # A real MySQL for the schema test, as in the pull request gate.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_TEST_URL: mysql://root:root@127.0.0.1:3306
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

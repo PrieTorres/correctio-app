@@ -197,6 +197,10 @@ export function QuestionListPage() {
   );
 }
 
+/**
+ * A question with no tag never reaches an automatic draw, and there is no other
+ * way to notice it: every tag filter hides it by definition.
+ */
 function TagFilter({
   available,
   selected,
@@ -216,10 +220,6 @@ function TagFilter({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-caption text-ink-subtle">Tags:</span>
-      {/*
-        A question with no tag never reaches an automatic draw, and there is no
-        other way to notice it: every tag filter hides it by definition.
-      */}
       <button
         type="button"
         onClick={onToggleUntagged}

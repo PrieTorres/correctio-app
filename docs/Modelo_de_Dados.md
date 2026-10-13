@@ -119,6 +119,7 @@ Acréscimo do grupo, substituindo `ClassEnrollment` mais um `User` de aluno.
   email?: string
   anonymizedAt?: Date
   userId?: string              // + costura para a área do aluno
+  removedAt?: Date             // + removido da turma (RF09): sai da lista, o registro e as notas ficam
 }
 ```
 
@@ -139,6 +140,7 @@ Acréscimo do grupo, substituindo `ClassEnrollment` mais um `User` de aluno.
   maxScore?: number                                // type = "discursiva"
   deletedAt?: Date             // soft-delete
   allowShuffleAlternatives: boolean  // +
+  createdAt?: Date                   // +  ordena a lista do mais recente para o mais antigo
 }
 ```
 
@@ -259,8 +261,8 @@ sem identificação.
   confirmedAt: Date
   correctedBy: string                   // teacherId
   isAutomaticallyAssigned: boolean
-  clientCorrectionId?: string           // fila offline do app; não usado por este site
-  syncStatus?: "pending" | "synced" | "error"
+  clientCorrectionId: string            // obrigatório na Spec; o site gera no servidor
+  syncStatus: "pending" | "synced" | "error"   // o site grava "synced"
   answerSheetId: string                 // +
   source: "IMAGE_UPLOAD" | "MANUAL"     // +
   status: "IN_PROGRESS" | "DONE"        // +  espera nota de discursiva
@@ -270,6 +272,24 @@ sem identificação.
 
 > `selectedAlternativeId` é o acréscimo que resolve a queixa central do cliente: guardar
 > **qual** alternativa o aluno marcou, não só se acertou.
+
+### ActivityLog `+`
+
+Acréscimo do grupo: o log geral do sistema. Registra o que falhou ou aconteceu, como uma
+foto cujo QR não foi lido, e no N3 a trilha de auditoria (RF40). **Nunca guarda o conteúdo de
+dado pessoal.**
+
+```ts
+{
+  id: string
+  teacherId?: string           // ausente em evento do sistema
+  type: string                 // valor do grupo em SCREAMING_SNAKE_CASE, ex.: "QR_NOT_RECOGNIZED"
+  entity: string               // ex.: "answer_sheet"
+  entityId?: string
+  details?: object             // referência e motivo, sem dado pessoal
+  createdAt: Date
+}
+```
 
 ---
 
@@ -297,12 +317,31 @@ migração de dados.
 Todas as chaves da Spec estão no contrato. Onde o grupo decidiu não construir uma
 funcionalidade, o campo permanece: o site não o trata, mas ele existe.
 
-Isso vale inclusive para `Correction.clientCorrectionId` e `syncStatus`, que servem à fila
-offline de um app mobile que não será construído. Se um sistema migrar para esta API, esses
-campos chegam nas requisições — e descartá-los na passagem é perda de dado.
+Isso vale inclusive para `Correction.clientCorrectionId` e `syncStatus`, que a Spec define
+como **obrigatórios** e que servem à fila offline do app mobile. O site os grava em toda
+correção: o servidor gera o `clientCorrectionId`, e o `syncStatus` é `"synced"`, porque
+correção feita online já nasce sincronizada. Se um app migrar para esta API, ele manda os
+seus, e a API preserva.
 
 **Regra:** um campo sem requisito não é um campo que pode sumir. Não tratar é aceitável;
 apagar não.
+
+## Como o modelo vira tabelas (MySQL)
+
+As migrations ficam em `apps/api/src/db/migrations`. Um teste confere, contra um MySQL de
+verdade, que toda tabela tem todos os campos deste documento.
+
+- **Tabelas no plural em snake_case** (`exam_questions`), e **colunas com o nome exato do
+  campo** (`teacherId`), para nenhuma camada renomear o contrato.
+- **Lista dentro de entidade vira tabela filha** quando é referenciada ou entra em relatório:
+  `question_alternatives`, `question_tags`, `exam_questions`, `correction_objective_results` e
+  `correction_discursive_scores`. A API devolve a mesma forma deste documento.
+- **`ExamVersion.layout` fica em JSON:** é um retrato gravado uma vez e lido inteiro.
+- **`createdAt` e `updatedAt` técnicos** em toda tabela que muda. Só saem na API os que este
+  documento lista.
+- **Remoção é sempre soft**, pelo campo de cada entidade. Nenhuma chave estrangeira apaga em
+  cascata.
+- **`Student.email` guarda o texto criptografado** (AES-256-GCM), nunca o endereço.
 
 ---
 

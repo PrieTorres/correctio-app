@@ -9,6 +9,10 @@ import { useQuestionTags } from '../hooks/useQuestions'
  * Tags are what the automatic exam builder filters on, so a typo creating a
  * near-duplicate quietly shrinks the pool it can draw from. Suggesting the
  * existing ones is cheaper than de-duplicating later.
+ *
+ * Keeping focus on the input stops its blur handler from committing the half-
+ * typed draft on the way to this click, which would add "Cál" beside the
+ * "Cálculo" being chosen.
  */
 export function TagField({
   value,
@@ -102,11 +106,6 @@ export function TagField({
             <button
               key={tag}
               type="button"
-              /*
-                Keeping focus on the input stops its blur handler from
-                committing the half-typed draft on the way to this click, which
-                would add "Cál" beside the "Cálculo" being chosen.
-              */
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => add(tag)}
               className="rounded-[var(--radius-chip)] border border-line px-2 py-1 text-caption text-ink-muted hover:border-primary hover:bg-primary-fixed hover:text-primary"

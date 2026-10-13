@@ -1,0 +1,58 @@
+name: Publish the web app to GitHub Pages
+
+# A free place to try the front end after every merge, as in N1. It is only the
+# web app: no API and no database, so the screens run on localStorage until #38
+# points them at the pre-production API. Production lives on Firebase and is
+# published by the daily release.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build the web app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @correctio/web
+        env:
+          # Project pages are served from /<repo>/. The router reads this same
+          # value, so the links work under that prefix.
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+
+      # GitHub Pages answers an unknown path with 404.html, so a copy of the app
+      # there is what lets a deep link such as /correctio-app/r/ABC123 open.
+      # Firebase does this with a rewrite instead, so the build itself does not.
+      - name: Serve every route from the app
+        run: cp apps/web/dist/index.html apps/web/dist/404.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
