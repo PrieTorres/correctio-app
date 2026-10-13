@@ -17,6 +17,9 @@ interface QuestionPickerDrawerProps {
  * The cap on how many still fit is enforced while ticking rather than after
  * confirming: letting someone tick eight when two slots remain and then
  * silently dropping six is worse than not letting them tick at all.
+ *
+ * Naming the control explicitly beats letting a screen reader stitch the
+ * statement, the type and the tags into one run-on sentence.
  */
 export function QuestionPickerDrawer({
   open,
@@ -89,11 +92,6 @@ export function QuestionPickerDrawer({
             {available.map((question) => (
               <li key={question.id}>
                 <label className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-control)] p-2 hover:bg-surface-muted">
-                  {/*
-                    Naming the control explicitly beats letting a screen reader
-                    stitch the statement, the type and the tags into one
-                    run-on sentence.
-                  */}
                   <input
                     type="checkbox"
                     aria-label={question.statement}

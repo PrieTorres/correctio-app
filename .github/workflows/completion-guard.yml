@@ -1,0 +1,56 @@
+name: Completion guard
+
+# Only the project manager closes tasks. Closing through a merged PR is allowed
+# because the merge already requires her approval (CODEOWNERS + ruleset). Any
+# other close, including dragging a card to Done with "Auto-close issue" on,
+# is reverted.
+
+on:
+  issues:
+    types: [opened, edited, closed]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          OWNER: PrieTorres
+        with:
+          script: |
+            const owner = process.env.OWNER;
+            const issue = context.payload.issue;
+            const ref = { ...context.repo, issue_number: issue.number };
+
+            if (context.payload.action === 'closed') {
+              if (context.actor === owner) return;
+              const { repository } = await github.graphql(`
+                query($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    issue(number: $number) {
+                      timelineItems(itemTypes: CLOSED_EVENT, last: 1) {
+                        nodes { ... on ClosedEvent { closer { ... on PullRequest { merged } } } }
+                      }
+                    }
+                  }
+                }`, { ...context.repo, number: issue.number });
+              if (repository.issue.timelineItems.nodes[0]?.closer?.merged) return;
+              await github.rest.issues.update({ ...ref, state: 'open' });
+              await github.rest.issues.createComment({ ...ref, body:
+                `@${context.actor} só a @${owner} conclui tarefas. Abra o PR com \`Closes #${issue.number}\`, checklist completo e vídeo do teste — a issue fecha sozinha no merge aprovado.` });
+              return;
+            }
+
+            const hasChecklist = /- \[[ xX]\]/.test(issue.body || '');
+            const labels = issue.labels.map(l => l.name);
+            if (!hasChecklist && !labels.includes('missing-checklist')) {
+              await github.rest.issues.addLabels({ ...ref, labels: ['missing-checklist'] });
+              await github.rest.issues.createComment({ ...ref, body:
+                'Esta issue precisa de um checklist de aceite (`- [ ] item`) antes de entrar em andamento.' });
+            } else if (hasChecklist && labels.includes('missing-checklist')) {
+              await github.rest.issues.removeLabel({ ...ref, name: 'missing-checklist' });
+            }

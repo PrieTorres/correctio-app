@@ -307,6 +307,10 @@ describe('geração automática', () => {
    * Two of the four multiple-choice questions are drawn, so the bank still has
    * spares. Asking for all of them leaves nothing to swap to, which is the
    * case the next test covers.
+   *
+   * The label is held in a plain variable, not an alias. An alias made from a
+   * query is re-run when it is read back, so reading it after the click gave
+   * the label the row had by then and the assertion compared it with itself.
    */
   it('troca uma questão sorteada por outra do mesmo tipo', () => {
     cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
@@ -314,11 +318,6 @@ describe('geração automática', () => {
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.get('[role="dialog"] ul li').should('have.length', 2)
 
-    /*
-      The label is held in a plain variable, not an alias. An alias made from a
-      query is re-run when it is read back, so reading it after the click gave
-      the label the row had by then and the assertion compared it with itself.
-    */
     swapButtonOfFirstRow()
       .invoke('attr', 'aria-label')
       .then((before) => {

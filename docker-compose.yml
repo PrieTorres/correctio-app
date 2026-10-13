@@ -1,0 +1,22 @@
+# Local MySQL for development and for the API tests. Same major version the
+# hosted database runs, so a migration that works here works there.
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: correctio
+      MYSQL_USER: correctio
+      MYSQL_PASSWORD: correctio
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mysql-data:
