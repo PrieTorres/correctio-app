@@ -202,8 +202,8 @@ describe.runIf(serverUrl !== undefined)('question routes (real MySQL)', () => {
 
       expect(updated.status).toBe(200)
       expect(updated.body.type).toBe('discursiva')
-      expect(updated.body.alternatives).toBeNull()
-      expect(updated.body.correctAlternativeId).toBeNull()
+      expect(updated.body.alternatives).toBeUndefined()
+      expect(updated.body.correctAlternativeId).toBeUndefined()
       expect(updated.body.maxScore).toBe(2.5)
 
       const left = await db

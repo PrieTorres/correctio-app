@@ -8,20 +8,27 @@ import {
 import type { Database } from '../models/tables'
 import type { QuestionType } from '@correctio/domain'
 
-/** The shape of a question as the API exposes it, mirrors `questionSchema`. */
+/**
+ * The shape of a question as the API exposes it, mirrors `questionSchema`.
+ *
+ * Optional fields are omitted when they have no value, not sent as `null`: the
+ * shared schema types them as `.optional()`, not `.nullable()`, so a `null`
+ * would fail validation on the front side. `deletedAt` is omitted while the
+ * question is active.
+ */
 export interface QuestionRecord {
   id: string
   teacherId: string
   type: QuestionType
   statement: string
   tags: string[]
-  alternatives: Array<{ id: string; text: string }> | null
-  correctAlternativeId: string | null
-  maxScore: number | null
   allowShuffleAlternatives: boolean
-  deletedAt: Date | null
   createdAt: Date
   updatedAt: Date
+  alternatives?: Array<{ id: string; text: string }>
+  correctAlternativeId?: string
+  maxScore?: number
+  deletedAt?: Date
 }
 
 /** The mutable part of a question, the one a create or an update actually writes. */
@@ -102,6 +109,12 @@ function whereOf(filters: QuestionFilters) {
   }
 }
 
+/** The child rows of a page of questions, grouped by question id. */
+interface ChildRows {
+  alternatives: Map<string, Array<{ id: string; text: string }>>
+  tags: Map<string, string[]>
+}
+
 export class QuestionRepository {
   constructor(private readonly db: Kysely<Database>) {}
 
@@ -138,7 +151,9 @@ export class QuestionRepository {
       .executeTakeFirst()
 
     if (row === undefined) return null
-    return this.hydrate(row)
+
+    const children = await this.loadChildren([row.id])
+    return this.hydrate(row, children)
   }
 
   async findMany(teacherId: string, filters: QuestionFilters) {
@@ -167,9 +182,15 @@ export class QuestionRepository {
     const offset = (page - 1) * pageSize
 
     const rows = await query.selectAll().limit(pageSize).offset(offset).execute()
-    const items = await Promise.all(rows.map((row) => this.hydrate(row)))
 
-    return { items, total: Number(countRow.count) }
+    // One query per child table for the whole page, not one per question:
+    // 50 rows would otherwise cost 100 extra round-trips.
+    const children = await this.loadChildren(rows.map((row) => row.id))
+
+    return {
+      items: rows.map((row) => this.hydrate(row, children)),
+      total: Number(countRow.count),
+    }
   }
 
   async findDistinctTags(teacherId: string): Promise<string[]> {
@@ -257,49 +278,96 @@ export class QuestionRepository {
     }
   }
 
-  /** Reassembles a question from its row and its two child tables. */
-  private async hydrate(row: {
-    id: string
-    teacherId: string
-    type: QuestionType
-    statement: string
-    correctAlternativeId: string | null
-    maxScore: number | null
-    deletedAt: Date | null
-    allowShuffleAlternatives: boolean
-    createdAt: Date
-    updatedAt: Date
-  }): Promise<QuestionRecord> {
-    const [alternatives, tags] = await Promise.all([
-      row.type === 'objetiva'
-        ? this.db
-            .selectFrom('question_alternatives')
-            .select(['id', 'text'])
-            .where('questionId', '=', row.id)
-            .orderBy('position', 'asc')
-            .execute()
-        : Promise.resolve([] as Array<{ id: string; text: string }>),
+  /**
+   * Loads the child rows of a page in two queries, one per table, and groups
+   * them by question id. Empty ids are tolerated so callers never branch on it.
+   */
+  private async loadChildren(ids: string[]): Promise<ChildRows> {
+    if (ids.length === 0) {
+      return { alternatives: new Map(), tags: new Map() }
+    }
+
+    const [alternativeRows, tagRows] = await Promise.all([
+      this.db
+        .selectFrom('question_alternatives')
+        .select(['questionId', 'id', 'text'])
+        .where('questionId', 'in', ids)
+        .orderBy('position', 'asc')
+        .execute(),
       this.db
         .selectFrom('question_tags')
-        .select('tag')
-        .where('questionId', '=', row.id)
+        .select(['questionId', 'tag'])
+        .where('questionId', 'in', ids)
         .orderBy('tag', 'asc')
         .execute(),
     ])
 
-    return {
+    const alternatives = new Map<string, Array<{ id: string; text: string }>>()
+    for (const row of alternativeRows) {
+      const list = alternatives.get(row.questionId) ?? []
+      list.push({ id: row.id, text: row.text })
+      alternatives.set(row.questionId, list)
+    }
+
+    const tags = new Map<string, string[]>()
+    for (const row of tagRows) {
+      const list = tags.get(row.questionId) ?? []
+      list.push(row.tag)
+      tags.set(row.questionId, list)
+    }
+
+    return { alternatives, tags }
+  }
+
+  /**
+   * Reassembles a question from its row and the loaded child rows.
+   *
+   * Fields that have no value are omitted rather than sent as `null`: the
+   * shared schema is `.optional()`, not `.nullable()`, so a `null` would fail
+   * on the front when the response is validated.
+   */
+  private hydrate(
+    row: {
+      id: string
+      teacherId: string
+      type: QuestionType
+      statement: string
+      correctAlternativeId: string | null
+      maxScore: number | null
+      deletedAt: Date | null
+      allowShuffleAlternatives: boolean
+      createdAt: Date
+      updatedAt: Date
+    },
+    children: ChildRows,
+  ): QuestionRecord {
+    const record: QuestionRecord = {
       id: row.id,
       teacherId: row.teacherId,
       type: row.type,
       statement: row.statement,
-      correctAlternativeId: row.correctAlternativeId,
-      maxScore: row.maxScore,
-      deletedAt: row.deletedAt,
+      tags: children.tags.get(row.id) ?? [],
       allowShuffleAlternatives: row.allowShuffleAlternatives,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-      alternatives: row.type === 'objetiva' ? alternatives : null,
-      tags: tags.map((tag) => tag.tag),
     }
+
+    if (row.type === 'objetiva') {
+      record.alternatives = children.alternatives.get(row.id) ?? []
+    }
+
+    if (row.correctAlternativeId !== null) {
+      record.correctAlternativeId = row.correctAlternativeId
+    }
+
+    if (row.maxScore !== null) {
+      record.maxScore = row.maxScore
+    }
+
+    if (row.deletedAt !== null) {
+      record.deletedAt = row.deletedAt
+    }
+
+    return record
   }
 }
