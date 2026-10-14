@@ -67,6 +67,23 @@ jobs:
     name: Cypress
     runs-on: ubuntu-latest
     needs: verificar
+    # MySQL and the API behind the preview, as in production: the screens call
+    # /api, and the preview forwards it to the API started below.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: correctio
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/correctio
+      DATABASE_TLS: local
+      LOG_LEVEL: warn
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -77,6 +94,7 @@ jobs:
       # E2E runs against the production build, not the dev server: that is
       # where the real problems show up.
       - run: npm run build
+      - uses: ./.github/actions/start-api
       # Records to Cypress Cloud when a key exists, but the gate cannot depend
       # on an external service: without the key it still runs and passes.
       - name: Testes E2E
@@ -103,6 +121,23 @@ jobs:
       contents: read
       pull-requests: write
       actions: write
+    # MySQL and the API behind the preview, as in production: the screens call
+    # /api, and the preview forwards it to the API started below.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: correctio
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/correctio
+      DATABASE_TLS: local
+      LOG_LEVEL: warn
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -111,6 +146,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - uses: ./.github/actions/start-api
 
       - name: Record the full journey
         run: npm run test:e2e:journey

@@ -41,6 +41,9 @@ npm run db:reset             # desfaz todas
   Em produção, `verify` com `DATABASE_CA_CERT` é obrigatório. Conexão sem criptografia é recusada.
 - **Hospedagem:** o MySQL hospedado é o plano gratuito do Aiven, e a API roda no Firebase
   (Cloud Functions), com o deploy na #39. As credenciais ficam só no gerenciador de segredos.
+  O Aiven gratuito desliga o serviço depois de 24 horas sem consulta; o workflow
+  `keep-alive.yml` chama o `/api/health` a cada 6 horas para isso não acontecer. Se acontecer,
+  religue em **Power on** no console do Aiven.
 
 ### Um banco por ambiente
 
@@ -131,5 +134,5 @@ encaminha `/api/**` para ela, então em produção as rotas respondem em
 - A função também responde no endereço direto do Google, sem passar pelo Hosting, e ali o
   `X-Forwarded-For` pode ser forjado: os limites por endereço valem para quem usa o site, não para
   quem chama a função direto. Os limites por professor não dependem do endereço.
-- Quem publica é o workflow `deploy.yml`, chamado pela release (produção) e pelo "Preview link"
+- Quem publica é o workflow `deploy.yml`, chamado pela release (produção) e pelo "1. Pre-release"
   (pré-produção). Ordem e segredos: `docs/CI_CD.md`, seção 4.

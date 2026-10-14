@@ -207,7 +207,7 @@ npm run dev                # front em http://localhost:5173
 docker compose up -d mysql # MySQL 8.4 local na porta 3307 (a API e os testes dela usam)
 cp apps/api/.env.example apps/api/.env  # conexão com o MySQL local; sem ela a API não sobe
 npm run db:migrate         # cria as tabelas no MySQL local
-npm run dev:api            # API em http://localhost:3000 (ver apps/api/README.md)
+npm run dev:api            # API em http://localhost:3000; o front chama /api, e o Vite encaminha para ela
 npm run build              # build do front e da API
 npm run preview            # serve o build do front em http://localhost:4173
 npm run typecheck          # verificação de tipos de todos os workspaces

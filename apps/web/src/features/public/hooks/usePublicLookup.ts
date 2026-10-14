@@ -13,7 +13,8 @@ export const publicLookupKeys = {
  * The repositories are teacher-scoped everywhere else; here the reader has no
  * account at all, so the lookup walks from the sheet outwards and stops at the
  * first thing missing. Retries are off: an unknown code is an answer, not a
- * failure to retry.
+ * failure to retry. Nothing is cached: a grade released a minute ago must show
+ * on the next scan, and the page is public, so nothing of it stays behind.
  */
 export function usePublicLookup(code: string | undefined) {
   const { repositories } = useServices();
@@ -22,6 +23,8 @@ export function usePublicLookup(code: string | undefined) {
     queryKey: publicLookupKeys.byCode(code ?? ''),
     enabled: code !== undefined,
     retry: false,
+    staleTime: 0,
+    gcTime: 0,
     queryFn: async () => {
       const sheet = await repositories.printing.findSheetByCode(code ?? '');
       if (sheet === null) return { status: 'INVALID_CODE' };

@@ -1,9 +1,10 @@
 name: Publish the web app to GitHub Pages
 
 # A free place to try the front end after every merge, as in N1. It is only the
-# web app: no API and no database, so the screens run on localStorage until #38
-# points them at the pre-production API. Production lives on Firebase and is
-# published by the daily release.
+# web app, on localStorage: no API and no database. Testing with the API and the
+# database happens on the pre-release link, and this site goes away when #51
+# removes the localStorage side. Production lives on Firebase and is published
+# by the daily release.
 on:
   push:
     branches: [main]

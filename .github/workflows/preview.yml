@@ -1,9 +1,11 @@
-name: Preview link
+name: "1. Pre-release: publish to pre-production"
 
-# On demand: publishes any branch to the pre-production Firebase project, with
-# its own database, so a screen can be tried on a real link before the merge.
-# Each branch gets its own address; the API behind them is the one of the last
-# branch published.
+# The pre-version of the day: publishes main (or any branch) to the
+# pre-production Firebase project, with its own database, so the release can be
+# tried on a real link before it reaches production. The publish job waits for
+# the PM, the required reviewer of the preview environment: the pre-production
+# API and database are shared, and only one version at a time can be on them.
+# Each branch gets its own address; the API is the one of the last published.
 on:
   workflow_dispatch:
     inputs:

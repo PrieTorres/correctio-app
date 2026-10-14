@@ -60,12 +60,15 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 |---|---|
 | Pull Request aberto ou atualizado | portão de qualidade completo, sem publicar nada |
 | Merge em `main` | publica só o front no **GitHub Pages** (`pages.yml`), para teste: sem API nem banco, como na N1 |
-| Release do dia (`release.yml`) | portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
-| "Preview link" (`preview.yml`), sob demanda | publica qualquer branch, pelo nome ou pelo número do PR, na **pré-produção**, no projeto `correctio-app-preview`, num link próprio que expira em 7 dias e é comentado no PR |
-| "Republish a version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada, também com aprovação da PM: o caminho de volta quando uma release dá errado |
+| "1. Pre-release: publish to pre-production" (`preview.yml`), sob demanda | a **pré-versão do dia**: publica a `main` (ou uma branch, pelo nome ou pelo número do PR) na **pré-produção**, no projeto `correctio-app-preview`, depois da aprovação da PM, num link próprio que expira em 7 dias e é comentado no PR |
+| "2. Release: publish to production" (`release.yml`) | a **versão oficial**: portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
+| A cada 6 horas (`keep-alive.yml`) | chama o `/api/health` da produção. O plano gratuito do Aiven desliga o banco depois de 24 horas sem consulta, e a produção cai junto; uma execução que falha avisa por e-mail que a produção está respondendo 503 |
+| "Rollback: republish a released version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada, também com aprovação da PM: o caminho de volta quando uma release dá errado |
 
-**Só a PM põe algo em produção.** Qualquer pessoa do time pode iniciar a release, mas o job que
-publica roda no ambiente `production` do GitHub, que tem a PM como revisora obrigatória: a execução
+**Só a PM publica, na pré e na produção.** Qualquer pessoa do time pode iniciar os workflows, mas o
+job que publica roda nos ambientes `preview` e `production` do GitHub, que têm a PM como revisora
+obrigatória. Na pré, porque a API e o banco são compartilhados e só cabe uma versão por vez; na
+produção: a execução
 para depois do portão e só segue quando ela aprova, na própria página da execução. A tag `vX.Y.Z`
 é criada por último, depois que a produção respondeu 200, então o número de uma versão sempre é o
 que está no ar.
@@ -103,7 +106,7 @@ porque quem os cobre é o Cypress.
 
 **A cobertura é medida só nos testes unitários.** Somar a cobertura do Cypress exige instrumentar o build com Istanbul, juntar os relatórios e manter isso funcionando — muito custo para pouco ganho. O Cypress é um portão de **passa ou não passa**: os fluxos principais funcionam de ponta a ponta, sim ou não. Quem responde pela métrica de cobertura é o teste unitário, e é lá que as regras críticas (cálculo de nota, embaralhamento, geração de PDF, leitura da folha) precisam estar cobertas.
 
-**O Cypress precisa da aplicação servida.** Não adianta rodar contra o código-fonte: sobe o build de produção, espera a porta responder, roda os testes, derruba. Rodar contra o servidor de desenvolvimento esconde justamente os problemas que só aparecem no build.
+**O Cypress precisa da aplicação servida.** Não adianta rodar contra o código-fonte: sobe o build de produção, espera a porta responder, roda os testes, derruba. Rodar contra o servidor de desenvolvimento esconde justamente os problemas que só aparecem no build. Os jobs do Cypress e da jornada também sobem um MySQL e a API (`.github/actions/start-api`), e o `vite preview` encaminha `/api` para ela, como o Hosting faz no Firebase.
 
 **O Sonar precisa do histórico completo.** O checkout padrão traz um commit só, e sem histórico o Sonar não consegue identificar o que é código novo — o portão passa a avaliar o repositório inteiro e reprova tudo. Precisa de checkout com histórico completo.
 
@@ -168,5 +171,5 @@ na interface do GitHub, que nenhum arquivo versionado consegue ligar:
 | GitHub Pages publicando o front da `main`, para teste | Settings → Pages, fonte GitHub Actions | ✅ |
 
 > **Workflow sob demanda só aparece depois de estar na `main`.** O GitHub lista em Actions apenas
-> os workflows que existem na branch padrão, então o "Preview link" e o "Republish a version"
+> os workflows que existem na branch padrão, então o "1. Pre-release" e o "Rollback"
 > ficam disponíveis a partir do merge que os cria.
