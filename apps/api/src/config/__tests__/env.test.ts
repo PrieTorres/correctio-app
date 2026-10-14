@@ -3,6 +3,7 @@ import { loadEnv } from '../env'
 
 const LOCAL_DATABASE = 'mysql://app@127.0.0.1:3307/correctio'
 const KEY = Buffer.alloc(32, 7).toString('base64')
+const SIGNING_SECRET = Buffer.alloc(32, 9).toString('base64')
 
 describe('loadEnv', () => {
   it('starts with safe local defaults', () => {
@@ -16,6 +17,12 @@ describe('loadEnv', () => {
       DATABASE_TLS: 'verify',
       DATABASE_CA_CERT: undefined,
       DATA_ENCRYPTION_KEY: undefined,
+      JWT_SECRET: undefined,
+      PUBLIC_APP_URL: 'http://localhost:5173',
+      GOOGLE_CLIENT_ID: undefined,
+      GOOGLE_CLIENT_SECRET: undefined,
+      GMAIL_APP_PASSWORD: undefined,
+      MAIL_FROM: 'correctioapp@gmail.com',
     })
   })
 
@@ -57,6 +64,15 @@ describe('loadEnv', () => {
     )
   })
 
+  it('refuses a signing secret short enough to be guessed from one token', () => {
+    expect(() => loadEnv({ NODE_ENV: 'test', JWT_SECRET: Buffer.alloc(16).toString('base64') })).toThrow(/JWT_SECRET/)
+  })
+
+  it('refuses half of a Google client', () => {
+    expect(() => loadEnv({ NODE_ENV: 'test', GOOGLE_CLIENT_ID: 'id.apps.googleusercontent.com' })).toThrow(/GOOGLE_CLIENT_ID/)
+    expect(() => loadEnv({ NODE_ENV: 'test', GOOGLE_CLIENT_SECRET: 'secret' })).toThrow(/GOOGLE_CLIENT_ID/)
+  })
+
   describe('in production', () => {
     const production = {
       NODE_ENV: 'production',
@@ -64,6 +80,7 @@ describe('loadEnv', () => {
       DATABASE_TLS: 'verify',
       DATABASE_CA_CERT: '-----BEGIN CERTIFICATE-----\\nabc\\n-----END CERTIFICATE-----',
       DATA_ENCRYPTION_KEY: KEY,
+      JWT_SECRET: SIGNING_SECRET,
     }
 
     it('accepts a verified database connection with its certificate and an encryption key', () => {
@@ -77,6 +94,10 @@ describe('loadEnv', () => {
 
     it('refuses to run without the encryption key', () => {
       expect(() => loadEnv({ ...production, DATA_ENCRYPTION_KEY: undefined })).toThrow(/DATA_ENCRYPTION_KEY/)
+    })
+
+    it('refuses to run without the secret that signs the sessions', () => {
+      expect(() => loadEnv({ ...production, JWT_SECRET: undefined })).toThrow(/JWT_SECRET/)
     })
   })
 })

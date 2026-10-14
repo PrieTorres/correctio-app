@@ -6,6 +6,7 @@ const SECRETS = {
   DATABASE_URL: 'mysql://app@db.example:3306/correctio',
   DATABASE_CA_CERT: '-----BEGIN CERTIFICATE-----\nabc\n-----END CERTIFICATE-----',
   DATA_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'),
+  JWT_SECRET: Buffer.alloc(32, 2).toString('base64'),
 }
 
 describe('hostedEnvSource', () => {
@@ -24,6 +25,12 @@ describe('hostedEnvSource', () => {
       'https://correctio-app-preview.web.app',
       'https://correctio-app-preview.firebaseapp.com',
     ])
+  })
+
+  it('sends Google and the reset e-mail back to the fixed address of the project', () => {
+    const env = loadEnv(hostedEnvSource({ GCLOUD_PROJECT: 'correctio-app-preview', ...SECRETS }))
+
+    expect(env.PUBLIC_APP_URL).toBe('https://correctio-app-preview.web.app')
   })
 
   it('reads the client address behind the two proxies of Firebase Hosting', () => {
