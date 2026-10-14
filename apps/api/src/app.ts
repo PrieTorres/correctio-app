@@ -1,6 +1,7 @@
 import cors from 'cors'
 import express, { type Express } from 'express'
 import helmet from 'helmet'
+import type { Kysely } from 'kysely'
 import type { Logger } from 'pino'
 import { pinoHttp } from 'pino-http'
 import type { Env } from './config/env'
@@ -16,12 +17,14 @@ import {
   type RateLimitTier,
 } from './middlewares/rate-limit'
 import { createRequireAuth, rejectAllTokens, type VerifyToken } from './middlewares/require-auth'
+import type { Database } from './models/tables'
 import { createRouter } from './routes'
 import { createHealthService, type HealthCheck } from './services/health-service'
 
 export interface AppDependencies {
   env: Env
   logger: Logger
+  db: Kysely<Database>
   verifyToken?: VerifyToken
   healthChecks?: readonly HealthCheck[]
   /** Overridable so tests reach a limit in a few requests instead of hundreds. */
@@ -47,6 +50,7 @@ const DEFAULT_RATE_LIMITS = { failedAuth: RATE_LIMITS.FAILED_AUTH, read: RATE_LI
 export function createApp({
   env,
   logger,
+  db,
   verifyToken = rejectAllTokens,
   healthChecks = [],
   rateLimits = DEFAULT_RATE_LIMITS,
@@ -66,6 +70,7 @@ export function createApp({
     basePath,
     createRouter({
       healthService: createHealthService(healthChecks),
+      db,
       failedAuthLimit: createRateLimit(rateLimits.failedAuth, { key: byClientAddress, countOnlyUnauthorized: true }),
       requireAuth: createRequireAuth(verifyToken),
       teacherLimit: createTeacherRateLimit(rateLimits),
