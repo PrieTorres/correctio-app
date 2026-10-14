@@ -2,6 +2,12 @@ import type { AuthenticatedUser } from '@/types/domain'
 
 export interface AuthProvider {
   getCurrentUser: () => AuthenticatedUser | null
+  /**
+   * The access token the HTTP client sends as `Authorization: Bearer`, or `null`
+   * without a session. It is kept in memory only, never in `localStorage`, where
+   * any script on the page could read it.
+   */
+  getAccessToken: () => Promise<string | null>
   signIn: (email: string, password: string) => Promise<AuthenticatedUser>
   signUp: (fullName: string, email: string, password: string) => Promise<AuthenticatedUser>
   signOut: () => Promise<void>
@@ -39,6 +45,10 @@ export function createLocalAuthProvider(): AuthProvider {
   }
 
   return {
+    /** The local stand-in has no server and so no token; #40 brings the real one. */
+    getAccessToken() {
+      return Promise.resolve(null)
+    },
     getCurrentUser() {
       try {
         const raw = window.localStorage.getItem(SESSION_KEY)

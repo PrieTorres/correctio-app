@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import { StorageError } from './errors';
+import { preserveUnknownFields } from './preserve-unknown-fields';
 
 const KEY_PREFIX = 'correctio:v1:';
 
@@ -73,15 +74,6 @@ export function createCollection<T>(name: string, schema: z.ZodType<T>): Collect
       }
     },
   };
-}
-
-/**
- * Re-attaches the keys Zod dropped, letting validated values win for the keys
- * the schema does own.
- */
-function preserveUnknownFields<T>(raw: unknown, validated: T): T {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return validated;
-  return { ...raw, ...validated };
 }
 
 export function clearAllCollections(): void {

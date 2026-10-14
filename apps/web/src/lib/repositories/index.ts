@@ -5,6 +5,7 @@ import { createLocalCorrectionRepository, type CorrectionRepository } from './co
 import { createLocalPrintingRepository, type PrintingRepository } from './printing-repository'
 import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
 import { createLocalStudentRepository, type StudentRepository } from './student-repository'
+import type { ApiClient } from './http/api-client'
 
 export * from './types'
 export type {
@@ -36,8 +37,13 @@ export interface TeacherRepositories {
  * Named for the teacher because everything it exposes is scoped to one
  * teacher's data. A student area would add a sibling factory scoped to a
  * student, rather than widening this one.
+ *
+ * Each entry switches to its HTTP version (`createHttpOwnedRepository` with
+ * `_api`) in the issue that wires its screens to the API: #42, #44, #45, #46,
+ * #48, #49 and #50. Until the first one does, the client is unused; the local
+ * versions stay, so the published site does not change.
  */
-export function createTeacherRepositories(teacherId: string): TeacherRepositories {
+export function createTeacherRepositories(teacherId: string, _api?: ApiClient): TeacherRepositories {
   return {
     classes: createLocalClassRepository(teacherId),
     students: createLocalStudentRepository(),
