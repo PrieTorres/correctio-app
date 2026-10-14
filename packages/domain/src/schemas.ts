@@ -54,6 +54,13 @@ export const classSchema = z.object({
 export const classInputSchema = classSchema.pick({ name: true, subject: true, term: true });
 
 /**
+ * The longest address the e-mail standards allow. The API stores the student
+ * e-mail encrypted, and the encrypted text of a longer one would not fit its
+ * column, so the limit is part of the contract rather than a server detail.
+ */
+const MAX_EMAIL_LENGTH = 254;
+
+/**
  * An e-mail the teacher may leave out.
  *
  * `.optional()` on its own admits `undefined` and nothing else, so the empty
@@ -62,7 +69,13 @@ export const classInputSchema = classSchema.pick({ name: true, subject: true, te
  * field means absent, said once instead of at every call site.
  */
 const optionalEmail = z
-  .union([z.literal(''), z.string().email('E-mail inválido')])
+  .union([
+    z.literal(''),
+    z
+      .string()
+      .email('E-mail inválido')
+      .max(MAX_EMAIL_LENGTH, `O e-mail pode ter no máximo ${MAX_EMAIL_LENGTH} caracteres`),
+  ])
   .optional()
   .transform((value) => (value === '' ? undefined : value));
 
