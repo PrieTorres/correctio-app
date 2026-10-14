@@ -1,7 +1,8 @@
 import request from 'supertest'
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 import { createApp } from '../../app'
 import { loadEnv } from '../../config/env'
+import { createDatabase } from '../../db/connection'
 import { createLogger } from '../../lib/logger'
 import type { VerifyToken } from '../require-auth'
 
@@ -11,10 +12,15 @@ const verifyToken: VerifyToken = (token) => {
   return Promise.resolve(teacherId === undefined ? null : { teacherId })
 }
 
+/** A real pool that never connects: no request here reaches a route that reads the database. */
+const db = createDatabase({ url: 'mysql://nobody@127.0.0.1:1/none', tls: 'local' })
+afterAll(() => db.destroy())
+
 function buildApp(source: NodeJS.ProcessEnv = {}) {
   return createApp({
     env: loadEnv({ NODE_ENV: 'test', LOG_LEVEL: 'silent', ...source }),
     logger: createLogger('silent'),
+    db,
     verifyToken,
     rateLimits: {
       failedAuth: { windowMs: 60_000, limit: 2 },
@@ -63,13 +69,17 @@ describe('behind Firebase Hosting', () => {
   })
 })
 
+/**
+ * Signed in, the requests go to a path with no route: the limit is what is
+ * under test, and a real route such as `/classes` would query the database.
+ */
 describe('per-teacher limits', () => {
   it('limits writes per teacher without touching another teacher', async () => {
     const app = buildApp()
-    await request(app).post('/classes').set('Authorization', 'Bearer token-ana')
-    await request(app).post('/classes').set('Authorization', 'Bearer token-ana')
-    const third = await request(app).post('/classes').set('Authorization', 'Bearer token-ana')
-    const otherTeacher = await request(app).post('/classes').set('Authorization', 'Bearer token-bia')
+    await request(app).post('/nowhere').set('Authorization', 'Bearer token-ana')
+    await request(app).post('/nowhere').set('Authorization', 'Bearer token-ana')
+    const third = await request(app).post('/nowhere').set('Authorization', 'Bearer token-ana')
+    const otherTeacher = await request(app).post('/nowhere').set('Authorization', 'Bearer token-bia')
 
     expect(third.status).toBe(429)
     expect(otherTeacher.status).toBe(404)
@@ -77,9 +87,9 @@ describe('per-teacher limits', () => {
 
   it('keeps reads in a budget of their own', async () => {
     const app = buildApp()
-    await request(app).post('/classes').set('Authorization', 'Bearer token-ana')
-    await request(app).post('/classes').set('Authorization', 'Bearer token-ana')
-    const read = await request(app).get('/classes').set('Authorization', 'Bearer token-ana')
+    await request(app).post('/nowhere').set('Authorization', 'Bearer token-ana')
+    await request(app).post('/nowhere').set('Authorization', 'Bearer token-ana')
+    const read = await request(app).get('/nowhere').set('Authorization', 'Bearer token-ana')
 
     expect(read.status).toBe(404)
   })

@@ -1,7 +1,8 @@
 import request from 'supertest'
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 import { createApp } from '../app'
 import { loadEnv } from '../config/env'
+import { createDatabase } from '../db/connection'
 import { createLogger } from '../lib/logger'
 import type { VerifyToken } from '../middlewares/require-auth'
 
@@ -10,8 +11,12 @@ const env = loadEnv({ NODE_ENV: 'test', CORS_ORIGINS: ALLOWED_ORIGIN, LOG_LEVEL:
 const logger = createLogger('silent')
 const verifyToken: VerifyToken = (token) => Promise.resolve(token === 'valid-token' ? { teacherId: 't1' } : null)
 
+/** A real pool that never connects: these tests stop before any route reads the database. */
+const db = createDatabase({ url: 'mysql://nobody@127.0.0.1:1/none', tls: 'local' })
+afterAll(() => db.destroy())
+
 function buildApp(healthChecks: (() => Promise<boolean>)[] = []) {
-  return createApp({ env, logger, verifyToken, healthChecks })
+  return createApp({ env, logger, db, verifyToken, healthChecks })
 }
 
 describe('GET /health', () => {
@@ -85,7 +90,7 @@ describe('request limits and headers', () => {
 })
 
 describe('under the path Firebase Hosting forwards', () => {
-  const hosted = createApp({ env, logger, verifyToken, basePath: '/api' })
+  const hosted = createApp({ env, logger, db, verifyToken, basePath: '/api' })
 
   it('answers the routes under /api', async () => {
     const response = await request(hosted).get('/api/health')
