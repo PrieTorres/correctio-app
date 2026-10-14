@@ -48,12 +48,12 @@ export function createLocalQuestionRepository(teacherId: string): QuestionReposi
      * does not accept `null`, so it is dropped before validation — the same
      * effect as `undefined` on this side.
      */
-        sanitizeInput: (input) => {
+    sanitizeInput: (input) => {
       const clean: Record<string, unknown> = { ...input }
       for (const key of Object.keys(clean)) {
         if (clean[key] === null) clean[key] = undefined
       }
-      return clean as typeof input
+      return clean
     },
     extraFilters: (item, params) => {
       if (params.type !== undefined && item.type !== params.type) return false
@@ -76,7 +76,7 @@ export function createLocalQuestionRepository(teacherId: string): QuestionReposi
 
   return {
     ...base,
-    tags: async () => {
+    tags: () => {
       const set = new Set<string>()
       for (const item of collection.readAll()) {
         if (item.teacherId !== teacherId) continue
@@ -85,7 +85,7 @@ export function createLocalQuestionRepository(teacherId: string): QuestionReposi
           if (tag.length > 0) set.add(tag)
         })
       }
-      return [...set].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      return Promise.resolve([...set].sort((a, b) => a.localeCompare(b, 'pt-BR')))
     },
   }
 }

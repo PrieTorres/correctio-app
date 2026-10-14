@@ -205,7 +205,7 @@ export function createOwnedRepository<
       await simulateLatency()
       const items = readOwned()
       const [index, entity] = requireEntry(items, id)
-      const clean = (sanitizeInput ? sanitizeInput(input) : input) as Partial<TInput>
+      const clean = sanitizeInput ? sanitizeInput(input) : input
       const next = { ...entity, ...clean } as TEntity
 
       requireUnique(next, items)
