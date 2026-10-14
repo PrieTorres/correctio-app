@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Copy, Plus, RotateCcw, Shuffle, Trash2, Upload } from 'lucide-react';
 import {
@@ -30,6 +30,8 @@ import { QuestionTypeBadge } from '../components/QuestionTypeBadge';
 
 type StatusFilter = 'active' | 'deleted';
 
+const PAGE_SIZE = 50;
+
 const STATUS_SEGMENTS = [
   { value: 'active', label: 'Ativas' },
   { value: 'deleted', label: 'Excluídas' },
@@ -53,7 +55,14 @@ export function QuestionListPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [sort, setSort] = useState<QuestionSort>('newest');
   const [onlyUntagged, setOnlyUntagged] = useState(false);
+  const [page, setPage] = useState(1);
   const [pendingDelete, setPendingDelete] = useState<Question | null>(null);
+
+  // Changing a filter resets the page: staying on page 3 of a new filter
+  // shows an empty list that has nothing to do with the records.
+  useEffect(() => {
+    setPage(1);
+  }, [search, status, type, tags, sort, onlyUntagged]);
 
   const filters: QuestionFilters = {
     search,
@@ -62,6 +71,7 @@ export function QuestionListPage() {
     deleted: status === 'deleted',
     onlyUntagged,
     sort,
+    page,
   };
   const { data, isPending, isError } = useQuestionList(filters);
   const { data: knownTags = [] } = useQuestionTags();
@@ -69,6 +79,7 @@ export function QuestionListPage() {
   const duplicateQuestion = useDuplicateQuestion();
 
   const questions = data?.items ?? [];
+  const total = data?.total ?? 0;
   const filtering = search.trim() !== '' || type !== 'all' || tags.length > 0 || onlyUntagged;
 
   const newQuestionButton = (
@@ -155,17 +166,26 @@ export function QuestionListPage() {
             />
           </Card>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {questions.map((question) => (
-              <li key={question.id}>
-                <QuestionRow
-                  question={question}
-                  onDelete={() => setPendingDelete(question)}
-                  onDuplicate={() => duplicateQuestion.mutate(question.id)}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="flex flex-col gap-3">
+              {questions.map((question) => (
+                <li key={question.id}>
+                  <QuestionRow
+                    question={question}
+                    onDelete={() => setPendingDelete(question)}
+                    onDuplicate={() => duplicateQuestion.mutate(question.id)}
+                  />
+                </li>
+              ))}
+            </ul>
+
+            <Pagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={total}
+              onPageChange={setPage}
+            />
+          </>
         )}
       </QueryBoundary>
 
@@ -193,6 +213,51 @@ export function QuestionListPage() {
       )}
 
       <Tour screen="questions" ready={questions.length > 0} />
+    </div>
+  );
+}
+
+function Pagination({
+  page,
+  pageSize,
+  total,
+  onPageChange,
+}: Readonly<{
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
+}>) {
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const first = (page - 1) * pageSize + 1;
+  const last = Math.min(page * pageSize, total);
+  const canGoBack = page > 1;
+  const canGoForward = page < pageCount;
+
+  return (
+    <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+      <p className="text-caption text-ink-subtle">
+        Mostrando {first}–{last} de {total} {total === 1 ? 'questão' : 'questões'}
+      </p>
+      <div className="flex gap-2">
+        <Button
+          variant="secondary"
+          disabled={!canGoBack}
+          onClick={() => onPageChange(page - 1)}
+        >
+          Anterior
+        </Button>
+        <span className="flex items-center px-2 text-caption text-ink-muted">
+          Página {page} de {pageCount}
+        </span>
+        <Button
+          variant="secondary"
+          disabled={!canGoForward}
+          onClick={() => onPageChange(page + 1)}
+        >
+          Próxima
+        </Button>
+      </div>
     </div>
   );
 }

@@ -6,9 +6,11 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import {
   Button,
   Card,
+  EmptyState,
   PageHeader,
   QueryBoundary,
   SaveError,
+  SearchIllustration,
   SegmentedControl,
   TextField,
 } from '@/components/ui';
@@ -41,14 +43,22 @@ function blankAlternative() {
  * the stored schema refuses a blank alternative — so the record was written and
  * then never read back again.
  *
- * The unwanted fields are set to `undefined` rather than omitted, so that
- * editing a question into the other type clears them instead of leaving the
- * previous ones behind on the merge.
+ * The unwanted fields are set to `null` rather than `undefined`, because the
+ * HTTP adapter serialises the body as JSON and `JSON.stringify` silently drops
+ * keys whose value is `undefined`: the PATCH would arrive without them, the
+ * server merge would keep the old values, and an objective question edited into
+ * a discursive one would still carry `alternatives` and `correctAlternativeId`
+ * in the database. Sending `null` says "clear this", and the API records NULL.
  */
 function onlyFieldsOfItsType(input: QuestionInput): QuestionInput {
-  return input.type === 'discursiva'
-    ? { ...input, alternatives: undefined, correctAlternativeId: undefined }
-    : { ...input, maxScore: undefined };
+  const payload =
+    input.type === 'discursiva'
+      ? { ...input, alternatives: null, correctAlternativeId: null }
+      : { ...input, maxScore: null };
+  // The shared schema types these as optional rather than nullable, but the
+  // API contract accepts an explicit null as "remove this value". The cast
+  // is the smallest honest way to say that without widening the schema.
+  return payload as unknown as QuestionInput;
 }
 
 function emptyQuestion(): QuestionInput {
@@ -118,113 +128,152 @@ export function QuestionFormPage() {
     );
   };
 
+  const notFound = id !== undefined && !isPending && !isError && existing === null;
+
   return (
     <QueryBoundary
       isPending={id !== undefined && isPending}
       isError={isError}
       pendingLabel="Carregando questão…"
     >
-      <div className="flex flex-col gap-6">
-        <Link
-          to={ROUTES.questions}
-          className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-        >
-          <ArrowLeft size={16} aria-hidden />
-          Banco de questões
-        </Link>
+      {notFound ? (
+        <QuestionNotFound />
+      ) : (
+        <div className="flex flex-col gap-6">
+          <Link
+            to={ROUTES.questions}
+            className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
+          >
+            <ArrowLeft size={16} aria-hidden />
+            Banco de questões
+          </Link>
 
-        <PageHeader help
-          title={id === undefined ? 'Nova questão' : 'Editar questão'}
-          description="A questão fica no banco e pode ser usada em quantas provas você quiser."
-        />
+          <PageHeader help
+            title={id === undefined ? 'Nova questão' : 'Editar questão'}
+            description="A questão fica no banco e pode ser usada em quantas provas você quiser."
+          />
 
-        <form onSubmit={(event) => void handleSubmit(onSubmit)(event)} noValidate>
-          <Card className="flex flex-col gap-6 p-6">
-            <SegmentedControl
-              label="Tipo da questão"
-              segments={TYPE_SEGMENTS}
-              value={type}
-              onChange={(next) => setValue('type', next, { shouldValidate: false })}
-            />
-
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="statement" className="text-label text-ink-muted">
-                Enunciado
-              </label>
-              <textarea
-                id="statement"
-                rows={5}
-                aria-invalid={errors.statement ? true : undefined}
-                className="rounded-[var(--radius-control)] border border-line bg-surface p-3 text-body focus:outline-none focus-visible:border-primary"
-                {...register('statement')}
+          <form onSubmit={(event) => void handleSubmit(onSubmit)(event)} noValidate>
+            <Card className="flex flex-col gap-6 p-6">
+              <SegmentedControl
+                label="Tipo da questão"
+                segments={TYPE_SEGMENTS}
+                value={type}
+                onChange={(next) => setValue('type', next, { shouldValidate: false })}
               />
-              {errors.statement && (
-                <p role="alert" className="text-caption text-danger">
-                  {errors.statement.message}
-                </p>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="statement" className="text-label text-ink-muted">
+                  Enunciado
+                </label>
+                <textarea
+                  id="statement"
+                  rows={5}
+                  aria-invalid={errors.statement ? true : undefined}
+                  className="rounded-[var(--radius-control)] border border-line bg-surface p-3 text-body focus:outline-none focus-visible:border-primary"
+                  {...register('statement')}
+                />
+                {errors.statement && (
+                  <p role="alert" className="text-caption text-danger">
+                    {errors.statement.message}
+                  </p>
+                )}
+              </div>
+
+              <TagField value={tags} onChange={(next) => setValue('tags', next)} />
+
+              {type === 'objetiva' ? (
+                <AlternativesField
+                  fields={alternatives.fields}
+                  correctAlternativeId={correctAlternativeId}
+                  error={fieldArrayMessage(errors.alternatives) ?? errors.correctAlternativeId?.message}
+                  register={register}
+                  onAdd={() => alternatives.append(blankAlternative())}
+                  onRemove={(index) => alternatives.remove(index)}
+                  onMarkCorrect={(alternativeId) => setValue('correctAlternativeId', alternativeId)}
+                />
+              ) : (
+                <section className="flex flex-col gap-3 rounded-[var(--radius-control)] border border-line bg-surface-muted p-4">
+                  <div>
+                    <h2 className="text-title text-primary">Resposta discursiva</h2>
+                    <p className="mt-1 text-caption text-ink-subtle">
+                      Sem alternativas e sem gabarito: o sistema corrige as objetivas sozinho e deixa
+                      esta para você atribuir a nota na tela de correção.
+                    </p>
+                  </div>
+                  <div className="max-w-48">
+                    <TextField
+                      label="Nota máxima"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      error={errors.maxScore?.message}
+                      {...register('maxScore', {
+                        /**
+                         * `valueAsNumber` turns an empty field into `NaN`, which
+                         * is a number as far as the schema is concerned: the
+                         * friendly message never fired and Zod's own "received
+                         * nan" reached the screen in English. Empty means absent.
+                         */
+                        setValueAs: (value: string) => (value === '' ? undefined : Number(value)),
+                      })}
+                    />
+                  </div>
+                </section>
               )}
+
+              {type === 'objetiva' && <ShuffleToggle form={form} />}
+            </Card>
+
+            <div className="mt-6">
+              <SaveError error={save.error} />
             </div>
 
-            <TagField value={tags} onChange={(next) => setValue('tags', next)} />
-
-            {type === 'objetiva' ? (
-              <AlternativesField
-                fields={alternatives.fields}
-                correctAlternativeId={correctAlternativeId}
-                error={fieldArrayMessage(errors.alternatives) ?? errors.correctAlternativeId?.message}
-                register={register}
-                onAdd={() => alternatives.append(blankAlternative())}
-                onRemove={(index) => alternatives.remove(index)}
-                onMarkCorrect={(alternativeId) => setValue('correctAlternativeId', alternativeId)}
-              />
-            ) : (
-              <section className="flex flex-col gap-3 rounded-[var(--radius-control)] border border-line bg-surface-muted p-4">
-                <div>
-                  <h2 className="text-title text-primary">Resposta discursiva</h2>
-                  <p className="mt-1 text-caption text-ink-subtle">
-                    Sem alternativas e sem gabarito: o sistema corrige as objetivas sozinho e deixa
-                    esta para você atribuir a nota na tela de correção.
-                  </p>
-                </div>
-                <div className="max-w-48">
-                  <TextField
-                    label="Nota máxima"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    error={errors.maxScore?.message}
-                    {...register('maxScore', {
-                      /**
-                       * `valueAsNumber` turns an empty field into `NaN`, which
-                       * is a number as far as the schema is concerned: the
-                       * friendly message never fired and Zod's own "received
-                       * nan" reached the screen in English. Empty means absent.
-                       */
-                      setValueAs: (value: string) => (value === '' ? undefined : Number(value)),
-                    })}
-                  />
-                </div>
-              </section>
-            )}
-
-            {type === 'objetiva' && <ShuffleToggle form={form} />}
-          </Card>
-
-          <div className="mt-6">
-            <SaveError error={save.error} />
-          </div>
-
-          <div className="mt-6 flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => void navigate(ROUTES.questions)}>
-              Cancelar
-            </Button>
-            <Button variant="primary" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Salvando…' : 'Salvar questão'}
-            </Button>
-          </div>
-        </form>
-      </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => void navigate(ROUTES.questions)}>
+                Cancelar
+              </Button>
+              <Button variant="primary" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Salvando…' : 'Salvar questão'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
     </QueryBoundary>
+  );
+}
+
+/**
+ * A question can disappear from under the form for two reasons: it never
+ * existed, or it belongs to another teacher (the API answers 404 for both, so
+ * the second case does not reveal that the record exists). Either way the form
+ * is useless, and the link back is the only thing the visitor needs.
+ */
+function QuestionNotFound() {
+  return (
+    <div className="flex flex-col gap-6">
+      <Link
+        to={ROUTES.questions}
+        className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
+      >
+        <ArrowLeft size={16} aria-hidden />
+        Banco de questões
+      </Link>
+
+      <Card>
+        <EmptyState
+          illustration={<SearchIllustration />}
+          title="Questão não encontrada"
+          description="Esta questão não existe ou pertence a outro professor."
+          action={
+            <Link to={ROUTES.questions}>
+              <Button variant="primary">Voltar ao banco de questões</Button>
+            </Link>
+          }
+        />
+      </Card>
+    </div>
   );
 }
 
