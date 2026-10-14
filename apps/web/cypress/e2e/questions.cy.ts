@@ -51,7 +51,7 @@ describe('banco de questões', () => {
   it('filtra as sugestões de tag conforme se digita', () => {
     cy.contains('Nova questão').click()
 
-    cy.get('#tag-input').type('Matr')
+    cy.findByLabel('Tags de conteúdo').type('Matr')
 
     cy.contains('button', 'Matrizes').should('be.visible')
     cy.contains('button', 'Limites').should('not.exist')
@@ -60,7 +60,7 @@ describe('banco de questões', () => {
   it('adota a grafia que o banco já tem, ignorando acento e caixa', () => {
     cy.contains('Nova questão').click()
 
-    cy.get('#tag-input').type('limites{enter}')
+    cy.findByLabel('Tags de conteúdo').type('limites{enter}')
 
     cy.get('button[aria-label="Remover tag Limites"]').should('exist')
   })
@@ -68,7 +68,7 @@ describe('banco de questões', () => {
   it('escolher uma sugestão não adiciona o rascunho ao lado', () => {
     cy.contains('Nova questão').click()
 
-    cy.get('#tag-input').type('Limi')
+    cy.findByLabel('Tags de conteúdo').type('Limi')
     cy.contains('button', 'Limites').click()
 
     cy.get('button[aria-label="Remover tag Limites"]').should('exist')
@@ -83,7 +83,7 @@ describe('banco de questões', () => {
 
   it('coloca a questão recém-criada no topo, em vez de perdê-la no meio', () => {
     cy.contains('a', 'Nova questão').click()
-    cy.get('#statement').type('Questão acabada de escrever')
+    cy.findByLabel('Enunciado').type('Questão acabada de escrever')
     cy.get('[aria-label="Texto da alternativa A"]').type('uma')
     cy.get('[aria-label="Texto da alternativa B"]').type('outra')
     cy.contains('button', 'Salvar questão').click()
@@ -99,7 +99,7 @@ describe('banco de questões', () => {
 
   it('encontra as questões sem tag, que nenhum filtro de tag mostra', () => {
     cy.contains('a', 'Nova questão').click()
-    cy.get('#statement').type('Questão sem nenhuma tag')
+    cy.findByLabel('Enunciado').type('Questão sem nenhuma tag')
     cy.get('[aria-label="Texto da alternativa A"]').type('uma')
     cy.get('[aria-label="Texto da alternativa B"]').type('outra')
     cy.contains('button', 'Salvar questão').click()
@@ -116,6 +116,34 @@ describe('banco de questões', () => {
     cy.contains('h3', 'Nenhuma questão encontrada').should('be.visible')
     cy.contains('h3', 'Nenhuma questão ainda').should('not.exist')
   })
+
+  it('mostra o total e os controles de paginação', () => {
+    cy.contains('Página 1 de 1').should('be.visible')
+    cy.contains('button', 'Anterior').should('be.disabled')
+    cy.contains('button', 'Próxima').should('be.disabled')
+  })
+})
+
+describe('editar questão', () => {
+  beforeEach(() => {
+    cy.visit('/questoes')
+    cy.contains('a', 'sen(x)/x').click()
+    cy.contains('h1', 'Editar questão').should('be.visible')
+  })
+
+  it('limpa as alternativas quando a objetiva vira discursiva', () => {
+    cy.chooseSegment('Discursiva')
+    cy.findByLabel('Nota máxima').type('3')
+    cy.contains('button', 'Salvar questão').click()
+
+    cy.contains('h1', 'Banco de questões').should('be.visible')
+
+    cy.chooseSegment('Discursivas')
+    cy.contains('sen(x)/x').should('be.visible')
+
+    cy.chooseSegment('Objetivas')
+    cy.contains('sen(x)/x').should('not.exist')
+  })
 })
 
 describe('formulário de questão', () => {
@@ -125,7 +153,7 @@ describe('formulário de questão', () => {
   })
 
   it('cria uma objetiva e mostra na lista', () => {
-    cy.get('#statement').type('Qual a integral de 2x?')
+    cy.findByLabel('Enunciado').type('Qual a integral de 2x?')
     cy.get('[aria-label="Texto da alternativa A"]').type('x² + C')
     cy.get('[aria-label="Texto da alternativa B"]').type('2')
     cy.get('input[aria-label="Alternativa A é a correta"]').check()
@@ -136,7 +164,7 @@ describe('formulário de questão', () => {
 
   /** It refused the save and said nothing, which reads as a broken button. */
   it('diz por que não salva, em vez de recusar calado', () => {
-    cy.get('#statement').type('Questão sem alternativas preenchidas')
+    cy.findByLabel('Enunciado').type('Questão sem alternativas preenchidas')
     cy.contains('button', 'Salvar questão').click()
 
     cy.contains('Preencha o texto de todas as alternativas').should('be.visible')
@@ -151,7 +179,7 @@ describe('formulário de questão', () => {
    * alternative" is only reachable by deleting the one that was marked.
    */
   it('recusa objetiva cuja alternativa correta foi removida', () => {
-    cy.get('#statement').type('Questão sem gabarito')
+    cy.findByLabel('Enunciado').type('Questão sem gabarito')
     cy.get('[aria-label="Texto da alternativa A"]').type('uma')
     cy.get('[aria-label="Texto da alternativa B"]').type('outra')
     cy.contains('button', 'Alternativa').click()
@@ -209,7 +237,7 @@ describe('formulário de questão', () => {
 
   it('exige nota máxima na discursiva', () => {
     cy.chooseSegment('Discursiva')
-    cy.get('#statement').type('Explique o teorema')
+    cy.findByLabel('Enunciado').type('Explique o teorema')
     cy.contains('button', 'Salvar questão').click()
 
     cy.contains('nota máxima').should('be.visible')
@@ -230,5 +258,13 @@ describe('formulário de questão', () => {
 
     cy.get('[aria-label="Texto da alternativa E"]').should('exist')
     cy.contains('button', 'Alternativa').should('not.exist')
+  })
+})
+
+describe('questão inexistente', () => {
+  it('mostra "não encontrada" em vez de formulário vazio', () => {
+    cy.visit('/questoes/00000000-0000-0000-0000-000000000000')
+
+    cy.contains('Questão não encontrada').should('be.visible')
   })
 })
