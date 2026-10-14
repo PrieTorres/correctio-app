@@ -183,8 +183,6 @@ export class QuestionRepository {
 
     const rows = await query.selectAll().limit(pageSize).offset(offset).execute()
 
-    // One query per child table for the whole page, not one per question:
-    // 50 rows would otherwise cost 100 extra round-trips.
     const children = await this.loadChildren(rows.map((row) => row.id))
 
     return {
@@ -281,6 +279,9 @@ export class QuestionRepository {
   /**
    * Loads the child rows of a page in two queries, one per table, and groups
    * them by question id. Empty ids are tolerated so callers never branch on it.
+   *
+   * Batching matters: a page of 50 rows would otherwise cost 100 extra
+   * round-trips, one per child table per question.
    */
   private async loadChildren(ids: string[]): Promise<ChildRows> {
     if (ids.length === 0) {
