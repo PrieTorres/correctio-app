@@ -2,7 +2,7 @@ name: Portão de qualidade
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'release/**']
 
 # Cancels superseded runs of the same PR: without it, every push queues a new
 # run while the previous one is still going.
@@ -223,6 +223,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # A pull request into the day's release branch is compared with main:
+      # release/YYYY-MM-DD is never analysed on its own, and Sonar needs an
+      # analysed base to tell this pull request's new code from the rest.
       - uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: -Dsonar.pullrequest.base=main

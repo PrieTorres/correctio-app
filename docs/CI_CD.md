@@ -44,7 +44,8 @@ Avaliado sobre **código novo** (o que o PR adiciona ou altera), não sobre o re
 
 Configuração no GitHub, sem a qual o portão acima é decorativo — bastaria fazer push direto:
 
-- Merge em `main` **somente por Pull Request**
+- Merge em `main` **somente por Pull Request**, e no dia a dia só o da release do dia (`release/AAAA-MM-DD`), mergeado pela PM
+- As branches `release/**` têm a mesma proteção: PR, aprovação da PM e todas as verificações
 - Pelo menos **1 aprovação** de outra pessoa do grupo
 - **Todas as verificações precisam passar** antes do botão de merge liberar
 - Push direto em `main` **bloqueado para todos**
@@ -59,8 +60,10 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 | Gatilho | O que acontece |
 |---|---|
 | Pull Request aberto ou atualizado | portão de qualidade completo, sem publicar nada |
-| Merge em `main` | publica só o front no **GitHub Pages** (`pages.yml`), para teste: sem API nem banco, como na N1 |
-| "1. Pre-release: publish to pre-production" (`preview.yml`), sob demanda | a **pré-versão do dia**: publica a `main` (ou uma branch, pelo nome ou pelo número do PR) na **pré-produção**, no projeto `correctio-app-preview`, depois da aprovação da PM, num link próprio que expira em 7 dias e é comentado no PR |
+| "0. Start the day's release" (`start-release.yml`), pela PM | cria `release/AAAA-MM-DD` a partir da `main`; os PRs do dia apontam para ela |
+| PR mergeado na release do dia | "Release pull request" (`release-pr.yml`) atualiza o PR da release com o `Closes #N` de cada PR do dia |
+| Merge da release do dia em `main`, pela PM | publica só o front no **GitHub Pages** (`pages.yml`), para teste: sem API nem banco, como na N1; fecha as issues do dia |
+| "1. Pre-release: publish to pre-production" (`preview.yml`), sob demanda | a **pré-versão do dia**: publica a `release/AAAA-MM-DD` no link fixo da **pré-produção** (`https://correctio-app-preview.web.app`), depois da aprovação da PM. Outra branch, pelo nome ou pelo número do PR, ganha um link próprio que expira em 7 dias e é comentado no PR; ficam só os 10 mais recentes |
 | "2. Release: publish to production" (`release.yml`) | a **versão oficial**: portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
 | A cada 6 horas (`keep-alive.yml`) | chama o `/api/health` da produção. O plano gratuito do Aiven desliga o banco depois de 24 horas sem consulta, e a produção cai junto; uma execução que falha avisa por e-mail que a produção está respondendo 503 |
 | "Rollback: republish a released version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada, também com aprovação da PM: o caminho de volta quando uma release dá errado |
@@ -168,6 +171,7 @@ na interface do GitHub, que nenhum arquivo versionado consegue ligar:
 | Segredos da API no Secret Manager de cada projeto | Google Cloud, Secret Manager | ✅ |
 | Ambientes `production` (só `main`, PM como revisora obrigatória) e `preview` | Settings → Environments | ✅ |
 | Tags de versão `v*` não podem ser movidas nem apagadas (só a admin passa por cima) | Settings → Rules, "release tags" | ✅ |
+| Branches `release/**` com a proteção da `main` (PR, aprovação da PM e verificações) | Settings → Rules, "release branches" | ✅ |
 | GitHub Pages publicando o front da `main`, para teste | Settings → Pages, fonte GitHub Actions | ✅ |
 
 > **Workflow sob demanda só aparece depois de estar na `main`.** O GitHub lista em Actions apenas
