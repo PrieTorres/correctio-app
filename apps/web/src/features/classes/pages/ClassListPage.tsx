@@ -11,16 +11,18 @@ import {
   ConfirmDialog,
   EmptyState,
   PageHeader,
+  Pagination,
   QueryBoundary,
   SearchInput,
   SearchIllustration,
   SegmentedControl,
   type Segment,
   Tour,
+  useDebouncedValue,
 } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import type { Class } from '@/types/domain';
-import { useArchiveClass, useClassList } from '../hooks/useClasses';
+import { CLASS_PAGE_SIZE, useArchiveClass, useClassList } from '../hooks/useClasses';
 import { ClassFormModal } from '../components/ClassFormModal';
 
 type Filter = 'active' | 'archived';
@@ -30,15 +32,41 @@ const FILTERS: readonly Segment<Filter>[] = [
   { value: 'archived', label: 'Arquivadas' },
 ];
 
-export function ClassListPage() {
+/**
+ * What the list shows: the filter, the search and the page. The query reads
+ * the search only once typing pauses, so the server gets one request per term
+ * instead of one per key.
+ *
+ * The page belongs to the filter and search it was chosen under, and goes back
+ * to 1 as soon as either changes: page 3 of another search may not exist.
+ * Keeping the two together derives that without an effect or an extra request.
+ */
+function useClassListView() {
   const [filter, setFilter] = useState<Filter>('active');
   const [search, setSearch] = useState('');
+  const settledSearch = useDebouncedValue(search);
+  const listKey = `${filter}|${settledSearch}`;
+  const [paging, setPaging] = useState({ listKey, page: 1 });
+
+  return {
+    filter,
+    setFilter,
+    search,
+    setSearch,
+    settledSearch,
+    page: paging.listKey === listKey ? paging.page : 1,
+    setPage: (page: number) => setPaging({ listKey, page }),
+  };
+}
+
+export function ClassListPage() {
+  const view = useClassListView();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Class | null>(null);
   const [pendingArchive, setPendingArchive] = useState<Class | null>(null);
 
-  const showingArchived = filter === 'archived';
-  const { data, isPending, isError } = useClassList(showingArchived, search);
+  const showingArchived = view.filter === 'archived';
+  const { data, isPending, isError } = useClassList(showingArchived, view.settledSearch, view.page);
   const archiveClass = useArchiveClass();
 
   const classes = data?.items ?? [];
@@ -51,6 +79,24 @@ export function ClassListPage() {
   const openEdit = (item: Class) => {
     setEditing(item);
     setFormOpen(true);
+  };
+
+  const closeArchive = () => {
+    archiveClass.reset();
+    setPendingArchive(null);
+  };
+
+  /** Archiving the last class of a page empties it; the list steps back instead of looking empty. */
+  const confirmArchive = (item: Class) => {
+    archiveClass.mutate(
+      { id: item.id, archive: item.status === 'active' },
+      {
+        onSuccess: () => {
+          if (classes.length === 1 && view.page > 1) view.setPage(view.page - 1);
+          closeArchive();
+        },
+      },
+    );
   };
 
   const newClassButton = (
@@ -75,15 +121,15 @@ export function ClassListPage() {
 
       <div data-tour="filters" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <SearchInput
-          value={search}
-          onChange={setSearch}
+          value={view.search}
+          onChange={view.setSearch}
           label="Buscar turmas"
           placeholder="Buscar por nome ou disciplina"
         />
         <SegmentedControl
           segments={FILTERS}
-          value={filter}
-          onChange={setFilter}
+          value={view.filter}
+          onChange={view.setFilter}
           label="Filtrar por situação"
         />
       </div>
@@ -92,24 +138,32 @@ export function ClassListPage() {
         {classes.length === 0 ? (
           <Card>
             <EmptyClassList
-              searching={search.trim() !== ''}
+              searching={view.settledSearch.trim() !== ''}
               showingArchived={showingArchived}
-              onClearSearch={() => setSearch('')}
+              onClearSearch={() => view.setSearch('')}
               createButton={newClassButton}
             />
           </Card>
         ) : (
-          <ul data-tour="list" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {classes.map((item) => (
-              <li key={item.id}>
-                <ClassCard
-                  item={item}
-                  onEdit={() => openEdit(item)}
-                  onToggleArchive={() => setPendingArchive(item)}
-                />
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-col gap-4">
+            <ul data-tour="list" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {classes.map((item) => (
+                <li key={item.id}>
+                  <ClassCard
+                    item={item}
+                    onEdit={() => openEdit(item)}
+                    onToggleArchive={() => setPendingArchive(item)}
+                  />
+                </li>
+              ))}
+            </ul>
+            <Pagination
+              page={view.page}
+              pageSize={CLASS_PAGE_SIZE}
+              total={data?.total ?? 0}
+              onPageChange={view.setPage}
+            />
+          </div>
         )}
       </QueryBoundary>
 
@@ -118,13 +172,10 @@ export function ClassListPage() {
       <ArchiveConfirmDialog
         item={pendingArchive}
         pending={archiveClass.isPending}
-        onOpenChange={(open) => !open && setPendingArchive(null)}
+        error={archiveClass.error}
+        onOpenChange={(open) => !open && closeArchive()}
         onConfirm={() => {
-          if (pendingArchive === null) return;
-          archiveClass.mutate(
-            { id: pendingArchive.id, archive: pendingArchive.status === 'active' },
-            { onSettled: () => setPendingArchive(null) },
-          );
+          if (pendingArchive !== null) confirmArchive(pendingArchive);
         }}
       />
 
@@ -228,14 +279,17 @@ function ClassCard({
   );
 }
 
+/** Stays open when the API refuses, with the reason, instead of closing as if the archive or restore went through. */
 function ArchiveConfirmDialog({
   item,
   pending,
+  error,
   onOpenChange,
   onConfirm,
 }: Readonly<{
   item: Class | null;
   pending: boolean;
+  error: Error | null;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
 }>) {
@@ -253,6 +307,7 @@ function ArchiveConfirmDialog({
       }
       confirmLabel={isArchiving ? 'Arquivar' : 'Restaurar'}
       pending={pending}
+      error={error}
       onConfirm={onConfirm}
     />
   );
