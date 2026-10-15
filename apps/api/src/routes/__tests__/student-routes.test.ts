@@ -1,23 +1,16 @@
-import { randomBytes, randomUUID } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import type { Student } from '@correctio/domain'
 import type { Express } from 'express'
-import { sql, type Kysely } from 'kysely'
+import type { Kysely } from 'kysely'
 import request, { type Response } from 'supertest'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { createTestDatabase, DATABASE_TEST_URL, type TestDatabase } from '../../__tests__/test-database'
 import { createApp, type AppDependencies } from '../../app'
 import { loadEnv } from '../../config/env'
-import { createDatabase } from '../../db/connection'
-import { MIGRATION_COMMAND, migrate } from '../../db/migrator'
 import { createFieldCipher } from '../../lib/field-encryption'
 import { createLogger } from '../../lib/logger'
 import type { VerifyToken } from '../../middlewares/require-auth'
 import type { Database } from '../../models/tables'
-
-/** Real MySQL, as in `class-routes.test.ts`: in CI a missing database is a failure, never a skip. */
-const serverUrl = process.env.DATABASE_TEST_URL
-if (serverUrl === undefined && process.env.CI !== undefined) {
-  throw new Error('DATABASE_TEST_URL is required in CI')
-}
 
 const TOKENS: Readonly<Record<string, string>> = { 'token-ana': 'ana', 'token-bia': 'bia' }
 const verifyToken: VerifyToken = (token) => {
@@ -39,9 +32,8 @@ const user = (id: string, role: 'professor' | 'estudante' = 'professor') => ({
 const itemsIn = (response: Response) => (response.body as { items: Student[] }).items
 const namesIn = (response: Response) => itemsIn(response).map((student) => student.fullName)
 
-describe.runIf(serverUrl !== undefined)('student routes (real MySQL)', () => {
-  const name = `correctio_test_${randomUUID().replaceAll('-', '').slice(0, 12)}`
-  let server: Kysely<Database>
+describe.runIf(DATABASE_TEST_URL !== undefined)('student routes (real MySQL)', () => {
+  let database: TestDatabase
   let db: Kysely<Database>
   let dependencies: AppDependencies
   let app: Express
@@ -50,12 +42,8 @@ describe.runIf(serverUrl !== undefined)('student routes (real MySQL)', () => {
 
   /** `conta-aluno` is the account a student area would link through `Student.userId`, a column no route writes. */
   beforeAll(async () => {
-    server = createDatabase({ url: serverUrl ?? '', tls: 'local' })
-    await sql`CREATE DATABASE ${sql.id(name)}`.execute(server)
-    const url = new URL(serverUrl ?? '')
-    url.pathname = `/${name}`
-    db = createDatabase({ url: url.toString(), tls: 'local' })
-    await migrate(db, MIGRATION_COMMAND.LATEST)
+    database = await createTestDatabase()
+    db = database.db
     await db.insertInto('users').values([user('ana'), user('bia'), user('conta-aluno', 'estudante')]).execute()
 
     dependencies = {
@@ -69,11 +57,7 @@ describe.runIf(serverUrl !== undefined)('student routes (real MySQL)', () => {
     app = createApp(dependencies)
   })
 
-  afterAll(async () => {
-    await db.destroy()
-    await sql`DROP DATABASE IF EXISTS ${sql.id(name)}`.execute(server)
-    await server.destroy()
-  })
+  afterAll(() => database.drop())
 
   function asTeacher(token: string) {
     const authorization = { Authorization: `Bearer ${token}` }

@@ -1,30 +1,18 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import type { Class } from '@correctio/domain'
 import type { Express } from 'express'
-import { sql, type Kysely } from 'kysely'
+import type { Kysely } from 'kysely'
 import request, { type Response } from 'supertest'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { createTestDatabase, DATABASE_TEST_URL, type TestDatabase } from '../../__tests__/test-database'
 import { createApp } from '../../app'
 import { loadEnv } from '../../config/env'
-import { createDatabase } from '../../db/connection'
-import { MIGRATION_COMMAND, migrate } from '../../db/migrator'
 import { createFieldCipher } from '../../lib/field-encryption'
 import { createLogger } from '../../lib/logger'
 import type { VerifyToken } from '../../middlewares/require-auth'
 import type { Database } from '../../models/tables'
 import { createClassRepository } from '../../repositories/class-repository'
 import { createClassService } from '../../services/class-service'
-
-/**
- * Runs against a real MySQL, like `db/__tests__/schema.test.ts`: `docker compose
- * up -d mysql` locally, the MySQL service in CI. In CI a missing database is a
- * failure, never a skipped test, because a fake database would accept a column
- * the migration never created.
- */
-const serverUrl = process.env.DATABASE_TEST_URL
-if (serverUrl === undefined && process.env.CI !== undefined) {
-  throw new Error('DATABASE_TEST_URL is required in CI')
-}
 
 const TOKENS: Readonly<Record<string, string>> = { 'token-ana': 'ana', 'token-bia': 'bia' }
 const verifyToken: VerifyToken = (token) => {
@@ -40,20 +28,15 @@ const CALCULO = { name: 'Cálculo I', subject: 'Matemática', term: '2026/2' }
 const teacher = (id: string) => ({ id, role: 'professor' as const, fullName: id, email: `${id}@exemplo.edu.br`, passwordHash: 'x' })
 const namesIn = (response: Response) => (response.body as { items: Class[] }).items.map((item) => item.name)
 
-describe.runIf(serverUrl !== undefined)('class routes (real MySQL)', () => {
-  const name = `correctio_test_${randomUUID().replaceAll('-', '').slice(0, 12)}`
-  let server: Kysely<Database>
+describe.runIf(DATABASE_TEST_URL !== undefined)('class routes (real MySQL)', () => {
+  let database: TestDatabase
   let db: Kysely<Database>
   let app: Express
 
   /** `classes.teacherId` has a foreign key to `users.id`, so both teachers exist before any class. */
   beforeAll(async () => {
-    server = createDatabase({ url: serverUrl ?? '', tls: 'local' })
-    await sql`CREATE DATABASE ${sql.id(name)}`.execute(server)
-    const url = new URL(serverUrl ?? '')
-    url.pathname = `/${name}`
-    db = createDatabase({ url: url.toString(), tls: 'local' })
-    await migrate(db, MIGRATION_COMMAND.LATEST)
+    database = await createTestDatabase()
+    db = database.db
     await db.insertInto('users').values([teacher('ana'), teacher('bia')]).execute()
 
     app = createApp({
@@ -66,11 +49,7 @@ describe.runIf(serverUrl !== undefined)('class routes (real MySQL)', () => {
     })
   })
 
-  afterAll(async () => {
-    await db.destroy()
-    await sql`DROP DATABASE IF EXISTS ${sql.id(name)}`.execute(server)
-    await server.destroy()
-  })
+  afterAll(() => database.drop())
 
   /** Students first, so no foreign key blocks the delete. */
   beforeEach(async () => {
