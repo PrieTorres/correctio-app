@@ -213,3 +213,5 @@ contexto.
 - Nunca dar `git push` nem abrir PR sem pedido explícito. Commit local é o padrão.
 - Sem `Co-Authored-By` nas mensagens de commit.
 - Sem merge direto na `main`: tudo por Pull Request com aprovação.
+- **PR do dia aponta para a release do dia** (`release/AAAA-MM-DD`), nunca para a `main`. Só a PM
+  mergeia a release na `main`, ao final do dia (`docs/Versionamento.md`, "Como sair").
