@@ -2,8 +2,9 @@ name: Start the API
 description: Applies the migrations and starts the built API on port 3000, the one the Vite preview forwards /api to.
 
 # Shared by the jobs that run Cypress against the production build. The job
-# provides the MySQL service and the DATABASE_URL, DATABASE_TLS and LOG_LEVEL
-# variables, and must have run `npm run build` before this action.
+# provides the MySQL service and the DATABASE_URL, DATABASE_TLS, LOG_LEVEL and
+# DATA_ENCRYPTION_KEY variables, and must have run `npm run build` before this
+# action.
 runs:
   using: composite
   steps:
