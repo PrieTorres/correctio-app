@@ -55,7 +55,12 @@ export function ClassDetailPage() {
   const studentAction = useStudentAction(id ?? '')
 
   const addStudentButton = (
-    <Button variant="primary" icon={<UserPlus size={18} aria-hidden />} onClick={() => setFormOpen(true)}>
+    <Button
+      variant="primary"
+      icon={<UserPlus size={18} aria-hidden />}
+      data-tour="create"
+      onClick={() => setFormOpen(true)}
+    >
       Adicionar aluno
     </Button>
   )
@@ -107,7 +112,7 @@ export function ClassDetailPage() {
                 action={addStudentButton}
               />
             ) : (
-              <ul className="divide-y divide-line">
+              <ul data-tour="list" className="divide-y divide-line">
                 {students.map((student) => (
                   <StudentRow
                     key={student.id}

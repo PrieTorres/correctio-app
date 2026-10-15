@@ -218,7 +218,7 @@ function TagFilter({
     onChange(selected.includes(tag) ? selected.filter((item) => item !== tag) : [...selected, tag]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div data-tour="tags" className="flex flex-wrap items-center gap-2">
       <span className="text-caption text-ink-subtle">Tags:</span>
       <button
         type="button"

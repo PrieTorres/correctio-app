@@ -1,5 +1,6 @@
 import type { Migration } from 'kysely'
 import * as initialSchema from './0001-initial-schema'
+import * as authentication from './0002-authentication'
 
 /**
  * Listed by hand instead of read from the folder, so the same list works in the
@@ -8,4 +9,5 @@ import * as initialSchema from './0001-initial-schema'
  */
 export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   '0001-initial-schema': initialSchema,
+  '0002-authentication': authentication,
 }

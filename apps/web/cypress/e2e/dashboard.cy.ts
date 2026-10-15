@@ -1,6 +1,6 @@
 /**
  * The panel and the profile: where a term is read at a glance, and where the
- * tour and the account are managed.
+ * sessions and the account are managed.
  */
 describe('painel', () => {
   beforeEach(() => cy.visit('/painel'))
@@ -52,10 +52,20 @@ describe('perfil', () => {
     cy.contains('h2', 'Dados da conta').should('be.visible')
   })
 
-  it('confirma que o tour foi zerado', () => {
-    cy.contains('button', 'Rever o tour').click()
+  /** Each screen's own help button is how a tour comes back, so the profile no longer resets all of them. */
+  it('não oferece mais rever o tour de todas as telas', () => {
+    cy.contains('h1', 'Meu perfil').should('be.visible')
 
-    cy.get('[role="status"]').should('contain', 'volta a aparecer')
+    cy.contains('button', 'Rever o tour').should('not.exist')
+  })
+
+  /** RF04: the session ends here and on every other device. */
+  it('sai de todos os dispositivos e volta para o login', () => {
+    cy.contains('button', 'Sair de todos os dispositivos').click()
+
+    cy.location('pathname').should('eq', '/entrar')
+    cy.visit('/painel')
+    cy.location('pathname').should('eq', '/entrar')
   })
 
   /** Anonymising cannot be undone, so it costs more than one click. */

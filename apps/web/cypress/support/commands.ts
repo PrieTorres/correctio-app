@@ -1,3 +1,31 @@
+import { writeDemoData } from '@/lib/seed'
+import type { AuthenticatedUser } from '@/types/domain'
+
+/** The password of every teacher the suite signs up; long enough for the 8-character rule. */
+export const TEST_PASSWORD = 'senha-de-teste-1'
+
+/** An address no earlier run used: the API keeps every account, and the same address twice is refused. */
+export function uniqueEmail(prefix = 'prof'): string {
+  return `${prefix}-${Date.now()}-${Cypress._.random(1e6)}@exemplo.edu.br`
+}
+
+/**
+ * Signs a new teacher up on the API and leaves the browser signed in, the way
+ * the app itself would: `cy.request` keeps the refresh cookie the API sets, and
+ * the app restores the session from it on the next visit.
+ *
+ * The sample data is written to `localStorage` for this teacher, so every spec
+ * starts from the same populated screens the demo shows, owned by a real
+ * account. The screens whose data already lives on the API do not read it.
+ */
+Cypress.Commands.add('signInAsNewTeacher', ({ withSampleData = true }: { withSampleData?: boolean } = {}) => {
+  const account = { fullName: 'Professora Ana Ribeiro', email: uniqueEmail(), password: TEST_PASSWORD }
+  return cy.request('POST', '/api/auth/register', account).then(({ body }: Cypress.Response<{ user: AuthenticatedUser }>) => {
+    if (withSampleData) writeDemoData(body.user.id)
+    return { ...body.user, password: TEST_PASSWORD }
+  })
+})
+
 /**
  * Finds a form control by its visible label.
  *
@@ -49,6 +77,7 @@ declare global {
       findByLabel(text: string): Chainable<JQuery<HTMLElement>>
       findInDialog(selector: string, text: string): Chainable<JQuery<HTMLElement>>
       chooseSegment(text: string): Chainable<JQuery<HTMLElement>>
+      signInAsNewTeacher(options?: { withSampleData?: boolean }): Chainable<AuthenticatedUser & { password: string }>
     }
   }
 }

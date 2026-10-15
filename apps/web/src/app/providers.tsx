@@ -1,11 +1,13 @@
-import { QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { useMemo, type ReactNode } from 'react'
+import { currentUserQuery, recheckSession } from '@/features/auth/hooks/useAuth'
+import { DEMO_MODE } from '@/lib/app-mode'
+import { createHttpAuthProvider, createLocalAuthProvider } from '@/lib/auth'
 import { createTeacherRepositories } from '@/lib/repositories'
 import { apiBaseUrl } from '@/lib/repositories/http/api-config'
 import { createApiClient } from '@/lib/repositories/http/api-client'
-import { createLocalAuthProvider } from '@/lib/auth'
 import { createAppQueryClient } from './query-client'
-import { AppServicesContext, type AppServices } from './services'
+import { AppServicesContext } from './services'
 
 /**
  * Remote data lives in the query cache, never in component state or a global
@@ -14,28 +16,34 @@ import { AppServicesContext, type AppServices } from './services'
  */
 const queryClient = createAppQueryClient()
 
-/**
- * Wires the app root. The HTTP client takes its token from the auth provider
- * and, on any 401, drops the whole cache, so nothing read under one session is
- * shown under the next; #40 adds the refresh or the redirect to the sign-in.
- */
-export function Providers({ children }: Readonly<{ children: ReactNode }>) {
-  const services = useMemo<AppServices>(() => {
-    const auth = createLocalAuthProvider()
-    const api = createApiClient({
-      baseUrl: apiBaseUrl(),
-      getToken: () => auth.getAccessToken(),
-      onUnauthorized: () => queryClient.clear(),
-    })
-    return {
-      auth,
-      repositories: createTeacherRepositories(auth.getCurrentUser()?.id ?? 'teacher-demo', api),
-    }
-  }, [])
+const auth = DEMO_MODE ? createLocalAuthProvider() : createHttpAuthProvider({ baseUrl: apiBaseUrl() })
 
+/** On any 401 nothing read under the session is kept, and the session is checked again (`recheckSession`). */
+const api = createApiClient({
+  baseUrl: apiBaseUrl(),
+  getToken: () => auth.getAccessToken(),
+  onUnauthorized: () => recheckSession(queryClient),
+})
+
+/** Teacher id of the repositories while nobody is signed in; the guard keeps every screen that reads them closed. */
+const SIGNED_OUT = ''
+
+/**
+ * The repositories belong to whoever is signed in, so they are rebuilt when the
+ * session changes, derived from the same query the screens read.
+ */
+function TeacherServices({ children }: Readonly<{ children: ReactNode }>) {
+  const { data: user } = useQuery(currentUserQuery(auth))
+  const teacherId = user?.id ?? SIGNED_OUT
+  const services = useMemo(() => ({ auth, repositories: createTeacherRepositories(teacherId, api) }), [teacherId])
+
+  return <AppServicesContext.Provider value={services}>{children}</AppServicesContext.Provider>
+}
+
+export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <AppServicesContext.Provider value={services}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    </AppServicesContext.Provider>
+    <QueryClientProvider client={queryClient}>
+      <TeacherServices>{children}</TeacherServices>
+    </QueryClientProvider>
   )
 }
