@@ -226,8 +226,13 @@ jobs:
       # A pull request into the day's release branch is compared with main:
       # release/YYYY-MM-DD is never analysed on its own, and Sonar needs an
       # analysed base to tell this pull request's new code from the rest.
+      # Setting one pull request parameter turns off the scanner's own
+      # detection of the others, so the key and the branch go along with it.
       - uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          args: -Dsonar.pullrequest.base=main
+          args: >-
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
+            -Dsonar.pullrequest.branch=${{ github.head_ref }}
+            -Dsonar.pullrequest.base=main
