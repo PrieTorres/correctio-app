@@ -3,16 +3,15 @@ import { studentInputSchema, type Student, type StudentInput } from '@correctio/
 import { z } from 'zod'
 import { isDuplicateEntry } from '../db/errors'
 import { API_ERROR_CODE, ApiError } from '../lib/api-error'
+import { mergePatch } from '../lib/merge-patch'
 import { parsePageRequest, type Page } from '../lib/pagination'
-import { mergePatch, parseInput } from '../lib/validation'
+import { parseRequest } from '../lib/parse-request'
 import type { ClassRepository } from '../repositories/class-repository'
 import { REGISTRATION_INDEX, type NewStudent, type StudentChanges, type StudentRepository } from '../repositories/student-repository'
 
 /** The fields of the student form. `userId` and the rest of a `Student` never come from a request. */
 const STUDENT_FIELDS = ['fullName', 'registration', 'email'] as const satisfies readonly (keyof StudentInput)[]
 
-const STUDENT_DATA = 'Dados do aluno'
-const IMPORT_DATA = 'Dados da importação'
 const CLASS_NOT_FOUND = 'Turma não encontrada.'
 const STUDENT_NOT_FOUND = 'Aluno não encontrado.'
 const ANONYMIZED_LOCKED = 'Os dados deste aluno foram anonimizados e não podem mais ser editados.'
@@ -29,7 +28,18 @@ const anonymizedRegistration = (id: string) => `ANON-${id.slice(0, 8)}`
  */
 const MAX_IMPORT_ROWS = 1000
 
-const importSchema = z.object({ rows: z.array(z.unknown()).min(1).max(MAX_IMPORT_ROWS) })
+/** Written for the screen, like the messages of the domain schemas, since `parseRequest` answers with them. */
+const NO_ROWS = 'Envie ao menos um aluno para importar'
+
+const importSchema = z.object(
+  {
+    rows: z
+      .array(z.unknown(), { required_error: NO_ROWS, invalid_type_error: NO_ROWS })
+      .min(1, NO_ROWS)
+      .max(MAX_IMPORT_ROWS, `Importe no máximo ${MAX_IMPORT_ROWS} alunos por vez`),
+  },
+  { invalid_type_error: NO_ROWS },
+)
 
 export interface ImportResult {
   created: number
@@ -60,14 +70,22 @@ function registrationKey(registration: string): string {
   return registration.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('pt-BR')
 }
 
+/**
+ * Validates one row with the schema of the student form and says which row it
+ * is: the message of the form alone would not tell the teacher where to look
+ * in a list of forty.
+ */
+function parseRow(row: unknown, index: number): StudentInput {
+  try {
+    return parseRequest(studentInputSchema, row)
+  } catch (error) {
+    if (!(error instanceof ApiError)) throw error
+    throw new ApiError(API_ERROR_CODE.INVALID, `Linha ${index + 1} da importação: ${error.message}. Nada foi importado.`)
+  }
+}
+
 function parseRows(body: unknown): StudentInput[] {
-  const { rows } = parseInput(importSchema, body, IMPORT_DATA)
-  return rows.map((row, index) => {
-    const result = studentInputSchema.safeParse(row)
-    if (result.success) return result.data
-    const field = result.error.issues[0]?.path.join('.') || 'formato'
-    throw new ApiError(API_ERROR_CODE.INVALID, `A linha ${index + 1} da importação é inválida: ${field}. Nada foi importado.`)
-  })
+  return parseRequest(importSchema, body).rows.map((row, index) => parseRow(row, index))
 }
 
 function pickForm(student: Student): Partial<Record<(typeof STUDENT_FIELDS)[number], unknown>> {
@@ -140,7 +158,7 @@ export function createStudentService({ classes, students }: StudentServiceDepend
 
     async add(teacherId, classId, body) {
       await requireClass(teacherId, classId)
-      const input = parseInput(studentInputSchema, body, STUDENT_DATA)
+      const input = parseRequest(studentInputSchema, body)
       const student: NewStudent = { id: randomUUID(), classId, ...input }
       await writeRegistration(classId, input.registration, () => students.insert([student]))
       return student
@@ -178,8 +196,8 @@ export function createStudentService({ classes, students }: StudentServiceDepend
       const current = await requireStudent(classId, studentId)
       if (current.anonymizedAt !== undefined) throw new ApiError(API_ERROR_CODE.CONFLICT, ANONYMIZED_LOCKED)
 
-      const { merged, sent } = mergePatch(pickForm(current), body, STUDENT_FIELDS, STUDENT_DATA)
-      const input = parseInput(studentInputSchema, merged, STUDENT_DATA)
+      const { merged, sent } = mergePatch(pickForm(current), body, STUDENT_FIELDS)
+      const input = parseRequest(studentInputSchema, merged)
       await writeRegistration(classId, input.registration, () => students.update(classId, studentId, changesFrom(input, sent)))
       return requireStudent(classId, studentId)
     },

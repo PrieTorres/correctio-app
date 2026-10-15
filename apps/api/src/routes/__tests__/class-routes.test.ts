@@ -124,18 +124,21 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('class routes (real MySQL)', () 
       expect(first.inviteCode).not.toBe(second.inviteCode)
     })
 
-    it('refuses a class without a name, in the error shape of the API', async () => {
-      const response = await ana().post('/classes', { subject: 'Matemática', term: '2026/2' })
+    it('refuses a class without a name with the message the form shows', async () => {
+      const response = await ana().post('/classes', { ...CALCULO, name: '' })
 
       expect(response.status).toBe(400)
-      expect(response.body).toEqual({ code: 'invalid', message: 'Dados da turma inválidos: name.' })
+      expect(response.body).toEqual({ code: 'invalid', message: 'Informe o nome da turma' })
     })
 
-    it('refuses a body that is not a class at all', async () => {
-      const response = await ana().post('/classes', [CALCULO])
+    it('refuses a body that lacks a field or is not a class at all', async () => {
+      const missingName = await ana().post('/classes', { subject: 'Matemática', term: '2026/2' })
+      const notAClass = await ana().post('/classes', [CALCULO])
 
-      expect(response.status).toBe(400)
-      expect(response.body.message).toBe('Dados da turma inválidos: corpo da requisição.')
+      expect(missingName.status).toBe(400)
+      expect(missingName.body.code).toBe('invalid')
+      expect(notAClass.status).toBe(400)
+      expect(notAClass.body.code).toBe('invalid')
     })
   })
 
@@ -282,14 +285,15 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('class routes (real MySQL)', () 
       expect(await storedClass(created.id)).toEqual(before)
     })
 
-    it('refuses clearing a required field, and a body that is not an object', async () => {
+    it('refuses emptying or clearing a required field, and a body that is not an object', async () => {
       const created = await create()
+      const emptied = await ana().patch(`/classes/${created.id}`, { name: '' })
       const cleared = await ana().patch(`/classes/${created.id}`, { name: null })
       const notAnObject = await ana().patch(`/classes/${created.id}`, ['Cálculo II'])
 
+      expect(emptied.body).toEqual({ code: 'invalid', message: 'Informe o nome da turma' })
       expect(cleared.status).toBe(400)
-      expect(cleared.body.message).toBe('Dados da turma inválidos: name.')
-      expect(notAnObject.status).toBe(400)
+      expect(notAnObject.body).toEqual({ code: 'invalid', message: 'Dados inválidos.' })
       expect((await storedClass(created.id)).name).toBe('Cálculo I')
     })
 

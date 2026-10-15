@@ -116,11 +116,11 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('student routes (real MySQL)', (
       expect((await storedStudent(student.id)).email).toBeNull()
     })
 
-    it('refuses an invalid student, naming the field', async () => {
+    it('refuses an invalid student with the message the form shows', async () => {
       const response = await ana().post(studentsOf(), { ...ANA, email: 'ana@' })
 
       expect(response.status).toBe(400)
-      expect(response.body).toEqual({ code: 'invalid', message: 'Dados do aluno inválidos: email.' })
+      expect(response.body).toEqual({ code: 'invalid', message: 'E-mail inválido' })
     })
 
     it('refuses a registration already in the class, and accepts it in another class', async () => {
@@ -189,14 +189,14 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('student routes (real MySQL)', (
       expect((await importRows([{ fullName: 'Ana', registration: 'a1' }])).body).toEqual({ created: 0, skipped: 1 })
     })
 
-    it('refuses the whole list when a row is invalid, naming the row', async () => {
+    it('refuses the whole list when a row is invalid, naming the row with the message the form shows', async () => {
       const response = await importRows([
         { fullName: 'Ana', registration: '1' },
         { fullName: '', registration: '2' },
       ])
 
       expect(response.status).toBe(400)
-      expect(response.body.message).toBe('A linha 2 da importação é inválida: fullName. Nada foi importado.')
+      expect(response.body.message).toBe('Linha 2 da importação: Informe o nome do aluno. Nada foi importado.')
       expect(await listedNames()).toEqual([])
     })
 
@@ -204,12 +204,15 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('student routes (real MySQL)', (
       const response = await importRows([{ fullName: 'Ana', registration: '1' }, ['Bruno', '2']])
 
       expect(response.status).toBe(400)
-      expect(response.body.message).toBe('A linha 2 da importação é inválida: formato. Nada foi importado.')
+      expect(response.body.message).toMatch(/^Linha 2 da importação: .+\. Nada foi importado\.$/)
     })
 
-    it('refuses an import without rows', async () => {
-      expect((await importRows([])).status).toBe(400)
-      expect((await ana().post(`${studentsOf()}/import`, {})).status).toBe(400)
+    it('refuses an import without rows, saying what to send', async () => {
+      const empty = await importRows([])
+      const withoutRows = await ana().post(`${studentsOf()}/import`, {})
+
+      expect(empty.body).toEqual({ code: 'invalid', message: 'Envie ao menos um aluno para importar' })
+      expect(withoutRows.body).toEqual({ code: 'invalid', message: 'Envie ao menos um aluno para importar' })
     })
 
     /**

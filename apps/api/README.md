@@ -83,7 +83,7 @@ src/
   models/           tipos das tabelas (tables.ts)
   db/               conexão, migrations, comando de migrar, busca de texto e erros do MySQL
   middlewares/      autenticação, erro, rota inexistente
-  lib/              ApiError, paginação, validação, criptografia de campo, logger
+  lib/              ApiError, paginação, validação da entrada, mesclagem do PATCH, criptografia de campo, logger
 ```
 
 Tipos e schemas vêm de `@correctio/domain` (`packages/domain`), os mesmos do front: a API valida

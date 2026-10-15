@@ -2,14 +2,14 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { classInputSchema, type Class, type ClassInput } from '@correctio/domain'
 import { isDuplicateEntry } from '../db/errors'
 import { API_ERROR_CODE, ApiError } from '../lib/api-error'
+import { mergePatch } from '../lib/merge-patch'
 import { parsePageRequest, type Page } from '../lib/pagination'
-import { mergePatch, parseInput } from '../lib/validation'
+import { parseRequest } from '../lib/parse-request'
 import type { ClassRepository } from '../repositories/class-repository'
 
 /** The fields of the class form; the rest of a `Class` is decided by the server. */
 const CLASS_FIELDS = ['name', 'subject', 'term'] as const satisfies readonly (keyof ClassInput)[]
 
-const CLASS_DATA = 'Dados da turma'
 const NOT_FOUND = 'Turma não encontrada.'
 
 /** The same messages the web app shows today (`requireUnique` in `create-owned-repository.ts`). */
@@ -103,15 +103,15 @@ export function createClassService({ repository, newInviteCode = createInviteCod
     get: requireClass,
 
     async create(teacherId, body) {
-      const input = parseInput(classInputSchema, body, CLASS_DATA)
+      const input = parseRequest(classInputSchema, body)
       await requireUnique(teacherId, input)
       return insertWithInviteCode({ id: randomUUID(), teacherId, ...input, status: 'active' })
     },
 
     async update(teacherId, id, body) {
       const current = await requireClass(teacherId, id)
-      const { merged, sent } = mergePatch(pickForm(current), body, CLASS_FIELDS, CLASS_DATA)
-      const input = parseInput(classInputSchema, merged, CLASS_DATA)
+      const { merged, sent } = mergePatch(pickForm(current), body, CLASS_FIELDS)
+      const input = parseRequest(classInputSchema, merged)
       await requireUnique(teacherId, input, id)
 
       const changes: Partial<ClassInput> = {}
