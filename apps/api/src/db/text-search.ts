@@ -13,8 +13,10 @@ const LIKE_ESCAPE = '!'
 
 /** A LIKE pattern that finds `term` anywhere, with the `%` and `_` the teacher typed taken literally. */
 export function containsPattern(term: string): string {
-  return `%${term.replace(/[!%_]/g, (char) => `${LIKE_ESCAPE}${char}`)}%`
+  return `%${term.replace(/[!%_]/g, (char) => LIKE_ESCAPE + char)}%`
 }
+
+const OR_SEPARATOR = sql` OR `
 
 /** True when any of `columns` contains `term`, ignoring accents and case. */
 export function anyColumnContains(columns: readonly string[], term: string): RawBuilder<SqlBool> {
@@ -23,7 +25,7 @@ export function anyColumnContains(columns: readonly string[], term: string): Raw
     (column) =>
       sql<SqlBool>`${sql.ref(column)} COLLATE ${ACCENT_AND_CASE_INSENSITIVE} LIKE ${pattern} ESCAPE ${sql.lit(LIKE_ESCAPE)}`,
   )
-  return sql<SqlBool>`(${sql.join(matches, sql` OR `)})`
+  return sql<SqlBool>`(${sql.join(matches, OR_SEPARATOR)})`
 }
 
 /**

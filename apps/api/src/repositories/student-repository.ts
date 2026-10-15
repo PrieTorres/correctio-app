@@ -19,7 +19,7 @@ export interface NewStudent {
   classId: string
   fullName: string
   registration: string
-  email?: string | undefined
+  email?: string
 }
 
 /** The columns a PATCH may write. `email: null` removes the address; a key left out is not touched. */
