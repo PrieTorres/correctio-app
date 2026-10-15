@@ -86,6 +86,7 @@ describe('auth data hooks', () => {
   it('drops what the previous person loaded when someone signs in', async () => {
     const { result } = renderHookWithProviders(() => ({
       signIn: useSignIn(),
+      session: useCurrentUser(),
       queryClient: useQueryClient(),
       leftover: useQuery({ queryKey: ['classes'], queryFn: () => ['turma do anterior'] }),
     }))
@@ -94,7 +95,7 @@ describe('auth data hooks', () => {
     await act(() => result.current.signIn.mutateAsync({ email: 'ana@example.br', password: 'secret1' }))
 
     expect(result.current.queryClient.getQueryData(['classes'])).toBeUndefined()
-    expect(result.current.queryClient.getQueryData(authKeys.currentUser)).toMatchObject({ email: 'ana@example.br' })
+    await waitFor(() => expect(result.current.session.data).toMatchObject({ email: 'ana@example.br' }))
   })
 
   it('ends the session everywhere and forgets the user', async () => {
@@ -195,7 +196,7 @@ describe('password reset and Google hooks', () => {
   it('starts the Google sign-in and takes the session it brings back', async () => {
     const auth = spyingAuth()
     const { result } = renderHookWithProviders(
-      () => ({ start: useStartGoogleSignIn(), complete: useCompleteGoogleSignIn(), queryClient: useQueryClient() }),
+      () => ({ start: useStartGoogleSignIn(), complete: useCompleteGoogleSignIn(), session: useCurrentUser() }),
       { auth },
     )
 
@@ -204,6 +205,6 @@ describe('password reset and Google hooks', () => {
 
     expect(auth.startGoogleSignIn).toHaveBeenCalledOnce()
     expect(auth.completeGoogleSignIn).toHaveBeenCalledWith('codigo')
-    expect(result.current.queryClient.getQueryData(authKeys.currentUser)).toMatchObject({ email: 'bia@gmail.com' })
+    await waitFor(() => expect(result.current.session.data).toMatchObject({ email: 'bia@gmail.com' }))
   })
 })

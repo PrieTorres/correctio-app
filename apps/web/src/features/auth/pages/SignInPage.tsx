@@ -76,9 +76,9 @@ export function SignInPage() {
   return (
     <AuthLayout title="Entrar" description="Acesse sua conta para continuar corrigindo provas.">
       {isPasswordResetDone(location.state) && (
-        <p role="status" className="mb-4 rounded-[var(--radius-control)] bg-success-surface p-3 text-caption text-ink">
+        <output className="mb-4 block rounded-[var(--radius-control)] bg-success-surface p-3 text-caption text-ink">
           Senha redefinida. Entre com a senha nova.
-        </p>
+        </output>
       )}
 
       <form

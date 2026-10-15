@@ -24,10 +24,8 @@ function render(): void {
  * demand, so the Firebase bundle, where `DEMO_MODE` is false, leaves it out.
  */
 if (DEMO_MODE) {
-  void import('@/lib/seed').then(({ seedIfEmpty }) => {
-    seedIfEmpty()
-    render()
-  })
-} else {
-  render()
+  const { seedIfEmpty } = await import('@/lib/seed')
+  seedIfEmpty()
 }
+
+render()

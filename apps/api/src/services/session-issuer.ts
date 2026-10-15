@@ -22,6 +22,11 @@ export interface SessionIssuer {
   issue: (user: UserRecord, deviceInfo: string | null) => Promise<IssuedSession>
 }
 
+/** Only an account that exists and was not anonymized gets a session (Spec, Feature 1.1). */
+export function isActiveAccount(user: UserRecord | null): user is UserRecord {
+  return user?.anonymizedAt === null
+}
+
 /** The entity minus the server secret, with dates as the strings the domain schema expects. */
 export function toAuthenticatedUser(user: UserRecord): AuthenticatedUser {
   return {

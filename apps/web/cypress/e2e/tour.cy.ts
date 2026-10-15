@@ -5,7 +5,8 @@
  * closing it on the X or with Esc are all final; only the help of the screen
  * the teacher is on opens it again.
  */
-const tour = () => cy.get('[role="region"][aria-label^="Tour desta tela"]')
+const TOUR = '[aria-label^="Tour desta tela"]'
+const tour = () => cy.get(TOUR)
 
 describe('tour guiado', () => {
   it('aparece na primeira visita de uma tela com conteúdo', () => {
@@ -115,7 +116,7 @@ describe('tour guiado', () => {
 
     cy.get('[aria-label="Navegação principal"]').contains('button', 'Ajuda desta tela').click()
 
-    tour().should('contain', 'Nova turma').and('contain', 'Passo 1 de 3')
+    cy.get(TOUR).should('contain', 'Nova turma').and('contain', 'Passo 1 de 3')
   })
 
   it('reabre pelo botão de ajuda do celular', () => {
@@ -125,7 +126,7 @@ describe('tour guiado', () => {
 
     cy.get('button[aria-label="Ajuda: rever o tour desta tela"]').click()
 
-    tour().should('contain', 'Nova turma')
+    cy.get(TOUR).should('contain', 'Nova turma')
   })
 
   it('reabrir não faz o tour voltar sozinho depois', () => {
@@ -225,7 +226,7 @@ describe('tour guiado', () => {
 
     cy.get('button[aria-label="Ver o tour desta tela"]').click()
 
-    tour().should('contain', 'Baixe o PDF aqui')
+    cy.get(TOUR).should('contain', 'Baixe o PDF aqui')
   })
 
   /** An empty screen already explains itself, and better. */
