@@ -5,6 +5,7 @@
  * the geometry of the answer card.
  */
 export * from './answer-card'
+export * from './answer-sheet-code'
 export * from './applications'
 export * from './domain'
 export * from './schemas'
