@@ -1,16 +1,28 @@
+import { studentInputSchema } from '@/lib/schemas'
+
 export interface ParsedStudent {
   fullName: string
   registration: string
   email?: string
 }
 
+export interface ParseProblem {
+  line: number
+  reason: string
+}
+
 export interface ParseResult {
   students: ParsedStudent[]
   /** One per line that could not be read, so the teacher can fix it. */
-  problems: { line: number; reason: string }[]
+  problems: ParseProblem[]
 }
 
+/** What one pasted line holds: a student, the reason it cannot be read, or nothing to report (a blank line, the header). */
+type LineReading = { student: ParsedStudent } | { reason: string } | null
+
 const SEPARATORS = [',', ';', '\t'] as const
+
+const problem = (reason: string): LineReading => ({ reason })
 
 /**
  * Reads a pasted or uploaded student list.
@@ -24,44 +36,51 @@ const SEPARATORS = [',', ';', '\t'] as const
  * thirty-nine, not nothing.
  */
 export function parseStudents(raw: string): ParseResult {
-  const lines = raw.split('\n').map((line) => line.trim())
   const students: ParsedStudent[] = []
-  const problems: ParseResult['problems'] = []
+  const problems: ParseProblem[] = []
   const seen = new Set<string>()
 
-  lines.forEach((line, index) => {
-    if (line === '') return
-
-    const separator = SEPARATORS.find((candidate) => line.includes(candidate))
-    if (separator === undefined) {
-      problems.push({ line: index + 1, reason: 'Faltou a matrícula nesta linha.' })
+  raw.split('\n').forEach((text, index) => {
+    const reading = readLine(text.trim(), seen)
+    if (reading === null) return
+    if ('reason' in reading) {
+      problems.push({ line: index + 1, reason: reading.reason })
       return
     }
-
-    const [fullName = '', registration = '', email = ''] = line
-      .split(separator)
-      .map((part) => part.trim())
-
-    if (isHeader(fullName, registration)) return
-
-    if (fullName === '') {
-      problems.push({ line: index + 1, reason: 'Faltou o nome do aluno.' })
-      return
-    }
-    if (registration === '') {
-      problems.push({ line: index + 1, reason: 'Faltou a matrícula.' })
-      return
-    }
-    if (seen.has(registration)) {
-      problems.push({ line: index + 1, reason: `Matrícula ${registration} repetida na lista.` })
-      return
-    }
-
-    seen.add(registration)
-    students.push({ fullName, registration, ...(email === '' ? {} : { email }) })
+    seen.add(reading.student.registration)
+    students.push(reading.student)
   })
 
   return { students, problems }
+}
+
+function readLine(line: string, seen: ReadonlySet<string>): LineReading {
+  if (line === '') return null
+
+  const separator = SEPARATORS.find((candidate) => line.includes(candidate))
+  if (separator === undefined) return problem('Faltou a matrícula nesta linha.')
+
+  const [fullName = '', registration = '', email = ''] = line.split(separator).map((part) => part.trim())
+  if (isHeader(fullName, registration)) return null
+
+  return checkStudent({ fullName, registration, ...(email === '' ? {} : { email }) }, seen)
+}
+
+/**
+ * The same rules the API applies to every row (`studentInputSchema`): a
+ * malformed e-mail or a name too long is caught here, on its own line, because
+ * the API refuses the whole list over a single row it cannot store. The
+ * friendlier wording for a missing name or registration comes first.
+ */
+function checkStudent(student: ParsedStudent, seen: ReadonlySet<string>): LineReading {
+  if (student.fullName === '') return problem('Faltou o nome do aluno.')
+  if (student.registration === '') return problem('Faltou a matrícula.')
+
+  const result = studentInputSchema.safeParse(student)
+  if (!result.success) return problem(`${result.error.issues[0]?.message ?? 'Linha inválida'}.`)
+
+  if (seen.has(student.registration)) return problem(`Matrícula ${student.registration} repetida na lista.`)
+  return { student }
 }
 
 /**
