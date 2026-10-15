@@ -10,7 +10,7 @@ import type { AuthCodeRepository } from '../repositories/auth-code-repository'
 import type { RefreshTokenRepository } from '../repositories/refresh-token-repository'
 import type { UserRecord, UserRepository } from '../repositories/user-repository'
 import type { GoogleIdentity, GoogleProfile } from './google-identity'
-import type { IssuedSession, SessionIssuer } from './session-issuer'
+import { isActiveAccount, type IssuedSession, type SessionIssuer } from './session-issuer'
 
 /** Time to pick an account on Google's screen. */
 const STATE_TTL_SECONDS = 10 * 60
@@ -61,7 +61,7 @@ const FIREBASE_SITE = /^https:\/\/([a-z0-9-]+)\.web\.app$/
 /** `https://<site>--<channel>.web.app`, the address Firebase gives each preview link of a site. */
 function isPreviewOf(origin: string, siteOrigin: string): boolean {
   const site = FIREBASE_SITE.exec(siteOrigin)?.[1]
-  return site !== undefined && new RegExp(`^https://${site}--[a-z0-9-]+\\.web\\.app$`).test(origin)
+  return site !== undefined && new RegExp(String.raw`^https://${site}--[a-z0-9-]+\.web\.app$`).test(origin)
 }
 
 /**
@@ -123,7 +123,7 @@ export function createGoogleSignInService(deps: GoogleSignInDependencies): Googl
   async function signInCode(googleCode: string, bindingHash: string): Promise<string | null> {
     const profile = identity === null ? null : await identity.identify(googleCode)
     const user = profile === null ? null : await accountFor(profile)
-    if (user === null || user.anonymizedAt !== null) return null
+    if (!isActiveAccount(user)) return null
 
     const code = createOpaqueToken()
     await authCodes.create({
@@ -164,7 +164,7 @@ export function createGoogleSignInService(deps: GoogleSignInDependencies): Googl
     async exchange({ code, binding }, deviceInfo) {
       const userId = await authCodes.consume(signInCodeHash(code, hashOpaqueToken(binding)), AUTH_CODE_PURPOSE.GOOGLE_SIGN_IN)
       const user = userId === null ? null : await users.findById(userId)
-      if (user === null || user.anonymizedAt !== null) {
+      if (!isActiveAccount(user)) {
         throw new ApiError(API_ERROR_CODE.UNAUTHORIZED, 'O login com o Google não foi concluído. Tente de novo.')
       }
       return sessions.issue(user, deviceInfo)

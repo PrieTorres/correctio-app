@@ -105,7 +105,8 @@ const SCORES: readonly (readonly [statement: string, score: number])[] = [
   [ESSAY.statement, ESSAY.maxScore],
 ]
 
-const tour = () => cy.get('[role="region"][aria-label^="Tour desta tela"]')
+const TOUR = '[aria-label^="Tour desta tela"]'
+const tour = () => cy.get(TOUR)
 
 /**
  * Dismisses the tour that opens on the first visit to a screen with content.

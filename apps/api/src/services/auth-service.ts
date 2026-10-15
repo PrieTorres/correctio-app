@@ -11,7 +11,7 @@ import type { RefreshTokenRecord, RefreshTokenRepository } from '../repositories
 import type { UserRecord, UserRepository } from '../repositories/user-repository'
 import { passwordResetMessage } from './auth-messages'
 import type { Mailer } from './mailer'
-import { toAuthenticatedUser, type IssuedSession, type SessionIssuer } from './session-issuer'
+import { isActiveAccount, toAuthenticatedUser, type IssuedSession, type SessionIssuer } from './session-issuer'
 
 const MINUTE_MS = 60 * 1000
 
@@ -59,10 +59,6 @@ export interface AuthService {
   currentUser: (userId: string) => Promise<AuthenticatedUser>
 }
 
-function isActive(user: UserRecord | null): user is UserRecord {
-  return user !== null && user.anonymizedAt === null
-}
-
 function sessionEnded(): ApiError {
   return new ApiError(API_ERROR_CODE.UNAUTHORIZED, SESSION_ENDED)
 }
@@ -83,7 +79,11 @@ export function createAuthService({
    * An unknown address is checked against a throwaway hash, so it takes as long
    * as a wrong password and the response time does not tell which accounts exist.
    */
-  const hashToCheck = (user: UserRecord | null) => (user === null ? (decoyHash ??= hashPassword(createOpaqueToken())) : user.passwordHash)
+  const hashToCheck = (user: UserRecord | null): Promise<string> | string => {
+    if (user !== null) return user.passwordHash
+    decoyHash ??= hashPassword(createOpaqueToken())
+    return decoyHash
+  }
 
   /**
    * A revoked token coming back after the grace window means two parties hold
@@ -98,7 +98,7 @@ export function createAuthService({
 
   async function sendResetLink(email: string): Promise<void> {
     const user = await users.findByEmail(email)
-    if (!isActive(user)) return
+    if (!isActiveAccount(user)) return
 
     const code = createOpaqueToken()
     await authCodes.create({
@@ -121,7 +121,7 @@ export function createAuthService({
     async signIn({ email, password }, deviceInfo) {
       const user = await users.findByEmail(email)
       const passwordMatches = await verifyPassword(await hashToCheck(user), password)
-      if (!passwordMatches || !isActive(user)) throw new ApiError(API_ERROR_CODE.UNAUTHORIZED, INVALID_CREDENTIALS)
+      if (!passwordMatches || !isActiveAccount(user)) throw new ApiError(API_ERROR_CODE.UNAUTHORIZED, INVALID_CREDENTIALS)
       return sessions.issue(user, deviceInfo)
     },
 
@@ -139,7 +139,7 @@ export function createAuthService({
       if (!(await refreshTokens.revoke(token.id))) throw sessionEnded()
 
       const user = await users.findById(token.userId)
-      if (!isActive(user)) throw sessionEnded()
+      if (!isActiveAccount(user)) throw sessionEnded()
       return sessions.issue(user, deviceInfo)
     },
 
@@ -182,7 +182,7 @@ export function createAuthService({
 
     async currentUser(userId) {
       const user = await users.findById(userId)
-      if (!isActive(user)) throw sessionEnded()
+      if (!isActiveAccount(user)) throw sessionEnded()
       return toAuthenticatedUser(user)
     },
   }

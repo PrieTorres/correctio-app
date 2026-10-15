@@ -21,11 +21,16 @@ const API_PROXY = {
  * Pages, `/` on Firebase Hosting. The router derives its basename from the
  * same value, so changing host never changes application code.
  *
+ * The bundle targets ES2022, the same as the type check, so the entry can wait
+ * for the demo seed with a top-level `await`; every browser that runs the app
+ * today supports it (Chrome 89, Firefox 89, Safari 15).
+ *
  * Coverage is scoped to business logic; screens are covered end to end by
  * Cypress, and measuring them here would dilute the threshold.
  */
 export default defineConfig({
   base: process.env.VITE_BASE_PATH ?? '/',
+  build: { target: 'es2022' },
   plugins: [react(), tailwindcss()],
   server: { proxy: API_PROXY },
   preview: { proxy: API_PROXY },

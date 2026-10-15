@@ -53,8 +53,8 @@ const INLINE_CLASSES = 'mt-4 rounded-[var(--radius-card)] border-4 border-primar
  * returns to where it was when it closes, which is the part a tour usually
  * gets wrong.
  *
- * A region rather than a dialog: it blocks nothing, traps no focus and leaves
- * the screen usable underneath. Calling it a dialog would make a screen reader
+ * A named section, which is a region, rather than a dialog: it blocks nothing,
+ * traps no focus and leaves the screen usable underneath. Calling it a dialog would make a screen reader
  * announce it as one, and would put it in front of every query looking for the
  * real dialogs of the app.
  *
@@ -66,7 +66,7 @@ export function Tour({ screen, ready, onClose, inline = false }: Readonly<TourPr
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
   const [dockedAt, setDockedAt] = useState<'top' | 'bottom'>('bottom');
-  const panel = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLElement>(null);
   const opener = useRef<HTMLElement | null>(null);
 
   const requests = useTourRequests();
@@ -177,9 +177,8 @@ export function Tour({ screen, ready, onClose, inline = false }: Readonly<TourPr
   const isLast = index + 1 >= steps.length;
 
   return (
-    <div
+    <section
       ref={panel}
-      role="region"
       aria-label={`Tour desta tela, passo ${index + 1} de ${steps.length}`}
       tabIndex={-1}
       className={inline ? INLINE_CLASSES : `${FLOATING_CLASSES} ${DOCKED_CLASSES[dockedAt]}`}
@@ -229,6 +228,6 @@ export function Tour({ screen, ready, onClose, inline = false }: Readonly<TourPr
           </button>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
