@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { lazy, Suspense, useState } from 'react';
+import { NavLink, Outlet } from 'react-router-dom';
 import {
   BarChart3,
   ClipboardCheck,
@@ -13,9 +13,17 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/app/routes';
+import { DEMO_MODE } from '@/lib/app-mode';
 import { requestTour } from '@/lib/tour';
-import { DemoDataControls } from '@/components/DemoDataControls';
 import { useCurrentUser, useSignOut } from '@/features/auth';
+
+/**
+ * Only the Pages build has sample data to load or clear. Loaded on demand, so
+ * the Firebase bundle, where `DEMO_MODE` is false, never carries the demo data.
+ */
+const DemoDataControls = DEMO_MODE
+  ? lazy(() => import('@/components/DemoDataControls').then((module) => ({ default: module.DemoDataControls })))
+  : null;
 
 interface NavItem {
   to: string;
@@ -36,14 +44,9 @@ const NAV_ITEMS: readonly NavItem[] = [
 export function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = () => setDrawerOpen(false);
-  const navigate = useNavigate();
   const { data: currentUser } = useCurrentUser();
   const signOut = useSignOut();
 
-  const handleSignOut = async () => {
-    await signOut.mutateAsync();
-    void navigate(ROUTES.signIn);
-  };
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -61,7 +64,7 @@ export function AppLayout() {
         <span className="font-[family-name:var(--font-heading)] text-title text-primary">
           Correctio
         </span>
-        <IconButton label="Ajuda: rever o tour desta tela">
+        <IconButton label="Ajuda: rever o tour desta tela" onClick={requestTour}>
           <HelpCircle size={22} aria-hidden />
         </IconButton>
       </header>
@@ -122,14 +125,18 @@ export function AppLayout() {
               <span className="truncate text-label text-ink-muted">{currentUser.fullName}</span>
               <button
                 type="button"
-                onClick={() => void handleSignOut()}
+                onClick={() => signOut.mutate()}
                 className="shrink-0 text-label text-primary hover:underline"
               >
                 Sair
               </button>
             </div>
           )}
-          <DemoDataControls />
+          {DemoDataControls && (
+            <Suspense fallback={null}>
+              <DemoDataControls />
+            </Suspense>
+          )}
           <button
             type="button"
             onClick={requestTour}

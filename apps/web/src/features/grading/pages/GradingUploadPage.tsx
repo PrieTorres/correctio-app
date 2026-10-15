@@ -137,7 +137,7 @@ export function GradingUploadPage() {
                     )}
 
                     {correction !== undefined && (
-                      <Button variant="ghost">
+                      <Button variant="ghost" data-tour="confirm">
                         <Link
                           to={buildPath(ROUTES.gradingSheet, {
                             id: id ?? '',

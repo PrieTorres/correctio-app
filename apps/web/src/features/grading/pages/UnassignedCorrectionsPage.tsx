@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, UserCheck } from 'lucide-react'
-import { Button, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration } from '@/components/ui'
+import { Button, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration, Tour } from '@/components/ui'
 import { buildPath, ROUTES } from '@/app/routes'
 import { useGradingOverview } from '../hooks/useGrading'
 
@@ -76,6 +76,8 @@ export function UnassignedCorrectionsPage() {
             </ul>
           </Card>
         )}
+
+        <Tour screen="unassignedCorrections" ready={unassigned.length > 0} />
       </div>
     </QueryBoundary>
   )

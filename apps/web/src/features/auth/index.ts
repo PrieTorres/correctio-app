@@ -1,4 +1,5 @@
 export { SignInPage } from './pages/SignInPage'
 export { SignUpPage } from './pages/SignUpPage'
 export { PasswordResetPage } from './pages/PasswordResetPage'
+export { NewPasswordPage } from './pages/NewPasswordPage'
 export * from './hooks/useAuth'

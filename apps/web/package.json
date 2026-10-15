@@ -13,7 +13,9 @@
     "test:watch": "vitest",
     "test:e2e": "env -u ELECTRON_RUN_AS_NODE start-server-and-test preview http://localhost:4173 'cypress run'",
     "test:e2e:record": "env -u ELECTRON_RUN_AS_NODE start-server-and-test preview http://localhost:4173 'cypress run --record'",
-    "test:e2e:journey": "env -u ELECTRON_RUN_AS_NODE start-server-and-test preview http://localhost:4173 \"cypress run --config 'specPattern=cypress/journey/**/*.cy.ts,video=true'\""
+    "test:e2e:journey": "env -u ELECTRON_RUN_AS_NODE start-server-and-test preview http://localhost:4173 \"cypress run --config 'specPattern=cypress/journey/**/*.cy.ts,video=true'\"",
+    "build:demo": "env VITE_DEMO_MODE=true npm run build",
+    "test:e2e:demo": "env -u ELECTRON_RUN_AS_NODE start-server-and-test preview http://localhost:4173 \"cypress run --config 'specPattern=cypress/demo/**/*.cy.ts' --env DEMO_MODE=true\""
   },
   "dependencies": {
     "@correctio/domain": "1.0.0",

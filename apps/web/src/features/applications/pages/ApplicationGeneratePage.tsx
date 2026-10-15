@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, FileText, Loader2 } from 'lucide-react';
-import { Button, Card, NumberInput, PageHeader, QueryBoundary } from '@/components/ui';
+import { Button, Card, NumberInput, PageHeader, QueryBoundary, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
 import { useExam } from '@/features/exams';
@@ -14,6 +14,15 @@ import {
 
 const MAX_VERSIONS = 6;
 
+/**
+ * The steps walk through generating, so they wait until the screen knows it
+ * can: that takes the corrections as well as the application, and a refused
+ * screen already explains itself in its alert.
+ */
+function canWalkThrough(verdict: { allowed: boolean }, correctionsPending: boolean): boolean {
+  return verdict.allowed && !correctionsPending;
+}
+
 export function ApplicationGeneratePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -21,7 +30,7 @@ export function ApplicationGeneratePage() {
   const { data: application, isPending, isError } = useApplication(id);
   const { data: exam } = useExam(application?.examId);
   const { data: printing } = useApplicationPrinting(id);
-  const { data: corrections = [] } = useCorrectionsOfApplication(id);
+  const { data: corrections = [], isPending: correctionsPending } = useCorrectionsOfApplication(id);
   const generate = useGenerateApplication();
 
   const [versionCount, setVersionCount] = useState(2);
@@ -159,6 +168,7 @@ export function ApplicationGeneratePage() {
           </Button>
           <Button
             variant="primary"
+            data-tour="generate"
             icon={
               generate.isPending ? (
                 <Loader2 size={18} aria-hidden className="animate-spin" />
@@ -178,6 +188,8 @@ export function ApplicationGeneratePage() {
             A geração roda em segundo plano. Você pode sair desta tela e voltar depois.
           </p>
         )}
+
+        <Tour screen="applicationPdf" ready={canWalkThrough(verdict, correctionsPending)} />
       </div>
     </QueryBoundary>
   );
