@@ -26,6 +26,12 @@ const optionalText = z
   .optional()
   .transform((value) => (value === undefined || value.trim() === '' ? undefined : value))
 
+/** At least 32 random bytes in base64: a shorter HS256 secret can be brute-forced from one token. */
+const signingSecret = optionalText.refine(
+  (value) => value === undefined || Buffer.from(value, 'base64').length >= 32,
+  'Must be at least 32 bytes in base64',
+)
+
 /** AES-256 needs exactly 32 bytes; anything else would fail only on the first encryption. */
 const encryptionKey = optionalText.refine(
   (value) => value === undefined || Buffer.from(value, 'base64').length === 32,
@@ -47,10 +53,26 @@ const envSchema = z
     DATABASE_TLS: z.enum([DATABASE_TLS.VERIFY, DATABASE_TLS.LOCAL]).default(DATABASE_TLS.VERIFY),
     DATABASE_CA_CERT: optionalText,
     DATA_ENCRYPTION_KEY: encryptionKey,
+    /** Signs the access tokens and the Google sign-in state. */
+    JWT_SECRET: signingSecret,
+    /**
+     * The fixed address of this environment's web app: where Google returns to
+     * and what the password reset e-mail links to.
+     */
+    PUBLIC_APP_URL: origin.default('http://localhost:5173'),
+    /** Both or neither: without them, sign-in with Google is simply not offered. */
+    GOOGLE_CLIENT_ID: optionalText,
+    GOOGLE_CLIENT_SECRET: optionalText,
+    /** The app password of the project's Gmail, which sends the password reset e-mail. */
+    GMAIL_APP_PASSWORD: optionalText,
+    MAIL_FROM: z.string().email().default('correctioapp@gmail.com'),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'test' && env.DATABASE_URL === undefined) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['DATABASE_URL'], message: 'Required outside tests' })
+    }
+    if ((env.GOOGLE_CLIENT_ID === undefined) !== (env.GOOGLE_CLIENT_SECRET === undefined)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['GOOGLE_CLIENT_ID'], message: 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET together' })
     }
     if (env.NODE_ENV !== 'production') return
 
@@ -60,6 +82,9 @@ const envSchema = z
         path: ['DATABASE_TLS'],
         message: 'Production must verify the database certificate: set DATABASE_TLS=verify and DATABASE_CA_CERT',
       })
+    }
+    if (env.JWT_SECRET === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['JWT_SECRET'], message: 'Required in production' })
     }
     if (env.DATA_ENCRYPTION_KEY === undefined) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['DATA_ENCRYPTION_KEY'], message: 'Required in production' })

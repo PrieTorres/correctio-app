@@ -23,10 +23,9 @@ O erro clássico é disparar um tour único no primeiro login e desfilar 60 pass
 
 ## 3. Comportamento
 
-- **Dispara na primeira visita de cada tela**, uma única vez. O estado "já viu" é guardado por tela.
+- **Dispara sozinho na primeira visita de cada tela**, uma única vez por navegador. Concluir, "Pular", o X ou `Esc` encerram de vez: o estado "já viu" fica no `localStorage` (`correctio:tour-seen`), por tela, e não se perde ao sair da conta nem ao limpar os dados de exemplo.
 - **Nunca bloqueia.** "Pular" sempre visível, `Esc` fecha, clique fora fecha. A tela continua utilizável por baixo.
-- **Botão "Ajuda"** na barra superior reabre o tour **da tela atual**, não do sistema inteiro.
-- **"Rever tour guiado"** no perfil zera o estado de todas as telas.
+- **Para rever, só a ajuda da tela atual**, nunca o sistema inteiro: o "?" ao lado do título, "Ajuda desta tela" no menu ou o ícone de ajuda do cabeçalho no celular abrem o tour daquela tela do primeiro passo. Reabrir não faz o tour voltar sozinho depois. Não existe mais o "rever tudo" no perfil.
 - **Não dispara em tela vazia.** Uma turma sem alunos já mostra o estado vazio com o botão certo — explicar uma tabela que não tem linhas é pior que não explicar nada. O tour espera existir conteúdo.
 - **No celular**, o passo aparece como faixa na base da tela, não como balão flutuante.
 

@@ -11,6 +11,7 @@ import type {
   UserRole,
 } from '@correctio/domain'
 import type { ColumnType } from 'kysely'
+import type { AuthCodePurpose } from './auth-code-purpose'
 
 /**
  * The tables as Kysely sees them. Column names are exactly the field names of
@@ -38,6 +39,8 @@ export interface UsersTable {
   passwordHash: string
   createdAt: DatabaseTimestamp
   anonymizedAt: OptionalTimestamp
+  /** `+` When someone proved they read the inbox (`0002-authentication`). */
+  emailVerifiedAt: OptionalTimestamp
   updatedAt: DatabaseTimestamp
 }
 
@@ -49,6 +52,16 @@ export interface RefreshTokensTable {
   issuedAt: Timestamp
   expiresAt: Timestamp
   revokedAt: OptionalTimestamp
+}
+
+export interface AuthCodesTable {
+  id: string
+  userId: string
+  purpose: AuthCodePurpose
+  codeHash: string
+  expiresAt: Timestamp
+  usedAt: OptionalTimestamp
+  createdAt: DatabaseTimestamp
 }
 
 export interface ClassesTable extends Audited {
@@ -210,6 +223,7 @@ export interface ActivityLogsTable {
 export interface Database {
   users: UsersTable
   refresh_tokens: RefreshTokensTable
+  auth_codes: AuthCodesTable
   classes: ClassesTable
   students: StudentsTable
   class_enrollments: ClassEnrollmentsTable

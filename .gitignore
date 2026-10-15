@@ -33,3 +33,7 @@ firebase-debug.*.log
 .DS_Store
 .idea/
 *.swp
+
+# Local copies of credentials (the OAuth client JSON, app passwords). The real
+# values live in Secret Manager; this folder must never reach the repository.
+.secrets

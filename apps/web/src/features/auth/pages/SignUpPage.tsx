@@ -1,21 +1,24 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Button, TextField } from '@/components/ui'
+import { Button, SaveError, TextField, Tour } from '@/components/ui'
 import { AuthLayout } from '@/app/layouts/AuthLayout'
 import { ROUTES } from '@/app/routes'
 import { signUpSchema, type SignUpInput } from '@/lib/schemas'
-import { useSignUp } from '../hooks/useAuth'
+import { StorageError } from '@/lib/storage/errors'
+import { useCurrentUser, useSignUp } from '../hooks/useAuth'
 
 const EMPTY: SignUpInput = { fullName: '', email: '', password: '', confirmPassword: '' }
 
-/**
- * Simulated sign-up: the account is not persisted as its own record, it just
- * signs the demo teacher in under the name and e-mail typed here. Good enough
- * to show the flow end to end while there is no server to register against.
- */
+/** An address that already has an account is the e-mail field's problem, so it shows there (C2); anything else goes under the form. */
+function placeSignUpError(error: Error | null): { onEmail?: string; onForm: Error | null } {
+  if (error instanceof StorageError && error.code === 'conflict') return { onEmail: error.message, onForm: null }
+  return { onForm: error }
+}
+
+/** Screen C2. The account is created on the API and signed in at once; the dashboard follows. */
 export function SignUpPage() {
-  const navigate = useNavigate()
+  const { data: user } = useCurrentUser()
   const signUp = useSignUp()
 
   const {
@@ -24,15 +27,14 @@ export function SignUpPage() {
     formState: { errors, isSubmitting },
   } = useForm<SignUpInput>({ resolver: zodResolver(signUpSchema), defaultValues: EMPTY })
 
-  const onSubmit = async (input: SignUpInput) => {
-    await signUp.mutateAsync(input)
-    void navigate(ROUTES.dashboard)
-  }
+  if (user) return <Navigate to={ROUTES.dashboard} replace />
+
+  const failure = placeSignUpError(signUp.error)
 
   return (
     <AuthLayout title="Criar conta" description="Cadastre-se para começar a criar e corrigir provas.">
       <form
-        onSubmit={(event) => void handleSubmit(onSubmit)(event)}
+        onSubmit={(event) => void handleSubmit((input) => signUp.mutate(input))(event)}
         className="flex flex-col gap-4"
         noValidate
       >
@@ -48,7 +50,7 @@ export function SignUpPage() {
           type="email"
           autoComplete="email"
           placeholder="voce@escola.edu.br"
-          error={errors.email?.message}
+          error={errors.email?.message ?? failure.onEmail}
           {...register('email')}
         />
         <TextField
@@ -68,8 +70,10 @@ export function SignUpPage() {
           {...register('confirmPassword')}
         />
 
-        <Button variant="primary" type="submit" fullWidth disabled={isSubmitting}>
-          {isSubmitting ? 'Criando conta…' : 'Criar conta'}
+        <SaveError error={failure.onForm} />
+
+        <Button variant="primary" type="submit" fullWidth disabled={isSubmitting || signUp.isPending}>
+          {signUp.isPending ? 'Criando conta…' : 'Criar conta'}
         </Button>
       </form>
 
@@ -79,6 +83,8 @@ export function SignUpPage() {
           Entrar
         </Link>
       </div>
+
+      <Tour screen="signUp" ready />
     </AuthLayout>
   )
 }

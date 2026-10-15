@@ -2,6 +2,7 @@ import type { Express } from 'express'
 import type { Kysely } from 'kysely'
 import type { Logger } from 'pino'
 import { createApp } from './app'
+import { composeAuth } from './compose-auth'
 import type { Env } from './config/env'
 import { createDatabase } from './db/connection'
 import { createFieldCipher } from './lib/field-encryption'
@@ -35,6 +36,7 @@ export function bootstrapApi(env: Env, { basePath }: { basePath?: string } = {})
     env,
     logger,
     db,
+    auth: composeAuth({ env, db, logger }),
     fieldCipher: createFieldCipher(env.DATA_ENCRYPTION_KEY),
     basePath,
     healthChecks: [() => pingDatabase(db)],

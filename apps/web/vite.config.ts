@@ -4,16 +4,36 @@ import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
 
 /**
+ * Locally the API answers at `/` on port 3000, while the web app calls `/api`,
+ * as it does on Firebase, where Hosting forwards that path to the function.
+ * The dev server and the preview Cypress runs against forward it the same way,
+ * so the web app reaches the API on the same origin everywhere.
+ */
+const API_PROXY = {
+  '/api': {
+    target: 'http://localhost:3000',
+    rewrite: (path: string) => path.replace(/^\/api/, ''),
+  },
+}
+
+/**
  * `base` is supplied by the deployment workflow: `/correctio-app/` on GitHub
  * Pages, `/` on Firebase Hosting. The router derives its basename from the
  * same value, so changing host never changes application code.
+ *
+ * The bundle targets ES2022, the same as the type check, so the entry can wait
+ * for the demo seed with a top-level `await`; every browser that runs the app
+ * today supports it (Chrome 89, Firefox 89, Safari 15).
  *
  * Coverage is scoped to business logic; screens are covered end to end by
  * Cypress, and measuring them here would dilute the threshold.
  */
 export default defineConfig({
   base: process.env.VITE_BASE_PATH ?? '/',
+  build: { target: 'es2022' },
   plugins: [react(), tailwindcss()],
+  server: { proxy: API_PROXY },
+  preview: { proxy: API_PROXY },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

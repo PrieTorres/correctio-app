@@ -4,6 +4,7 @@ import { createApp } from '../../app'
 import { loadEnv } from '../../config/env'
 import { createDatabase } from '../../db/connection'
 import { createLogger } from '../../lib/logger'
+import { signInDelayMs } from '../rate-limit'
 import type { VerifyToken } from '../require-auth'
 
 const TOKENS: Readonly<Record<string, string>> = { 'token-ana': 'ana', 'token-bia': 'bia' }
@@ -107,5 +108,10 @@ describe('response headers', () => {
     const response = await request(buildApp()).get('/health')
 
     expect(response.headers['strict-transport-security']).toContain('max-age=')
+  })
+})
+describe('signInDelayMs', () => {
+  it('lets the first two attempts through at once, then waits half a second more each time, up to two seconds', () => {
+    expect([1, 2, 3, 4, 5, 6, 9].map((attempt) => signInDelayMs(attempt))).toEqual([0, 0, 500, 1000, 1500, 2000, 2000])
   })
 })

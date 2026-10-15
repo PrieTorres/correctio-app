@@ -1,9 +1,16 @@
 import type { TourScreen } from './content'
 
-const KEY = 'correctio:v1:tour-seen'
+/**
+ * Outside the `correctio:v1:` prefix of the collections on purpose:
+ * `clearAllCollections` wipes that prefix, and a tour the teacher already
+ * skipped or finished must not come back because sample data was cleared.
+ */
+const KEY = 'correctio:tour-seen'
 
 /**
- * Which screens have already shown their tour.
+ * Which screens have already shown their tour: finished, skipped, closed on
+ * the X or with Esc. A screen in the list never opens its tour by itself
+ * again; only the help button of that screen does.
  *
  * Kept in the browser rather than with the account: it is a preference of this
  * device, not a fact about the teacher, and losing it costs four sentences
@@ -32,15 +39,5 @@ export function markTourSeen(screen: TourScreen): void {
     const seen = read()
     if (seen.includes(screen)) return
     window.localStorage.setItem(KEY, JSON.stringify([...seen, screen]))
-  } catch {}
-}
-
-/**
- * Clears every screen, which is what "rever tour" in the profile does. With
- * storage unavailable there is nothing to clear.
- */
-export function resetAllTours(): void {
-  try {
-    window.localStorage.removeItem(KEY)
   } catch {}
 }

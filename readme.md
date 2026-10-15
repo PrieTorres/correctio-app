@@ -96,7 +96,6 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 
 - **Em discussão com a professora:** versionamento A/B/C de questões (provas realmente diferentes por aluno, não só embaralhadas).
 - **Pendente de validação com o cliente:** importação e exportação via Excel · retorno do cartão-resposta corrigido ao aluno · finalidade do campo e-mail do aluno · existência de alunos menores de idade.
-- **Pendente de validação com a professora:** uso de Firebase Auth no lugar dos endpoints `/auth` previstos na Spec.
 
 ### 📅 Evolução ao longo do semestre
 
@@ -207,7 +206,7 @@ npm run dev                # front em http://localhost:5173
 docker compose up -d mysql # MySQL 8.4 local na porta 3307 (a API e os testes dela usam)
 cp apps/api/.env.example apps/api/.env  # conexão com o MySQL local; sem ela a API não sobe
 npm run db:migrate         # cria as tabelas no MySQL local
-npm run dev:api            # API em http://localhost:3000 (ver apps/api/README.md)
+npm run dev:api            # API em http://localhost:3000; o front chama /api, e o Vite encaminha para ela
 npm run build              # build do front e da API
 npm run preview            # serve o build do front em http://localhost:4173
 npm run typecheck          # verificação de tipos de todos os workspaces
@@ -215,23 +214,34 @@ npm run lint               # ESLint (complexidade, só JSDoc) e idioma dos comen
 npm test                   # testes unitários com cobertura, de todos os workspaces
 npm run test:e2e           # Cypress contra o build de produção
 npm run test:e2e:journey   # jornada completa em câmera lenta, gravando vídeo
+npm run test:e2e:demo      # build do demo do GitHub Pages e o spec dele
 npm audit --audit-level=high
 ```
 
-### A N1 roda sem back-end
+### O demo do GitHub Pages roda sem back-end
 
-Não há servidor nem banco: os dados ficam no `localStorage` do navegador. Abrir o link
-publicado já mostra um sistema cheio — turmas, questões, provas, uma aplicação gerada e outra
-por gerar. Os botões **Aplicar** e **Limpar** no rodapé do menu repõem ou esvaziam essa
-demonstração a qualquer momento.
+O GitHub Pages publica um build próprio, com `VITE_DEMO_MODE=true`: sem API nem banco, os dados
+ficam no `localStorage` do navegador. Abrir o link já mostra um sistema cheio (turmas, questões,
+provas, uma aplicação gerada e outra por gerar), e qualquer e-mail e senha entram como a
+professora de demonstração. Os botões **Aplicar** e **Limpar** no rodapé do menu repõem ou
+esvaziam essa demonstração a qualquer momento.
 
-Três coisas são simuladas de propósito, porque exigem servidor:
+Os builds do Firebase (produção e pré-produção) não têm nada disso: login real na API, sem dado
+de exemplo e sem os botões. O código do demo nem entra no pacote deles.
+
+Duas coisas continuam simuladas nos dois builds, porque são de outras issues:
 
 | Simulado | O que é real |
 |---|---|
 | A montagem do arquivo PDF | As versões com o layout impresso gravado e as folhas com código único |
 | A leitura da foto da folha | A correção das objetivas, o status parcial e a confirmação do professor |
-| O e-mail de recuperação de senha | O fluxo da tela e a resposta que não revela quem tem conta |
+
+### Login local
+
+Com a API no ar (`npm run dev:api`), o front em `npm run dev` usa o login real. Sem
+`GMAIL_APP_PASSWORD` no `apps/api/.env`, o e-mail de redefinição de senha aparece no log da API,
+com o link. Sem `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`, o botão do Google volta ao login com
+um aviso.
 
 ### Se o Cypress não abrir
 

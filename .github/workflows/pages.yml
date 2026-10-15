@@ -1,9 +1,10 @@
 name: Publish the web app to GitHub Pages
 
-# A free place to try the front end after every merge, as in N1. It is only the
-# web app: no API and no database, so the screens run on localStorage until #38
-# points them at the pre-production API. Production lives on Firebase and is
-# published by the daily release.
+# The demo of the front end, published after every merge: the web app alone,
+# on localStorage, with sample data and a sign-in that accepts anyone (built
+# with VITE_DEMO_MODE). Testing with the API and the database happens on the
+# pre-release link, and production lives on Firebase, published by the daily
+# release; neither carries any of the demo.
 on:
   push:
     branches: [main]
@@ -34,6 +35,9 @@ jobs:
           # Project pages are served from /<repo>/. The router reads this same
           # value, so the links work under that prefix.
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          # Pages has no API: the demo signs anyone in and loads sample data.
+          # Only this build sets it, so nothing of the demo reaches Firebase.
+          VITE_DEMO_MODE: 'true'
 
       # GitHub Pages answers an unknown path with 404.html, so a copy of the app
       # there is what lets a deep link such as /correctio-app/r/ABC123 open.

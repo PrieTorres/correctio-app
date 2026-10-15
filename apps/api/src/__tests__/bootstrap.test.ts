@@ -19,6 +19,26 @@ describe('bootstrapApi', () => {
     expect(() => bootstrapApi(env)).toThrow(/DATA_ENCRYPTION_KEY/)
   })
 
+  it('serves sign-in and keeps the account routes behind the token check', async () => {
+    const env = loadEnv({
+      NODE_ENV: 'test',
+      LOG_LEVEL: 'silent',
+      DATABASE_URL: UNREACHABLE_DATABASE,
+      DATABASE_TLS: 'local',
+      DATA_ENCRYPTION_KEY: ENCRYPTION_KEY,
+    })
+    const { app, db } = bootstrapApi(env, { basePath: '/api' })
+    try {
+      const signIn = await request(app).post('/api/auth/login').send({ email: 'nao-e-email' })
+      const me = await request(app).get('/api/me')
+
+      expect(signIn.status).toBe(400)
+      expect(me.status).toBe(401)
+    } finally {
+      await db.destroy()
+    }
+  })
+
   it('checks the database in /health, under the path it was given', async () => {
     const env = loadEnv({
       NODE_ENV: 'test',

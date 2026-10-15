@@ -32,13 +32,22 @@ Isso não é um problema na N1, porque lá o dado é fictício e semeado. O que 
 
 ### Regra 2 — o servidor valida o token em toda requisição
 
-O Express verifica o ID token do Firebase com `firebase-admin` a cada chamada. O front nunca decide permissão; ele só decide o que desenhar.
+A API confere a assinatura e a validade do access token (JWT HS256, assinado com `JWT_SECRET`)
+a cada chamada. O front nunca decide permissão; ele só decide o que desenhar.
 
-A `apiKey` do Firebase vai no bundle e é **pública por design** — não é segredo e não precisa ser escondida. O que protege é a verificação do token no servidor.
+O login com o Google não muda isso: o Google só confirma quem é a pessoa, e a API emite a mesma
+sessão própria do login por e-mail e senha (decisão da PM de 14/10, na #40).
 
-### Regra 3 — a sessão é gerida pelo SDK
+### Regra 3 — nenhum token em `localStorage`
 
-O token fica sob gestão do SDK do Firebase, não escrito à mão em `localStorage`. Renovação é problema dele.
+O access token (15 minutos) vive só na memória do front. O refresh token nem chega ao
+JavaScript: mora no cookie `__session`, `httpOnly`, `Secure`, `SameSite=Strict` e com caminho
+`/api/auth`. O nome não é escolha: o Firebase Hosting só repassa à função o cookie chamado
+`__session` e descarta os outros.
+
+Cada refresh revoga o token usado e emite outro. Um token já revogado que volta depois de 10
+segundos é sinal de cópia, e todas as sessões da conta terminam. As abas do mesmo navegador
+renovam uma de cada vez (Web Locks), para que a rotação de uma não pareça roubo para a outra.
 
 ### O que isso significa com cadastro aberto
 
@@ -71,7 +80,7 @@ Um limite único não serve: 300 req/min mata a importação em lote e não impe
 | Camada | Rotas | Limite | Chave |
 |---|---|---|---|
 | Pública | consulta por código | 30/min, espera progressiva | IP |
-| Autenticação | cadastro, login, recuperação | 5 tentativas / 15 min | IP **+** e-mail |
+| Autenticação | cadastro, login, recuperação | 5 tentativas / 15 min, espera progressiva a partir da 3ª | IP **+** e-mail |
 | Leitura | GETs autenticados | 300/min | professor |
 | Escrita comum | CRUD | 60/min | professor |
 | **Cara** | gerar PDF, importar lote, exportar relatório | 10/h + 1 job concorrente | professor |
@@ -169,7 +178,7 @@ armazenamento privado, e entram no PDF gerado.
 
 - **Só HTTPS.** O `helmet` envia HSTS, e a partir daí o navegador nunca mais volta para HTTP naquele domínio. É o que impede que alguém leia o token no tráfego de uma rede compartilhada.
 - **Token só no cabeçalho `Authorization`.** Nunca na URL (fica em histórico, log de proxy e cabeçalho `Referer`) e nunca no log. O log da API apaga `Authorization` e `Cookie`.
-- **Access token curto (15 min) e refresh token rotativo, com detecção de reuso.** Se a #83 decidir por JWT próprio, o refresh token mora num cookie `httpOnly` + `Secure` + `SameSite=Strict`, fora do alcance de qualquer JavaScript, e o access token fica só na memória do front. Com Firebase, o SDK cuida disso (Regra 3).
+- **Access token curto (15 min) e refresh token rotativo, com detecção de reuso.** O refresh token mora num cookie `httpOnly` + `Secure` + `SameSite=Strict`, fora do alcance de qualquer JavaScript, e o access token fica só na memória do front (Regra 3).
 - **Barreira contra adivinhar token.** No máximo 30 respostas 401 por minuto por endereço. Só 401 conta, então um professor logado nunca gasta esse limite, nem num NAT compartilhado.
 
 ### Criptografia de dados
