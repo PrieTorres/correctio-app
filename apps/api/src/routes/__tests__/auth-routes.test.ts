@@ -145,7 +145,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('authentication routes (real MyS
       const blocked = await signIn(email)
 
       expect(blocked.status).toBe(429)
-      expect(blocked.body.code).toBe('too-many-requests')
+      expect(blocked.body).toEqual({ code: 'too-many-requests', message: 'Muitas tentativas seguidas. Aguarde 15 minutos e tente de novo.' })
       expect(blocked.get('Retry-After')).toBe('900')
     })
 

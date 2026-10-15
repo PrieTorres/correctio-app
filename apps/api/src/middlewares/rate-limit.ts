@@ -70,9 +70,13 @@ const SPARED_RESPONSE: Readonly<Record<CountedResponses, (res: Response) => bool
   [COUNTED_RESPONSES.UNAUTHORIZED]: (res) => res.statusCode !== 401,
 }
 
+const TOO_MANY_REQUESTS = 'Muitas requisições em pouco tempo. Tente de novo em instantes.'
+
 interface RateLimitOptions {
   key: RateLimitKey
   counts?: CountedResponses
+  /** What the screen shows when the limit is reached. */
+  message?: string
 }
 
 function countingOptions(counts: CountedResponses) {
@@ -90,7 +94,10 @@ function countingOptions(counts: CountedResponses) {
  * than one, each instance would count apart and multiply the limit, so the
  * store has to move to Redis first (#39).
  */
-export function createRateLimit(tier: RateLimitTier, { key, counts = COUNTED_RESPONSES.ALL }: RateLimitOptions): RequestHandler {
+export function createRateLimit(
+  tier: RateLimitTier,
+  { key, counts = COUNTED_RESPONSES.ALL, message = TOO_MANY_REQUESTS }: RateLimitOptions,
+): RequestHandler {
   return rateLimit({
     windowMs: tier.windowMs,
     limit: tier.limit,
@@ -100,7 +107,7 @@ export function createRateLimit(tier: RateLimitTier, { key, counts = COUNTED_RES
     legacyHeaders: false,
     handler: (_req, _res, next) => {
       next(
-        new ApiError(API_ERROR_CODE.TOO_MANY_REQUESTS, 'Muitas requisições em pouco tempo. Tente de novo em instantes.', {
+        new ApiError(API_ERROR_CODE.TOO_MANY_REQUESTS, message, {
           retryAfterSeconds: Math.ceil(tier.windowMs / 1000),
         }),
       )
@@ -133,7 +140,7 @@ interface SignInLimitOptions extends RateLimitOptions {
  */
 export function createSignInLimit(
   tier: RateLimitTier,
-  { key, counts = COUNTED_RESPONSES.ALL, delayStepMs = SIGN_IN_DELAY.STEP_MS }: SignInLimitOptions,
+  { key, counts = COUNTED_RESPONSES.ALL, message, delayStepMs = SIGN_IN_DELAY.STEP_MS }: SignInLimitOptions,
 ): RequestHandler[] {
   const delay = slowDown({
     windowMs: tier.windowMs,
@@ -142,7 +149,7 @@ export function createSignInLimit(
     keyGenerator: key,
     ...countingOptions(counts),
   })
-  return [createRateLimit(tier, { key, counts }), delay]
+  return [createRateLimit(tier, { key, counts, message }), delay]
 }
 
 const READ_METHODS = new Set(['GET', 'HEAD'])
@@ -176,7 +183,9 @@ export interface AuthLimits {
  * carries a code instead of an e-mail, so it counts per address.
  */
 export function createAuthLimits(tier: RateLimitTier, delayStepMs?: number): AuthLimits {
-  const limit = (counts: CountedResponses, key: RateLimitKey = byClientAddressAndEmail) => createSignInLimit(tier, { key, counts, delayStepMs })
+  const message = `Muitas tentativas seguidas. Aguarde ${Math.ceil(tier.windowMs / 60_000)} minutos e tente de novo.`
+  const limit = (counts: CountedResponses, key: RateLimitKey = byClientAddressAndEmail) =>
+    createSignInLimit(tier, { key, counts, message, delayStepMs })
   return {
     register: limit(COUNTED_RESPONSES.ALL),
     signIn: limit(COUNTED_RESPONSES.FAILURES),

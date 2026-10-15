@@ -1,4 +1,5 @@
 import { slowCypressDown } from 'cypress-slow-down'
+import { uniqueEmail } from '../support/commands'
 
 slowCypressDown(800)
 
@@ -21,9 +22,10 @@ interface OpenEndedQuestion {
   maxScore: number
 }
 
+/** A new address on every run: the API keeps the accounts of earlier runs. */
 const TEACHER = {
   fullName: 'Marina Albuquerque',
-  email: 'marina.albuquerque@exemplo.edu.br',
+  email: uniqueEmail('marina.albuquerque'),
   password: 'senha-da-jornada',
 } as const
 
@@ -132,31 +134,21 @@ function openFromMenu(entry: string): void {
 }
 
 /**
- * In this phase every account is the same demo teacher, so a new sign-up would
- * still see the sample records. The demo controls empty the system first, and
- * the empty dashboard is the proof the rest of the journey starts from zero.
+ * The journey is about a teacher who has nothing yet, so it leaves the account
+ * the support file prepared and starts where a newcomer does: signed out, on
+ * the sign-in page.
  */
-function startFromEmptySystem(): void {
+function startSignedOut(): void {
+  cy.clearCookies()
+  cy.clearLocalStorage()
   cy.visit('/painel')
-  cy.contains('h1', 'Painel').should('be.visible')
-  skipTour()
 
-  cy.contains('button', 'Limpar').click()
-
-  cy.contains('h3', 'Nada aconteceu ainda').should('be.visible')
-  cy.contains('button', 'Aplicar').should('be.enabled')
+  cy.location('pathname').should('eq', '/entrar')
+  cy.contains('h1', 'Entrar').should('be.visible')
 }
 
-/**
- * Reaches the sign-up through the app's own links rather than a visit: the
- * demo controls live inside the signed-in layout, and wiping the data also
- * wipes the session, so emptying the system has to come before the account.
- */
+/** A real account on the API; the empty dashboard is the proof the rest of the journey starts from zero. */
 function createAccount(): void {
-  openFromMenu('Aviso de privacidade')
-  cy.contains('h1', 'Aviso de privacidade').should('be.visible')
-  cy.contains('a', 'Voltar para o início').click()
-  cy.contains('h1', 'Entrar').should('be.visible')
   cy.contains('a', 'Criar conta').click()
 
   cy.contains('h1', 'Criar conta').should('be.visible')
@@ -510,8 +502,8 @@ describe('jornada completa', () => {
    * what someone watching the video navigates by.
    */
   it('leva uma professora nova do cadastro ao relatório, passando por cada etapa', () => {
-    cy.log('**1. Partir de um sistema vazio**')
-    startFromEmptySystem()
+    cy.log('**1. Chegar sem sessão**')
+    startSignedOut()
 
     cy.log('**2. Criar a conta**')
     createAccount()

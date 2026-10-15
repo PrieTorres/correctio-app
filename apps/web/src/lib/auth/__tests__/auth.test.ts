@@ -31,7 +31,7 @@ describe('local auth provider', () => {
   })
 
   it('returns null instead of throwing when the stored session is corrupt', () => {
-    window.localStorage.setItem('correctio:v1:session', 'not json')
+    window.localStorage.setItem('correctio:demo-session', 'not json')
 
     expect(createLocalAuthProvider().getCurrentUser()).toBeNull()
   })

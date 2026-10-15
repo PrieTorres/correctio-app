@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, FileText, RefreshCw } from 'lucide-react';
-import { Badge, Button, Card, PageHeader, QueryBoundary } from '@/components/ui';
+import { Badge, Button, Card, PageHeader, QueryBoundary, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { formatDate } from '@/lib/utils';
 import { useStudents } from '@/features/classes';
@@ -62,7 +62,7 @@ export function ApplicationDetailPage() {
 
           <PdfCard hasPaper={versions.length > 0} sheetCount={sheets.length} />
 
-          <Card>
+          <Card data-tour="versions">
             <div className="border-b border-line px-5 py-4">
               <h2 className="text-title text-primary">Versões</h2>
             </div>
@@ -111,14 +111,14 @@ export function ApplicationDetailPage() {
             <p className="text-body text-ink-muted" aria-live="polite">
               {corrections.length} de {sheets.length} folhas corrigidas
             </p>
-            <Button variant="secondary" className="self-start">
+            <Button variant="secondary" className="self-start" data-tour="grading">
               <Link to={buildPath(ROUTES.grading, { id: application.id })}>Corrigir folhas</Link>
             </Button>
           </Card>
 
           <Card className="flex flex-col gap-3 p-6">
             <h2 className="text-title text-primary">Notas para os alunos</h2>
-            <label className="flex cursor-pointer items-center gap-3">
+            <label data-tour="release" className="flex cursor-pointer items-center gap-3">
               <input
                 type="checkbox"
                 checked={application.gradesReleased}
@@ -135,6 +135,8 @@ export function ApplicationDetailPage() {
               opcional: nem toda turma usa.
             </p>
           </Card>
+
+          <Tour screen="applicationDetail" ready={versions.length > 0} />
         </div>
       )}
     </QueryBoundary>
@@ -151,7 +153,7 @@ export function ApplicationDetailPage() {
  */
 function PdfCard({ hasPaper, sheetCount }: Readonly<{ hasPaper: boolean; sheetCount: number }>) {
   return (
-    <Card className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+    <Card data-tour="pdf" className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3">
         <FileText size={22} aria-hidden className="mt-0.5 shrink-0 text-primary" />
         <div>

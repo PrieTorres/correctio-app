@@ -108,6 +108,12 @@ jobs:
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
 
+      # The GitHub Pages demo is a build of its own (VITE_DEMO_MODE), with the
+      # sample data and its controls that the build above leaves out. It is
+      # rebuilt here and its spec runs against it, with no API involved.
+      - name: E2E tests of the GitHub Pages demo
+        run: npm run test:e2e:demo
+
   # The evidence video of every PR: one test that walks the whole system from
   # an empty account, slowed down so each action can be followed. It runs beside
   # the E2E suite rather than after it, so the slow recording adds no wait.

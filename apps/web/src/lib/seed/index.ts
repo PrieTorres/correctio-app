@@ -10,17 +10,18 @@ import {
 } from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 import { buildAnswerSheets, buildVersions } from '@/lib/applications'
-import { createLocalAuthProvider } from '@/lib/auth'
+import { createLocalAuthProvider, DEMO_TEACHER } from '@/lib/auth'
 
 /**
- * Demo dataset for the mock-data phase.
+ * Sample dataset of the GitHub Pages demo (`lib/app-mode.ts`), and of the
+ * Cypress suite, which writes it for the teacher each test signs up.
  *
- * `localStorage` is per browser, so anyone opening the published link sees
- * only what is seeded here — never what the team demonstrated locally.
- * Without it the deliverable is a set of empty screens.
+ * `localStorage` is per browser, so anyone opening the demo link sees only
+ * what is seeded here, never what the team demonstrated locally. The Firebase
+ * builds never load it: nothing there is made up.
  */
 const SEED_MARKER = 'correctio:v1:seeded-at'
-const TEACHER_ID = 'teacher-demo'
+const TEACHER_ID = DEMO_TEACHER.id
 
 const CLASSES: Class[] = [
   { id: 'class-calculus-1', teacherId: TEACHER_ID, name: 'Cálculo I — Noturno', subject: 'Matemática', term: '2026/2', status: 'active', inviteCode: 'CALC2NOT' },
@@ -259,17 +260,28 @@ function signInDemoTeacher(): void {
   void auth.signIn('ana.ribeiro@exemplo.edu.br', 'demonstracao')
 }
 
-function seed(): void {
-  signInDemoTeacher()
-  createCollection('classes', classSchema).writeAll(CLASSES)
+/**
+ * Writes the sample data as owned by `teacherId`. Classes, questions, exams and
+ * applications carry their owner, and the screens list only the signed-in
+ * teacher's; students, versions and sheets hang from those.
+ */
+export function writeDemoData(teacherId: string): void {
+  const owned = <T extends { teacherId: string }>(items: readonly T[]): T[] => items.map((item) => ({ ...item, teacherId }))
+
+  createCollection('classes', classSchema).writeAll(owned(CLASSES))
   createCollection('students', studentSchema).writeAll(STUDENTS)
-  createCollection('questions', questionSchema).writeAll(QUESTIONS)
-  createCollection('exams', examSchema).writeAll(EXAMS)
-  createCollection('applications', applicationSchema).writeAll(APPLICATIONS)
+  createCollection('questions', questionSchema).writeAll(owned(QUESTIONS))
+  createCollection('exams', examSchema).writeAll(owned(EXAMS))
+  createCollection('applications', applicationSchema).writeAll(owned(APPLICATIONS))
 
   const printing = printingForDemo()
   createCollection('exam-versions', examVersionSchema).writeAll(printing.versions)
   createCollection('answer-sheets', answerSheetSchema).writeAll(printing.sheets)
+}
+
+function seed(): void {
+  signInDemoTeacher()
+  writeDemoData(TEACHER_ID)
   window.localStorage.setItem(SEED_MARKER, new Date().toISOString())
 }
 

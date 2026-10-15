@@ -54,8 +54,14 @@ Campos marcados **`+`** são acréscimos do grupo. Todo o resto vem da Spec e é
   passwordHash: string         // servidor apenas
   createdAt: Date
   anonymizedAt?: Date
+  emailVerifiedAt?: Date       // +  servidor apenas: quando alguém provou ler a caixa do e-mail
 }
 ```
+
+`emailVerifiedAt` é preenchido pelo login com o Google e pela redefinição de senha, as duas
+formas de provar que se lê aquele e-mail. Enquanto está vazio, a senha pode ter sido criada por
+quem digitou o e-mail de outra pessoa no cadastro: por isso, quando a dona do e-mail entra com o
+Google, essa senha deixa de valer e as sessões da conta terminam (#40).
 
 ### RefreshToken
 
@@ -71,8 +77,27 @@ Campos marcados **`+`** são acréscimos do grupo. Todo o resto vem da Spec e é
 }
 ```
 
-Entidade de servidor. Não é modelada no front — mas existe no contrato e o back-end da N2
-deve implementá-la, mesmo se a autenticação passar a ser Firebase.
+Entidade de servidor. Não é modelada no front. O token em si mora num cookie `httpOnly`; o banco
+guarda só o hash (`docs/Seguranca_e_LGPD.md`, seção 7).
+
+### AuthCode `+`
+
+```ts
+{
+  id: string
+  userId: string
+  purpose: "PASSWORD_RESET" | "GOOGLE_SIGN_IN"
+  codeHash: string             // SHA-256 do código; o código nunca é gravado
+  expiresAt: Date
+  usedAt?: Date                // preenchido no uso: cada código vale uma vez
+  createdAt: Date
+}
+```
+
+Entidade de servidor, acrescentada pelo grupo na #40. Guarda os códigos de uso único dos fluxos
+de entrada: o link de redefinição de senha (30 minutos) e o código que leva o login com o Google
+de volta ao endereço de onde partiu (2 minutos). Os valores de `purpose` são do grupo, por isso em
+`SCREAMING_SNAKE_CASE`.
 
 ### Class
 

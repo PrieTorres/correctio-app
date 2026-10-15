@@ -168,7 +168,7 @@ export function ApplicationReportPage() {
               </div>
             </Card>
 
-            <Card>
+            <Card data-tour="by-question">
               <div className="border-b border-line px-5 py-4">
                 <h2 className="text-title text-primary">Por questão</h2>
                 <p className="mt-1 text-caption text-ink-subtle">
@@ -217,7 +217,7 @@ export function ApplicationReportPage() {
               </ul>
             </Card>
 
-            <Card>
+            <Card data-tour="by-tag">
               <div className="border-b border-line px-5 py-4">
                 <h2 className="text-title text-primary">Por conteúdo</h2>
                 <p className="mt-1 text-caption text-ink-subtle">

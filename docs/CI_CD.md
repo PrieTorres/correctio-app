@@ -59,7 +59,7 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 | Gatilho | O que acontece |
 |---|---|
 | Pull Request aberto ou atualizado | portão de qualidade completo, sem publicar nada |
-| Merge em `main` | publica só o front no **GitHub Pages** (`pages.yml`), para teste: sem API nem banco, como na N1 |
+| Merge em `main` | publica só o front no **GitHub Pages** (`pages.yml`), como demo: build com `VITE_DEMO_MODE`, sem API nem banco, com dados de exemplo |
 | "1. Pre-release: publish to pre-production" (`preview.yml`), sob demanda | a **pré-versão do dia**: publica a `main` (ou uma branch, pelo nome ou pelo número do PR) na **pré-produção**, no projeto `correctio-app-preview`, depois da aprovação da PM, num link próprio que expira em 7 dias e é comentado no PR |
 | "2. Release: publish to production" (`release.yml`) | a **versão oficial**: portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
 | A cada 6 horas (`keep-alive.yml`) | chama o `/api/health` da produção. O plano gratuito do Aiven desliga o banco depois de 24 horas sem consulta, e a produção cai junto; uma execução que falha avisa por e-mail que a produção está respondendo 503 |
@@ -107,6 +107,11 @@ porque quem os cobre é o Cypress.
 **A cobertura é medida só nos testes unitários.** Somar a cobertura do Cypress exige instrumentar o build com Istanbul, juntar os relatórios e manter isso funcionando — muito custo para pouco ganho. O Cypress é um portão de **passa ou não passa**: os fluxos principais funcionam de ponta a ponta, sim ou não. Quem responde pela métrica de cobertura é o teste unitário, e é lá que as regras críticas (cálculo de nota, embaralhamento, geração de PDF, leitura da folha) precisam estar cobertas.
 
 **O Cypress precisa da aplicação servida.** Não adianta rodar contra o código-fonte: sobe o build de produção, espera a porta responder, roda os testes, derruba. Rodar contra o servidor de desenvolvimento esconde justamente os problemas que só aparecem no build. Os jobs do Cypress e da jornada também sobem um MySQL e a API (`.github/actions/start-api`), e o `vite preview` encaminha `/api` para ela, como o Hosting faz no Firebase.
+
+**Cada teste do Cypress entra como um professor novo.** O `cypress/support/e2e.ts` cadastra um
+professor na API antes de cada teste e grava os dados de exemplo para ele, então o build testado é
+o mesmo de produção, sem demo. O demo do GitHub Pages tem um build próprio e um spec próprio
+(`cypress/demo`), que o job de E2E roda em seguida com `npm run test:e2e:demo`.
 
 **O Sonar precisa do histórico completo.** O checkout padrão traz um commit só, e sem histórico o Sonar não consegue identificar o que é código novo — o portão passa a avaliar o repositório inteiro e reprova tudo. Precisa de checkout com histórico completo.
 
