@@ -1,5 +1,5 @@
-import { writeDemoData } from '@/lib/seed'
-import type { AuthenticatedUser } from '@/types/domain'
+import { sampleClasses, writeDemoData, type RemoteRoster } from '@/lib/seed'
+import type { AuthenticatedUser, Class, Student } from '@/types/domain'
 
 /** The password of every teacher the suite signs up; long enough for the 8-character rule. */
 export const TEST_PASSWORD = 'senha-de-teste-1'
@@ -9,20 +9,62 @@ export function uniqueEmail(prefix = 'prof'): string {
   return `${prefix}-${Date.now()}-${Cypress._.random(1e6)}@exemplo.edu.br`
 }
 
+/** What the API answers on sign-up: the access token lets the suite create the sample as this teacher. */
+interface NewSession {
+  user: AuthenticatedUser
+  accessToken: string
+}
+
+/**
+ * Creates the sample classes and their students on the API, as the teacher
+ * just signed up, and answers which id each sample class got there.
+ *
+ * The class and student screens read the API, so a sample written only to
+ * `localStorage` would be invisible to them, and the sample applications and
+ * sheets would point at classes that do not exist. Each test signs up its own
+ * teacher, so the import limit of the API, counted per teacher, is never near.
+ */
+function createSampleClasses(accessToken: string): Cypress.Chainable<RemoteRoster> {
+  const classIds: Record<string, string> = {}
+  const students: Student[] = []
+  const api = <T>(method: Cypress.HttpMethod, path: string, body?: Cypress.RequestBody) =>
+    cy.request<T>({ method, url: `/api${path}`, body, auth: { bearer: accessToken } })
+
+  for (const sample of sampleClasses()) {
+    api<Class>('POST', '/classes', sample.input).then(({ body: created }) => {
+      classIds[sample.sampleId] = created.id
+      if (sample.archived) api('PATCH', `/classes/${created.id}/archive`)
+      if (sample.students.length === 0) return
+
+      api('POST', `/classes/${created.id}/students/import`, { rows: sample.students })
+      api<{ items: Student[] }>('GET', `/classes/${created.id}/students?pageSize=1000`).then(({ body: page }) => {
+        students.push(...page.items)
+      })
+    })
+  }
+
+  return cy.wrap(null, { log: false }).then((): RemoteRoster => ({ classIds, students }))
+}
+
 /**
  * Signs a new teacher up on the API and leaves the browser signed in, the way
  * the app itself would: `cy.request` keeps the refresh cookie the API sets, and
  * the app restores the session from it on the next visit.
  *
- * The sample data is written to `localStorage` for this teacher, so every spec
- * starts from the same populated screens the demo shows, owned by a real
- * account. The screens whose data already lives on the API do not read it.
+ * The sample data is created for this teacher, so every spec starts from the
+ * same populated screens the demo shows, owned by a real account: the classes
+ * and students on the API, and the rest in `localStorage`, pointing at them.
  */
 Cypress.Commands.add('signInAsNewTeacher', ({ withSampleData = true }: { withSampleData?: boolean } = {}) => {
   const account = { fullName: 'Professora Ana Ribeiro', email: uniqueEmail(), password: TEST_PASSWORD }
-  return cy.request('POST', '/api/auth/register', account).then(({ body }: Cypress.Response<{ user: AuthenticatedUser }>) => {
-    if (withSampleData) writeDemoData(body.user.id)
-    return { ...body.user, password: TEST_PASSWORD }
+  return cy.request<NewSession>('POST', '/api/auth/register', account).then(({ body }) => {
+    const teacher = { ...body.user, password: TEST_PASSWORD }
+    if (!withSampleData) return cy.wrap(teacher, { log: false })
+
+    return createSampleClasses(body.accessToken).then((remote) => {
+      writeDemoData(body.user.id, remote)
+      return teacher
+    })
   })
 })
 

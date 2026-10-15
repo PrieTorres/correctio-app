@@ -24,7 +24,6 @@ const LEGACY_COMPLEXITY = {
   'src/features/reports/pages/ApplicationReportPage.tsx': { cyclomatic: 24 },
   'src/lib/public-lookup/resolve.ts': { cyclomatic: 14 },
   'src/lib/exams/draw-questions.ts': { params: 5 },
-  'src/lib/seed/index.ts': { params: 6 },
 };
 
 export default [
