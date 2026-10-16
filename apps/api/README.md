@@ -117,7 +117,7 @@ com as mesmas regras das telas, sem cópia.
 | `PATCH /classes/:id/students/:studentId` | Editar o aluno (RF07), mesclando como os outros `PATCH` |
 | `POST /classes/:id/students/:studentId/anonymize` | Anonimização irreversível do aluno (RF38) |
 | `POST /exams/draw` | Geração automática de prova (RF16) |
-| `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49) |
+| `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49). Sem login, com limite de 30 requisições por minuto por IP. Código desconhecido responde `200` com `{ status: "INVALID_CODE" }`, igual a um código que existe mas não leva a nada, para quem tenta adivinhar não distinguir os dois. Responde `X-Robots-Tag: noindex` |
 
 `POST /classes/:id/students` cria o registro do aluno, com nome, matrícula e e-mail opcional. Na
 Spec, a mesma rota matricula por e-mail um aluno que já tem conta, mas aqui o aluno não tem conta

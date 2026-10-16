@@ -8,12 +8,15 @@ import type { HealthService } from '../services/health-service'
 import { meRoutes, publicAuthRoutes, signedInAuthRoutes } from './auth-routes'
 import { classRoutes } from './class-routes'
 import { healthRoutes } from './health-routes'
+import { publicRoutes } from './public-routes'
 import { questionRoutes } from './question-routes'
 
 export interface RouteDependencies {
   healthService: HealthService
   db: Kysely<Database>
   fieldCipher: FieldCipher
+  /** The public tier, per address, for the lookup a student reaches without an account. */
+  publicLimit: RequestHandler
   /** Counts refused tokens per address, ahead of the gate, against guessing. */
   failedAuthLimit: RequestHandler
   requireAuth: RequestHandler
@@ -35,6 +38,7 @@ export function createRouter({
   healthService,
   db,
   fieldCipher,
+  publicLimit,
   failedAuthLimit,
   requireAuth,
   teacherLimit,
@@ -44,6 +48,7 @@ export function createRouter({
   const router = Router()
 
   router.use('/health', healthRoutes(healthService))
+  router.use('/public', publicRoutes({ db, publicLimit }))
   if (auth !== undefined) router.use('/auth', publicAuthRoutes(auth.controller, auth.limits))
 
   router.use(failedAuthLimit, requireAuth, teacherLimit)
