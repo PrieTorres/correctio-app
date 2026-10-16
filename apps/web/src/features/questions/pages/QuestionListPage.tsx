@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Copy, Plus, RotateCcw, Shuffle, Trash2, Upload } from 'lucide-react';
 import {
@@ -30,6 +30,8 @@ import { QuestionTypeBadge } from '../components/QuestionTypeBadge';
 
 type StatusFilter = 'active' | 'deleted';
 
+const PAGE_SIZE = 50;
+
 const STATUS_SEGMENTS = [
   { value: 'active', label: 'Ativas' },
   { value: 'deleted', label: 'Excluídas' },
@@ -46,6 +48,14 @@ const TYPE_SEGMENTS = [
   { value: 'discursiva', label: 'Discursivas' },
 ] as const satisfies readonly { value: QuestionType | 'all'; label: string }[];
 
+/**
+ * The page number resets whenever any filter changes: staying on page 3 of a
+ * new filter shows an empty list that has nothing to do with the records.
+ *
+ * The confirmation dialog is a component of its own so the delete mutation
+ * lives next to the button that triggers it, and the page keeps only the
+ * state it actually reads.
+ */
 export function QuestionListPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StatusFilter>('active');
@@ -53,7 +63,12 @@ export function QuestionListPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [sort, setSort] = useState<QuestionSort>('newest');
   const [onlyUntagged, setOnlyUntagged] = useState(false);
+  const [page, setPage] = useState(1);
   const [pendingDelete, setPendingDelete] = useState<Question | null>(null);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, status, type, tags, sort, onlyUntagged]);
 
   const filters: QuestionFilters = {
     search,
@@ -62,13 +77,14 @@ export function QuestionListPage() {
     deleted: status === 'deleted',
     onlyUntagged,
     sort,
+    page,
   };
   const { data, isPending, isError } = useQuestionList(filters);
   const { data: knownTags = [] } = useQuestionTags();
-  const deleteQuestion = useDeleteQuestion();
   const duplicateQuestion = useDuplicateQuestion();
 
   const questions = data?.items ?? [];
+  const total = data?.total ?? 0;
   const filtering = search.trim() !== '' || type !== 'all' || tags.length > 0 || onlyUntagged;
 
   const newQuestionButton = (
@@ -98,7 +114,10 @@ export function QuestionListPage() {
       />
 
       <div className="flex flex-col gap-3">
-        <div data-tour="filters" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div
+          data-tour="filters"
+          className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+        >
           <SearchInput
             value={search}
             onChange={setSearch}
@@ -155,45 +174,104 @@ export function QuestionListPage() {
             />
           </Card>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {questions.map((question) => (
-              <li key={question.id}>
-                <QuestionRow
-                  question={question}
-                  onDelete={() => setPendingDelete(question)}
-                  onDuplicate={() => duplicateQuestion.mutate(question.id)}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="flex flex-col gap-3">
+              {questions.map((question) => (
+                <li key={question.id}>
+                  <QuestionRow
+                    question={question}
+                    onDelete={() => setPendingDelete(question)}
+                    onDuplicate={() => duplicateQuestion.mutate(question.id)}
+                  />
+                </li>
+              ))}
+            </ul>
+
+            <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+          </>
         )}
       </QueryBoundary>
 
       {pendingDelete !== null && (
-        <ConfirmDialog
-          open
-          onOpenChange={(open) => !open && setPendingDelete(null)}
-          title={
-            pendingDelete.deletedAt === undefined ? 'Excluir esta questão?' : 'Restaurar esta questão?'
-          }
-          description={
-            pendingDelete.deletedAt === undefined
-              ? 'A questão sai do banco, mas continua nas provas que já a usam. Você pode restaurá-la depois.'
-              : 'A questão volta para o banco e pode ser usada em novas provas.'
-          }
-          confirmLabel={pendingDelete.deletedAt === undefined ? 'Excluir' : 'Restaurar'}
-          pending={deleteQuestion.isPending}
-          onConfirm={() =>
-            deleteQuestion.mutate(
-              { id: pendingDelete.id, deleted: pendingDelete.deletedAt === undefined },
-              { onSettled: () => setPendingDelete(null) },
-            )
-          }
+        <DeleteQuestionDialog
+          question={pendingDelete}
+          onClose={() => setPendingDelete(null)}
         />
       )}
 
       <Tour screen="questions" ready={questions.length > 0} />
     </div>
+  );
+}
+
+function Pagination({
+  page,
+  pageSize,
+  total,
+  onPageChange,
+}: Readonly<{
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
+}>) {
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const first = (page - 1) * pageSize + 1;
+  const last = Math.min(page * pageSize, total);
+  const canGoBack = page > 1;
+  const canGoForward = page < pageCount;
+
+  return (
+    <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+      <p className="text-caption text-ink-subtle">
+        Mostrando {first}–{last} de {total} {total === 1 ? 'questão' : 'questões'}
+      </p>
+      <div className="flex gap-2">
+        <Button variant="secondary" disabled={!canGoBack} onClick={() => onPageChange(page - 1)}>
+          Anterior
+        </Button>
+        <span className="flex items-center px-2 text-caption text-ink-muted">
+          Página {page} de {pageCount}
+        </span>
+        <Button
+          variant="secondary"
+          disabled={!canGoForward}
+          onClick={() => onPageChange(page + 1)}
+        >
+          Próxima
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The dialog owns the delete/restore mutation so the page keeps only the state
+ * that decides whether it is open.
+ */
+function DeleteQuestionDialog({
+  question,
+  onClose,
+}: Readonly<{ question: Question; onClose: () => void }>) {
+  const deleteQuestion = useDeleteQuestion();
+  const isRestoring = question.deletedAt !== undefined;
+
+  return (
+    <ConfirmDialog
+      open
+      onOpenChange={(open) => !open && onClose()}
+      title={isRestoring ? 'Restaurar esta questão?' : 'Excluir esta questão?'}
+      description={
+        isRestoring
+          ? 'A questão volta para o banco e pode ser usada em novas provas.'
+          : 'A questão sai do banco, mas continua nas provas que já a usam. Você pode restaurá-la depois.'
+      }
+      confirmLabel={isRestoring ? 'Restaurar' : 'Excluir'}
+      pending={deleteQuestion.isPending}
+      onConfirm={() =>
+        deleteQuestion.mutate({ id: question.id, deleted: !isRestoring }, { onSettled: onClose })
+      }
+    />
   );
 }
 
@@ -259,7 +337,10 @@ function QuestionRow({
   const deleted = question.deletedAt !== undefined;
 
   return (
-    <Card interactive className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between">
+    <Card
+      interactive
+      className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between"
+    >
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <QuestionTypeBadge type={question.type} />

@@ -46,7 +46,11 @@ export function archiveByTimestamp<TEntity, TKey extends keyof TEntity>(
   }
 }
 
-interface Config<TEntity extends OwnedEntity, TInput> {
+interface Config<
+  TEntity extends OwnedEntity,
+  TInput,
+  TParams extends ListParams = ListParams,
+> {
   collection: Collection<TEntity>
   teacherId: string
   /** Label used in user-facing error messages. */
@@ -62,6 +66,23 @@ interface Config<TEntity extends OwnedEntity, TInput> {
    * accents or case. Leaving it out means duplicates are allowed.
    */
   identity?: (entity: TEntity) => string
+  /**
+   * Filters beyond `ListParams` (search, archived). Applied before pagination
+   * so a filter never hides records on a page that was never fetched.
+   */
+  extraFilters?: (entity: TEntity, params: TParams) => boolean
+  /**
+   * Sort other than the default `sortKey`. Applied after `extraFilters`,
+   * before slicing. Returning 0 for an entity pair means "keep default".
+   */
+  extraSort?: (a: TEntity, b: TEntity, params: TParams) => number
+  /**
+   * Strips values the local storage schema refuses but the HTTP contract
+   * accepts — `null` meaning "clear this field". The form sends `null` so the
+   * API records NULL; the local repository drops them before the schema sees
+   * the record, where the same effect is achieved by the field being absent.
+   */
+  sanitizeInput?: (input: TInput | Partial<TInput>) => TInput | Partial<TInput>
 }
 
 /**
@@ -71,7 +92,11 @@ interface Config<TEntity extends OwnedEntity, TInput> {
  * lives in the visitor's browser. It exists so the signature already matches
  * the HTTP adapter, and so the server implementation cannot forget it.
  */
-export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
+export function createOwnedRepository<
+  TEntity extends OwnedEntity,
+  TInput,
+  TParams extends ListParams = ListParams,
+>({
   collection,
   teacherId,
   label,
@@ -81,7 +106,10 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
   sortKey,
   sortDirection = 'asc',
   identity,
-}: Config<TEntity, TInput>): OwnedRepository<TEntity, TInput> {
+  extraFilters,
+  extraSort,
+  sanitizeInput,
+}: Config<TEntity, TInput, TParams>): OwnedRepository<TEntity, TInput, TParams> {
   const readOwned = (): TEntity[] =>
     collection.readAll().filter((entity) => entity.teacherId === teacherId)
 
@@ -130,19 +158,28 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
   }
 
   return {
-    async list(params: ListParams = {}): Promise<Page<TEntity>> {
+    async list(params: TParams = {} as TParams): Promise<Page<TEntity>> {
       await simulateLatency()
 
       const { search = '', archived = false, page = 1, pageSize = 50 } = params
 
-      const matches = readOwned()
+      let matches = readOwned()
         .filter((entity) => archiving.isArchived(entity) === archived)
         .filter((entity) => matchesSearch(search, ...searchableFields(entity)))
-        .toSorted((a, b) =>
-          sortDirection === 'desc'
-            ? compareByLocale(sortKey(b), sortKey(a))
-            : compareByLocale(sortKey(a), sortKey(b)),
-        )
+
+      if (extraFilters !== undefined) {
+        matches = matches.filter((entity) => extraFilters(entity, params))
+      }
+
+      matches = matches.toSorted((a, b) => {
+        if (extraSort !== undefined) {
+          const custom = extraSort(a, b, params)
+          if (custom !== 0) return custom
+        }
+        return sortDirection === 'desc'
+          ? compareByLocale(sortKey(b), sortKey(a))
+          : compareByLocale(sortKey(a), sortKey(b))
+      })
 
       const start = (page - 1) * pageSize
       return { items: matches.slice(start, start + pageSize), total: matches.length }
@@ -155,7 +192,8 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
 
     async create(input: TInput): Promise<TEntity> {
       await simulateLatency()
-      const entity = toEntity(input, { id: createId(), teacherId })
+      const clean = (sanitizeInput ? sanitizeInput(input) : input) as TInput
+      const entity = toEntity(clean, { id: createId(), teacherId })
 
       const items = readOwned()
       requireUnique(entity, items)
@@ -167,7 +205,8 @@ export function createOwnedRepository<TEntity extends OwnedEntity, TInput>({
       await simulateLatency()
       const items = readOwned()
       const [index, entity] = requireEntry(items, id)
-      const next = { ...entity, ...input } as TEntity
+      const clean = sanitizeInput ? sanitizeInput(input) : input
+      const next = { ...entity, ...clean } as TEntity
 
       requireUnique(next, items)
       persist(items.with(index, next))
