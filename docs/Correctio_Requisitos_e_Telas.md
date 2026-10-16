@@ -44,7 +44,7 @@ Cruza o **Relato do Cliente**, a **Spec SGP Católica** e o retorno da apresenta
 
 **Nome da plataforma:** Correctio.
 
-**Stack:** React + Vite + TypeScript no front (Vue era a preferência da Spec, mas React foi aceito). Backend Node.js + Express + MySQL, conforme a disciplina. Hospedagem: GitHub Pages na N1 (dados simulados em localStorage), migrando para Firebase Hosting com Firebase Auth nas fases seguintes. **[Firebase Auth: validar com a professora — substitui os endpoints /auth da Spec]**
+**Stack:** React + Vite + TypeScript no front (Vue era a preferência da Spec, mas React foi aceito). Backend Node.js + Express + MySQL, conforme a disciplina. Hospedagem: GitHub Pages na N1 (dados simulados em localStorage), migrando para Firebase Hosting nas fases seguintes. **Autenticação:** os endpoints `/auth` da Spec, com JWT próprio e login por e-mail e senha ou pelo Google. O Firebase Auth saiu do plano por decisão da PM de 14/10 (#40), e por isso não depende mais de validação com a professora (ver `docs/Arquitetura.md`, seção 3).
 
 *As decisões de arquitetura, o desenho de segurança/LGPD, a especificação do tour guiado e o portão de qualidade dos Pull Requests estão detalhados em documentos próprios no repositório (docs/Arquitetura.md, docs/Seguranca_e_LGPD.md, docs/Tour_Guiado.md, docs/CI_CD.md).*
 
@@ -242,16 +242,19 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 ## 7. Validações pendentes e dúvidas
 
-**Levar ao cliente (definido em 28/08):**
+Na N2, cada grupo de perguntas virou uma issue: [#69](https://github.com/PrieTorres/correctio-app/issues/69) para o cliente e [#83](https://github.com/PrieTorres/correctio-app/issues/83) para a professora. Cada resposta é registrada aqui e no README quando chegar, e o item sai desta lista.
+
+**Levar ao cliente (definido em 28/08, [#69](https://github.com/PrieTorres/correctio-app/issues/69)) — aguardando resposta:**
 
 1. Importação e exportação de dados via Excel — quais colunas ele já usa hoje (lista de alunos, notas para o sistema acadêmico)?
 1. O cartão-resposta corrigido volta para o aluno? Se não, o código de consulta deve ir também no caderno de prova (ver 6.1).
 1. Finalidade do campo e-mail do aluno — ele tem algum uso previsto? Hoje é coletado sem finalidade no sistema (ver nota do RF07).
 1. Existe aluno menor de 18 anos? Se houver, o tratamento tem exigências adicionais (LGPD, Art. 14).
 
-**Levar à professora:**
+**Levar à professora ([#83](https://github.com/PrieTorres/correctio-app/issues/83)) — aguardando resposta:**
 
 1. Versionamento A/B/C de questões entra em algum momento ou fica fora (ver 6.3)?
+1. A autenticação pelos endpoints `/auth` da Spec, com JWT próprio, atende ao esperado? Não é mais uma escolha em aberto: a PM decidiu em 14/10 e a #40 está implementada. A pergunta é só para confirmar com a professora.
 
 ## 8. Especificação de telas
 
@@ -779,7 +782,7 @@ Mudanças em relação às entidades da Spec, decorrentes do novo escopo:
 
 - **Fora:** app mobile; editor manual de layout do PDF / exportar .doc; área do aluno com login.
 - **Em discussão:** versionamento A/B/C de questões (provas realmente diferentes) — ver 6.3.
-- **Depende de validação:** importação/exportação Excel, retorno do cartão-resposta, finalidade do e-mail do aluno, existência de alunos menores de idade — ver seção 7. Com a professora: Firebase Auth no lugar dos endpoints /auth da Spec (seção 1) e versionamento A/B/C (6.3).
+- **Depende de validação:** importação/exportação Excel, retorno do cartão-resposta, finalidade do e-mail do aluno, existência de alunos menores de idade — ver seção 7. Com a professora: versionamento A/B/C (6.3). O Firebase Auth saiu do plano em 14/10 (seção 1).
 
 ## 11. Como seguir — até a N1 (11/09)
 

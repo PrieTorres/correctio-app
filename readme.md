@@ -94,8 +94,11 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 
 ### 🤔 Em discussão e pendente de validação
 
-- **Em discussão com a professora:** versionamento A/B/C de questões (provas realmente diferentes por aluno, não só embaralhadas).
-- **Pendente de validação com o cliente:** importação e exportação via Excel · retorno do cartão-resposta corrigido ao aluno · finalidade do campo e-mail do aluno · existência de alunos menores de idade.
+- **Em discussão com a professora ([#83](https://github.com/PrieTorres/correctio-app/issues/83)):** versionamento A/B/C de questões (provas realmente diferentes por aluno, não só embaralhadas).
+- **Pendente de validação com o cliente ([#69](https://github.com/PrieTorres/correctio-app/issues/69)):** importação e exportação via Excel · retorno do cartão-resposta corrigido ao aluno · finalidade do campo e-mail do aluno · existência de alunos menores de idade.
+- **Decidido:** autenticação pelos endpoints `/auth` da Spec, com JWT próprio, e não pelo Firebase Auth (decisão da PM de 14/10, na #40).
+
+As perguntas completas estão na seção 7 de [Correctio_Requisitos_e_Telas.md](docs/Correctio_Requisitos_e_Telas.md).
 
 ### 📅 Evolução ao longo do semestre
 
