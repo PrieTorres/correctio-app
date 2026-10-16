@@ -6,6 +6,7 @@ import type { Logger } from 'pino'
 import { pinoHttp } from 'pino-http'
 import type { Env } from './config/env'
 import { createAuthController } from './controllers/auth-controller'
+import { refuseWithoutKey, type FieldCipher } from './lib/field-encryption'
 import { createSessionCookie } from './lib/session-cookie'
 import { BODY_LIMIT_BYTES, limitBodySize } from './middlewares/body-limit'
 import { createErrorHandler } from './middlewares/error-handler'
@@ -13,6 +14,7 @@ import { noStore } from './middlewares/no-store'
 import { notFound } from './middlewares/not-found'
 import {
   byClientAddress,
+  byTeacher,
   COUNTED_RESPONSES,
   createAuthLimits,
   createRateLimit,
@@ -40,6 +42,7 @@ interface RateLimits {
   read: RateLimitTier
   write: RateLimitTier
   signIn: RateLimitTier
+  expensive: RateLimitTier
 }
 
 export interface AppDependencies {
@@ -49,6 +52,12 @@ export interface AppDependencies {
   auth?: AuthComponents
   /** Overrides the token check of `auth`, for tests that need only the gate. */
   verifyToken?: VerifyToken
+  /**
+   * Encrypts the student e-mail. The default refuses, like `rejectAllTokens`
+   * for tokens, so an app built without a key never stores an address in plain
+   * text; `bootstrapApi` always passes a real one.
+   */
+  fieldCipher?: FieldCipher
   healthChecks?: readonly HealthCheck[]
   /** Overridable so tests reach a limit in a few requests instead of hundreds. */
   rateLimits?: Partial<RateLimits>
@@ -67,6 +76,7 @@ const DEFAULT_RATE_LIMITS: RateLimits = {
   read: RATE_LIMITS.READ,
   write: RATE_LIMITS.WRITE,
   signIn: RATE_LIMITS.SIGN_IN,
+  expensive: RATE_LIMITS.EXPENSIVE,
 }
 
 /** The cookie is `Secure` wherever the web app is served over HTTPS, which is every published site. */
@@ -92,6 +102,7 @@ export function createApp({
   db,
   auth,
   verifyToken = auth?.verifyToken ?? rejectAllTokens,
+  fieldCipher = refuseWithoutKey,
   healthChecks = [],
   rateLimits,
   signInDelayStepMs,
@@ -113,9 +124,11 @@ export function createApp({
     createRouter({
       healthService: createHealthService(healthChecks),
       db,
+      fieldCipher,
       failedAuthLimit: createRateLimit(limits.failedAuth, { key: byClientAddress, counts: COUNTED_RESPONSES.UNAUTHORIZED }),
       requireAuth: createRequireAuth(verifyToken),
       teacherLimit: createTeacherRateLimit(limits),
+      expensiveLimit: createRateLimit(limits.expensive, { key: byTeacher }),
       auth: auth === undefined ? undefined : authRoutesFor(auth, env, limits, signInDelayStepMs),
     }),
   )
