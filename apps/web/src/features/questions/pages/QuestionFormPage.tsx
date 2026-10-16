@@ -13,6 +13,7 @@ import {
   SearchIllustration,
   SegmentedControl,
   TextField,
+  Tour,
 } from '@/components/ui';
 import { questionInputSchema, type QuestionInput } from '@/lib/schemas';
 import { createId } from '@/lib/utils';
@@ -32,6 +33,12 @@ const TYPE_SEGMENTS = [
 
 function blankAlternative() {
   return { id: createId(), text: '' };
+}
+
+/** The tour on this screen only makes sense once the alternatives are on screen. */
+function hasAlternatives(question: Question | null | undefined): boolean {
+  if (question === null || question === undefined) return false;
+  return question.alternatives !== undefined && question.alternatives.length > 0;
 }
 
 /**
@@ -209,6 +216,8 @@ function QuestionFormBody({
           </Button>
         </div>
       </form>
+
+      <Tour screen="questionForm" ready={hasAlternatives(existing)} />
     </div>
   );
 }
@@ -370,7 +379,7 @@ function AlternativesField({
   const [groupName] = useState(() => `correct-${createId()}`);
 
   return (
-    <fieldset className="flex flex-col gap-3">
+    <fieldset data-tour="correct" className="flex flex-col gap-3">
       <legend className="mb-1 text-label text-ink-muted">
         Alternativas <span className="text-ink-subtle">— marque a correta</span>
       </legend>
@@ -452,7 +461,7 @@ function AlternativesField({
 
 function ShuffleToggle({ form }: Readonly<{ form: ReturnType<typeof useForm<QuestionInput>> }>) {
   return (
-    <label className="flex cursor-pointer items-start gap-3">
+    <label data-tour="shuffle" className="flex cursor-pointer items-start gap-3">
       <input
         type="checkbox"
         className="mt-1 size-4 accent-[var(--color-primary)]"

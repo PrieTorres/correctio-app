@@ -1,3 +1,5 @@
+> Base do PR: a release do dia, `release/AAAA-MM-DD`, não a `main`.
+
 ## Issue
 Closes #
 

@@ -48,10 +48,17 @@ As entregas são agrupadas em **uma release por dia de trabalho**, e não uma po
 
 ### Como sair
 
-**Pré-versão:** a `main` junta os PRs do dia, e o merge não publica nada em produção.
+**Release do dia:** os PRs do dia não vão direto para a `main`. Eles se juntam numa branch isolada, `release/AAAA-MM-DD`, e só ela entra na `main`, pela PM, ao final do dia.
 
-1. Rode **"1. Pre-release: publish to pre-production"** (aba Actions → Run workflow) com `main`. A PM aprova em "Review deployments", e a pré-versão do dia sobe no link de pré-produção, com API e banco próprios.
-2. Testem no link. Achou problema, corrige por PR na `main` e publica a pré de novo.
+1. A PM roda **"0. Start the day's release"** (aba Actions → Run workflow), que cria `release/AAAA-MM-DD` a partir da `main`.
+2. Cada PR do dia aponta para essa branch (campo *base* do PR), com o mesmo portão e a mesma aprovação da `main`.
+3. Quando o primeiro PR entra, abre-se o PR da release para a `main`. Daí em diante, o workflow "Release pull request" lista nele o `Closes #N` de cada PR do dia: o GitHub só fecha issue com merge na `main`, então é esse PR que fecha todas.
+
+**Pré-versão:**
+
+1. Rode **"1. Pre-release: publish to pre-production"** com `release/AAAA-MM-DD`. A PM aprova em "Review deployments", e a pré-versão do dia sobe no **link fixo** da pré-produção, `https://correctio-app-preview.web.app`, com API e banco próprios.
+2. Testem no link. Achou problema, corrige por PR na release do dia e publica a pré de novo. (Uma branch qualquer também pode ser publicada para teste: ganha um link próprio, e a pré-produção guarda só os 10 mais recentes.)
+3. Ao final do dia, a PM marca o PR da release como pronto e mergeia na `main`.
 
 **Versão oficial:**
 

@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from './layouts/AppLayout'
 import { NotFoundPage } from './NotFoundPage'
+import { RequireSession } from './RequireSession'
 import { ROUTES } from './routes'
 import {
   ApplicationDetailPage,
@@ -15,7 +16,7 @@ import { PrivacyPage, PublicLookupPage } from '@/features/public'
 import { ApplicationReportPage, ConsolidatedReportPage } from '@/features/reports'
 import { ExamDetailPage, ExamFormPage, ExamListPage } from '@/features/exams'
 import { QuestionFormPage, QuestionListPage } from '@/features/questions'
-import { PasswordResetPage, SignInPage, SignUpPage } from '@/features/auth'
+import { NewPasswordPage, PasswordResetPage, SignInPage, SignUpPage } from '@/features/auth'
 
 /**
  * `basename` comes from the build-time base URL rather than a literal, so the
@@ -30,34 +31,40 @@ export const router = createBrowserRouter(
     { path: ROUTES.signIn, element: <SignInPage /> },
     { path: ROUTES.signUp, element: <SignUpPage /> },
     { path: ROUTES.passwordReset, element: <PasswordResetPage /> },
+    { path: ROUTES.newPassword, element: <NewPasswordPage /> },
 
     { path: ROUTES.publicLookup, element: <PublicLookupPage /> },
     { path: ROUTES.privacy, element: <PrivacyPage /> },
 
     {
-      element: <AppLayout />,
+      element: <RequireSession />,
       children: [
-        { path: ROUTES.classes, element: <ClassListPage /> },
-        { path: ROUTES.classDetail, element: <ClassDetailPage /> },
-        { path: ROUTES.questions, element: <QuestionListPage /> },
-        { path: ROUTES.newQuestion, element: <QuestionFormPage /> },
-        { path: ROUTES.questionDetail, element: <QuestionFormPage /> },
-        { path: ROUTES.exams, element: <ExamListPage /> },
-        { path: ROUTES.newExam, element: <ExamFormPage /> },
-        { path: ROUTES.generateExam, element: <ExamFormPage /> },
-        { path: ROUTES.examDetail, element: <ExamDetailPage /> },
-        { path: ROUTES.editExam, element: <ExamFormPage /> },
-        { path: ROUTES.applications, element: <ApplicationListPage /> },
-        { path: ROUTES.newApplication, element: <ApplicationFormPage /> },
-        { path: ROUTES.applicationPdf, element: <ApplicationGeneratePage /> },
-        { path: ROUTES.applicationDetail, element: <ApplicationDetailPage /> },
-        { path: ROUTES.dashboard, element: <DashboardPage /> },
-        { path: ROUTES.profile, element: <ProfilePage /> },
-        { path: ROUTES.grading, element: <GradingUploadPage /> },
-        { path: ROUTES.gradingSheet, element: <GradingSheetPage /> },
-        { path: ROUTES.unassignedCorrections, element: <UnassignedCorrectionsPage /> },
-        { path: ROUTES.applicationReport, element: <ApplicationReportPage /> },
-        { path: ROUTES.reports, element: <ConsolidatedReportPage /> },
+        {
+          element: <AppLayout />,
+          children: [
+            { path: ROUTES.classes, element: <ClassListPage /> },
+            { path: ROUTES.classDetail, element: <ClassDetailPage /> },
+            { path: ROUTES.questions, element: <QuestionListPage /> },
+            { path: ROUTES.newQuestion, element: <QuestionFormPage /> },
+            { path: ROUTES.questionDetail, element: <QuestionFormPage /> },
+            { path: ROUTES.exams, element: <ExamListPage /> },
+            { path: ROUTES.newExam, element: <ExamFormPage /> },
+            { path: ROUTES.generateExam, element: <ExamFormPage /> },
+            { path: ROUTES.examDetail, element: <ExamDetailPage /> },
+            { path: ROUTES.editExam, element: <ExamFormPage /> },
+            { path: ROUTES.applications, element: <ApplicationListPage /> },
+            { path: ROUTES.newApplication, element: <ApplicationFormPage /> },
+            { path: ROUTES.applicationPdf, element: <ApplicationGeneratePage /> },
+            { path: ROUTES.applicationDetail, element: <ApplicationDetailPage /> },
+            { path: ROUTES.dashboard, element: <DashboardPage /> },
+            { path: ROUTES.profile, element: <ProfilePage /> },
+            { path: ROUTES.grading, element: <GradingUploadPage /> },
+            { path: ROUTES.gradingSheet, element: <GradingSheetPage /> },
+            { path: ROUTES.unassignedCorrections, element: <UnassignedCorrectionsPage /> },
+            { path: ROUTES.applicationReport, element: <ApplicationReportPage /> },
+            { path: ROUTES.reports, element: <ConsolidatedReportPage /> },
+          ],
+        },
       ],
     },
 

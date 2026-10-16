@@ -1,18 +1,28 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { MailCheck } from 'lucide-react'
-import { Button, Card, TextField } from '@/components/ui'
+import { Button, Card, SaveError, TextField } from '@/components/ui'
 import { ROUTES } from '@/app/routes'
+import { forgotPasswordSchema, type ForgotPasswordInput } from '@/lib/schemas'
+import { useRequestPasswordReset } from '../hooks/useAuth'
+
+const EMPTY: ForgotPasswordInput = { email: '' }
 
 /**
- * Answers the same way whether or not the address has an account.
+ * Screen C3, first step. Answers the same way whether or not the address has
+ * an account, and so does the API, down to how long it takes.
  *
  * Saying "este e-mail não existe" turns the form into a way of discovering who
  * has an account here, which is information the person asking has no claim to.
  */
 export function PasswordResetPage() {
-  const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
+  const request = useRequestPasswordReset()
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ForgotPasswordInput>({ resolver: zodResolver(forgotPasswordSchema), defaultValues: EMPTY })
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 p-4">
@@ -23,34 +33,25 @@ export function PasswordResetPage() {
         </p>
       </div>
 
-      {sent ? (
+      {request.isSuccess ? (
         <Card className="flex flex-col items-center gap-3 p-6 text-center">
           <MailCheck size={28} aria-hidden className="text-success" />
           <p role="status" className="text-body text-ink">
-            Se houver uma conta com esse e-mail, o link de recuperação chega em instantes.
-          </p>
-          <p className="text-caption text-ink-subtle">
-            Nesta fase o envio é simulado: não há servidor de e-mail ainda.
+            Se houver uma conta com esse e-mail, o link de recuperação chega em instantes. Ele vale por 30 minutos e
+            uma única vez.
           </p>
         </Card>
       ) : (
         <Card className="flex flex-col gap-4 p-6">
           <form
             className="flex flex-col gap-4"
-            onSubmit={(event) => {
-              event.preventDefault()
-              setSent(true)
-            }}
+            onSubmit={(event) => void handleSubmit(({ email }) => request.mutate(email))(event)}
             noValidate
           >
-            <TextField
-              label="E-mail"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-            <Button variant="primary" type="submit" disabled={email.trim() === ''}>
-              Enviar link de recuperação
+            <TextField label="E-mail" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
+            <SaveError error={request.error} />
+            <Button variant="primary" type="submit" disabled={request.isPending}>
+              {request.isPending ? 'Enviando…' : 'Enviar link de recuperação'}
             </Button>
           </form>
         </Card>

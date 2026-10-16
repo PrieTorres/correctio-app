@@ -47,12 +47,19 @@ jobs:
           fi
           echo "ref=$branch" >> "$GITHUB_OUTPUT"
 
-      # A channel name is lowercase letters, digits and hyphens, and short enough
-      # to fit in the address Firebase builds from it.
+      # The day's release goes to the fixed address of pre-production (the live
+      # channel), the one Google sign-in accepts and the team tests the day on.
+      # Any other branch gets a channel of its own. A channel name is lowercase
+      # letters, digits and hyphens, short enough to fit in the address Firebase
+      # builds from it.
       - id: slug
         env:
           REF: ${{ steps.branch.outputs.ref }}
         run: |
+          if [[ "$REF" == release/* ]]; then
+            echo "id=live" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           id=$(printf '%s' "$REF" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//' | cut -c1-30 | sed -E 's/-+$//')
           if [ -z "$id" ] || [ "$id" = live ]; then
             echo "::error::A branch '$REF' não vira um nome de canal válido."

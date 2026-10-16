@@ -2,7 +2,7 @@ name: Portão de qualidade
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'release/**']
 
 # Cancels superseded runs of the same PR: without it, every push queues a new
 # run while the previous one is still going.
@@ -107,6 +107,12 @@ jobs:
         env:
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
+
+      # The GitHub Pages demo is a build of its own (VITE_DEMO_MODE), with the
+      # sample data and its controls that the build above leaves out. It is
+      # rebuilt here and its spec runs against it, with no API involved.
+      - name: E2E tests of the GitHub Pages demo
+        run: npm run test:e2e:demo
 
   # The evidence video of every PR: one test that walks the whole system from
   # an empty account, slowed down so each action can be followed. It runs beside
@@ -223,6 +229,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # A pull request into the day's release branch is compared with main:
+      # release/YYYY-MM-DD is never analysed on its own, and Sonar needs an
+      # analysed base to tell this pull request's new code from the rest.
+      # Setting one pull request parameter turns off the scanner's own
+      # detection of the others, so the key and the branch go along with it.
       - uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >-
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
+            -Dsonar.pullrequest.branch=${{ github.head_ref }}
+            -Dsonar.pullrequest.base=main

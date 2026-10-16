@@ -5,12 +5,16 @@ import type { Kysely } from 'kysely'
 import type { Logger } from 'pino'
 import { pinoHttp } from 'pino-http'
 import type { Env } from './config/env'
+import { createAuthController } from './controllers/auth-controller'
+import { createSessionCookie } from './lib/session-cookie'
 import { BODY_LIMIT_BYTES, limitBodySize } from './middlewares/body-limit'
 import { createErrorHandler } from './middlewares/error-handler'
 import { noStore } from './middlewares/no-store'
 import { notFound } from './middlewares/not-found'
 import {
   byClientAddress,
+  COUNTED_RESPONSES,
+  createAuthLimits,
   createRateLimit,
   createTeacherRateLimit,
   RATE_LIMITS,
@@ -19,16 +23,37 @@ import {
 import { createRequireAuth, rejectAllTokens, type VerifyToken } from './middlewares/require-auth'
 import type { Database } from './models/tables'
 import { createRouter } from './routes'
+import type { AuthService } from './services/auth-service'
+import type { GoogleSignInService } from './services/google-sign-in-service'
 import { createHealthService, type HealthCheck } from './services/health-service'
+import { REFRESH_TOKEN_TTL_MS } from './services/session-issuer'
+
+/** What `composeAuth` builds; absent, the API has no sign-in routes and refuses every token. */
+export interface AuthComponents {
+  service: AuthService
+  google: GoogleSignInService
+  verifyToken: VerifyToken
+}
+
+interface RateLimits {
+  failedAuth: RateLimitTier
+  read: RateLimitTier
+  write: RateLimitTier
+  signIn: RateLimitTier
+}
 
 export interface AppDependencies {
   env: Env
   logger: Logger
   db: Kysely<Database>
+  auth?: AuthComponents
+  /** Overrides the token check of `auth`, for tests that need only the gate. */
   verifyToken?: VerifyToken
   healthChecks?: readonly HealthCheck[]
   /** Overridable so tests reach a limit in a few requests instead of hundreds. */
-  rateLimits?: { failedAuth: RateLimitTier; read: RateLimitTier; write: RateLimitTier }
+  rateLimits?: Partial<RateLimits>
+  /** Overridable so tests do not wait through the progressive delay of sign-in. */
+  signInDelayStepMs?: number
   /**
    * Where the routes answer. Locally the API owns its origin and answers at
    * `/`; on Firebase, Hosting forwards `/api/**` to the function with the
@@ -37,7 +62,21 @@ export interface AppDependencies {
   basePath?: string
 }
 
-const DEFAULT_RATE_LIMITS = { failedAuth: RATE_LIMITS.FAILED_AUTH, read: RATE_LIMITS.READ, write: RATE_LIMITS.WRITE }
+const DEFAULT_RATE_LIMITS: RateLimits = {
+  failedAuth: RATE_LIMITS.FAILED_AUTH,
+  read: RATE_LIMITS.READ,
+  write: RATE_LIMITS.WRITE,
+  signIn: RATE_LIMITS.SIGN_IN,
+}
+
+/** The cookie is `Secure` wherever the web app is served over HTTPS, which is every published site. */
+function authRoutesFor(auth: AuthComponents, env: Env, limits: RateLimits, delayStepMs: number | undefined) {
+  const cookie = createSessionCookie({ secure: env.PUBLIC_APP_URL.startsWith('https:'), maxAgeMs: REFRESH_TOKEN_TTL_MS })
+  return {
+    controller: createAuthController({ auth: auth.service, google: auth.google, cookie }),
+    limits: createAuthLimits(limits.signIn, delayStepMs),
+  }
+}
 
 /**
  * Builds the Express app without listening, so tests drive it through
@@ -51,12 +90,15 @@ export function createApp({
   env,
   logger,
   db,
-  verifyToken = rejectAllTokens,
+  auth,
+  verifyToken = auth?.verifyToken ?? rejectAllTokens,
   healthChecks = [],
-  rateLimits = DEFAULT_RATE_LIMITS,
+  rateLimits,
+  signInDelayStepMs,
   basePath = '/',
 }: AppDependencies): Express {
   const app = express()
+  const limits = { ...DEFAULT_RATE_LIMITS, ...rateLimits }
 
   app.set('trust proxy', env.TRUST_PROXY_HOPS)
   app.use(helmet())
@@ -71,9 +113,10 @@ export function createApp({
     createRouter({
       healthService: createHealthService(healthChecks),
       db,
-      failedAuthLimit: createRateLimit(rateLimits.failedAuth, { key: byClientAddress, countOnlyUnauthorized: true }),
+      failedAuthLimit: createRateLimit(limits.failedAuth, { key: byClientAddress, counts: COUNTED_RESPONSES.UNAUTHORIZED }),
       requireAuth: createRequireAuth(verifyToken),
-      teacherLimit: createTeacherRateLimit(rateLimits),
+      teacherLimit: createTeacherRateLimit(limits),
+      auth: auth === undefined ? undefined : authRoutesFor(auth, env, limits, signInDelayStepMs),
     }),
   )
   app.use(notFound)

@@ -47,6 +47,7 @@ function without(fields: string[], ...childTables: string[]): string[] {
 const CONTRACT: Readonly<Record<string, string[]>> = {
   users: [...fieldsOf(authenticatedUserSchema), 'passwordHash'],
   refresh_tokens: ['id', 'userId', 'tokenHash', 'deviceInfo', 'issuedAt', 'expiresAt', 'revokedAt'],
+  auth_codes: ['id', 'userId', 'purpose', 'codeHash', 'expiresAt', 'usedAt', 'createdAt'],
   classes: fieldsOf(classSchema),
   students: fieldsOf(studentSchema),
   class_enrollments: fieldsOf(classEnrollmentSchema),

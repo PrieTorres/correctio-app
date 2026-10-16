@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2 } from 'lucide-react';
-import { Button, Modal, NumberInput } from '@/components/ui';
+import { Button, Modal, NumberInput, Tour } from '@/components/ui';
 import { drawQuestions, redrawQuestion } from '@/lib/exams';
 import type { Question } from '@/types/domain';
 
@@ -25,6 +25,9 @@ interface AutoFillDialogProps {
  * being short, which is the one thing that is not true. The screen opens
  * straight into this dialog, so the race is the normal case rather than a
  * corner of it.
+ *
+ * Its tour lives inside it, in line: everything the steps point at is in this
+ * dialog, and a tour floating over the page would sit behind the overlay.
  */
 export function AutoFillDialog({
   open,
@@ -90,7 +93,7 @@ export function AutoFillDialog({
     <Modal open={open} onOpenChange={onOpenChange} title="Gerar prova automaticamente">
       <div className="flex flex-col gap-4">
         {knownTags.length > 0 && (
-          <fieldset className="flex flex-col gap-2">
+          <fieldset data-tour="filters" className="flex flex-col gap-2">
             <legend className="mb-1 text-label text-ink-muted">Tags de conteúdo</legend>
             <div className="flex flex-wrap gap-2">
               {knownTags.map((tag) => (
@@ -160,7 +163,7 @@ export function AutoFillDialog({
         )}
 
         {preview !== null && (
-          <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto">
+          <ul data-tour="preview" className="flex max-h-56 flex-col gap-1 overflow-y-auto">
             {preview.map((question) => (
               <li
                 key={question.id}
@@ -202,6 +205,8 @@ export function AutoFillDialog({
           </Button>
         </div>
       </div>
+
+      <Tour screen="generateExam" ready={!bankPending} inline />
     </Modal>
   );
 }

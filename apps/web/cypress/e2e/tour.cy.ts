@@ -1,15 +1,14 @@
 /**
- * The tour runs on the first visit to each screen, never all at once, and
- * never on a screen with nothing on it — an empty state teaches better than a
- * caption pointing at a table with no rows.
+ * The tour runs by itself once per screen and per browser, never all at once,
+ * and never on a screen with nothing on it: an empty state teaches better than
+ * a caption pointing at a table with no rows. Finishing it, skipping it,
+ * closing it on the X or with Esc are all final; only the help of the screen
+ * the teacher is on opens it again.
  */
-const tour = () => cy.get('[role="region"][aria-label^="Tour desta tela"]')
+const TOUR = '[aria-label^="Tour desta tela"]'
+const tour = () => cy.get(TOUR)
 
 describe('tour guiado', () => {
-  beforeEach(() => {
-    cy.clearLocalStorage('correctio:v1:tour-seen')
-  })
-
   it('aparece na primeira visita de uma tela com conteúdo', () => {
     cy.visit('/turmas')
 
@@ -34,12 +33,53 @@ describe('tour guiado', () => {
     tour().should('not.exist')
   })
 
-  it('não volta a aparecer na mesma tela', () => {
+  it('não volta a aparecer na mesma tela depois de pular', () => {
     cy.visit('/turmas')
     tour().contains('button', 'Pular').click()
 
     cy.visit('/turmas')
 
+    cy.contains('h1', 'Turmas').should('be.visible')
+    tour().should('not.exist')
+  })
+
+  it('não volta a aparecer depois de fechar no X', () => {
+    cy.visit('/turmas')
+    tour().find('button[aria-label="Fechar o tour"]').click()
+
+    cy.visit('/turmas')
+
+    cy.contains('h1', 'Turmas').should('be.visible')
+    tour().should('not.exist')
+  })
+
+  it('não volta a aparecer depois de concluído', () => {
+    cy.visit('/aplicacoes')
+    tour().contains('button', 'Próximo').click()
+    tour().contains('button', 'Entendi').click()
+
+    cy.visit('/aplicacoes')
+
+    cy.contains('h1', 'Aplicações').should('be.visible')
+    tour().should('not.exist')
+  })
+
+  /** Sign-out leaves the preference behind: it belongs to the browser, not to the session. */
+  it('continua dispensado depois de sair e entrar de novo', () => {
+    cy.visit('/turmas')
+    tour().contains('button', 'Pular').click()
+    cy.contains('button', 'Sair').click()
+    cy.location('pathname').should('eq', '/entrar')
+
+    cy.get<{ email: string; password: string }>('@teacher').then(({ email, password }) => {
+      cy.findByLabel('E-mail').type(email)
+      cy.findByLabel('Senha').type(password)
+      cy.contains('button', /^Entrar$/).click()
+    })
+    cy.location('pathname').should('eq', '/painel')
+    cy.visit('/turmas')
+
+    cy.contains('h1', 'Turmas').should('be.visible')
     tour().should('not.exist')
   })
 
@@ -68,6 +108,37 @@ describe('tour guiado', () => {
     cy.get('button[aria-label="Ver o tour desta tela"]').click()
 
     tour().should('contain', 'Nova questão')
+  })
+
+  it('reabre só o tour da tela atual pela ajuda do menu', () => {
+    cy.visit('/turmas')
+    tour().contains('button', 'Pular').click()
+
+    cy.get('[aria-label="Navegação principal"]').contains('button', 'Ajuda desta tela').click()
+
+    cy.get(TOUR).should('contain', 'Nova turma').and('contain', 'Passo 1 de 3')
+  })
+
+  it('reabre pelo botão de ajuda do celular', () => {
+    cy.viewport('iphone-x')
+    cy.visit('/turmas')
+    tour().contains('button', 'Pular').click()
+
+    cy.get('button[aria-label="Ajuda: rever o tour desta tela"]').click()
+
+    cy.get(TOUR).should('contain', 'Nova turma')
+  })
+
+  it('reabrir não faz o tour voltar sozinho depois', () => {
+    cy.visit('/turmas')
+    tour().contains('button', 'Pular').click()
+    cy.get('button[aria-label="Ver o tour desta tela"]').click()
+    tour().contains('button', 'Pular').click()
+
+    cy.visit('/turmas')
+
+    cy.contains('h1', 'Turmas').should('be.visible')
+    tour().should('not.exist')
   })
 
   it('dá a cada tela o seu próprio ícone de ajuda', () => {
@@ -118,25 +189,50 @@ describe('tour guiado', () => {
     tour().contains('button', 'Voltar').should('not.exist')
   })
 
-  it('volta em todas as telas depois de rever pelo perfil', () => {
-    cy.visit('/turmas')
-    tour().contains('button', 'Pular').click()
-    cy.visit('/questoes')
+  /** Everything the steps of the generator point at is inside its dialog, so the tour is too: in front of the overlay and reachable. */
+  it('mostra o tour do gerador dentro do diálogo, e usá-lo não fecha o diálogo', () => {
+    cy.visit('/provas/gerar')
+
+    cy.get('[role="dialog"]').within(() => {
+      tour().should('contain', 'Escolha as tags').and('be.visible')
+      tour().contains('button', 'Próximo').click()
+      tour().contains('button', 'Entendi').click()
+      tour().should('not.exist')
+    })
+    cy.get('[role="dialog"]').should('be.visible')
+  })
+
+  /** The form tour opens when the bank arrives, which is often while the title is being typed. */
+  it('não tira o cursor de quem está digitando quando abre sozinho', () => {
+    const title = 'Prova digitada enquanto o tour abre'
+    cy.visit('/provas/nova')
+    cy.findByLabel('Título').type(title)
+
+    tour().should('be.visible')
+    cy.findByLabel('Título').should('have.value', title).and('be.focused')
+  })
+
+  it('abre o tour no formulário de questão, no primeiro uso', () => {
+    cy.visit('/questoes/nova')
+
+    tour().should('contain', 'Marque qual alternativa é a correta')
+    cy.get('[data-tour="correct"]').should('have.class', 'tour-target')
+  })
+
+  /** Six screens had a help button that opened nothing; the detail of an application was one of them. */
+  it('reabre pelo ícone de ajuda no detalhe da aplicação', () => {
+    cy.visit('/aplicacoes/application-calculus-midterm')
     tour().contains('button', 'Pular').click()
 
-    cy.visit('/perfil')
-    cy.contains('button', 'Rever o tour').click()
+    cy.get('button[aria-label="Ver o tour desta tela"]').click()
 
-    cy.visit('/turmas')
-    tour().should('be.visible')
-    cy.visit('/questoes')
-    tour().should('be.visible')
+    cy.get(TOUR).should('contain', 'Baixe o PDF aqui')
   })
 
   /** An empty screen already explains itself, and better. */
   it('não aparece em tela vazia', () => {
-    cy.visit('/turmas')
-    cy.contains('button', 'Limpar').click()
+    cy.clearCookies()
+    cy.signInAsNewTeacher({ withSampleData: false })
 
     cy.visit('/turmas')
 

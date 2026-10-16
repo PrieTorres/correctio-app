@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { ArrowLeft, Plus, Sparkles } from 'lucide-react';
-import { Button, Card, PageHeader, QueryBoundary, SaveError, TextField } from '@/components/ui';
+import { Button, Card, PageHeader, QueryBoundary, SaveError, TextField, Tour } from '@/components/ui';
 import { examInputSchema, type ExamInput } from '@/lib/schemas';
 import { totalScore } from '@/lib/exams';
 import { fieldArrayMessage } from '@/lib/forms';
@@ -195,7 +195,7 @@ export function ExamFormPage() {
             )}
 
             {questions.length === 0 ? (
-              <p className="py-6 text-center text-body text-ink-muted">
+              <p data-tour="list" className="py-6 text-center text-body text-ink-muted">
                 Nenhuma questão ainda. Adicione do banco ou deixe o sistema preencher.
               </p>
             ) : (
@@ -283,6 +283,8 @@ export function ExamFormPage() {
           remainingSlots={MAX_QUESTIONS - questions.length}
           onConfirm={addFromBank}
         />
+
+        {!autoFillOpen && <Tour screen="examForm" ready={!bankPending} />}
       </div>
     </QueryBoundary>
   );
