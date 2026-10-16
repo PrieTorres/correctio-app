@@ -101,6 +101,27 @@ jobs:
           fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
+      # Pre-production keeps at most ten branch links: past that, the oldest ones
+      # are deleted, so the list stays one a person can still read.
+      - name: Keep at most ten branch links
+        if: ${{ inputs.channel != 'live' }}
+        env:
+          PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          npx --yes "$FIREBASE_TOOLS" hosting:channel:list --project "$PROJECT" --json > channels.json
+          node -e '
+            const { result } = require("./channels.json");
+            const channels = (result.channels || [])
+              .map((channel) => ({ id: channel.name.split("/").pop(), created: channel.createTime }))
+              .filter((channel) => channel.id !== "live")
+              .sort((a, b) => b.created.localeCompare(a.created));
+            console.log(channels.slice(10).map((channel) => channel.id).join("\n"));
+          ' > stale.txt
+          while read -r channel; do
+            [ -z "$channel" ] && continue
+            npx --yes "$FIREBASE_TOOLS" hosting:channel:delete "$channel" --project "$PROJECT" --force --non-interactive
+          done < stale.txt
+
       # A deploy that answers anything but 200 failed, even if every step above
       # passed: it is the database or a secret that the build cannot see. A new
       # preview channel answers 404 on /api for a minute or two before Hosting

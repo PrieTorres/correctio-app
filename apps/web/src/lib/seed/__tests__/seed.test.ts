@@ -9,7 +9,7 @@ import {
   studentSchema,
 } from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
-import { clearDemoData, hasDemoData, resetDemoData, seedIfEmpty } from '../index'
+import { clearDemoData, hasDemoData, resetDemoData, seedIfEmpty, writeDemoData } from '../index'
 
 const classes = () => createCollection('classes', classSchema).readAll()
 const students = () => createCollection('students', studentSchema).readAll()
@@ -258,5 +258,37 @@ describe('hasDemoData', () => {
     })
 
     expect(hasDemoData()).toBe(false)
+  })
+})
+
+describe('clearing the demo', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  /** The demo has a session guard now, so wiping the session along with the data would throw the visitor out. */
+  it('keeps the demo teacher signed in', () => {
+    seedIfEmpty()
+
+    clearDemoData()
+
+    expect(window.localStorage.getItem('correctio:demo-session')).not.toBeNull()
+  })
+})
+
+describe('writeDemoData', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  /** What the Cypress suite does for the teacher each test signs up on the API. */
+  it('writes the sample data as owned by the given teacher, without signing anyone in', () => {
+    writeDemoData('teacher-from-the-api')
+
+    const owners = [
+      ...classes(),
+      ...createCollection('questions', questionSchema).readAll(),
+      ...createCollection('exams', examSchema).readAll(),
+      ...createCollection('applications', applicationSchema).readAll(),
+    ].map((record) => record.teacherId)
+    expect(new Set(owners)).toEqual(new Set(['teacher-from-the-api']))
+    expect(students().length).toBeGreaterThan(0)
+    expect(window.localStorage.getItem('correctio:demo-session')).toBeNull()
   })
 })

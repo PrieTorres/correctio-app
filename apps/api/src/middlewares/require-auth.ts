@@ -7,12 +7,12 @@ export interface AuthenticatedTeacher {
 
 /**
  * Turns a bearer token into the teacher it belongs to, or `null` when it is not
- * valid. Injected rather than imported because the real check depends on the
- * authentication decision of #83 and arrives with #40.
+ * valid. Injected rather than imported, so tests of other routes hand in fixed
+ * tokens; the real check is `verifierFor` in `compose-auth.ts`.
  */
 export type VerifyToken = (token: string) => Promise<AuthenticatedTeacher | null>
 
-/** The default until #40: nothing is authenticated, so every protected route answers 401. */
+/** The default without sign-in services: nothing is authenticated, so every protected route answers 401. */
 export const rejectAllTokens: VerifyToken = () => Promise.resolve(null)
 
 const BEARER = /^Bearer (\S+)$/

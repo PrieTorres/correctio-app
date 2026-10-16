@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
+import { useCurrentUser } from '@/features/auth';
 import { resolvePublicLookup } from '@/lib/public-lookup';
 import type { PublicLookup } from '@/types/domain';
 
@@ -15,13 +16,19 @@ export const publicLookupKeys = {
  * first thing missing. Retries are off: an unknown code is an answer, not a
  * failure to retry. Nothing is cached: a grade released a minute ago must show
  * on the next scan, and the page is public, so nothing of it stays behind.
+ *
+ * Until the lookup reaches the API (#49), it reads this browser's data, which
+ * belongs to whoever is signed in here, so it waits for the session to be
+ * restored: asked earlier, it searched nobody's data and called a real code
+ * invalid.
  */
 export function usePublicLookup(code: string | undefined) {
   const { repositories } = useServices();
+  const session = useCurrentUser();
 
   return useQuery<PublicLookup>({
     queryKey: publicLookupKeys.byCode(code ?? ''),
-    enabled: code !== undefined,
+    enabled: code !== undefined && !session.isPending,
     retry: false,
     staleTime: 0,
     gcTime: 0,

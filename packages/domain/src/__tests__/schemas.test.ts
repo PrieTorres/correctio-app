@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
-import { examInputSchema, questionInputSchema, questionSchema, signUpSchema } from '../schemas'
+import {
+  examInputSchema,
+  questionInputSchema,
+  questionSchema,
+  resetPasswordSchema,
+  signInSchema,
+  signUpRequestSchema,
+  signUpSchema,
+} from '../schemas'
 
 function messagesOf(result: z.SafeParseReturnType<unknown, unknown>): string[] {
   return result.success ? [] : result.error.issues.map((issue) => issue.message)
@@ -44,6 +52,31 @@ describe('signUpSchema', () => {
 
     expect(result.success).toBe(false)
     expect(result.error?.issues[0]?.path).toEqual(['confirmPassword'])
+  })
+
+  it('requires at least 8 characters (RF01), in the form and in the API body', () => {
+    const short = { ...account, password: 'curta12' }
+
+    expect(messagesOf(signUpSchema.safeParse({ ...short, confirmPassword: 'curta12' }))).toContain(
+      'A senha precisa ter ao menos 8 caracteres',
+    )
+    expect(messagesOf(signUpRequestSchema.safeParse(short))).toContain('A senha precisa ter ao menos 8 caracteres')
+  })
+})
+
+describe('signInSchema', () => {
+  it('asks only that a password was typed, never for the length rule', () => {
+    expect(signInSchema.safeParse({ email: 'ana@exemplo.edu.br', password: 'curta' }).success).toBe(true)
+    expect(messagesOf(signInSchema.safeParse({ email: 'ana@exemplo.edu.br', password: '' }))).toEqual(['Informe a senha'])
+  })
+})
+
+describe('resetPasswordSchema', () => {
+  it('applies the sign-up rules to the new password', () => {
+    expect(resetPasswordSchema.safeParse({ password: 'senha-nova-1', confirmPassword: 'senha-nova-1' }).success).toBe(true)
+    expect(messagesOf(resetPasswordSchema.safeParse({ password: 'senha-nova-1', confirmPassword: 'outra' }))).toEqual([
+      'As senhas não coincidem',
+    ])
   })
 })
 

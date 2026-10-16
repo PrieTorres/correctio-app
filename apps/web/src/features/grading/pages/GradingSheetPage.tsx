@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
-import { Badge, Button, Card, NumberInput, PageHeader, QueryBoundary } from '@/components/ui';
+import { Badge, Button, Card, NumberInput, PageHeader, QueryBoundary, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import {
   clampDiscursiveScore,
@@ -119,7 +119,7 @@ export function GradingSheetPage() {
           />
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <Card className="flex flex-col gap-3 p-4">
+            <Card data-tour="image" className="flex flex-col gap-3 p-4">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-title text-primary">Folha lida</h2>
                 <div className="flex gap-1">
@@ -180,7 +180,7 @@ export function GradingSheetPage() {
                 </Card>
               )}
 
-              <Card>
+              <Card data-tour="questions">
                 <div className="border-b border-line px-5 py-4">
                   <h2 className="text-title text-primary">Questões</h2>
                 </div>
@@ -242,6 +242,8 @@ export function GradingSheetPage() {
               {confirmCorrection.isPending ? 'Salvando…' : 'Confirmar correção'}
             </Button>
           </div>
+
+          <Tour screen="gradingSheet" ready />
         </div>
       )}
     </QueryBoundary>
@@ -341,7 +343,7 @@ function DiscursiveRow({
         <Badge tone={atZero ? 'warning' : 'neutral'}>{atZero ? 'Valendo 0' : 'Discursiva'}</Badge>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div data-tour="score" className="flex items-center gap-2">
         <span aria-hidden className="text-caption text-ink-muted">
           Nota
         </span>

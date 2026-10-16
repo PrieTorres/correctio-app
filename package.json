@@ -23,6 +23,7 @@
     "lint:root": "eslint eslint.config.js tooling scripts",
     "test:tooling": "node --test \"tooling/**/*.test.js\"",
     "test:e2e:journey": "npm run test:e2e:journey --workspace @correctio/web",
+    "test:e2e:demo": "npm run build:demo --workspace @correctio/web && npm run test:e2e:demo --workspace @correctio/web",
     "dev:api": "npm run dev --workspace @correctio/api",
     "db:migrate": "npm run db:migrate --workspace @correctio/api",
     "db:rollback": "npm run db:rollback --workspace @correctio/api",

@@ -10,9 +10,35 @@ interface TourProps {
    */
   ready: boolean;
   onClose?: () => void;
+  /**
+   * Inside a dialog, the panel sits in the dialog's own flow instead of
+   * floating over the page. A floating panel would land behind the dialog's
+   * overlay, outside its focus trap and hidden from screen readers by it.
+   */
+  inline?: boolean;
 }
 
 const HIGHLIGHT_CLASS = 'tour-target';
+
+const FLOATING_CLASSES =
+  'fixed inset-x-0 z-40 border-primary bg-surface p-4 shadow-[var(--shadow-overlay)] focus:outline-none sm:inset-x-auto sm:left-6 sm:w-[min(26rem,calc(100vw-3rem))] sm:rounded-[var(--radius-card)] sm:border-4 md:left-72';
+
+const DOCKED_CLASSES = {
+  top: 'top-0 border-b-4 sm:top-6',
+  bottom: 'bottom-0 border-t-4 sm:bottom-6',
+} as const;
+
+/**
+ * A tour that opens by itself when the data arrives can land while the teacher
+ * is typing, and taking the cursor out of the field then sends the rest of
+ * the typing nowhere. The step is still read out, through its live region.
+ */
+function isTyping(element: Element | null): boolean {
+  if (element instanceof HTMLElement && element.isContentEditable) return true;
+  return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement;
+}
+
+const INLINE_CLASSES = 'mt-4 rounded-[var(--radius-card)] border-4 border-primary bg-surface p-4 focus:outline-none';
 
 /**
  * The guided tour of one screen, one step at a time, pointing at what to click.
@@ -27,20 +53,20 @@ const HIGHLIGHT_CLASS = 'tour-target';
  * returns to where it was when it closes, which is the part a tour usually
  * gets wrong.
  *
- * A region rather than a dialog: it blocks nothing, traps no focus and leaves
- * the screen usable underneath. Calling it a dialog would make a screen reader
+ * A named section, which is a region, rather than a dialog: it blocks nothing,
+ * traps no focus and leaves the screen usable underneath. Calling it a dialog would make a screen reader
  * announce it as one, and would put it in front of every query looking for the
  * real dialogs of the app.
  *
  * The position is spelled out as well as shown: a row of dots carries the same
  * information only for people who can see and distinguish them.
  */
-export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
+export function Tour({ screen, ready, onClose, inline = false }: Readonly<TourProps>) {
   const steps = stepsOf(screen);
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
   const [dockedAt, setDockedAt] = useState<'top' | 'bottom'>('bottom');
-  const panel = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLElement>(null);
   const opener = useRef<HTMLElement | null>(null);
 
   const requests = useTourRequests();
@@ -70,8 +96,9 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
   useEffect(() => {
     if (!open) return;
 
-    opener.current = document.activeElement as HTMLElement | null;
-    panel.current?.focus();
+    const active = document.activeElement;
+    opener.current = active instanceof HTMLElement ? active : null;
+    if (!isTyping(active)) panel.current?.focus();
 
     /**
      * Escape is listened for on the document rather than on the panel, so it
@@ -133,7 +160,7 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
    * dismissed.
    */
   useEffect(() => {
-    if (!open) return;
+    if (!open || inline) return;
 
     const reserved = `${(panel.current?.offsetHeight ?? 0) + 24}px`;
     const previous = document.body.style.padding;
@@ -143,21 +170,18 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
     return () => {
       document.body.style.padding = previous;
     };
-  }, [open, dockedAt]);
+  }, [open, dockedAt, inline]);
 
   if (!open || step === undefined) return null;
 
   const isLast = index + 1 >= steps.length;
 
   return (
-    <div
+    <section
       ref={panel}
-      role="region"
       aria-label={`Tour desta tela, passo ${index + 1} de ${steps.length}`}
       tabIndex={-1}
-      className={`fixed inset-x-0 z-40 border-primary bg-surface p-4 shadow-[var(--shadow-overlay)] focus:outline-none sm:inset-x-auto sm:left-6 sm:w-[min(26rem,calc(100vw-3rem))] sm:rounded-[var(--radius-card)] sm:border-4 md:left-72 ${
-        dockedAt === 'top' ? 'top-0 border-b-4 sm:top-6' : 'bottom-0 border-t-4 sm:bottom-6'
-      }`}
+      className={inline ? INLINE_CLASSES : `${FLOATING_CLASSES} ${DOCKED_CLASSES[dockedAt]}`}
     >
       <div className="flex items-start justify-between gap-3">
         <p aria-live="polite" className="text-body text-ink">
@@ -204,6 +228,6 @@ export function Tour({ screen, ready, onClose }: Readonly<TourProps>) {
           </button>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

@@ -22,22 +22,80 @@ export const authenticatedUserSchema = z.object({
   anonymizedAt: timestamp.optional(),
 });
 
+/**
+ * The longest address the e-mail standards allow, for teachers and students
+ * alike. The API stores the student e-mail encrypted, and the encrypted text of
+ * a longer one would not fit its column, so the limit is part of the contract
+ * rather than a server detail.
+ */
+const MAX_EMAIL_LENGTH = 254;
+
+const email = z.string().trim().email('Informe um e-mail válido').max(MAX_EMAIL_LENGTH);
+
+/**
+ * At least 8 characters (RF01 and the specification, Feature 1). The ceiling
+ * keeps a megabyte "password" from tying up the hash function.
+ */
+const newPassword = z
+  .string()
+  .min(8, 'A senha precisa ter ao menos 8 caracteres')
+  .max(128, 'A senha pode ter no máximo 128 caracteres');
+
+/**
+ * Sign-in checks only that a password was typed: the length rule belongs to
+ * choosing a password, and repeating it here would tell a guesser the policy.
+ */
 export const signInSchema = z.object({
-  email: z.string().email('Informe um e-mail válido'),
-  password: z.string().min(6, 'A senha precisa ter ao menos 6 caracteres'),
+  email,
+  password: z.string().min(1, 'Informe a senha').max(128),
 });
 
-export const signUpSchema = z
-  .object({
-    fullName: z.string().min(1, 'Informe seu nome completo').max(160),
-    email: z.string().email('Informe um e-mail válido'),
-    password: z.string().min(6, 'A senha precisa ter ao menos 6 caracteres'),
-    confirmPassword: z.string().min(1, 'Confirme a senha'),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'As senhas não coincidem',
-    path: ['confirmPassword'],
-  });
+/** What `POST /auth/register` receives; the confirmation is a concern of the form only. */
+export const signUpRequestSchema = z.object({
+  fullName: z.string().trim().min(1, 'Informe seu nome completo').max(160),
+  email,
+  password: newPassword,
+});
+
+const confirmPassword = z.string().min(1, 'Confirme a senha');
+
+function passwordsMatch(data: { password: string; confirmPassword: string }): boolean {
+  return data.password === data.confirmPassword;
+}
+
+const PASSWORDS_DIFFER = { message: 'As senhas não coincidem', path: ['confirmPassword'] };
+
+export const signUpSchema = signUpRequestSchema
+  .extend({ confirmPassword })
+  .refine(passwordsMatch, PASSWORDS_DIFFER);
+
+export const forgotPasswordSchema = z.object({ email });
+
+/** What `POST /auth/reset-password` receives: the code of the e-mail link and the new password. */
+export const resetPasswordRequestSchema = z.object({
+  code: z.string().min(1).max(100),
+  password: newPassword,
+});
+
+export const resetPasswordSchema = z
+  .object({ password: newPassword, confirmPassword })
+  .refine(passwordsMatch, PASSWORDS_DIFFER);
+
+/**
+ * What `POST /auth/google/exchange` receives: the one-time code Google sign-in
+ * left in the address, and the value only the browser that started it holds.
+ */
+export const googleExchangeSchema = z.object({
+  code: z.string().min(1).max(100),
+  binding: z.string().min(1).max(100),
+});
+
+/** The answer of every route that signs someone in. */
+export const authSessionSchema = z.object({
+  accessToken: z.string().min(1),
+  expiresIn: z.number().int().positive(),
+  user: authenticatedUserSchema,
+});
 
 export const classStatusSchema = z.enum(['active', 'archived']);
 
@@ -62,7 +120,13 @@ export const classInputSchema = classSchema.pick({ name: true, subject: true, te
  * field means absent, said once instead of at every call site.
  */
 const optionalEmail = z
-  .union([z.literal(''), z.string().email('E-mail inválido')])
+  .union([
+    z.literal(''),
+    z
+      .string()
+      .email('E-mail inválido')
+      .max(MAX_EMAIL_LENGTH, `O e-mail pode ter no máximo ${MAX_EMAIL_LENGTH} caracteres`),
+  ])
   .optional()
   .transform((value) => (value === '' ? undefined : value));
 
@@ -324,5 +388,11 @@ export type StudentInput = z.infer<typeof studentInputSchema>;
 export type QuestionInput = z.infer<typeof questionInputSchema>;
 export type SignInInput = z.infer<typeof signInSchema>;
 export type SignUpInput = z.infer<typeof signUpSchema>;
+export type SignUpRequest = z.infer<typeof signUpRequestSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type GoogleExchange = z.infer<typeof googleExchangeSchema>;
+export type AuthSession = z.infer<typeof authSessionSchema>;
 export type ExamInput = z.infer<typeof examInputSchema>;
 export type ApplicationInput = z.infer<typeof applicationInputSchema>;

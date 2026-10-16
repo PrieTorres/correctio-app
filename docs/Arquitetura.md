@@ -41,7 +41,8 @@ Repositórios            ◄── A FRONTEIRA: interface única, assíncrona, t
    ▼                  ▼                      ▼
 N1 (11/09)         N2 (23/10)            N3 / produção
 localStorage       HTTP → Express        HTTP → Express
-+ dados semeados   + MySQL               + Firebase Auth
++ dados semeados   + MySQL               + MySQL
+                   + login próprio (JWT)
 ```
 
 **Regra dura: nenhum componente chama `localStorage` ou `fetch` diretamente.** Ele chama `useTurmas()`, que chama `turmaRepository.list()`. Trocar de fonte significa trocar uma fábrica lida de variável de ambiente — nenhuma tela muda.
@@ -56,16 +57,25 @@ O que faz isso funcionar é a interface do repositório já ser escrita **no for
 | Schemas de validação | validam o que sai do `localStorage` | **os mesmos** validam a resposta da API | inalterado |
 | Hooks / cache | inalterados | inalterados | inalterados |
 | Telas | — | **nenhuma mudança** | nenhuma |
-| Autenticação | sessão simulada | token do Express | Firebase Auth |
+| Autenticação | sessão simulada (só o demo do Pages) | JWT próprio da API: e-mail e senha ou Google | inalterado |
 | Base do roteador | de variável do build | idem | idem, sem tocar em código |
 
-O mesmo vale para autenticação: uma interface `AuthProvider`, com implementação simulada na N1 e Firebase depois.
+O mesmo vale para autenticação: uma interface `AuthProvider` (`apps/web/src/lib/auth`), com a
+implementação local, que só o demo do GitHub Pages usa, e a HTTP (`http-auth-provider.ts`), que os
+builds do Firebase usam.
+
+**O demo existe só no GitHub Pages.** A flag de build `VITE_DEMO_MODE` (`lib/app-mode.ts`), ligada
+apenas no `pages.yml`, decide entre o login local com dados de exemplo e o login real. O Vite
+grava o valor como constante, então o seed, a sessão simulada e os botões "Aplicar"/"Limpar"
+ficam fora do pacote do Firebase, em vez de só escondidos: em produção e na pré-produção nada é
+inventado. As áreas cuja API ainda não entrou continuam gravando no navegador, separadas pelo
+professor logado, até a issue de cada uma ligar o repositório HTTP.
 
 ---
 
 ## 3. Publicação e roteamento
 
-**N1: GitHub Pages. N2: Firebase Hosting para o front e Cloud Functions para a API, no mesmo endereço (o Hosting encaminha `/api/**` para a função); o GitHub Pages segue publicando o front da `main`, para teste. Autenticação: Firebase Auth** — esta última **pendente de validação com a professora**, porque substitui os endpoints `/auth` previstos na Spec (ver seção 1 do documento de requisitos e telas).
+**N1: GitHub Pages. N2: Firebase Hosting para o front e Cloud Functions para a API, no mesmo endereço (o Hosting encaminha `/api/**` para a função); o GitHub Pages segue publicando o front da `main`, como demo. Autenticação: os endpoints `/auth` da Spec, com JWT próprio, login por e-mail e senha ou pelo Google** (decisão da PM de 14/10, na #40).
 
 **Roteamento por caminho, não por hash.** URL limpa (`/correctio/r/ABC123`), com a base do roteador vinda da variável de build. No GitHub Pages, onde o front segue publicado para teste, o `pages.yml` copia o `index.html` para `404.html`; no Firebase, o `firebase.json` devolve o `index.html` para todo caminho que não é arquivo nem `/api`.
 
@@ -74,11 +84,17 @@ O motivo é específico deste projeto e é o **único ponto verdadeiramente irre
 - O formato do caminho (`/r/:codigo`) precisa sobreviver à troca de host — migrar para o Firebase só remove o prefixo do repositório.
 - A URL pública sai de uma constante de ambiente, **nunca** escrita fixa no código.
 
-### O que Firebase Auth muda nos requisitos
+### Como a autenticação atende os requisitos
 
-Os RFs sobrevivem quase intactos: o Firebase emite token JWT com renovação, então o RF02 continua literalmente verdadeiro; o RF03 (recuperação de senha por e-mail) sai pronto; o RF04 (encerrar todas as sessões) é revogação de tokens.
-
-O que ele **não** faz sozinho é restringir domínio de e-mail — o que deixou de importar, já que a restrição foi removida do RF01.
+- **RF01 e RF02:** cadastro e login nos endpoints `/auth` da Spec. O access token dura 15 minutos
+  e o refresh token, rotativo, renova a sessão sem nova senha.
+- **Google:** o fluxo de código no servidor volta sempre ao mesmo endereço por projeto
+  (`/api/auth/google/callback`), e de lá a API devolve o navegador à origem que começou, seja
+  produção, o link fixo da pré ou o link de uma branch. O código de uso único fica preso ao
+  navegador que iniciou o login, então um link repassado não serve em outro navegador.
+- **RF03:** e-mail de redefinição pelo Gmail do projeto, com link de 30 minutos e uso único. A
+  resposta é a mesma, e leva o mesmo tempo, com ou sem conta.
+- **RF04:** "Sair de todos os dispositivos" revoga todos os refresh tokens da conta.
 
 ---
 

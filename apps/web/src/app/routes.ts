@@ -12,6 +12,8 @@ export const ROUTES = {
   signIn: '/entrar',
   signUp: '/criar-conta',
   passwordReset: '/recuperar-senha',
+  /** The link of the reset e-mail points here (`auth-service.ts` in the API); it can never change. */
+  newPassword: '/redefinir-senha',
 
   publicLookup: '/r/:code',
   privacy: '/privacidade',
