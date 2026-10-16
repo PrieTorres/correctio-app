@@ -10,8 +10,8 @@ import {
   type ExamVersion,
   type Question,
   type Student,
-} from '@/types/domain'
-import { resolvePublicLookup, type LookupSources } from '../resolve'
+} from '../domain'
+import { resolvePublicLookup, type LookupSources } from '../public-lookup'
 
 const BANK: Question[] = [
   {

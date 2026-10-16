@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./domain": "./src/domain.ts",
+    "./public-lookup": "./src/public-lookup.ts",
     "./schemas": "./src/schemas.ts"
   },
   "scripts": {
