@@ -54,6 +54,22 @@ describe('studentInputSchema', () => {
     )
   })
 
+  /** The import preview shows these messages line by line, so they cannot be the library's English. */
+  it('says in Portuguese when the name or the registration is too long', () => {
+    const messagesOf = (input: object) => {
+      const result = studentInputSchema.safeParse(input)
+      return result.success ? [] : result.error.issues.map((issue) => issue.message)
+    }
+
+    expect(studentInputSchema.safeParse({ ...filled, fullName: 'a'.repeat(160) }).success).toBe(true)
+    expect(messagesOf({ ...filled, fullName: 'a'.repeat(161) })).toEqual(['O nome pode ter no máximo 160 caracteres'])
+
+    expect(studentInputSchema.safeParse({ ...filled, registration: '1'.repeat(40) }).success).toBe(true)
+    expect(messagesOf({ ...filled, registration: '1'.repeat(41) })).toEqual([
+      'A matrícula pode ter no máximo 40 caracteres',
+    ])
+  })
+
   it('never stores the empty string, so a stored student has an e-mail or none', () => {
     const stored = studentSchema.parse({
       id: 'student-1',

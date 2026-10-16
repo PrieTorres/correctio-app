@@ -24,14 +24,16 @@ export function ClassFormModal({
   editing: Class | null
 }>) {
   const save = useSaveClass()
+  const { reset: resetSave } = save
 
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<ClassInput>({ resolver: zodResolver(classInputSchema), defaultValues: EMPTY })
 
+  /** Reopening starts clean: the refusal of the last attempt belongs to that attempt. */
   useEffect(() => {
     if (!open) return
     reset(
@@ -39,7 +41,8 @@ export function ClassFormModal({
         ? EMPTY
         : { name: editing.name, subject: editing.subject, term: editing.term },
     )
-  }, [open, editing, reset])
+    resetSave()
+  }, [open, editing, reset, resetSave])
 
   /**
    * `mutate` with a callback rather than awaiting `mutateAsync`: a refused save
@@ -82,8 +85,8 @@ export function ClassFormModal({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button variant="primary" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Salvando…' : 'Salvar'}
+          <Button variant="primary" type="submit" disabled={save.isPending}>
+            {save.isPending ? 'Salvando…' : 'Salvar'}
           </Button>
         </div>
       </form>

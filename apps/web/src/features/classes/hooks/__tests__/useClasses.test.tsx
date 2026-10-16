@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { act, waitFor } from '@testing-library/react'
-import { clearAllCollections } from '@/lib/storage/collection'
+import { classSchema } from '@/lib/schemas'
+import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 import { renderHookWithProviders, TEST_TEACHER_ID } from '@/test-utils'
+import type { Class } from '@/types/domain'
 import {
+  CLASS_PAGE_SIZE,
   classKeys,
   useAddStudent,
   useArchiveClass,
   useClass,
   useClassList,
+  useImportStudents,
   useSaveClass,
   useStudentAction,
   useStudents,
@@ -22,6 +26,12 @@ describe('classKeys', () => {
 
   it('separates listings by search term', () => {
     expect(classKeys.list(false, 'a')).not.toEqual(classKeys.list(false, 'b'))
+  })
+
+  /** Each page is its own request to the API, so it needs its own place in the cache. */
+  it('separates listings by page, starting from the first', () => {
+    expect(classKeys.list(false, '', 2)).not.toEqual(classKeys.list(false, ''))
+    expect(classKeys.list(false, '', 1)).toEqual(classKeys.list(false, ''))
   })
 
   it('scopes detail and students under the same root as the list', () => {
@@ -103,6 +113,31 @@ describe('class data hooks', () => {
 
     expect(detail.result.current.data?.teacherId).toBe(TEST_TEACHER_ID)
   })
+
+  /** A teacher with more classes than a page reaches the rest by paging, never by losing them. */
+  it('reads the page it is asked for and reports the total of every page', async () => {
+    const numbered = (index: number) => String(index).padStart(3, '0')
+    const many: Class[] = Array.from({ length: CLASS_PAGE_SIZE + 1 }, (_, index) => ({
+      id: `class-${numbered(index)}`,
+      teacherId: TEST_TEACHER_ID,
+      name: `Turma ${numbered(index)}`,
+      subject: 'Matemática',
+      term: '2026/2',
+      status: 'active',
+      inviteCode: `CODE${index}`,
+    }))
+    createCollection('classes', classSchema).writeAll(many)
+
+    const { result } = renderHookWithProviders(() => ({
+      first: useClassList(false, ''),
+      second: useClassList(false, '', 2),
+    }))
+
+    await waitFor(() => expect(result.current.second.isSuccess).toBe(true))
+    expect(result.current.first.data?.items).toHaveLength(CLASS_PAGE_SIZE)
+    expect(result.current.second.data?.items.map((item) => item.name)).toEqual([`Turma ${numbered(CLASS_PAGE_SIZE)}`])
+    expect(result.current.second.data?.total).toBe(CLASS_PAGE_SIZE + 1)
+  })
 })
 
 describe('student data hooks', () => {
@@ -142,6 +177,51 @@ describe('student data hooks', () => {
     await act(() => result.current.act.mutateAsync({ id: added.id, action: 'remove' }))
 
     await waitFor(() => expect(result.current.list.data).toHaveLength(0))
+  })
+
+  it('imports a pasted list and refreshes the class listing', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      importStudents: useImportStudents('class-1'),
+      list: useStudents('class-1'),
+    }))
+
+    await waitFor(() => expect(result.current.list.isSuccess).toBe(true))
+    const outcome = await act(() =>
+      result.current.importStudents.mutateAsync([
+        { fullName: 'Ana Beatriz', registration: '2026001' },
+        { fullName: 'Bruno Lima', registration: '2026002' },
+      ]),
+    )
+
+    expect(outcome).toEqual({ created: 2, skipped: 0 })
+    await waitFor(() => expect(result.current.list.data).toHaveLength(2))
+  })
+
+  /** The screen tells the teacher how many were skipped, so the hook has to hand the count over. */
+  it('reports a registration already in the class as skipped', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      add: useAddStudent('class-1'),
+      importStudents: useImportStudents('class-1'),
+    }))
+
+    await act(() => result.current.add.mutateAsync(student))
+    const outcome = await act(() =>
+      result.current.importStudents.mutateAsync([student, { fullName: 'Bruno Lima', registration: '2026002' }]),
+    )
+
+    expect(outcome).toEqual({ created: 1, skipped: 1 })
+  })
+
+  it('imports into the class it was given and leaves the others alone', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      importStudents: useImportStudents('class-1'),
+      other: useStudents('class-2'),
+    }))
+
+    await act(() => result.current.importStudents.mutateAsync([student]))
+
+    await waitFor(() => expect(result.current.other.isSuccess).toBe(true))
+    expect(result.current.other.data).toEqual([])
   })
 
   it('anonymizes a student without removing the record', async () => {

@@ -130,11 +130,26 @@ const optionalEmail = z
   .optional()
   .transform((value) => (value === '' ? undefined : value));
 
+/**
+ * The limits of a student's name and registration, with the message the
+ * screens show. The import preview checks every pasted line against this
+ * schema, and the API refuses the whole list over one line beyond either
+ * limit, so the preview has to say it in Portuguese before anything is sent.
+ */
+const MAX_STUDENT_NAME_LENGTH = 160;
+const MAX_REGISTRATION_LENGTH = 40;
+
 export const studentSchema = z.object({
   id,
   classId: id,
-  fullName: z.string().min(1, 'Informe o nome do aluno').max(160),
-  registration: z.string().min(1, 'Informe a matrícula').max(40),
+  fullName: z
+    .string()
+    .min(1, 'Informe o nome do aluno')
+    .max(MAX_STUDENT_NAME_LENGTH, `O nome pode ter no máximo ${MAX_STUDENT_NAME_LENGTH} caracteres`),
+  registration: z
+    .string()
+    .min(1, 'Informe a matrícula')
+    .max(MAX_REGISTRATION_LENGTH, `A matrícula pode ter no máximo ${MAX_REGISTRATION_LENGTH} caracteres`),
   email: optionalEmail,
   anonymizedAt: timestamp.optional(),
   userId: id.optional(),

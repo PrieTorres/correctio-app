@@ -1,9 +1,12 @@
+import { z } from 'zod'
 import type { Student } from '@/types/domain'
 import type { StudentInput } from '@/lib/schemas'
 import { studentSchema } from '@/lib/schemas'
 import { createCollection, simulateLatency } from '@/lib/storage/collection'
 import { StorageError } from '@/lib/storage/errors'
 import { compareByLocale, createId } from '@/lib/utils'
+import type { ApiClient } from './http/api-client'
+import { parseEntity, parsePage } from './http/create-http-repository'
 
 export interface ImportResult {
   created: number
@@ -12,14 +15,17 @@ export interface ImportResult {
 
 /**
  * Students are scoped by class rather than by teacher, so they do not fit the
- * owned-repository factory and get their own contract.
+ * owned-repository factory and get their own contract. Every operation names
+ * the class, because on the API a student is only ever reached through a class
+ * the teacher owns (`/classes/:id/students/...`).
  */
 export interface StudentRepository {
+  /** The whole class, in name order: the screens and the answer sheets need every student, never a slice. */
   listByClass: (classId: string) => Promise<Student[]>
   add: (classId: string, input: StudentInput) => Promise<Student>
   importMany: (classId: string, rows: StudentInput[]) => Promise<ImportResult>
-  remove: (id: string) => Promise<void>
-  anonymize: (id: string) => Promise<void>
+  remove: (classId: string, id: string) => Promise<void>
+  anonymize: (classId: string, id: string) => Promise<void>
 }
 
 const ANONYMIZED_NAME = 'Aluno anonimizado'
@@ -40,9 +46,11 @@ export function createLocalStudentRepository(): StudentRepository {
   const registrationsIn = (classId: string, students: Student[]): Set<string> =>
     new Set(students.filter((item) => item.classId === classId).map((item) => item.registration))
 
-  const updateById = (id: string, transform: (student: Student) => Student): void => {
+  const isTarget = (classId: string, id: string) => (item: Student) => item.classId === classId && item.id === id
+
+  const updateById = (classId: string, id: string, transform: (student: Student) => Student): void => {
     const students = collection.readAll()
-    const index = students.findIndex((item) => item.id === id)
+    const index = students.findIndex(isTarget(classId, id))
     const student = students[index]
     if (student === undefined) throw new StorageError('Aluno não encontrado.', 'not-found')
     collection.writeAll(students.with(index, transform(student)))
@@ -89,14 +97,71 @@ export function createLocalStudentRepository(): StudentRepository {
       return { created: created.length, skipped: rows.length - created.length }
     },
 
-    async remove(id) {
+    async remove(classId, id) {
       await simulateLatency()
-      collection.writeAll(collection.readAll().filter((item) => item.id !== id))
+      const target = isTarget(classId, id)
+      collection.writeAll(collection.readAll().filter((item) => !target(item)))
     },
 
-    async anonymize(id) {
+    async anonymize(classId, id) {
       await simulateLatency()
-      updateById(id, anonymized)
+      updateById(classId, id, anonymized)
+    },
+  }
+}
+
+/**
+ * The largest page the API serves (`MAX_PAGE_SIZE` in
+ * `apps/api/src/lib/pagination.ts`). A class fits in one request; a list
+ * longer than that takes more requests rather than losing students.
+ */
+export const STUDENTS_PER_PAGE = 1000
+
+const importResultSchema = z.object({
+  created: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+})
+
+/**
+ * The students of the API, under `/classes/:id/students`, through the same
+ * client as the classes. The API takes the teacher from the token and answers
+ * 404 for a class of someone else, which reaches the screen as `not-found`.
+ */
+export function createHttpStudentRepository(api: ApiClient): StudentRepository {
+  const studentsPath = (classId: string) => `/classes/${encodeURIComponent(classId)}/students`
+  const studentPath = (classId: string, id: string) => `${studentsPath(classId)}/${encodeURIComponent(id)}`
+
+  const readPage = async (classId: string, page: number) =>
+    parsePage(studentSchema, await api.request('GET', studentsPath(classId), { query: { page, pageSize: STUDENTS_PER_PAGE } }))
+
+  return {
+    /**
+     * The first page says how many students there are; any further page is
+     * asked for at once. Paging stays on the server, and the screens still
+     * receive the whole class, as the local version gives it.
+     */
+    async listByClass(classId) {
+      const first = await readPage(classId, 1)
+      const pageCount = Math.ceil(first.total / STUDENTS_PER_PAGE)
+      const pagesLeft = Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => index + 2)
+      const rest = await Promise.all(pagesLeft.map((page) => readPage(classId, page)))
+      return [first, ...rest].flatMap((page) => page.items)
+    },
+
+    async add(classId, input) {
+      return parseEntity(studentSchema, await api.request('POST', studentsPath(classId), { body: input }))
+    },
+
+    async importMany(classId, rows) {
+      return parseEntity(importResultSchema, await api.request('POST', `${studentsPath(classId)}/import`, { body: { rows } }))
+    },
+
+    async remove(classId, id) {
+      await api.request('DELETE', studentPath(classId, id))
+    },
+
+    async anonymize(classId, id) {
+      await api.request('POST', `${studentPath(classId, id)}/anonymize`)
     },
   }
 }

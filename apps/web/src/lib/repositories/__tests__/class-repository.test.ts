@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { createLocalClassRepository } from '../class-repository'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createHttpClassRepository, createLocalClassRepository } from '../class-repository'
+import type { ApiClient } from '../http/api-client'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 import { classSchema } from '@/lib/schemas'
 
@@ -170,5 +171,39 @@ describe('class repository, duplicates', () => {
     await expect(repository.update(other.id, { name: 'Cálculo I' })).rejects.toThrow(
       /já existe uma turma/i,
     )
+  })
+})
+
+/** The routes of #41: the generic adapter, pointed at `/classes`, with the class schema checking every answer. */
+describe('HTTP class repository', () => {
+  const CLASS = {
+    id: 'c1',
+    teacherId: 'ana',
+    name: 'Cálculo I',
+    subject: 'Matemática',
+    term: '2026/2',
+    status: 'active',
+    inviteCode: 'ABC12345',
+  }
+
+  it('lists the classes of the API, searched and paged on the server', async () => {
+    const request = vi.fn<ApiClient['request']>(() => Promise.resolve({ items: [CLASS], total: 1 }))
+    const repository = createHttpClassRepository({ request })
+
+    await expect(repository.list({ search: 'calculo', page: 2, pageSize: 50 })).resolves.toEqual({ items: [CLASS], total: 1 })
+    expect(request).toHaveBeenCalledWith('GET', '/classes', {
+      query: { search: 'calculo', archived: undefined, page: 2, pageSize: 50 },
+    })
+  })
+
+  it('archives and restores through the routes of the class', async () => {
+    const request = vi.fn<ApiClient['request']>(() => Promise.resolve(undefined))
+    const repository = createHttpClassRepository({ request })
+
+    await repository.archive('c1')
+    await repository.restore('c1')
+
+    expect(request).toHaveBeenNthCalledWith(1, 'PATCH', '/classes/c1/archive')
+    expect(request).toHaveBeenNthCalledWith(2, 'PATCH', '/classes/c1/restore')
   })
 })
