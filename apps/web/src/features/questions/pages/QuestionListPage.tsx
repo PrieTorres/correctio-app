@@ -34,12 +34,12 @@ const PAGE_SIZE = 50;
 
 const STATUS_SEGMENTS = [
   { value: 'active', label: 'Ativas' },
-  { value: 'deleted', label: 'Excluídas' },
+  { value: 'deleted', label: 'Excluidas' },
 ] as const satisfies readonly { value: StatusFilter; label: string }[];
 
 const SORT_SEGMENTS = [
   { value: 'newest', label: 'Recentes' },
-  { value: 'statement', label: 'A–Z' },
+  { value: 'statement', label: 'A-Z' },
 ] as const satisfies readonly { value: QuestionSort; label: string }[];
 
 const TYPE_SEGMENTS = [
@@ -48,14 +48,6 @@ const TYPE_SEGMENTS = [
   { value: 'discursiva', label: 'Discursivas' },
 ] as const satisfies readonly { value: QuestionType | 'all'; label: string }[];
 
-/**
- * The page number resets whenever any filter changes: staying on page 3 of a
- * new filter shows an empty list that has nothing to do with the records.
- *
- * The confirmation dialog is a component of its own so the delete mutation
- * lives next to the button that triggers it, and the page keeps only the
- * state it actually reads.
- */
 export function QuestionListPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StatusFilter>('active');
@@ -89,118 +81,210 @@ export function QuestionListPage() {
 
   const newQuestionButton = (
     <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
-      <Link to={ROUTES.newQuestion}>Nova questão</Link>
+      <Link to={ROUTES.newQuestion}>Nova questao</Link>
     </Button>
   );
+
+  const clearFilters = () => {
+    setSearch('');
+    setType('all');
+    setTags([]);
+    setOnlyUntagged(false);
+  };
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         help
-        title="Banco de questões"
-        description="Escreva a questão uma vez e reaproveite em quantas provas quiser."
+        title="Banco de questoes"
+        description="Escreva a questao uma vez e reaproveite em quantas provas quiser."
         actions={
           <>
             <Button
               icon={<Upload size={18} aria-hidden />}
               disabled
-              title="A importação de questões em lote entra na próxima fase."
+              title="A importacao de questoes em lote entra na proxima fase."
             >
-              Importar questões
+              Importar questoes
             </Button>
             {newQuestionButton}
           </>
         }
       />
 
-      <div className="flex flex-col gap-3">
-        <div
-          data-tour="filters"
-          className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
-        >
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            label="Buscar questões"
-            placeholder="Buscar pelo enunciado"
-          />
-          <SegmentedControl
-            segments={TYPE_SEGMENTS}
-            value={type}
-            onChange={setType}
-            label="Filtrar por tipo"
-          />
-          <SegmentedControl
-            segments={STATUS_SEGMENTS}
-            value={status}
-            onChange={setStatus}
-            label="Filtrar por situação"
-          />
-          <SegmentedControl
-            segments={SORT_SEGMENTS}
-            value={sort}
-            onChange={setSort}
-            label="Ordenar"
-          />
-        </div>
+      <QuestionFiltersBar
+        search={search}
+        onSearchChange={setSearch}
+        type={type}
+        onTypeChange={setType}
+        status={status}
+        onStatusChange={setStatus}
+        sort={sort}
+        onSortChange={setSort}
+        knownTags={knownTags}
+        tags={tags}
+        onTagsChange={setTags}
+        onlyUntagged={onlyUntagged}
+        onToggleUntagged={() => {
+          setOnlyUntagged((current) => !current);
+          setTags([]);
+        }}
+      />
 
-        {knownTags.length > 0 && (
-          <TagFilter
-            available={knownTags}
-            selected={tags}
-            onChange={setTags}
-            onlyUntagged={onlyUntagged}
-            onToggleUntagged={() => {
-              setOnlyUntagged((current) => !current);
-              setTags([]);
-            }}
-          />
-        )}
-      </div>
-
-      <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando questões…">
-        {questions.length === 0 ? (
-          <Card>
-            <EmptyQuestionList
-              filtering={filtering}
-              showingDeleted={status === 'deleted'}
-              onClearFilters={() => {
-                setSearch('');
-                setType('all');
-                setTags([]);
-                setOnlyUntagged(false);
-              }}
-              createButton={newQuestionButton}
-            />
-          </Card>
-        ) : (
-          <>
-            <ul className="flex flex-col gap-3">
-              {questions.map((question) => (
-                <li key={question.id}>
-                  <QuestionRow
-                    question={question}
-                    onDelete={() => setPendingDelete(question)}
-                    onDuplicate={() => duplicateQuestion.mutate(question.id)}
-                  />
-                </li>
-              ))}
-            </ul>
-
-            <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
-          </>
-        )}
-      </QueryBoundary>
+      <QuestionListResults
+        questions={questions}
+        isPending={isPending}
+        isError={isError}
+        filtering={filtering}
+        showingDeleted={status === 'deleted'}
+        onClearFilters={clearFilters}
+        createButton={newQuestionButton}
+        page={page}
+        total={total}
+        onPageChange={setPage}
+        onDelete={setPendingDelete}
+        onDuplicate={(question) => duplicateQuestion.mutate(question.id)}
+      />
 
       {pendingDelete !== null && (
-        <DeleteQuestionDialog
-          question={pendingDelete}
-          onClose={() => setPendingDelete(null)}
-        />
+        <DeleteQuestionDialog question={pendingDelete} onClose={() => setPendingDelete(null)} />
       )}
 
       <Tour screen="questions" ready={questions.length > 0} />
     </div>
+  );
+}
+
+function QuestionFiltersBar({
+  search,
+  onSearchChange,
+  type,
+  onTypeChange,
+  status,
+  onStatusChange,
+  sort,
+  onSortChange,
+  knownTags,
+  tags,
+  onTagsChange,
+  onlyUntagged,
+  onToggleUntagged,
+}: Readonly<{
+  search: string;
+  onSearchChange: (value: string) => void;
+  type: QuestionType | 'all';
+  onTypeChange: (value: QuestionType | 'all') => void;
+  status: StatusFilter;
+  onStatusChange: (value: StatusFilter) => void;
+  sort: QuestionSort;
+  onSortChange: (value: QuestionSort) => void;
+  knownTags: string[];
+  tags: string[];
+  onTagsChange: (tags: string[]) => void;
+  onlyUntagged: boolean;
+  onToggleUntagged: () => void;
+}>) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div
+        data-tour="filters"
+        className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+      >
+        <SearchInput
+          value={search}
+          onChange={onSearchChange}
+          label="Buscar questoes"
+          placeholder="Buscar pelo enunciado"
+        />
+        <SegmentedControl
+          segments={TYPE_SEGMENTS}
+          value={type}
+          onChange={onTypeChange}
+          label="Filtrar por tipo"
+        />
+        <SegmentedControl
+          segments={STATUS_SEGMENTS}
+          value={status}
+          onChange={onStatusChange}
+          label="Filtrar por situacao"
+        />
+        <SegmentedControl
+          segments={SORT_SEGMENTS}
+          value={sort}
+          onChange={onSortChange}
+          label="Ordenar"
+        />
+      </div>
+
+      {knownTags.length > 0 && (
+        <TagFilter
+          available={knownTags}
+          selected={tags}
+          onChange={onTagsChange}
+          onlyUntagged={onlyUntagged}
+          onToggleUntagged={onToggleUntagged}
+        />
+      )}
+    </div>
+  );
+}
+
+function QuestionListResults({
+  questions,
+  isPending,
+  isError,
+  filtering,
+  showingDeleted,
+  onClearFilters,
+  createButton,
+  page,
+  total,
+  onPageChange,
+  onDelete,
+  onDuplicate,
+}: Readonly<{
+  questions: Question[];
+  isPending: boolean;
+  isError: boolean;
+  filtering: boolean;
+  showingDeleted: boolean;
+  onClearFilters: () => void;
+  createButton: ReactNode;
+  page: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  onDelete: (question: Question) => void;
+  onDuplicate: (question: Question) => void;
+}>) {
+  return (
+    <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando questoes">
+      {questions.length === 0 ? (
+        <Card>
+          <EmptyQuestionList
+            filtering={filtering}
+            showingDeleted={showingDeleted}
+            onClearFilters={onClearFilters}
+            createButton={createButton}
+          />
+        </Card>
+      ) : (
+        <>
+          <ul className="flex flex-col gap-3">
+            {questions.map((question) => (
+              <li key={question.id}>
+                <QuestionRow
+                  question={question}
+                  onDelete={() => onDelete(question)}
+                  onDuplicate={() => onDuplicate(question)}
+                />
+              </li>
+            ))}
+          </ul>
+
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={onPageChange} />
+        </>
+      )}
+    </QueryBoundary>
   );
 }
 
@@ -224,31 +308,27 @@ function Pagination({
   return (
     <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
       <p className="text-caption text-ink-subtle">
-        Mostrando {first}–{last} de {total} {total === 1 ? 'questão' : 'questões'}
+        Mostrando {first} a {last} de {total} {total === 1 ? 'questao' : 'questoes'}
       </p>
       <div className="flex gap-2">
         <Button variant="secondary" disabled={!canGoBack} onClick={() => onPageChange(page - 1)}>
           Anterior
         </Button>
         <span className="flex items-center px-2 text-caption text-ink-muted">
-          Página {page} de {pageCount}
+          Pagina {page} de {pageCount}
         </span>
         <Button
           variant="secondary"
           disabled={!canGoForward}
           onClick={() => onPageChange(page + 1)}
         >
-          Próxima
+          Proxima
         </Button>
       </div>
     </div>
   );
 }
 
-/**
- * The dialog owns the delete/restore mutation so the page keeps only the state
- * that decides whether it is open.
- */
 function DeleteQuestionDialog({
   question,
   onClose,
@@ -260,11 +340,11 @@ function DeleteQuestionDialog({
     <ConfirmDialog
       open
       onOpenChange={(open) => !open && onClose()}
-      title={isRestoring ? 'Restaurar esta questão?' : 'Excluir esta questão?'}
+      title={isRestoring ? 'Restaurar esta questao?' : 'Excluir esta questao?'}
       description={
         isRestoring
-          ? 'A questão volta para o banco e pode ser usada em novas provas.'
-          : 'A questão sai do banco, mas continua nas provas que já a usam. Você pode restaurá-la depois.'
+          ? 'A questao volta para o banco e pode ser usada em novas provas.'
+          : 'A questao sai do banco, mas continua nas provas que ja a usam. Voce pode restaura-la depois.'
       }
       confirmLabel={isRestoring ? 'Restaurar' : 'Excluir'}
       pending={deleteQuestion.isPending}
@@ -275,10 +355,6 @@ function DeleteQuestionDialog({
   );
 }
 
-/**
- * A question with no tag never reaches an automatic draw, and there is no other
- * way to notice it: every tag filter hides it by definition.
- */
 function TagFilter({
   available,
   selected,
@@ -351,14 +427,14 @@ function QuestionRow({
           ))}
           {isMultipleChoice(question) && !question.allowShuffleAlternatives && (
             <span
-              title="Alternativas não são embaralhadas nesta questão"
+              title="Alternativas nao sao embaralhadas nesta questao"
               className="inline-flex items-center gap-1 text-caption text-ink-subtle"
             >
               <Shuffle size={13} aria-hidden />
               ordem fixa
             </span>
           )}
-          {deleted && <Badge tone="danger">Excluída</Badge>}
+          {deleted && <Badge tone="danger">Excluida</Badge>}
         </div>
 
         <Link
@@ -371,7 +447,7 @@ function QuestionRow({
         <p className="mt-1 text-caption text-ink-subtle">
           {isMultipleChoice(question)
             ? `${question.alternatives.length} alternativas`
-            : `Nota máxima ${question.maxScore ?? 0}`}
+            : `Nota maxima ${question.maxScore ?? 0}`}
         </p>
       </div>
 
@@ -408,8 +484,8 @@ function EmptyQuestionList({
     return (
       <EmptyState
         illustration={<SearchIllustration />}
-        title="Nenhuma questão encontrada"
-        description="Nenhuma questão bate com os filtros escolhidos. Tente outra busca, outro tipo ou outra tag."
+        title="Nenhuma questao encontrada"
+        description="Nenhuma questao bate com os filtros escolhidos. Tente outra busca, outro tipo ou outra tag."
         action={
           <Button variant="secondary" onClick={onClearFilters}>
             Limpar filtros
@@ -423,8 +499,8 @@ function EmptyQuestionList({
     return (
       <EmptyState
         illustration={<ArchiveIllustration />}
-        title="Nenhuma questão excluída"
-        description="Questão excluída sai do banco mas continua nas provas que já a usam, e pode ser restaurada a qualquer momento."
+        title="Nenhuma questao excluida"
+        description="Questao excluida sai do banco mas continua nas provas que ja a usam, e pode ser restaurada a qualquer momento."
       />
     );
   }
@@ -432,8 +508,8 @@ function EmptyQuestionList({
   return (
     <EmptyState
       illustration={<QuestionsIllustration />}
-      title="Nenhuma questão ainda"
-      description="O banco é o que faz a prova deixar de ser trabalho repetido: escreva a questão uma vez, use em quantas provas quiser, em qualquer semestre."
+      title="Nenhuma questao ainda"
+      description="O banco e o que faz a prova deixar de ser trabalho repetido: escreva a questao uma vez, use em quantas provas quiser, em qualquer semestre."
       action={createButton}
     />
   );

@@ -1,4 +1,4 @@
-import globals from 'globals';
+﻿import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
@@ -19,8 +19,6 @@ const LEGACY_COMPLEXITY = {
   'src/features/dashboard/pages/DashboardPage.tsx': { cyclomatic: 15 },
   'src/features/grading/pages/GradingSheetPage.tsx': { cyclomatic: 30 },
   'src/features/grading/pages/GradingUploadPage.tsx': { cyclomatic: 19 },
-  'src/features/questions/pages/QuestionFormPage.tsx': { cyclomatic: 11 },
-  'src/features/questions/pages/QuestionListPage.tsx': { cyclomatic: 13 },
   'src/features/reports/pages/ApplicationReportPage.tsx': { cyclomatic: 24 },
   'src/lib/import/parse-students.ts': { cyclomatic: 11 },
   'src/lib/public-lookup/resolve.ts': { cyclomatic: 14 },
