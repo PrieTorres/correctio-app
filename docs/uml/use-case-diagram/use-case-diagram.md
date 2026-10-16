@@ -2,7 +2,7 @@
 
 > Atividade N2, parte 1 · Projeto e Arquitetura de Software · Grupo 2 · Católica SC
 >
-> Fonte dos requisitos: [Principais_Requisitos_Correctio.md](../Principais_Requisitos_Correctio.md)
+> Fonte dos requisitos: [Principais_Requisitos_Correctio.md](../../Principais_Requisitos_Correctio.md)
 > (RF01 a RF48). Se um requisito mudar lá, este diagrama precisa ser revisto.
 
 O diagrama de caso de uso responde a uma pergunta só: **quem usa o sistema e para fazer o
@@ -27,6 +27,10 @@ da fronteira é responsabilidade do sistema; tudo fora é ator.
 **Por que a impressora e a câmera não viram atores:** o sistema não conversa com elas. Ele
 entrega um PDF e recebe uma imagem; quem imprime e fotografa é o professor.
 
+Primeira versão do desenho: a fronteira, o professor e os cinco objetivos centrais.
+
+![Revisão 1: fronteira do sistema, o professor e os casos de uso centrais](use-case-diagram-revision-step-1.png)
+
 ---
 
 ## Passo 2 — Identificar os atores
@@ -43,6 +47,10 @@ encontrar cada um: *quem inicia uma ação, ou quem o sistema precisa acionar?*
 Atores primários **iniciam** casos de uso; o secundário **é acionado** pelo sistema para
 completar um deles. Por isso o Professor e o Aluno ficam à esquerda do diagrama e o Serviço de
 E-mail à direita.
+
+Com os atores definidos, o aluno entra no desenho, ligado à consulta do resultado.
+
+![Revisão 2: o aluno entra como ator, ligado à consulta](use-case-diagram-revision-step-2.png)
 
 ### Atores descartados, e por quê
 
@@ -96,6 +104,19 @@ arquivar turma são o objetivo "Gerenciar turmas".
 | UC28 | Ver tour guiado                  | Professor                    | RF37                   |
 | UC29 | Consultar resultado pelo QR Code | Aluno                        | RF33                   |
 | UC30 | Registrar auditoria              | *(interno)*                  | RF40                   |
+
+**Dependem da validação com o cliente (#69):** UC08, UC11 e UC15, que importam e exportam por
+Excel. Se o cliente não confirmar o formato, esses três saem do diagrama.
+
+O levantamento foi entrando no desenho em três revisões: primeiro os casos que vêm direto dos
+requisitos de cadastro, prova e correção; depois o nome da consulta, que passou a dizer que ela é
+pelo QR Code; por fim os relatórios e a importação da lista de alunos.
+
+![Revisão 3: casos de uso de turmas, banco de questões, provas e correção](use-case-diagram-revision-step-3.png)
+
+![Revisão 4: a consulta passa a se chamar "Consultar Gabarito pelo QR Code"](use-case-diagram-revision-step-4.png)
+
+![Revisão 5: relatórios, estatística por questão e importação da lista de alunos](use-case-diagram-revision-step-5.png)
 
 ### Requisitos que não viraram caso de uso
 
@@ -166,6 +187,10 @@ as operações sensíveis de LGPD são sempre registradas.
 **Por que UC29 depende de UC20 mas não tem seta:** a página pública só mostra o resultado
 depois da liberação, mas isso é uma **pré-condição** (ordem no tempo), não include nem
 extend. Ordem no tempo fica para o diagrama de atividade.
+
+Com os relacionamentos escolhidos, o desenho ganha as setas de «include» e «extend».
+
+![Revisão 6: relacionamentos «include» e «extend» entre os casos de uso](use-case-diagram-revision-step-6.png)
 
 ---
 
@@ -353,7 +378,7 @@ que envolve o aluno.
 - **3b. Resultado ainda não liberado** → o sistema informa que o resultado ainda não está
   disponível.
 - **3c. Muitas tentativas do mesmo IP** → o sistema bloqueia temporariamente (limite de 30
-  requisições por minuto, ver [Seguranca_e_LGPD.md](../Seguranca_e_LGPD.md)).
+  requisições por minuto, ver [Seguranca_e_LGPD.md](../../Seguranca_e_LGPD.md)).
 
 ---
 
