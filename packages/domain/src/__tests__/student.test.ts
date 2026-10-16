@@ -40,6 +40,20 @@ describe('studentInputSchema', () => {
     )
   })
 
+  /** 254 is the longest address the standards allow, and what the API can store encrypted. */
+  it('accepts an address of 254 characters and refuses one of 255', () => {
+    const addressOf = (length: number) => `${'a'.repeat(64)}@${'b'.repeat(length - 72)}.com.br`
+
+    expect(addressOf(254)).toHaveLength(254)
+    expect(studentInputSchema.safeParse({ ...filled, email: addressOf(254) }).success).toBe(true)
+
+    const tooLong = studentInputSchema.safeParse({ ...filled, email: addressOf(255) })
+    expect(tooLong.success).toBe(false)
+    expect(tooLong.success ? [] : tooLong.error.issues.map((issue) => issue.message)).toContain(
+      'O e-mail pode ter no máximo 254 caracteres',
+    )
+  })
+
   it('never stores the empty string, so a stored student has an e-mail or none', () => {
     const stored = studentSchema.parse({
       id: 'student-1',

@@ -22,7 +22,15 @@ export const authenticatedUserSchema = z.object({
   anonymizedAt: timestamp.optional(),
 });
 
-const email = z.string().trim().email('Informe um e-mail válido').max(254);
+/**
+ * The longest address the e-mail standards allow, for teachers and students
+ * alike. The API stores the student e-mail encrypted, and the encrypted text of
+ * a longer one would not fit its column, so the limit is part of the contract
+ * rather than a server detail.
+ */
+const MAX_EMAIL_LENGTH = 254;
+
+const email = z.string().trim().email('Informe um e-mail válido').max(MAX_EMAIL_LENGTH);
 
 /**
  * At least 8 characters (RF01 and the specification, Feature 1). The ceiling
@@ -112,7 +120,13 @@ export const classInputSchema = classSchema.pick({ name: true, subject: true, te
  * field means absent, said once instead of at every call site.
  */
 const optionalEmail = z
-  .union([z.literal(''), z.string().email('E-mail inválido')])
+  .union([
+    z.literal(''),
+    z
+      .string()
+      .email('E-mail inválido')
+      .max(MAX_EMAIL_LENGTH, `O e-mail pode ter no máximo ${MAX_EMAIL_LENGTH} caracteres`),
+  ])
   .optional()
   .transform((value) => (value === '' ? undefined : value));
 

@@ -84,6 +84,9 @@ jobs:
       DATABASE_URL: mysql://root:root@127.0.0.1:3306/correctio
       DATABASE_TLS: local
       LOG_LEVEL: warn
+      # The API does not start without it. The database is thrown away with
+      # the job, so a fixed key protects nothing here and is not a secret.
+      DATA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -144,6 +147,9 @@ jobs:
       DATABASE_URL: mysql://root:root@127.0.0.1:3306/correctio
       DATABASE_TLS: local
       LOG_LEVEL: warn
+      # The API does not start without it. The database is thrown away with
+      # the job, so a fixed key protects nothing here and is not a secret.
+      DATA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
