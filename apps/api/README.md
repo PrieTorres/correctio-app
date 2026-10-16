@@ -8,7 +8,8 @@ model**, como a disciplina pede. Os dados ficam em MySQL (ver "Banco de dados" a
 ```bash
 nvm use 22                         # o projeto exige Node 22.12 ou mais novo
 npm install                        # na raiz do repositório
-cp apps/api/.env.example apps/api/.env   # sem DATABASE_URL a API não sobe
+cp apps/api/.env.example apps/api/.env   # sem DATABASE_URL e DATA_ENCRYPTION_KEY a API não sobe
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"   # cole a saída em DATA_ENCRYPTION_KEY
 docker compose up -d mysql         # MySQL local na porta 3307
 npm run db:migrate                 # cria as tabelas
 npm run dev:api                    # http://localhost:3000, recarrega ao salvar
@@ -41,6 +42,9 @@ npm run db:reset             # desfaz todas
   Em produção, `verify` com `DATABASE_CA_CERT` é obrigatório. Conexão sem criptografia é recusada.
 - **Hospedagem:** o MySQL hospedado é o plano gratuito do Aiven, e a API roda no Firebase
   (Cloud Functions), com o deploy na #39. As credenciais ficam só no gerenciador de segredos.
+  O Aiven gratuito desliga o serviço depois de 24 horas sem consulta; o workflow
+  `keep-alive.yml` chama o `/api/health` a cada 6 horas para isso não acontecer. Se acontecer,
+  religue em **Power on** no console do Aiven.
 
 ### Um banco por ambiente
 
@@ -77,9 +81,9 @@ src/
   services/         regra de negócio e escopo pelo professor
   repositories/     acesso ao banco (Kysely)
   models/           tipos das tabelas (tables.ts)
-  db/               conexão, migrations e o comando de migrar
+  db/               conexão, migrations, comando de migrar, busca de texto e erros do MySQL
   middlewares/      autenticação, erro, rota inexistente
-  lib/              ApiError, paginação, logger
+  lib/              ApiError, paginação, validação da entrada, mesclagem do PATCH, criptografia de campo, logger
 ```
 
 Tipos e schemas vêm de `@correctio/domain` (`packages/domain`), os mesmos do front: a API valida
@@ -100,6 +104,7 @@ com as mesmas regras das telas, sem cópia.
 | Datas | String ISO 8601 no JSON |
 | Limite | Camadas de `RATE_LIMITS` (`middlewares/rate-limit.ts`). Por professor atrás do `requireAuth`: leitura 300/min e escrita 60/min. Por endereço, só respostas 401 (30/min), contra quem tenta adivinhar token. Login, consulta pública e rotas caras aplicam a própria camada (`createRateLimit`) |
 | Cache | `Cache-Control: no-store` em toda resposta: dado pessoal não fica em proxy nem em disco. O front guarda em memória (TanStack Query) |
+| E-mail do aluno | Gravado cifrado com AES-256-GCM (`lib/field-encryption.ts`), com um IV novo a cada gravação, e devolvido em claro só ao professor dono da turma. Quem cifra e decifra é o repositório de alunos, e mais ninguém |
 | Segurança | Regras completas em `docs/Seguranca_e_LGPD.md`, seção 7 |
 
 ### Rotas que o grupo acrescentou à tabela da Spec
@@ -107,8 +112,17 @@ com as mesmas regras das telas, sem cópia.
 | Rota | Por quê |
 |---|---|
 | `PATCH /<x>/:id/restore` | A Spec arquiva, mas não restaura; as telas permitem restaurar |
+| `GET /classes/:id` | A tela P5 abre uma turma pelo id, e a Spec só lista as turmas |
+| `POST /classes/:id/students/import` | Importação em lote (RF08). Responde `{ created, skipped }` e usa o limite das rotas caras |
+| `PATCH /classes/:id/students/:studentId` | Editar o aluno (RF07), mesclando como os outros `PATCH` |
+| `POST /classes/:id/students/:studentId/anonymize` | Anonimização irreversível do aluno (RF38) |
 | `POST /exams/draw` | Geração automática de prova (RF16) |
 | `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49) |
+
+`POST /classes/:id/students` cria o registro do aluno, com nome, matrícula e e-mail opcional. Na
+Spec, a mesma rota matricula por e-mail um aluno que já tem conta, mas aqui o aluno não tem conta
+(`docs/Arquitetura.md`, seção 9). Pelo mesmo motivo, as rotas de código de convite da Spec
+(`/classes/:id/invite-code` e `/classes/join-by-code`) não existem.
 
 ## Variáveis de ambiente
 
@@ -116,6 +130,10 @@ Ver `.env.example` para rodar local. No Firebase, `NODE_ENV=production`, `DATABA
 `CORS_ORIGINS` (os endereços do próprio projeto) e `TRUST_PROXY_HOPS=2` vêm de
 `src/config/hosted-env.ts`, e nenhuma variável do host consegue desligar os dois primeiros. Os 2 saltos
 foram medidos no primeiro deploy: a requisição chega com `X-Forwarded-For: <cliente>, <proxy do Google>`. Os segredos vêm do Secret Manager do projeto.
+
+Sem `DATA_ENCRYPTION_KEY`, a API não sobe: o `bootstrapApi` recusa a falta da chave, tanto no
+servidor local quanto na função do Firebase. As migrations não leem a chave, então o passo de
+migração do deploy continua funcionando sem ela.
 
 ## Publicação
 
@@ -131,5 +149,5 @@ encaminha `/api/**` para ela, então em produção as rotas respondem em
 - A função também responde no endereço direto do Google, sem passar pelo Hosting, e ali o
   `X-Forwarded-For` pode ser forjado: os limites por endereço valem para quem usa o site, não para
   quem chama a função direto. Os limites por professor não dependem do endereço.
-- Quem publica é o workflow `deploy.yml`, chamado pela release (produção) e pelo "Preview link"
+- Quem publica é o workflow `deploy.yml`, chamado pela release (produção) e pelo "1. Pre-release"
   (pré-produção). Ordem e segredos: `docs/CI_CD.md`, seção 4.

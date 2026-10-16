@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { hasSeenTour, markTourSeen, resetAllTours } from '../seen'
+import { clearAllCollections } from '@/lib/storage/collection'
+import { hasSeenTour, markTourSeen } from '../seen'
 
 describe('tour state', () => {
   beforeEach(() => window.localStorage.clear())
@@ -24,18 +25,15 @@ describe('tour state', () => {
     markTourSeen('dashboard')
     markTourSeen('dashboard')
 
-    expect(window.localStorage.getItem('correctio:v1:tour-seen')).toBe('["dashboard"]')
+    expect(window.localStorage.getItem('correctio:tour-seen')).toBe('["dashboard"]')
   })
 
-  /** What "rever tour" in the profile does. */
-  it('forgets every screen at once', () => {
+  it('survives clearing the data, so a dismissed tour stays dismissed', () => {
     markTourSeen('dashboard')
-    markTourSeen('exams')
 
-    resetAllTours()
+    clearAllCollections()
 
-    expect(hasSeenTour('dashboard')).toBe(false)
-    expect(hasSeenTour('exams')).toBe(false)
+    expect(hasSeenTour('dashboard')).toBe(true)
   })
 
   it('reports nothing seen when storage is unreadable, rather than throwing', () => {
@@ -52,13 +50,5 @@ describe('tour state', () => {
     })
 
     expect(() => markTourSeen('dashboard')).not.toThrow()
-  })
-
-  it('leaves the app standing when storage refuses a clear', () => {
-    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
-      throw new Error('blocked')
-    })
-
-    expect(() => resetAllTours()).not.toThrow()
   })
 })

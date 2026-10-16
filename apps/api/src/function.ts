@@ -12,8 +12,21 @@ import { hostedEnvSource } from './config/hosted-env'
  */
 const API_BASE_PATH = '/api'
 
-/** Kept in Secret Manager of each Firebase project; declaring them is what lets the function read them. */
-const SECRETS = ['DATABASE_URL', 'DATABASE_CA_CERT', 'DATA_ENCRYPTION_KEY'].map((name) => defineSecret(name))
+/**
+ * Kept in Secret Manager of each Firebase project; declaring them is what lets
+ * the function read them. A deploy fails while any of them is missing from the
+ * project, so a new secret is created in both projects before the code that
+ * declares it is merged.
+ */
+const SECRETS = [
+  'DATABASE_URL',
+  'DATABASE_CA_CERT',
+  'DATA_ENCRYPTION_KEY',
+  'JWT_SECRET',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'GMAIL_APP_PASSWORD',
+].map((name) => defineSecret(name))
 
 let hostedApp: Express | undefined
 

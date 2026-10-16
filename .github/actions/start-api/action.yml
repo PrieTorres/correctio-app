@@ -1,0 +1,21 @@
+name: Start the API
+description: Applies the migrations and starts the built API on port 3000, the one the Vite preview forwards /api to.
+
+# Shared by the jobs that run Cypress against the production build. The job
+# provides the MySQL service and the DATABASE_URL, DATABASE_TLS, LOG_LEVEL and
+# DATA_ENCRYPTION_KEY variables, and must have run `npm run build` before this
+# action.
+runs:
+  using: composite
+  steps:
+    - name: Apply the migrations
+      shell: bash
+      run: npm run db:migrate
+
+    # Waits for /health, so a test never starts before the API answers; the log
+    # stays in api.log for a failed run.
+    - name: Start the API
+      shell: bash
+      run: |
+        nohup node apps/api/dist/server.js > api.log 2>&1 &
+        curl --fail --silent --show-error --retry 20 --retry-all-errors --retry-delay 1 http://localhost:3000/health

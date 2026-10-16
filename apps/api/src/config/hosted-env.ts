@@ -8,16 +8,20 @@ import { DATABASE_TLS } from './env'
  */
 const FIREBASE_PROXY_HOPS = 2
 
+/** The main address Firebase Hosting gives a project, the one registered in the Google client. */
+function firebaseSite(projectId: string): string {
+  return `https://${projectId}.web.app`
+}
+
 /** The two addresses Firebase Hosting gives every project; the web app is served from both. */
 function firebaseOrigins(projectId: string): string {
-  return `https://${projectId}.web.app,https://${projectId}.firebaseapp.com`
+  return `${firebaseSite(projectId)},https://${projectId}.firebaseapp.com`
 }
 
 /**
- * The environment of the API on Firebase. The secrets (`DATABASE_URL`,
- * `DATABASE_CA_CERT`, `DATA_ENCRYPTION_KEY`) arrive from Secret Manager as
- * variables; what is the same in every project is set here instead of being
- * configured by hand in each one.
+ * The environment of the API on Firebase. The secrets (`function.ts`) arrive
+ * from Secret Manager as variables; what is the same in every project is set
+ * here instead of being configured by hand in each one.
  *
  * Production mode and a verified database certificate are applied last, so no
  * variable set on the host can turn either off. The allowed origins follow the
@@ -29,6 +33,7 @@ export function hostedEnvSource(runtime: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 
   return {
     CORS_ORIGINS: firebaseOrigins(projectId),
+    PUBLIC_APP_URL: firebaseSite(projectId),
     TRUST_PROXY_HOPS: String(FIREBASE_PROXY_HOPS),
     ...runtime,
     NODE_ENV: 'production',

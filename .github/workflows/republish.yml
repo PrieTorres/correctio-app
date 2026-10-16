@@ -1,4 +1,4 @@
-name: Republish a version
+name: "Rollback: republish a released version"
 
 # Puts a version that was already released back into production: the way back
 # when a release goes wrong, and the way to retry when its publication failed.

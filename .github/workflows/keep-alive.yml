@@ -1,0 +1,21 @@
+name: Keep the database awake
+
+# Aiven's free plan powers the MySQL service off after 24 hours without a query,
+# and production goes down with it. /api/health runs a query, so calling it every
+# six hours keeps the service awake. Production and pre-production share the
+# same Aiven service, so one call covers both. A failed run is also the alarm:
+# GitHub emails it, and it means production is answering 503.
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Ping the production API
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl --fail --silent --show-error --retry 3 --retry-all-errors --retry-delay 20 https://correctio-app.web.app/api/health
