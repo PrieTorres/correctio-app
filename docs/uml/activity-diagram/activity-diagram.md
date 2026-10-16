@@ -2,7 +2,7 @@
 
 > Atividade N2 · Projeto e Arquitetura de Software · Grupo 2 · Católica SC
 >
-> Fonte dos requisitos: [Correctio_Requisitos_e_Telas.md](../Correctio_Requisitos_e_Telas.md)
+> Fonte dos requisitos: [Correctio_Requisitos_e_Telas.md](../../Correctio_Requisitos_e_Telas.md)
 > (RF26 a RF33, RF46, RF47, RNF07 e as telas P14, P15, P16, P17 e PUB1). Se um desses
 > requisitos mudar lá, este diagrama precisa ser revisto.
 >
@@ -232,7 +232,7 @@ também o texto deste documento.
 Com Java instalado e o `plantuml.jar` baixado de [plantuml.com/download](https://plantuml.com/download):
 
 ```bash
-java -jar plantuml.jar -tpng docs/uml/activity-diagram.puml docs/uml/activity-diagram-steps.puml
+java -jar plantuml.jar -tpng docs/uml/activity-diagram/activity-diagram.puml docs/uml/activity-diagram/activity-diagram-steps.puml
 ```
 
 Também dá para usar a extensão PlantUML do VS Code ou colar o código em
