@@ -2,7 +2,7 @@ import type { z } from 'zod'
 import { StorageError } from '@/lib/storage/errors'
 import { preserveUnknownFields } from '@/lib/storage/preserve-unknown-fields'
 import type { ListParams, OwnedRepository, Page } from '../types'
-import type { ApiClient } from './api-client'
+import type { ApiClient, QueryParams } from './api-client'
 
 const UNEXPECTED_RESPONSE = 'O servidor respondeu num formato inesperado. Tente de novo em instantes.'
 
@@ -13,12 +13,19 @@ const UNEXPECTED_RESPONSE = 'O servidor respondeu num formato inesperado. Tente 
  */
 export type ArchiveRoute = 'patch-archive' | 'delete'
 
-interface HttpRepositoryConfig<TEntity> {
+interface HttpRepositoryConfig<TEntity, TParams extends ListParams = ListParams> {
   api: ApiClient
   /** The collection path of the Spec's endpoint table, such as `/classes`. */
   resource: string
   schema: z.ZodType<TEntity>
   archiveRoute?: ArchiveRoute
+  /**
+   * Turns the entity's own filters into query string entries. This generic
+   * does not know their names, so a resource such as questions passes `type`,
+   * `tags`, `onlyUntagged` and `sort` through here. The keys it returns are
+   * serialised the same way as the common ones, including array repetition.
+   */
+  extraQuery?: (params: TParams) => QueryParams
 }
 
 /**
@@ -74,26 +81,55 @@ export function toPatchBody(input: object): Record<string, unknown> {
   )
 }
 
-function listQuery({ search, archived, page, pageSize }: ListParams) {
-  return { search: search === '' ? undefined : search, archived, page, pageSize }
+/**
+ * The query the API reads for a list. `ListParams` is the common part, and
+ * `extraQuery` lets a resource add its own filters without this module
+ * knowing their names. A filter left unset stays out of the URL.
+ */
+function listQuery<TParams extends ListParams>(
+  params: TParams | undefined,
+  extraQuery?: (params: TParams) => QueryParams,
+): QueryParams {
+  if (params === undefined) return {}
+  const { search, archived, page, pageSize } = params
+  return {
+    search: search === '' ? undefined : search,
+    archived,
+    page,
+    pageSize,
+    ...(extraQuery?.(params) ?? {}),
+  }
 }
 
 /**
  * Builds the HTTP version of a teacher-owned, archivable repository, the same
  * contract as `createOwnedRepository`. The teacher is not a parameter: the API
  * scopes every request by the token, so there is nothing to filter here.
+ *
+ * `TParams` extends `ListParams` so a resource with extra filters (such as
+ * `QuestionListParams`) can send them through `extraQuery` without this
+ * generic having to know their names. The default keeps every existing
+ * repository compiling unchanged.
  */
-export function createHttpOwnedRepository<TEntity, TInput extends object>({
+export function createHttpOwnedRepository<
+  TEntity,
+  TInput extends object,
+  TParams extends ListParams = ListParams,
+>({
   api,
   resource,
   schema,
   archiveRoute = 'patch-archive',
-}: HttpRepositoryConfig<TEntity>): OwnedRepository<TEntity, TInput> {
+  extraQuery,
+}: HttpRepositoryConfig<TEntity, TParams>): OwnedRepository<TEntity, TInput, TParams> {
   const itemPath = (id: string) => `${resource}/${encodeURIComponent(id)}`
 
   return {
-    async list(params: ListParams = {}) {
-      return parsePage(schema, await api.request('GET', resource, { query: listQuery(params) }))
+    async list(params?: TParams) {
+      return parsePage(
+        schema,
+        await api.request('GET', resource, { query: listQuery(params, extraQuery) }),
+      )
     },
 
     /** A 404 is an answer here, not a failure: detail screens show "not found" from it. */

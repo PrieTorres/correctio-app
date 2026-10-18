@@ -5,6 +5,7 @@ import { createLocalCorrectionRepository, type CorrectionRepository } from './co
 import { createLocalPrintingRepository, type PrintingRepository } from './printing-repository'
 import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
 import { createLocalStudentRepository, type StudentRepository } from './student-repository'
+import { createHttpQuestionRepository } from './http/create-http-question-repository'
 import type { ApiClient } from './http/api-client'
 
 export * from './types'
@@ -39,15 +40,16 @@ export interface TeacherRepositories {
  * student, rather than widening this one.
  *
  * Each entry switches to its HTTP version (`createHttpOwnedRepository` with
- * `_api`) in the issue that wires its screens to the API: #42, #44, #45, #46,
- * #48, #49 and #50. Until the first one does, the client is unused; the local
- * versions stay, so the published site does not change.
+ * `api`) in the issue that wires its screens to the API. Questions (#44) are
+ * already wired; the others follow in #42, #45, #46, #48, #49 and #50. Until
+ * the first one does, the client is unused; the local versions stay, so the
+ * published site does not change.
  */
-export function createTeacherRepositories(teacherId: string, _api?: ApiClient): TeacherRepositories {
+export function createTeacherRepositories(teacherId: string, api?: ApiClient): TeacherRepositories {
   return {
     classes: createLocalClassRepository(teacherId),
     students: createLocalStudentRepository(),
-    questions: createLocalQuestionRepository(teacherId),
+    questions: api !== undefined ? createHttpQuestionRepository(api) : createLocalQuestionRepository(teacherId),
     exams: createLocalExamRepository(teacherId),
     applications: createLocalApplicationRepository(teacherId),
     printing: createLocalPrintingRepository(),
