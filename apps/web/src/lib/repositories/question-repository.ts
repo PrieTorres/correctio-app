@@ -49,7 +49,7 @@ export function createLocalQuestionRepository(teacherId: string): QuestionReposi
     /**
      * The form sends `null` for fields that the API should clear (for example,
      * turning an objective question into a discursive one). The local schema
-     * does not accept `null`, so it is dropped before validation â€” the same
+     * does not accept `null`, so it is dropped before validation - the same
      * effect as `undefined` on this side.
      */
     sanitizeInput: (input) => {
@@ -93,3 +93,4 @@ export function createLocalQuestionRepository(teacherId: string): QuestionReposi
     },
   }
 }
+
