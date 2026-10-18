@@ -23,6 +23,9 @@ describe('loadEnv', () => {
       GOOGLE_CLIENT_SECRET: undefined,
       GMAIL_APP_PASSWORD: undefined,
       MAIL_FROM: 'correctioapp@gmail.com',
+      FILE_STORAGE: 'local',
+      FILE_STORAGE_DIR: '.files',
+      FILE_STORAGE_BUCKET: undefined,
     })
   })
 
@@ -81,6 +84,7 @@ describe('loadEnv', () => {
       DATABASE_CA_CERT: '-----BEGIN CERTIFICATE-----\\nabc\\n-----END CERTIFICATE-----',
       DATA_ENCRYPTION_KEY: KEY,
       JWT_SECRET: SIGNING_SECRET,
+      FILE_STORAGE: 'firebase',
     }
 
     it('accepts a verified database connection with its certificate and an encryption key', () => {
@@ -98,6 +102,11 @@ describe('loadEnv', () => {
 
     it('refuses to run without the secret that signs the sessions', () => {
       expect(() => loadEnv({ ...production, JWT_SECRET: undefined })).toThrow(/JWT_SECRET/)
+    })
+
+    /** The disk of a function is wiped on every restart, so a PDF kept there would vanish. */
+    it('refuses to keep files on the local disk', () => {
+      expect(() => loadEnv({ ...production, FILE_STORAGE: 'local' })).toThrow(/FILE_STORAGE/)
     })
   })
 })

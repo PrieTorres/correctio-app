@@ -29,6 +29,10 @@ firebase-debug.*.log
 .env.local
 .env.*.local
 
+# files the API keeps on disk outside the host, such as the PDF of an
+# application (FILE_STORAGE=local)
+.files/
+
 # editor and OS
 .DS_Store
 .idea/
