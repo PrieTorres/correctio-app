@@ -1,4 +1,4 @@
-import type { Question, QuestionType } from '@/types/domain'
+﻿import type { Question, QuestionType } from '@/types/domain'
 import type { QuestionInput } from '@/lib/schemas'
 import { questionSchema } from '@/lib/schemas'
 import { createCollection } from '@/lib/storage/collection'
@@ -36,16 +36,20 @@ export function createLocalQuestionRepository(teacherId: string): QuestionReposi
   const base = createOwnedRepository<Question, QuestionInput, QuestionListParams>({
     collection,
     teacherId,
-    label: 'Questão',
+    label: 'QuestÃ£o',
     archiving: archiveByTimestamp('deletedAt'),
     toEntity: (input, base) => ({ ...base, ...input, createdAt: new Date().toISOString() }),
     searchableFields: (item) => [item.statement, ...item.tags],
+    /**
+     * The newest question comes first: the teacher most often touches what they
+     * just wrote, and scrolling a long bank to find it would be a daily tax.
+     */
     sortKey: (item) => `${item.createdAt ?? ''}|${item.statement}`,
     sortDirection: 'desc',
     /**
      * The form sends `null` for fields that the API should clear (for example,
      * turning an objective question into a discursive one). The local schema
-     * does not accept `null`, so it is dropped before validation — the same
+     * does not accept `null`, so it is dropped before validation â€” the same
      * effect as `undefined` on this side.
      */
     sanitizeInput: (input) => {
