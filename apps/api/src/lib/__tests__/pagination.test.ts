@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import { ApiError } from '../api-error'
-import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, pageWindow, parsePageRequest } from '../pagination'
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, pageWindow, parseListRequest, parsePageRequest } from '../pagination'
 
 describe('parsePageRequest', () => {
   it('starts at the first page with the default size', () => {
@@ -24,7 +25,7 @@ describe('parsePageRequest', () => {
     } catch (error) {
       expect((error as ApiError).status).toBe(400)
       expect((error as ApiError).code).toBe('invalid')
-      expect((error as ApiError).message).toContain('pageSize')
+      expect((error as ApiError).message).toBe(`Parâmetro de lista inválido: pageSize. O máximo por página é ${MAX_PAGE_SIZE}.`)
     }
   })
 
@@ -35,6 +36,31 @@ describe('parsePageRequest', () => {
   it('refuses a page before the first and a flag that is not true or false', () => {
     expect(() => parsePageRequest({ page: '0' })).toThrow(ApiError)
     expect(() => parsePageRequest({ archived: 'yes' })).toThrow(ApiError)
+  })
+})
+
+describe('parseListRequest', () => {
+  const filters = { status: z.enum(['draft', 'closed']).optional() }
+
+  it('reads the filters of an entity together with the shared parameters', () => {
+    expect(parseListRequest({ status: 'draft', page: '2' }, filters)).toEqual({
+      page: 2,
+      pageSize: DEFAULT_PAGE_SIZE,
+      search: '',
+      archived: false,
+      status: 'draft',
+    })
+  })
+
+  it('lists everything when a filter is left out', () => {
+    expect(parseListRequest({}, filters)).not.toHaveProperty('status')
+  })
+
+  /** The ceiling of a page says nothing about a filter, so only the parameter is named. */
+  it('refuses a filter value it does not know, naming the filter', () => {
+    expect(() => parseListRequest({ status: 'archived' }, filters)).toThrow(
+      new ApiError('invalid', 'Parâmetro de lista inválido: status.'),
+    )
   })
 })
 

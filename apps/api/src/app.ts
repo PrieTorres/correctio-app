@@ -7,6 +7,7 @@ import { pinoHttp } from 'pino-http'
 import type { Env } from './config/env'
 import { createAuthController } from './controllers/auth-controller'
 import { refuseWithoutKey, type FieldCipher } from './lib/field-encryption'
+import { unavailableFileStorage, type FileStorage } from './lib/file-storage'
 import { createSessionCookie } from './lib/session-cookie'
 import { BODY_LIMIT_BYTES, limitBodySize } from './middlewares/body-limit'
 import { createErrorHandler } from './middlewares/error-handler'
@@ -58,6 +59,12 @@ export interface AppDependencies {
    * text; `bootstrapApi` always passes a real one.
    */
   fieldCipher?: FieldCipher
+  /**
+   * Where the PDFs are kept. The default refuses every call, like
+   * `refuseWithoutKey` for the e-mail, so an app built without storage fails
+   * loudly instead of losing a file; `bootstrapApi` always passes a real one.
+   */
+  fileStorage?: FileStorage
   healthChecks?: readonly HealthCheck[]
   /** Overridable so tests reach a limit in a few requests instead of hundreds. */
   rateLimits?: Partial<RateLimits>
@@ -103,6 +110,7 @@ export function createApp({
   auth,
   verifyToken = auth?.verifyToken ?? rejectAllTokens,
   fieldCipher = refuseWithoutKey,
+  fileStorage = unavailableFileStorage,
   healthChecks = [],
   rateLimits,
   signInDelayStepMs,
@@ -125,6 +133,7 @@ export function createApp({
       healthService: createHealthService(healthChecks),
       db,
       fieldCipher,
+      fileStorage,
       failedAuthLimit: createRateLimit(limits.failedAuth, { key: byClientAddress, counts: COUNTED_RESPONSES.UNAUTHORIZED }),
       requireAuth: createRequireAuth(verifyToken),
       teacherLimit: createTeacherRateLimit(limits),

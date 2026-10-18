@@ -6,6 +6,7 @@ import { composeAuth } from './compose-auth'
 import type { Env } from './config/env'
 import { createDatabase } from './db/connection'
 import { createFieldCipher } from './lib/field-encryption'
+import { createFileStorage } from './lib/file-storage'
 import { createLogger } from './lib/logger'
 import type { Database } from './models/tables'
 import { pingDatabase } from './repositories/database-health-repository'
@@ -38,6 +39,7 @@ export function bootstrapApi(env: Env, { basePath }: { basePath?: string } = {})
     db,
     auth: composeAuth({ env, db, logger }),
     fieldCipher: createFieldCipher(env.DATA_ENCRYPTION_KEY),
+    fileStorage: createFileStorage(env),
     basePath,
     healthChecks: [() => pingDatabase(db)],
   })
