@@ -5,6 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./answer-card": "./src/answer-card.ts",
+    "./applications": "./src/applications.ts",
     "./domain": "./src/domain.ts",
     "./schemas": "./src/schemas.ts"
   },
