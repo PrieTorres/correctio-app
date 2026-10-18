@@ -303,6 +303,7 @@ testadas sem renderizar tela nenhuma.
 | [Seguranca_e_LGPD.md](docs/Seguranca_e_LGPD.md) | Autorização, limite de requisições, proteção de custo, LGPD |
 | [Tour_Guiado.md](docs/Tour_Guiado.md) | Tour contextual por tela: regras de escrita, comportamento e o texto de cada passo |
 | [CI_CD.md](docs/CI_CD.md) | Portão de qualidade nos Pull Requests, proteção de branch e publicação |
+| [docs/uml/](docs/uml/) | Diagramas UML, uma pasta por diagrama, com a fonte e a imagem: [atividade](docs/uml/activity-diagram/activity-diagram.md), [caso de uso](docs/uml/use-case-diagram/use-case-diagram.md), [classe](docs/uml/class-diagram/class-diagram.puml) e [sequência](docs/uml/sequence-diagram/sequence-diagram.puml) |
 | [Backlog_N2.md](docs/Backlog_N2.md) | Backlog da N2: tarefas, responsáveis e prazos, também na planilha [Backlog_N2.xlsx](docs/Backlog_N2.xlsx) |
 | `Escopo do Projeto e Criterios de Avaliacao.md` | Critérios de avaliação da disciplina (documento da professora) |
 
