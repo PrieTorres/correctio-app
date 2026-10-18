@@ -27,7 +27,9 @@ export interface CardPoint {
  * code to the left of a grid of bubbles A to E, one row per question.
  *
  * The space is fixed for `maxRows` questions whatever the exam has (RF15
- * allows 20), so every sheet ever printed has the same geometry.
+ * allows 20), so every sheet ever printed has the same geometry. A picture of
+ * the card, and how a photo is read with these numbers, are in
+ * `docs/answer-card/answer-card.md`.
  */
 export const ANSWER_CARD = Object.freeze({
   page: Object.freeze({ width: 210, height: 297 }),
