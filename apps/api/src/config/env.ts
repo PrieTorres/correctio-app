@@ -32,6 +32,14 @@ const signingSecret = optionalText.refine(
   'Must be at least 32 bytes in base64',
 )
 
+/**
+ * Where the API keeps files, such as the PDF of an application. `firebase` is
+ * the Cloud Storage bucket of the project (`docs/adr/ADR-004`), the only place
+ * a file survives on the hosted function; `local` is a folder on disk, for
+ * development, the tests and CI.
+ */
+export const FILE_STORAGE = Object.freeze({ LOCAL: 'local', FIREBASE: 'firebase' } as const)
+
 /** AES-256 needs exactly 32 bytes; anything else would fail only on the first encryption. */
 const encryptionKey = optionalText.refine(
   (value) => value === undefined || Buffer.from(value, 'base64').length === 32,
@@ -66,6 +74,11 @@ const envSchema = z
     /** The app password of the project's Gmail, which sends the password reset e-mail. */
     GMAIL_APP_PASSWORD: optionalText,
     MAIL_FROM: z.string().email().default('correctioapp@gmail.com'),
+    FILE_STORAGE: z.enum([FILE_STORAGE.LOCAL, FILE_STORAGE.FIREBASE]).default(FILE_STORAGE.LOCAL),
+    /** The folder of `local`, relative to where the API starts; git ignores it. */
+    FILE_STORAGE_DIR: z.string().min(1).default('.files'),
+    /** The bucket of `firebase`; left out, the default bucket of the Firebase project. */
+    FILE_STORAGE_BUCKET: optionalText,
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'test' && env.DATABASE_URL === undefined) {
@@ -88,6 +101,13 @@ const envSchema = z
     }
     if (env.DATA_ENCRYPTION_KEY === undefined) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['DATA_ENCRYPTION_KEY'], message: 'Required in production' })
+    }
+    if (env.FILE_STORAGE !== FILE_STORAGE.FIREBASE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['FILE_STORAGE'],
+        message: 'Production keeps files in Cloud Storage: the disk of a function is lost on every restart',
+      })
     }
   })
 

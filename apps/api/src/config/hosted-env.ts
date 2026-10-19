@@ -1,4 +1,4 @@
-import { DATABASE_TLS } from './env'
+import { DATABASE_TLS, FILE_STORAGE } from './env'
 
 /**
  * Proxies between the browser and the function on the web address, measured on
@@ -23,9 +23,10 @@ function firebaseOrigins(projectId: string): string {
  * from Secret Manager as variables; what is the same in every project is set
  * here instead of being configured by hand in each one.
  *
- * Production mode and a verified database certificate are applied last, so no
- * variable set on the host can turn either off. The allowed origins follow the
- * project the function runs in, which Firebase sets in `GCLOUD_PROJECT`.
+ * Production mode, a verified database certificate and files in Cloud Storage
+ * are applied last, so no variable set on the host can turn any of them off.
+ * The allowed origins follow the project the function runs in, which Firebase
+ * sets in `GCLOUD_PROJECT`.
  */
 export function hostedEnvSource(runtime: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const projectId = runtime.GCLOUD_PROJECT
@@ -38,5 +39,6 @@ export function hostedEnvSource(runtime: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
     ...runtime,
     NODE_ENV: 'production',
     DATABASE_TLS: DATABASE_TLS.VERIFY,
+    FILE_STORAGE: FILE_STORAGE.FIREBASE,
   }
 }
