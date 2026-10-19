@@ -1,4 +1,5 @@
 import { prepareZXingModule, readBarcodes } from 'zxing-wasm/reader'
+import type { Quad } from './perspective'
 
 /**
  * Pixels in RGBA order, four bytes each: what a canvas gives in the browser and
@@ -27,13 +28,24 @@ export function useQrDecoderBinary(binary: QrDecoderBinary): void {
 /** At most this many codes per photo: a sheet has one, and a table full of sheets should not be read in a single shot. */
 const MAX_CODES = 4
 
+/** One QR Code found on the photo. */
+export interface DecodedQr {
+  text: string
+  /**
+   * The outer corners of the symbol on the photo, named by the symbol itself:
+   * `topLeft` is its top-left corner however the sheet was turned. Since the
+   * card prints the QR Code at a fixed place, this is also where the card is
+   * and which way up it lies.
+   */
+  corners: Quad
+}
+
 /**
- * The text of every QR Code in the image. Tries hard, because a phone photo is
- * tilted, unevenly lit and noisy, which is where the decoder was chosen for
- * (ADR-006).
+ * Every QR Code in the image. Tries hard, because a phone photo is tilted,
+ * unevenly lit and noisy, which is what the decoder was chosen for (ADR-006).
  */
-export async function decodeQrTexts(image: PixelImage): Promise<string[]> {
+export async function decodeQrCodes(image: PixelImage): Promise<DecodedQr[]> {
   const imageData: ImageData = { data: image.data, width: image.width, height: image.height, colorSpace: 'srgb' }
   const results = await readBarcodes(imageData, { formats: ['QRCode'], tryHarder: true, maxNumberOfSymbols: MAX_CODES })
-  return results.filter((result) => result.isValid).map((result) => result.text)
+  return results.filter((result) => result.isValid).map(({ text, position }) => ({ text, corners: position }))
 }

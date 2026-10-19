@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { identifySheet } from '../identify-sheet'
-import { decodeQrTexts, useQrDecoderBinary } from '../qr-decoder'
+import { decodeQrCodes, useQrDecoderBinary } from '../qr-decoder'
 import { localDecoderBinary, photographSheet } from './synthetic-photo'
 
 const SHEETS = [
@@ -14,13 +14,15 @@ beforeAll(() => {
   useQrDecoderBinary(localDecoderBinary())
 })
 
-describe('decodeQrTexts', () => {
+describe('decodeQrCodes', () => {
+  const textsIn = async (image: Parameters<typeof decodeQrCodes>[0]) => (await decodeQrCodes(image)).map((qr) => qr.text)
+
   it('reads what the QR Code of the sheet holds', async () => {
-    expect(await decodeQrTexts(photographSheet(lookup(SHEETS[0].code)))).toEqual([lookup(SHEETS[0].code)])
+    expect(await textsIn(photographSheet(lookup(SHEETS[0].code)))).toEqual([lookup(SHEETS[0].code)])
   })
 
   it('finds nothing on blank paper', async () => {
-    expect(await decodeQrTexts(photographSheet(null))).toEqual([])
+    expect(await textsIn(photographSheet(null))).toEqual([])
   })
 })
 

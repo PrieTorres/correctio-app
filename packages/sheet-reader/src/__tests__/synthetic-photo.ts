@@ -33,7 +33,7 @@ const INK = 30
 const QUIET_MODULES = 4
 
 /** A fixed sequence, so a failing test fails the same way every time. */
-function seededRandom(seed: number): () => number {
+export function seededRandom(seed: number): () => number {
   let state = seed
   return () => {
     state = (state * 1_103_515_245 + 12_345) % 2 ** 31
@@ -41,7 +41,8 @@ function seededRandom(seed: number): () => number {
   }
 }
 
-function gaussian(random: () => number): number {
+/** Normally distributed, for sensor noise. */
+export function gaussian(random: () => number): number {
   const u = Math.max(random(), Number.EPSILON)
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * random())
 }
@@ -62,25 +63,27 @@ function paperAt(x: number, y: number, matrix: QRCode.BitMatrix, shot: Required<
   return inside && matrix.get(row, column) ? INK : PAPER
 }
 
-function boxBlur(grey: Float32Array): Float32Array {
+/** One pass of a 3 by 3 box blur, as when the phone did not focus. */
+export function boxBlur(grey: Float32Array, width: number, height: number): Float32Array {
   const out: Float32Array = new Float32Array(grey)
-  for (let y = 1; y < HEIGHT - 1; y += 1) {
-    for (let x = 1; x < WIDTH - 1; x += 1) {
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
       let sum = 0
-      for (const offset of [-WIDTH - 1, -WIDTH, -WIDTH + 1, -1, 0, 1, WIDTH - 1, WIDTH, WIDTH + 1]) sum += grey[y * WIDTH + x + offset] ?? 0
-      out[y * WIDTH + x] = sum / 9
+      for (const offset of [-width - 1, -width, -width + 1, -1, 0, 1, width - 1, width, width + 1]) sum += grey[y * width + x + offset] ?? 0
+      out[y * width + x] = sum / 9
     }
   }
   return out
 }
 
-function toPixels(grey: Float32Array): PixelImage {
-  const data = new Uint8ClampedArray(WIDTH * HEIGHT * 4)
+/** Grey levels as the RGBA pixels a canvas or the server's decoder hands over. */
+export function toPixels(grey: Float32Array, width: number, height: number): PixelImage {
+  const data = new Uint8ClampedArray(width * height * 4)
   grey.forEach((level, index) => {
     data.fill(level, index * 4, index * 4 + 3)
     data[index * 4 + 3] = 255
   })
-  return { data, width: WIDTH, height: HEIGHT }
+  return { data, width, height }
 }
 
 /** A phone photo of a sheet whose QR Code holds `text`, or of blank paper when `text` is null. */
@@ -95,6 +98,6 @@ export function photographSheet(text: string | null, shot: Shot = {}, seed = 7):
       grey[y * WIDTH + x] = level * (1 - settings.shade * (x / WIDTH)) + settings.noise * gaussian(random)
     }
   }
-  for (let pass = 0; pass < settings.blur; pass += 1) grey = boxBlur(grey)
-  return toPixels(grey)
+  for (let pass = 0; pass < settings.blur; pass += 1) grey = boxBlur(grey, WIDTH, HEIGHT)
+  return toPixels(grey, WIDTH, HEIGHT)
 }
