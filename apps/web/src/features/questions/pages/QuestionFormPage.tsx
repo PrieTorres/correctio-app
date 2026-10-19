@@ -44,24 +44,16 @@ function blankAlternative() {
  * the stored schema refuses a blank alternative — so the record was written and
  * then never read back again.
  *
- * The unwanted fields are set to `null` rather than `undefined`, because the
- * HTTP adapter serialises the body as JSON and `JSON.stringify` silently drops
- * keys whose value is `undefined`: the PATCH would arrive without them, the
- * server merge would keep the old values, and an objective question edited into
- * a discursive one would still carry `alternatives` and `correctAlternativeId`
- * in the database. Sending `null` says "clear this", and the API records NULL.
- *
- * The result is cast back to `QuestionInput` because the shared schema types
- * these fields as optional rather than nullable, while the API contract
- * accepts an explicit null as "remove this value". The cast keeps the null
- * contained to the payload the API actually receives, instead of widening the
- * schema for every other consumer.
+ * The unwanted fields are set to `undefined` so they are not sent in the body.
+ * The local schema rejects `null` on these fields; the API only needs the
+ * absence of the key. When editing, the HTTP adapter converts `undefined`
+ * back to `null` so the server clears the old values.
  */
 function onlyFieldsOfItsType(input: QuestionInput): QuestionInput {
   const payload =
     input.type === 'discursiva'
-      ? { ...input, alternatives: null, correctAlternativeId: null }
-      : { ...input, maxScore: null };
+      ? { ...input, alternatives: undefined, correctAlternativeId: undefined }
+      : { ...input, maxScore: undefined };
   return payload as unknown as QuestionInput;
 }
 
@@ -96,20 +88,25 @@ function hasAlternatives(stored: Question | null | undefined): boolean {
  * form to `QuestionFormBody` so the complexity stays per function.
  */
 export function QuestionFormPage() {
-  const { id } = useParams<{ id: string }>();
-  const { data: existing, isPending, isError } = useQuestion(id);
+  const { id } = useParams<{ id: string }>()
+  const isNew = id === 'nova'
+  const { data: existing, isPending, isError } = useQuestion(isNew ? undefined : id)
 
-  const notFound = id !== undefined && !isPending && !isError && existing === null;
+  const notFound = id !== undefined && !isNew && !isPending && !isError && existing === null
 
   return (
     <QueryBoundary
-      isPending={id !== undefined && isPending}
+      isPending={id !== undefined && !isNew && isPending}
       isError={isError}
       pendingLabel="Carregando questão…"
     >
-      {notFound ? <QuestionNotFound /> : <QuestionFormBody id={id} existing={existing} />}
+      {notFound ? (
+        <QuestionNotFound />
+      ) : (
+        <QuestionFormBody id={isNew ? undefined : id} existing={existing} />
+      )}
     </QueryBoundary>
-  );
+  )
 }
 
 function QuestionFormBody({
@@ -316,12 +313,6 @@ function DiscursiveField({
           min="0"
           error={error}
           {...register('maxScore', {
-            /**
-             * `valueAsNumber` turns an empty field into `NaN`, which is a number
-             * as far as the schema is concerned: the friendly message never
-             * fired and Zod's own "received nan" reached the screen in English.
-             * Empty means absent.
-             */
             setValueAs: (value: string) => (value === '' ? undefined : Number(value)),
           })}
         />

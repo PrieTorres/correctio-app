@@ -34,12 +34,12 @@ const PAGE_SIZE = 50;
 
 const STATUS_SEGMENTS = [
   { value: 'active', label: 'Ativas' },
-  { value: 'deleted', label: 'Excluidas' },
+  { value: 'deleted', label: 'Excluídas' },
 ] as const satisfies readonly { value: StatusFilter; label: string }[];
 
 const SORT_SEGMENTS = [
   { value: 'newest', label: 'Recentes' },
-  { value: 'statement', label: 'A-Z' },
+  { value: 'statement', label: 'A–Z' },
 ] as const satisfies readonly { value: QuestionSort; label: string }[];
 
 const TYPE_SEGMENTS = [
@@ -80,9 +80,11 @@ export function QuestionListPage() {
   const filtering = search.trim() !== '' || type !== 'all' || tags.length > 0 || onlyUntagged;
 
   const newQuestionButton = (
-    <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
-      <Link to={ROUTES.newQuestion}>Nova questao</Link>
-    </Button>
+    <Link to={ROUTES.newQuestion}>
+      <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
+        Nova questão
+      </Button>
+    </Link>
   );
 
   const clearFilters = () => {
@@ -96,16 +98,16 @@ export function QuestionListPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         help
-        title="Banco de questoes"
-        description="Escreva a questao uma vez e reaproveite em quantas provas quiser."
+        title="Banco de questões"
+        description="Escreva a questão uma vez e reaproveite em quantas provas quiser."
         actions={
           <>
             <Button
               icon={<Upload size={18} aria-hidden />}
               disabled
-              title="A importacao de questoes em lote entra na proxima fase."
+              title="A importação de questões em lote entra na próxima fase."
             >
-              Importar questoes
+              Importar questões
             </Button>
             {newQuestionButton}
           </>
@@ -193,7 +195,7 @@ function QuestionFiltersBar({
         <SearchInput
           value={search}
           onChange={onSearchChange}
-          label="Buscar questoes"
+          label="Buscar questões"
           placeholder="Buscar pelo enunciado"
         />
         <SegmentedControl
@@ -206,7 +208,7 @@ function QuestionFiltersBar({
           segments={STATUS_SEGMENTS}
           value={status}
           onChange={onStatusChange}
-          label="Filtrar por situacao"
+          label="Filtrar por situação"
         />
         <SegmentedControl
           segments={SORT_SEGMENTS}
@@ -257,7 +259,7 @@ function QuestionListResults({
   onDuplicate: (question: Question) => void;
 }>) {
   return (
-    <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando questoes">
+    <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando questões…">
       {questions.length === 0 ? (
         <Card>
           <EmptyQuestionList
@@ -308,21 +310,21 @@ function Pagination({
   return (
     <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
       <p className="text-caption text-ink-subtle">
-        Mostrando {first} a {last} de {total} {total === 1 ? 'questao' : 'questoes'}
+        Mostrando {first}–{last} de {total} {total === 1 ? 'questão' : 'questões'}
       </p>
       <div className="flex gap-2">
         <Button variant="secondary" disabled={!canGoBack} onClick={() => onPageChange(page - 1)}>
           Anterior
         </Button>
         <span className="flex items-center px-2 text-caption text-ink-muted">
-          Pagina {page} de {pageCount}
+          Página {page} de {pageCount}
         </span>
         <Button
           variant="secondary"
           disabled={!canGoForward}
           onClick={() => onPageChange(page + 1)}
         >
-          Proxima
+          Próxima
         </Button>
       </div>
     </div>
@@ -340,11 +342,11 @@ function DeleteQuestionDialog({
     <ConfirmDialog
       open
       onOpenChange={(open) => !open && onClose()}
-      title={isRestoring ? 'Restaurar esta questao?' : 'Excluir esta questao?'}
+      title={isRestoring ? 'Restaurar esta questão?' : 'Excluir esta questão?'}
       description={
         isRestoring
-          ? 'A questao volta para o banco e pode ser usada em novas provas.'
-          : 'A questao sai do banco, mas continua nas provas que ja a usam. Voce pode restaura-la depois.'
+          ? 'A questão volta para o banco e pode ser usada em novas provas.'
+          : 'A questão sai do banco, mas continua nas provas que já a usam. Você pode restaurá-la depois.'
       }
       confirmLabel={isRestoring ? 'Restaurar' : 'Excluir'}
       pending={deleteQuestion.isPending}
@@ -420,21 +422,21 @@ function QuestionRow({
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <QuestionTypeBadge type={question.type} />
-          {question.tags.map((tag) => (
+          {question.tags?.map((tag) => (
             <Badge key={tag} outline>
               {tag}
             </Badge>
           ))}
           {isMultipleChoice(question) && !question.allowShuffleAlternatives && (
             <span
-              title="Alternativas nao sao embaralhadas nesta questao"
+              title="Alternativas não são embaralhadas nesta questão"
               className="inline-flex items-center gap-1 text-caption text-ink-subtle"
             >
               <Shuffle size={13} aria-hidden />
               ordem fixa
             </span>
           )}
-          {deleted && <Badge tone="danger">Excluida</Badge>}
+          {deleted && <Badge tone="danger">Excluída</Badge>}
         </div>
 
         <Link
@@ -446,8 +448,8 @@ function QuestionRow({
 
         <p className="mt-1 text-caption text-ink-subtle">
           {isMultipleChoice(question)
-            ? `${question.alternatives.length} alternativas`
-            : `Nota maxima ${question.maxScore ?? 0}`}
+            ? `${question.alternatives?.length ?? 0} alternativas`
+            : `Nota máxima ${question.maxScore ?? 0}`}
         </p>
       </div>
 
@@ -484,8 +486,8 @@ function EmptyQuestionList({
     return (
       <EmptyState
         illustration={<SearchIllustration />}
-        title="Nenhuma questao encontrada"
-        description="Nenhuma questao bate com os filtros escolhidos. Tente outra busca, outro tipo ou outra tag."
+        title="Nenhuma questão encontrada"
+        description="Nenhuma questão bate com os filtros escolhidos. Tente outra busca, outro tipo ou outra tag."
         action={
           <Button variant="secondary" onClick={onClearFilters}>
             Limpar filtros
@@ -499,8 +501,8 @@ function EmptyQuestionList({
     return (
       <EmptyState
         illustration={<ArchiveIllustration />}
-        title="Nenhuma questao excluida"
-        description="Questao excluida sai do banco mas continua nas provas que ja a usam, e pode ser restaurada a qualquer momento."
+        title="Nenhuma questão excluída"
+        description="Questão excluída sai do banco mas continua nas provas que já a usam, e pode ser restaurada a qualquer momento."
       />
     );
   }
@@ -508,8 +510,8 @@ function EmptyQuestionList({
   return (
     <EmptyState
       illustration={<QuestionsIllustration />}
-      title="Nenhuma questao ainda"
-      description="O banco e o que faz a prova deixar de ser trabalho repetido: escreva a questao uma vez, use em quantas provas quiser, em qualquer semestre."
+      title="Nenhuma questão ainda"
+      description="O banco é o que faz a prova deixar de ser trabalho repetido: escreva a questão uma vez, use em quantas provas quiser, em qualquer semestre."
       action={createButton}
     />
   );
