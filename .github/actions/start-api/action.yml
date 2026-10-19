@@ -13,9 +13,12 @@ runs:
       run: npm run db:migrate
 
     # Waits for /health, so a test never starts before the API answers; the log
-    # stays in api.log for a failed run.
+    # stays in api.log for a failed run. The rate limit is disabled so the
+    # Cypress suite can make many requests in a row without getting 429 errors.
     - name: Start the API
       shell: bash
+      env:
+        RATE_LIMIT_ENABLED: 'false'
       run: |
         nohup node apps/api/dist/server.js > api.log 2>&1 &
         curl --fail --silent --show-error --retry 20 --retry-all-errors --retry-delay 1 http://localhost:3000/health
