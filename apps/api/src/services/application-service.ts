@@ -5,7 +5,6 @@ import type { FileStorage } from '../lib/file-storage'
 import { parseListRequest, type Page } from '../lib/pagination'
 import { parseRequest } from '../lib/parse-request'
 import type { ApplicationRepository, StoredApplication } from '../repositories/application-repository'
-import type { PrintingRepository } from '../repositories/printing-repository'
 
 const NOT_FOUND = 'Aplicação não encontrada.'
 const NO_PDF = 'O PDF desta aplicação ainda não foi gerado.'
@@ -42,7 +41,6 @@ export interface ApplicationService {
 
 export interface ApplicationServiceDependencies {
   applications: ApplicationRepository
-  printing: PrintingRepository
   fileStorage: FileStorage
 }
 
@@ -87,7 +85,7 @@ function releaseBlocker(answerKeysPublished: readonly boolean[]): string | undef
  * out the PDF. Creating, editing and generating read the exam, so they come
  * with the exams of #45.
  */
-export function createApplicationService({ applications, printing, fileStorage }: ApplicationServiceDependencies): ApplicationService {
+export function createApplicationService({ applications, fileStorage }: ApplicationServiceDependencies): ApplicationService {
   return {
     async list(teacherId, query) {
       const page = await applications.list(teacherId, parseListRequest(query, LIST_FILTERS))
@@ -114,15 +112,21 @@ export function createApplicationService({ applications, printing, fileStorage }
       if (status === 'closed') await applications.setStatus(teacherId, id, 'draft')
     },
 
-    /** Taking grades back is always allowed; releasing them waits for the answer keys. */
+    /**
+     * Taking grades back is always allowed; releasing them waits for the
+     * answer keys, which the repository checks under lock so a key taken back
+     * at the same moment cannot slip through.
+     */
     async releaseGrades(teacherId, id, body) {
       const current = await requireApplication(applications, teacherId, id)
       const { released } = parseRequest(gradesReleaseSchema, body)
 
-      const blocker = released ? releaseBlocker(await printing.answerKeysPublished(id)) : undefined
-      if (blocker !== undefined) throw new ApiError(API_ERROR_CODE.CONFLICT, blocker)
-
-      await applications.setGradesReleased(teacherId, id, released)
+      if (released) {
+        const blocker = await applications.releaseGrades(teacherId, id, releaseBlocker)
+        if (blocker !== undefined) throw new ApiError(API_ERROR_CODE.CONFLICT, blocker)
+      } else {
+        await applications.withdrawGrades(teacherId, id)
+      }
       return present({ ...current, gradesReleased: released })
     },
 

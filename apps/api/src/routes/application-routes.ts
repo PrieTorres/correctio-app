@@ -26,7 +26,7 @@ export function applicationRoutes({ db, fileStorage }: ApplicationRouteDependenc
   const applicationRepository = createApplicationRepository(db)
   const printingRepository = createPrintingRepository(db)
   const applications = createApplicationController(
-    createApplicationService({ applications: applicationRepository, printing: printingRepository, fileStorage }),
+    createApplicationService({ applications: applicationRepository, fileStorage }),
   )
   const printing = createPrintingController(
     createPrintingService({ applications: applicationRepository, printing: printingRepository }),

@@ -558,6 +558,30 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       expect((await bia().post(releasePath(id), { released: true })).status).toBe(404)
       expect((await storedApplication(id)).gradesReleased).toBe(false)
     })
+
+    /**
+     * RF46 with two tabs open: one releases the grades while the other takes
+     * the only answer key back. Each request is allowed on its own, and each
+     * checks the other's switch, so only the lock keeps both from passing.
+     * Exactly one wins, and the application never ends with released grades
+     * and no key. Repeated, since a race does not show on every run.
+     */
+    it('never leaves released grades without their key when both requests arrive together', async () => {
+      for (let round = 0; round < 15; round++) {
+        const id = await insertApplication({ status: 'generated' })
+        const version = await insertVersion(id, 1, { answerKeyPublished: true, answerKeyPublishedAt: day('2026-10-06') })
+
+        const [release, takeBack] = await Promise.all([
+          ana().post(releasePath(id), { released: true }),
+          ana().post(`/applications/${id}/versions/${version}/publish-answer-key`, { published: false }),
+        ])
+
+        const gradesReleased = (await storedApplication(id)).gradesReleased
+        const keyPublished = (await storedVersion(version)).answerKeyPublished
+        expect(gradesReleased && !keyPublished).toBe(false)
+        expect([release.status, takeBack.status].filter((status) => status === 409)).toHaveLength(1)
+      }
+    })
   })
 
   describe('GET /applications/:id/pdf', () => {

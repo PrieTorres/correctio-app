@@ -56,18 +56,22 @@ export function createPrintingService({ applications, printing, now = () => new 
      * Publishing what is already published writes nothing, so
      * `answerKeyPublishedAt` keeps the moment the key first became public. The
      * key cannot be taken back while the grades are released: a grade never
-     * shows without its key (RF46), whichever order the switches are flipped in.
+     * shows without its key (RF46), whichever order the switches are flipped in,
+     * and the repository checks that under lock, even for two at once.
      */
     async publishAnswerKey(teacherId, { applicationId, versionId }, body) {
-      const application = await requireApplication(applications, teacherId, applicationId)
+      await requireApplication(applications, teacherId, applicationId)
       const { published } = parseRequest(answerKeySchema, body)
 
       const version = await printing.findVersion(applicationId, versionId)
       if (version === undefined) throw new ApiError(API_ERROR_CODE.NOT_FOUND, VERSION_NOT_FOUND)
       if (version.answerKeyPublished === published) return
-      if (!published && application.gradesReleased) throw new ApiError(API_ERROR_CODE.CONFLICT, GRADES_RELEASED)
 
-      await printing.setAnswerKeyPublished(applicationId, versionId, published ? now() : null)
+      if (published) {
+        await printing.publishAnswerKey(applicationId, versionId, now())
+      } else if (!(await printing.takeBackAnswerKey(applicationId, versionId))) {
+        throw new ApiError(API_ERROR_CODE.CONFLICT, GRADES_RELEASED)
+      }
     },
   }
 }

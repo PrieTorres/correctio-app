@@ -27,12 +27,24 @@ export interface ApplicationFilters extends PageRequest {
   status?: ApplicationStatus
 }
 
+/** Why the grades cannot be released, given whether each version's answer key is published; `undefined` when nothing blocks. */
+export type ReleaseBlocker = (answerKeysPublished: readonly boolean[]) => string | undefined
+
 export interface ApplicationRepository {
   /** Active or archived applications, searched by the day they happen, the oldest first. */
   list: (teacherId: string, filters: ApplicationFilters) => Promise<Page<StoredApplication>>
   findById: (teacherId: string, id: string) => Promise<StoredApplication | undefined>
   setStatus: (teacherId: string, id: string, status: ApplicationStatus) => Promise<void>
-  setGradesReleased: (teacherId: string, id: string, released: boolean) => Promise<void>
+  /**
+   * Releases the grades unless `blockerOf` names a reason, and answers that
+   * reason. The answer keys are read and the grades written under the lock of
+   * the application row, the same lock `PrintingRepository.takeBackAnswerKey`
+   * takes first: a key taken back at the same moment waits, so the two can
+   * never both pass and leave a grade without its key (RF46).
+   */
+  releaseGrades: (teacherId: string, id: string, blockerOf: ReleaseBlocker) => Promise<string | undefined>
+  /** Takes the grades back, which RF46 always allows. */
+  withdrawGrades: (teacherId: string, id: string) => Promise<void>
 }
 
 function toStoredApplication(row: ApplicationRow): StoredApplication {
@@ -87,8 +99,21 @@ export function createApplicationRepository(db: Kysely<Database>): ApplicationRe
       await ownedUpdate(teacherId, id).set({ status }).execute()
     },
 
-    async setGradesReleased(teacherId, id, released) {
-      await ownedUpdate(teacherId, id).set({ gradesReleased: released }).execute()
+    async releaseGrades(teacherId, id, blockerOf) {
+      return db.transaction().execute(async (trx) => {
+        await trx.selectFrom('applications').select('id').where('teacherId', '=', teacherId).where('id', '=', id).forUpdate().execute()
+        const versions = await trx.selectFrom('exam_versions').select('answerKeyPublished').where('applicationId', '=', id).forShare().execute()
+
+        const blocker = blockerOf(versions.map((version) => version.answerKeyPublished))
+        if (blocker === undefined) {
+          await trx.updateTable('applications').set({ gradesReleased: true }).where('teacherId', '=', teacherId).where('id', '=', id).execute()
+        }
+        return blocker
+      })
+    },
+
+    async withdrawGrades(teacherId, id) {
+      await ownedUpdate(teacherId, id).set({ gradesReleased: false }).execute()
     },
   }
 }

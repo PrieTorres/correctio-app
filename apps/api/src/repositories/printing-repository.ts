@@ -28,10 +28,15 @@ export interface PrintingRepository {
   /** The versions of an application, by `versionNumber`. */
   listVersions: (applicationId: string, request: PageWindowRequest) => Promise<Page<ExamVersion>>
   findVersion: (applicationId: string, versionId: string) => Promise<ExamVersion | undefined>
-  /** One entry per version of the application: whether its answer key is published. */
-  answerKeysPublished: (applicationId: string) => Promise<boolean[]>
-  /** `null` takes the answer key back; a date publishes it, as of that moment. */
-  setAnswerKeyPublished: (applicationId: string, versionId: string, publishedAt: Date | null) => Promise<void>
+  /** Publishes the answer key of the version as of `publishedAt`; publishing never conflicts with released grades. */
+  publishAnswerKey: (applicationId: string, versionId: string, publishedAt: Date) => Promise<void>
+  /**
+   * Takes the answer key back unless the grades are released, and answers
+   * whether it did. Checked and written under the lock of the application row,
+   * which `ApplicationRepository.releaseGrades` also takes first, so a release
+   * at the same moment waits instead of passing on a key about to go (RF46).
+   */
+  takeBackAnswerKey: (applicationId: string, versionId: string) => Promise<boolean>
   /** The sheets of an application, by `sheetNumber`. */
   listSheets: (applicationId: string, request: PageWindowRequest) => Promise<Page<AnswerSheet>>
 }
@@ -63,6 +68,11 @@ function toSheet(row: SheetRow): AnswerSheet {
   }
 }
 
+/** One version, always looked for inside its application, so a version id of another application changes nothing. */
+function versionUpdate(db: Kysely<Database>, applicationId: string, versionId: string) {
+  return db.updateTable('exam_versions').where('applicationId', '=', applicationId).where('id', '=', versionId)
+}
+
 /**
  * The printed side of an application: its versions and the sheets handed out.
  * Both belong to an application rather than to a teacher, so this repository
@@ -86,18 +96,23 @@ export function createPrintingRepository(db: Kysely<Database>): PrintingReposito
       return row === undefined ? undefined : toVersion(row)
     },
 
-    async answerKeysPublished(applicationId) {
-      const rows = await versionsOf(applicationId).select('answerKeyPublished').execute()
-      return rows.map((row) => row.answerKeyPublished)
+    async publishAnswerKey(applicationId, versionId, publishedAt) {
+      await versionUpdate(db, applicationId, versionId).set({ answerKeyPublished: true, answerKeyPublishedAt: publishedAt }).execute()
     },
 
-    async setAnswerKeyPublished(applicationId, versionId, publishedAt) {
-      await db
-        .updateTable('exam_versions')
-        .set({ answerKeyPublished: publishedAt !== null, answerKeyPublishedAt: publishedAt })
-        .where('applicationId', '=', applicationId)
-        .where('id', '=', versionId)
-        .execute()
+    async takeBackAnswerKey(applicationId, versionId) {
+      return db.transaction().execute(async (trx) => {
+        const application = await trx
+          .selectFrom('applications')
+          .select('gradesReleased')
+          .where('id', '=', applicationId)
+          .forUpdate()
+          .executeTakeFirst()
+        if (application === undefined || application.gradesReleased) return false
+
+        await versionUpdate(trx, applicationId, versionId).set({ answerKeyPublished: false, answerKeyPublishedAt: null }).execute()
+        return true
+      })
     },
 
     async listSheets(applicationId, request) {
