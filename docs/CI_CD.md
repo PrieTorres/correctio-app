@@ -65,7 +65,7 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 | Merge da release do dia em `main`, pela PM | publica só o front no **GitHub Pages** (`pages.yml`), como demo: build com `VITE_DEMO_MODE`, sem API nem banco, com dados de exemplo; fecha as issues do dia |
 | "1. Pre-release: publish to pre-production" (`preview.yml`), sob demanda | a **pré-versão do dia**: publica a `release/AAAA-MM-DD` no link fixo da **pré-produção** (`https://correctio-app-preview.web.app`), depois da aprovação da PM. Outra branch, pelo nome ou pelo número do PR, ganha um link próprio que expira em 7 dias e é comentado no PR; ficam só os 10 mais recentes |
 | "2. Release: publish to production" (`release.yml`) | a **versão oficial**: portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
-| A cada 6 horas (`keep-alive.yml`) | chama o `/api/health` da produção. O plano gratuito do Aiven desliga o banco depois de 24 horas sem consulta, e a produção cai junto; uma execução que falha avisa por e-mail que a produção está respondendo 503 |
+| A cada 6 horas (`keep-alive.yml`) | chama o `/api/health` da produção, para o banco ter atividade. O plano gratuito do Aiven pode desligar o banco por inatividade, sem prazo definido, e a produção cai junto; isso reduz o risco, mas não o elimina (ADR-001). Uma execução que falha avisa por e-mail que a produção está respondendo 503 |
 | "Rollback: republish a released version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada, também com aprovação da PM: o caminho de volta quando uma release dá errado |
 
 **Só a PM publica, na pré e na produção.** Qualquer pessoa do time pode iniciar os workflows, mas o
