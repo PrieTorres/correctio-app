@@ -4,7 +4,7 @@
  */
 
 function seedQuestions() {
-  cy.request('POST', '/api/auth/refresh').then((response) => {
+  cy.request<{ accessToken: string }>('POST', '/api/auth/refresh').then((response) => {
     const token = response.body.accessToken
     const headers = { Authorization: `Bearer ${token}` }
 

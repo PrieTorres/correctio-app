@@ -50,11 +50,9 @@ function blankAlternative() {
  * back to `null` so the server clears the old values.
  */
 function onlyFieldsOfItsType(input: QuestionInput): QuestionInput {
-  const payload =
-    input.type === 'discursiva'
-      ? { ...input, alternatives: undefined, correctAlternativeId: undefined }
-      : { ...input, maxScore: undefined };
-  return payload as unknown as QuestionInput;
+  return input.type === 'discursiva'
+    ? { ...input, alternatives: undefined, correctAlternativeId: undefined }
+    : { ...input, maxScore: undefined };
 }
 
 function emptyQuestion(): QuestionInput {

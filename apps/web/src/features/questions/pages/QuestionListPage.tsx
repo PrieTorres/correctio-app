@@ -420,24 +420,7 @@ function QuestionRow({
       className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between"
     >
       <div className="min-w-0 flex-1">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <QuestionTypeBadge type={question.type} />
-          {question.tags?.map((tag) => (
-            <Badge key={tag} outline>
-              {tag}
-            </Badge>
-          ))}
-          {isMultipleChoice(question) && !question.allowShuffleAlternatives && (
-            <span
-              title="Alternativas não são embaralhadas nesta questão"
-              className="inline-flex items-center gap-1 text-caption text-ink-subtle"
-            >
-              <Shuffle size={13} aria-hidden />
-              ordem fixa
-            </span>
-          )}
-          {deleted && <Badge tone="danger">Excluída</Badge>}
-        </div>
+        <QuestionTags question={question} deleted={deleted} />
 
         <Link
           to={buildPath(ROUTES.questionDetail, { id: question.id })}
@@ -468,6 +451,29 @@ function QuestionRow({
         </Button>
       </div>
     </Card>
+  );
+}
+
+function QuestionTags({ question, deleted }: Readonly<{ question: Question; deleted: boolean }>) {
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-2">
+      <QuestionTypeBadge type={question.type} />
+      {question.tags?.map((tag) => (
+        <Badge key={tag} outline>
+          {tag}
+        </Badge>
+      ))}
+      {isMultipleChoice(question) && !question.allowShuffleAlternatives && (
+        <span
+          title="Alternativas não são embaralhadas nesta questão"
+          className="inline-flex items-center gap-1 text-caption text-ink-subtle"
+        >
+          <Shuffle size={13} aria-hidden />
+          ordem fixa
+        </span>
+      )}
+      {deleted && <Badge tone="danger">Excluída</Badge>}
+    </div>
   );
 }
 
