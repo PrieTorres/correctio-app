@@ -84,7 +84,9 @@ src/
   models/           tipos das tabelas (tables.ts)
   db/               conexão, migrations, comando de migrar, busca de texto e erros do MySQL
   middlewares/      autenticação, erro, rota inexistente
-  lib/              ApiError, paginação, validação da entrada, mesclagem do PATCH, criptografia de campo, logger
+  lib/              ApiError, paginação, validação da entrada, mesclagem do PATCH, criptografia de campo,
+                    armazenamento de arquivos, logger
+  lib/exam-pdf/     o PDF da aplicação: páginas, cartão-resposta e QR Code de cada folha
 ```
 
 Tipos e schemas vêm de `@correctio/domain` (`packages/domain`), os mesmos do front: a API valida
@@ -105,6 +107,7 @@ com as mesmas regras das telas, sem cópia.
 | Datas | String ISO 8601 no JSON |
 | Limite | Camadas de `RATE_LIMITS` (`middlewares/rate-limit.ts`). Por professor atrás do `requireAuth`: leitura 300/min e escrita 60/min. Por endereço, só respostas 401 (30/min), contra quem tenta adivinhar token. Login, consulta pública e rotas caras aplicam a própria camada (`createRateLimit`) |
 | Cache | `Cache-Control: no-store` em toda resposta: dado pessoal não fica em proxy nem em disco. O front guarda em memória (TanStack Query) |
+| Arquivos | Fora do banco, pelo `lib/file-storage.ts`: uma pasta local (`FILE_STORAGE_DIR`) fora do host e o bucket do Firebase Storage no host (ADR-004). A coluna guarda a chave do arquivo, nunca uma URL, e o arquivo só sai pela API, com o token do professor dono |
 | E-mail do aluno | Gravado cifrado com AES-256-GCM (`lib/field-encryption.ts`), com um IV novo a cada gravação, e devolvido em claro só ao professor dono da turma. Quem cifra e decifra é o repositório de alunos, e mais ninguém |
 | Segurança | Regras completas em `docs/Seguranca_e_LGPD.md`, seção 7 |
 
@@ -118,7 +121,61 @@ com as mesmas regras das telas, sem cópia.
 | `PATCH /classes/:id/students/:studentId` | Editar o aluno (RF07), mesclando como os outros `PATCH` |
 | `POST /classes/:id/students/:studentId/anonymize` | Anonimização irreversível do aluno (RF38) |
 | `POST /exams/draw` | Geração automática de prova (RF16) |
+| `POST /applications/:id/grades-release` | Libera ou recolhe as notas, com `{ released }`. Responde a aplicação |
+| `GET /applications/:id/sheets` | Folhas impressas, por `sheetNumber`. Faz o papel do `GET /applications/:id/students` da Spec, porque a `AnswerSheet` substituiu o `ExamAssignment` (`docs/Modelo_de_Dados.md`) |
+| `GET /applications/:id/pdf` | Baixa o PDF consolidado. É o endereço que o `pdfUrl` da aplicação traz |
+| `POST /applications/:id/corrections` | Grava a revisão de uma folha (RF28, RF30). A Spec só lista e edita as correções |
+| `GET /applications/:id/corrections/:correctionId` | Uma correção, para a tela de revisão (P16) |
 | `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49) |
+
+### Aplicações
+
+As rotas de aplicação trabalham, por enquanto, sobre aplicações que já existem. Criar, editar e
+gerar (`POST /applications`, `PATCH /applications/:id` e `POST /applications/:id/generate-pdf`)
+leem a prova e chegam junto com as provas da #45.
+
+- **Lista:** além dos parâmetros de lista, aceita `classId`, `examId` e `status`, da mais antiga
+  para a mais recente. A busca procura o dia, escrito como a tela mostra (`05/10/2026`) ou como
+  ISO (`2026-10-05`), inteiro ou em parte.
+- **Restaurar** devolve a aplicação arquivada como `draft`, nunca como `generated`; uma que não
+  está arquivada fica como está.
+- **Versões e folhas** são listas `{ items, total }`, por `versionNumber` e `sheetNumber`.
+- **Gabarito e notas (RF46):** `POST /applications/:id/versions/:versionId/publish-answer-key`
+  recebe `{ published }`. Liberar as notas exige o gabarito de todas as versões publicado, e o
+  gabarito não pode ser despublicado com as notas liberadas, porque a nota nunca aparece sem
+  ele. Publicar de novo não muda o `answerKeyPublishedAt`.
+- **PDF:** o `pdfUrl` aparece só quando há PDF e traz o endereço da rota de download, relativo à
+  raiz da API. O arquivo contém o nome dos alunos quando a aplicação é identificada, então
+  não existe link público: o front baixa com o token, como qualquer outra chamada.
+
+### Correções
+
+As correções ficam debaixo da aplicação: `GET` e `POST /applications/:id/corrections`, e `GET` e
+`PATCH /applications/:id/corrections/:correctionId`. O dono é o professor da aplicação.
+
+- **A nota é do servidor.** O cliente manda só o que o professor escolheu: a folha
+  (`answerSheetId`), a alternativa marcada em cada objetiva (`answers`), as notas das discursivas
+  (`discursiveScores`), `notes`, `studentId` e `finalize`. O servidor calcula acerto, nota por
+  questão, `totalScore` e `status` com as mesmas regras das telas (`@correctio/domain`) e
+  descarta esses campos se vierem do cliente.
+- **Validação contra a prova:** cada resposta é de uma objetiva da prova e marca uma alternativa
+  dela; cada nota é de uma discursiva e fica entre 0 e o `maxScore` da questão. A prova é lida
+  como foi impressa, inclusive a questão excluída do banco depois.
+- **Status:** `finalize: false` grava `IN_PROGRESS`. `finalize: true` grava `DONE` só quando toda
+  discursiva tem nota, e zero conta como nota (RF28, RF47). No `PATCH`, sem `finalize`, a
+  correção continua como estava.
+- **Uma correção por folha:** a segunda responde 409, e a edição é pelo `PATCH`, que mescla e
+  calcula a nota de novo.
+- **Aluno (RF31):** a folha impressa com nome é daquele aluno, com `isAutomaticallyAssigned: true`.
+  Na folha sem nome, o `studentId` enviado precisa ser da turma, e grava
+  `isAutomaticallyAssigned: false`. O mesmo aluno duas vezes na mesma versão responde 409.
+- **`clientCorrectionId` e `syncStatus`** são obrigatórios, como na Spec. O site não manda nenhum
+  dos dois, e o servidor gera a chave e grava `synced`. Um app que migre para cá manda os seus, e a
+  API guarda; a mesma chave duas vezes responde 409.
+- **Lista:** na ordem das folhas, com os filtros `assigned` (`false` lista as pendentes de
+  atribuição, P17) e `status` (`IN_PROGRESS`, RF48).
+- Por enquanto toda correção é `MANUAL`. A correção que vem de uma foto (`IMAGE_UPLOAD`), com a
+  `imageUrl`, chega com o envio das fotos (#47, segunda parte).
 
 `POST /classes/:id/students` cria o registro do aluno, com nome, matrícula e e-mail opcional. Na
 Spec, a mesma rota matricula por e-mail um aluno que já tem conta, mas aqui o aluno não tem conta
@@ -128,8 +185,8 @@ Spec, a mesma rota matricula por e-mail um aluno que já tem conta, mas aqui o a
 ## Variáveis de ambiente
 
 Ver `.env.example` para rodar local. No Firebase, `NODE_ENV=production`, `DATABASE_TLS=verify`,
-`CORS_ORIGINS` (os endereços do próprio projeto) e `TRUST_PROXY_HOPS=2` vêm de
-`src/config/hosted-env.ts`, e nenhuma variável do host consegue desligar os dois primeiros. Os 2 saltos
+`FILE_STORAGE=firebase`, `CORS_ORIGINS` (os endereços do próprio projeto) e `TRUST_PROXY_HOPS=2`
+vêm de `src/config/hosted-env.ts`, e nenhuma variável do host consegue trocar os três primeiros. Os 2 saltos
 foram medidos no primeiro deploy: a requisição chega com `X-Forwarded-For: <cliente>, <proxy do Google>`. Os segredos vêm do Secret Manager do projeto.
 
 Sem `DATA_ENCRYPTION_KEY`, a API não sobe: o `bootstrapApi` recusa a falta da chave, tanto no
@@ -147,6 +204,10 @@ encaminha `/api/**` para ela, então em produção as rotas respondem em
   nas versões exatas que os testes usaram.
 - `src/server.ts` e `src/function.ts` só recebem requisições; tudo o que respondem é montado em
   `bootstrapApi` (`src/bootstrap.ts`), então local e publicado não divergem.
+- Os PDFs vão para o bucket padrão do Firebase Storage de cada projeto, criado em `us-west1` e
+  privado, com as regras do Storage negando todo acesso vindo do navegador (ADR-004). A função
+  usa a própria conta de serviço, sem chave salva em lugar nenhum. Enquanto o bucket não existir,
+  a API sobe normalmente e só as rotas de arquivo respondem com erro.
 - A função também responde no endereço direto do Google, sem passar pelo Hosting, e ali o
   `X-Forwarded-For` pode ser forjado: os limites por endereço valem para quem usa o site, não para
   quem chama a função direto. Os limites por professor não dependem do endereço.

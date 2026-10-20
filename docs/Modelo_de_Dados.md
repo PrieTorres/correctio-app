@@ -209,6 +209,8 @@ Acréscimo do grupo, substituindo `ClassEnrollment` mais um `User` de aluno.
 }
 ```
 
+**`pdfUrl` na API.** O PDF traz o nome dos alunos, então não tem endereço público. No banco, a coluna `pdfUrl` guarda a chave do arquivo no Storage (`docs/adr/ADR-004`). A API responde com o caminho da rota de download, `/applications/:id/pdf`, relativo à raiz da API, que só entrega o arquivo com o token do professor dono. O nome e a forma do campo são os da Spec; o que muda é o conteúdo, que é uma rota protegida e não um link aberto.
+
 ### ExamVersion
 
 ```ts

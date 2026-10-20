@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { paginate } from '../paginate'
+import { paginate } from '../applications'
 
 const block = (id: string, height: number) => ({ id, height })
 const ids = (pages: { id: string }[][]) => pages.map((page) => page.map((item) => item.id))

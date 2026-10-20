@@ -7,6 +7,8 @@ import {
   examVersionSchema,
   questionSchema,
   studentSchema,
+  type ClassInput,
+  type StudentInput,
 } from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 import { buildAnswerSheets, buildVersions } from '@/lib/applications'
@@ -14,7 +16,8 @@ import { createLocalAuthProvider, DEMO_TEACHER } from '@/lib/auth'
 
 /**
  * Sample dataset of the GitHub Pages demo (`lib/app-mode.ts`), and of the
- * Cypress suite, which writes it for the teacher each test signs up.
+ * Cypress suite, which writes it for the teacher each test signs up; there the
+ * classes and students are created on the API first (`RemoteRoster`).
  *
  * `localStorage` is per browser, so anyone opening the demo link sees only
  * what is seeded here, never what the team demonstrated locally. The Firebase
@@ -52,14 +55,24 @@ const STUDENTS: Student[] = [
   ...buildStudents('class-physics-2', 10, 202801),
 ]
 
-function multipleChoice(
-  id: string,
-  statement: string,
-  tags: string[],
-  options: readonly [string, string, string, string],
-  correctIndex: number,
+interface MultipleChoiceSample {
+  id: string
+  statement: string
+  tags: string[]
+  options: readonly [string, string, string, string]
+  correctIndex: number
+  /** On by default; off for a question whose alternatives refer to each other ("todas as anteriores"). */
+  allowShuffleAlternatives?: boolean
+}
+
+function multipleChoice({
+  id,
+  statement,
+  tags,
+  options,
+  correctIndex,
   allowShuffleAlternatives = true,
-): Question {
+}: MultipleChoiceSample): Question {
   const alternatives = options.map((text, index) => ({ id: `${id}-alt-${index}`, text }))
   return {
     id,
@@ -74,40 +87,40 @@ function multipleChoice(
 }
 
 const QUESTIONS: Question[] = [
-  multipleChoice(
-    'question-limits',
-    'Qual é o valor de lim(x→0) sen(x)/x?',
-    ['Limites', 'Cálculo I'],
-    ['0', '1', 'Não existe', 'Infinito'],
-    1,
-  ),
-  multipleChoice(
-    'question-derivative',
-    'A derivada de f(x) = x³ é:',
-    ['Derivadas', 'Cálculo I'],
-    ['3x²', 'x²', '3x', 'x⁴/4'],
-    0,
-  ),
-  multipleChoice(
-    'question-matrix',
-    'Uma matriz quadrada é invertível quando:',
-    ['Matrizes', 'Álgebra Linear'],
-    [
+  multipleChoice({
+    id: 'question-limits',
+    statement: 'Qual é o valor de lim(x→0) sen(x)/x?',
+    tags: ['Limites', 'Cálculo I'],
+    options: ['0', '1', 'Não existe', 'Infinito'],
+    correctIndex: 1,
+  }),
+  multipleChoice({
+    id: 'question-derivative',
+    statement: 'A derivada de f(x) = x³ é:',
+    tags: ['Derivadas', 'Cálculo I'],
+    options: ['3x²', 'x²', '3x', 'x⁴/4'],
+    correctIndex: 0,
+  }),
+  multipleChoice({
+    id: 'question-matrix',
+    statement: 'Uma matriz quadrada é invertível quando:',
+    tags: ['Matrizes', 'Álgebra Linear'],
+    options: [
       'Seu determinante é diferente de zero',
       'Seu determinante é igual a zero',
       'Ela é simétrica',
       'Todas as anteriores',
     ],
-    0,
-    false,
-  ),
-  multipleChoice(
-    'question-newton',
-    'A segunda lei de Newton relaciona força, massa e:',
-    ['Mecânica', 'Física II'],
-    ['Aceleração', 'Velocidade', 'Deslocamento', 'Energia'],
-    0,
-  ),
+    correctIndex: 0,
+    allowShuffleAlternatives: false,
+  }),
+  multipleChoice({
+    id: 'question-newton',
+    statement: 'A segunda lei de Newton relaciona força, massa e:',
+    tags: ['Mecânica', 'Física II'],
+    options: ['Aceleração', 'Velocidade', 'Deslocamento', 'Energia'],
+    correctIndex: 0,
+  }),
   {
     id: 'question-essay-limits',
     teacherId: TEACHER_ID,
@@ -221,9 +234,9 @@ const APPLICATIONS: Application[] = [
  * what generating actually produces, and a sheet whose layout does not match
  * its version is unreadable.
  */
-function printingForDemo() {
+function printingForDemo(applications: readonly Application[], students: readonly Student[]) {
   const exam = EXAMS.find((item) => item.id === 'exam-calculus-midterm')
-  const application = APPLICATIONS.find((item) => item.status === 'generated')
+  const application = applications.find((item) => item.status === 'generated')
   if (exam === undefined || application === undefined) return { versions: [], sheets: [] }
 
   const versions = buildVersions({
@@ -238,11 +251,56 @@ function printingForDemo() {
   const sheets = buildAnswerSheets(
     application.id,
     versions,
-    STUDENTS.filter((student) => student.classId === application.classId),
+    students.filter((student) => student.classId === application.classId),
     true,
   )
 
   return { versions, sheets }
+}
+
+/**
+ * The sample classes and students after the API created them, keyed back to
+ * the sample ids they stand for.
+ *
+ * The Cypress suite runs the Firebase build, whose class and student screens
+ * read the API, so it creates them there first (`signInAsNewTeacher`). The
+ * rest of the sample still lives in `localStorage`, pointing at the ids the API
+ * gave, so every spec starts from the same populated screens as before.
+ */
+export interface RemoteRoster {
+  /** Sample class id, such as `class-calculus-1`, to the id the API gave that class. */
+  classIds: Readonly<Record<string, string>>
+  /** Every student as the API returned it, with its own id and the API class id. */
+  students: readonly Student[]
+}
+
+/** One sample class in the shape the API takes it. */
+export interface SampleClass {
+  sampleId: string
+  input: ClassInput
+  /** Created and then archived, as the API has no way to create an archived class. */
+  archived: boolean
+  students: StudentInput[]
+}
+
+/** The sample classes and their students, for the suite to create on the API before `writeDemoData`. */
+export function sampleClasses(): SampleClass[] {
+  return CLASSES.map((item) => ({
+    sampleId: item.id,
+    input: { name: item.name, subject: item.subject, term: item.term },
+    archived: item.status === 'archived',
+    students: STUDENTS.filter((student) => student.classId === item.id).map(({ fullName, registration }) => ({
+      fullName,
+      registration,
+    })),
+  }))
+}
+
+/** A sample class missing from the roster would leave an application pointing at nothing, so it stops the seeding instead. */
+function remoteClassId(remote: RemoteRoster, sampleId: string): string {
+  const id = remote.classIds[sampleId]
+  if (id === undefined) throw new Error(`The sample class ${sampleId} was not created on the API.`)
+  return id
 }
 
 /**
@@ -264,17 +322,25 @@ function signInDemoTeacher(): void {
  * Writes the sample data as owned by `teacherId`. Classes, questions, exams and
  * applications carry their owner, and the screens list only the signed-in
  * teacher's; students, versions and sheets hang from those.
+ *
+ * With a `remote` roster the classes and students already live on the API, so
+ * they are not written here, and the applications and their sheets point at
+ * the ids the API gave them.
  */
-export function writeDemoData(teacherId: string): void {
+export function writeDemoData(teacherId: string, remote?: RemoteRoster): void {
   const owned = <T extends { teacherId: string }>(items: readonly T[]): T[] => items.map((item) => ({ ...item, teacherId }))
+  const classIdOf = (sampleId: string) => (remote === undefined ? sampleId : remoteClassId(remote, sampleId))
+  const applications = owned(APPLICATIONS).map((item) => ({ ...item, classId: classIdOf(item.classId) }))
 
-  createCollection('classes', classSchema).writeAll(owned(CLASSES))
-  createCollection('students', studentSchema).writeAll(STUDENTS)
+  if (remote === undefined) {
+    createCollection('classes', classSchema).writeAll(owned(CLASSES))
+    createCollection('students', studentSchema).writeAll(STUDENTS)
+  }
   createCollection('questions', questionSchema).writeAll(owned(QUESTIONS))
   createCollection('exams', examSchema).writeAll(owned(EXAMS))
-  createCollection('applications', applicationSchema).writeAll(owned(APPLICATIONS))
+  createCollection('applications', applicationSchema).writeAll(applications)
 
-  const printing = printingForDemo()
+  const printing = printingForDemo(applications, remote?.students ?? STUDENTS)
   createCollection('exam-versions', examVersionSchema).writeAll(printing.versions)
   createCollection('answer-sheets', answerSheetSchema).writeAll(printing.sheets)
 }

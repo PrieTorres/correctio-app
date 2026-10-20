@@ -1,6 +1,6 @@
 import type { ExamVersion, Question } from '@/types/domain'
 import type { RandomSource } from '@/lib/exams'
-import type { MarkedAnswer } from './score'
+import type { MarkedAnswer } from '@correctio/domain'
 
 /**
  * Produces a plausible reading of a photographed answer sheet.

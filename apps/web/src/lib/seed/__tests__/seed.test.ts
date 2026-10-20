@@ -9,7 +9,15 @@ import {
   studentSchema,
 } from '@/lib/schemas'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
-import { clearDemoData, hasDemoData, resetDemoData, seedIfEmpty, writeDemoData } from '../index'
+import {
+  clearDemoData,
+  hasDemoData,
+  resetDemoData,
+  sampleClasses,
+  seedIfEmpty,
+  writeDemoData,
+  type RemoteRoster,
+} from '../index'
 
 const classes = () => createCollection('classes', classSchema).readAll()
 const students = () => createCollection('students', studentSchema).readAll()
@@ -274,10 +282,87 @@ describe('clearing the demo', () => {
   })
 })
 
+describe('sampleClasses', () => {
+  /** The API decides ids, owner, status and invite code; the suite sends only what the class form sends. */
+  it('describes each sample class with the fields of the class form only', () => {
+    for (const sample of sampleClasses()) {
+      expect(Object.keys(sample.input).sort()).toEqual(['name', 'subject', 'term'])
+      for (const student of sample.students) {
+        expect(Object.keys(student).sort()).toEqual(['fullName', 'registration'])
+      }
+    }
+  })
+
+  it('flags the archived class, which the API creates active and then archives', () => {
+    expect(sampleClasses().filter((sample) => sample.archived).map((sample) => sample.sampleId)).toEqual([
+      'class-calculus-1-2025',
+    ])
+  })
+
+  it('carries the students of every class that has them', () => {
+    const counts = Object.fromEntries(sampleClasses().map((sample) => [sample.sampleId, sample.students.length]))
+
+    expect(counts).toEqual({
+      'class-calculus-1': 12,
+      'class-linear-algebra': 8,
+      'class-physics-2': 10,
+      'class-calculus-1-2025': 0,
+    })
+  })
+})
+
+/** The roster the suite builds after creating the sample on the API, with ids the API would give. */
+function rosterFromApi(): RemoteRoster {
+  const samples = sampleClasses()
+  const classIds = Object.fromEntries(samples.map((sample) => [sample.sampleId, `api-${sample.sampleId}`]))
+  const remoteStudents = samples.flatMap((sample) =>
+    sample.students.map((student) => ({ ...student, id: `api-student-${student.registration}`, classId: `api-${sample.sampleId}` })),
+  )
+  return { classIds, students: remoteStudents }
+}
+
+describe('writeDemoData with the classes on the API', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('writes no class and no student to this browser, since they live on the API', () => {
+    writeDemoData('teacher-from-the-api', rosterFromApi())
+
+    expect(classes()).toEqual([])
+    expect(students()).toEqual([])
+    expect(questions().length).toBeGreaterThan(0)
+  })
+
+  it('points every application at the id the API gave its class', () => {
+    writeDemoData('teacher-from-the-api', rosterFromApi())
+
+    expect(applications().map((item) => item.classId).sort()).toEqual(['api-class-calculus-1', 'api-class-physics-2'])
+  })
+
+  /** A sheet that names a student the API does not have would show a blank name on every grading screen. */
+  it('prints one sheet per student the API holds for the applied class', () => {
+    writeDemoData('teacher-from-the-api', rosterFromApi())
+
+    const sheetStudents = sheets().map((item) => item.studentId).sort()
+    const enrolled = rosterFromApi()
+      .students.filter((item) => item.classId === 'api-class-calculus-1')
+      .map((item) => item.id)
+      .sort()
+    expect(sheetStudents).toEqual(enrolled)
+  })
+
+  it('stops when a sample class is missing from the roster, instead of pointing at nothing', () => {
+    const { students: remoteStudents } = rosterFromApi()
+
+    expect(() => writeDemoData('teacher-from-the-api', { classIds: {}, students: remoteStudents })).toThrow(
+      'class-calculus-1',
+    )
+  })
+})
+
 describe('writeDemoData', () => {
   beforeEach(() => window.localStorage.clear())
 
-  /** What the Cypress suite does for the teacher each test signs up on the API. */
+  /** What the demo writes, and what a suite without the API would write for the teacher it signs up. */
   it('writes the sample data as owned by the given teacher, without signing anyone in', () => {
     writeDemoData('teacher-from-the-api')
 

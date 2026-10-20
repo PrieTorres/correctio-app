@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { Exam, Question } from '@/types/domain'
+import type { Exam, Question } from '../domain'
 import {
   clampDiscursiveScore,
   discursiveQuestionIdsOf,
   gradeObjectives,
   totalCorrectionScore,
   withDefaultDiscursiveScores,
-} from '../score'
+} from '../grading'
 
 function objective(id: string): Question {
   return {

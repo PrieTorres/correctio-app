@@ -1,10 +1,10 @@
+import { ANSWER_SHEET_CODE } from '@correctio/domain'
+
 export function createId(): string {
   return crypto.randomUUID()
 }
 
-/** Base32 alphabet without 0/1/O/I, which are ambiguous on printed paper. */
-const CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
-const CODE_LENGTH = 26
+const { ALPHABET: CODE_ALPHABET, LENGTH: CODE_LENGTH } = ANSWER_SHEET_CODE
 
 /**
  * Opaque lookup code for a printed answer sheet.

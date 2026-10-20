@@ -109,7 +109,7 @@ Limite por usuário não protege a conta: 600 professores legítimos na semana d
 - **Quota global diária com degradação** — passado o teto do dia, as rotas caras entram em fila longa ou recusam com mensagem clara, em vez de escalar sem limite.
 - **Alerta de orçamento** em 50%, 80% e 100%. É a linha de defesa que de fato evita a fatura surpresa.
 - **Teto de instâncias.** Autoescalonamento sem máximo definido é exatamente como o custo explode.
-- **Leitura da folha no próprio servidor**, com processamento de imagem local, em vez de API de visão paga. Custo previsível e — ver seção 6 — evita transferência internacional de dado de aluno.
+- **Leitura da folha com processamento de imagem próprio**, em vez de API de visão paga: no servidor por padrão, e no navegador do professor no demo e quando a API não responde (ADR-006). Custo previsível, e a imagem nunca vai a terceiros (ver seção 6).
 - **Armazenamento em classe adequada ao acesso.** Folhas escaneadas são o maior volume e quase nunca são relidas depois do semestre. A economia vem de mover imagens antigas para armazenamento frio — **não** de apagá-las. Não existe descarte automático no Correctio: apagar dado que ninguém pediu para apagar é perda de informação. Exclusão só sob solicitação, via anonimização (RF05 e RF38).
 
 ---
@@ -133,7 +133,7 @@ Limite por usuário não protege a conta: 600 professores legítimos na semana d
 | **Segurança** (Art. 46) | RNF04 (tráfego), RNF16 (arquivos), RNF18 (API), RNF14 (isolamento). |
 | **Registro das operações** (Art. 37) | RF40 e RNF17 — trilha de auditoria. |
 | **Retenção** | Definida pela instituição, não pelo sistema. Sem descarte automático — o que protege contra perda é o backup com restauração testada (RNF09), e o que é "excluído" pela interface é reversível (RF42). |
-| **Transferência internacional** (Art. 33) | Acontece e precisa estar declarada. O banco fica nos EUA, no Aiven sobre a DigitalOcean, em São Francisco (ADR-001). A API e as imagens das folhas ficam no Google, em us-west1 (ADR-004 e ADR-005). Aiven, DigitalOcean e Google são subprocessadores. A leitura da folha roda no próprio servidor, sem mandar a imagem a terceiros. |
+| **Transferência internacional** (Art. 33) | Acontece e precisa estar declarada. O banco fica nos EUA, no Aiven sobre a DigitalOcean, em São Francisco (ADR-001). A API e as imagens das folhas ficam no Google, em us-west1 (ADR-004 e ADR-005). Aiven, DigitalOcean e Google são subprocessadores. A leitura da folha roda no servidor ou no navegador do professor, nunca mandando a imagem a terceiros (ADR-006). |
 | **Comunicação de incidente** (Art. 48) | Procedimento documentado: quem detecta, quem comunica, em quanto tempo. |
 
 ### Três pontos que não estavam previstos em lugar nenhum

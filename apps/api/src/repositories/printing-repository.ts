@@ -1,0 +1,132 @@
+import type { AnswerSheet, ExamVersion } from '@correctio/domain'
+import type { Kysely, Selectable } from 'kysely'
+import { pageWindow, type Page, type PageRequest } from '../lib/pagination'
+import type { AnswerSheetsTable, Database, ExamVersionsTable } from '../models/tables'
+
+const VERSION_COLUMNS = [
+  'id',
+  'applicationId',
+  'versionNumber',
+  'shuffleQuestions',
+  'shuffleAlternatives',
+  'withStudentIdentification',
+  'layout',
+  'answerKeyPublished',
+  'answerKeyPublishedAt',
+  'publicCode',
+  'qrCodePayload',
+] as const
+
+const SHEET_COLUMNS = ['id', 'applicationId', 'examVersionId', 'studentId', 'sheetNumber', 'code'] as const
+
+type VersionRow = Pick<Selectable<ExamVersionsTable>, (typeof VERSION_COLUMNS)[number]>
+type SheetRow = Pick<Selectable<AnswerSheetsTable>, (typeof SHEET_COLUMNS)[number]>
+
+type PageWindowRequest = Pick<PageRequest, 'page' | 'pageSize'>
+
+export interface PrintingRepository {
+  /** The versions of an application, by `versionNumber`. */
+  listVersions: (applicationId: string, request: PageWindowRequest) => Promise<Page<ExamVersion>>
+  findVersion: (applicationId: string, versionId: string) => Promise<ExamVersion | undefined>
+  /** Publishes the answer key of the version as of `publishedAt`; publishing never conflicts with released grades. */
+  publishAnswerKey: (applicationId: string, versionId: string, publishedAt: Date) => Promise<void>
+  /**
+   * Takes the answer key back unless the grades are released, and answers
+   * whether it did. Checked and written under the lock of the application row,
+   * which `ApplicationRepository.releaseGrades` also takes first, so a release
+   * at the same moment waits instead of passing on a key about to go (RF46).
+   */
+  takeBackAnswerKey: (applicationId: string, versionId: string) => Promise<boolean>
+  /** The sheets of an application, by `sheetNumber`. */
+  listSheets: (applicationId: string, request: PageWindowRequest) => Promise<Page<AnswerSheet>>
+  /** One sheet, looked for inside its application, so the id of another application's sheet finds nothing. */
+  findSheet: (applicationId: string, sheetId: string) => Promise<AnswerSheet | undefined>
+}
+
+function toVersion(row: VersionRow): ExamVersion {
+  return {
+    id: row.id,
+    applicationId: row.applicationId,
+    versionNumber: row.versionNumber,
+    shuffleQuestions: row.shuffleQuestions,
+    shuffleAlternatives: row.shuffleAlternatives,
+    withStudentIdentification: row.withStudentIdentification,
+    layout: row.layout,
+    answerKeyPublished: row.answerKeyPublished,
+    ...(row.answerKeyPublishedAt !== null && { answerKeyPublishedAt: row.answerKeyPublishedAt.toISOString() }),
+    publicCode: row.publicCode,
+    qrCodePayload: row.qrCodePayload,
+  }
+}
+
+function toSheet(row: SheetRow): AnswerSheet {
+  return {
+    id: row.id,
+    applicationId: row.applicationId,
+    examVersionId: row.examVersionId,
+    ...(row.studentId !== null && { studentId: row.studentId }),
+    sheetNumber: row.sheetNumber,
+    code: row.code,
+  }
+}
+
+/** One version, always looked for inside its application, so a version id of another application changes nothing. */
+function versionUpdate(db: Kysely<Database>, applicationId: string, versionId: string) {
+  return db.updateTable('exam_versions').where('applicationId', '=', applicationId).where('id', '=', versionId)
+}
+
+/**
+ * The printed side of an application: its versions and the sheets handed out.
+ * Both belong to an application rather than to a teacher, so this repository
+ * scopes by application, and the service checks first that the application is
+ * the teacher's, as the students do with their class.
+ */
+export function createPrintingRepository(db: Kysely<Database>): PrintingRepository {
+  const versionsOf = (applicationId: string) => db.selectFrom('exam_versions').where('applicationId', '=', applicationId)
+  const sheetsOf = (applicationId: string) => db.selectFrom('answer_sheets').where('applicationId', '=', applicationId)
+
+  return {
+    async listVersions(applicationId, request) {
+      const { total } = await versionsOf(applicationId).select((eb) => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow()
+      const { limit, offset } = pageWindow(request)
+      const rows = await versionsOf(applicationId).select(VERSION_COLUMNS).orderBy('versionNumber').limit(limit).offset(offset).execute()
+      return { items: rows.map(toVersion), total: Number(total) }
+    },
+
+    async findVersion(applicationId, versionId) {
+      const row = await versionsOf(applicationId).select(VERSION_COLUMNS).where('id', '=', versionId).executeTakeFirst()
+      return row === undefined ? undefined : toVersion(row)
+    },
+
+    async publishAnswerKey(applicationId, versionId, publishedAt) {
+      await versionUpdate(db, applicationId, versionId).set({ answerKeyPublished: true, answerKeyPublishedAt: publishedAt }).execute()
+    },
+
+    async takeBackAnswerKey(applicationId, versionId) {
+      return db.transaction().execute(async (trx) => {
+        const application = await trx
+          .selectFrom('applications')
+          .select('gradesReleased')
+          .where('id', '=', applicationId)
+          .forUpdate()
+          .executeTakeFirst()
+        if (application === undefined || application.gradesReleased) return false
+
+        await versionUpdate(trx, applicationId, versionId).set({ answerKeyPublished: false, answerKeyPublishedAt: null }).execute()
+        return true
+      })
+    },
+
+    async findSheet(applicationId, sheetId) {
+      const row = await sheetsOf(applicationId).select(SHEET_COLUMNS).where('id', '=', sheetId).executeTakeFirst()
+      return row === undefined ? undefined : toSheet(row)
+    },
+
+    async listSheets(applicationId, request) {
+      const { total } = await sheetsOf(applicationId).select((eb) => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow()
+      const { limit, offset } = pageWindow(request)
+      const rows = await sheetsOf(applicationId).select(SHEET_COLUMNS).orderBy('sheetNumber').limit(limit).offset(offset).execute()
+      return { items: rows.map(toSheet), total: Number(total) }
+    },
+  }
+}

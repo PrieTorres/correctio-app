@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { CORRECTION_STATUS } from '@/types/domain'
-import { resolveCorrectionStatus } from '../correction-status'
+import { CORRECTION_STATUS } from '../domain'
+import { resolveCorrectionStatus } from '../grading'
 
 describe('resolveCorrectionStatus', () => {
   it('completes an exam that has no open-ended questions', () => {

@@ -92,8 +92,14 @@ describe('tour guiado', () => {
     tour().should('contain', 'Nova questão')
   })
 
+  /**
+   * The tour opens only once the list has arrived, and listens for Esc only
+   * while open. With the classes on the API that takes longer than the visit,
+   * so a key pressed right away reaches a screen with no tour yet.
+   */
   it('fecha pelo Escape', () => {
     cy.visit('/turmas')
+    tour().should('be.visible')
 
     cy.get('body').type('{esc}')
 

@@ -21,7 +21,7 @@ describe('estados vazios', () => {
   })
 
   it('distingue busca sem resultado de sistema vazio', () => {
-    cy.get('input[type="search"]').type('zzzz')
+    cy.get('[aria-label="Buscar turmas"]').type('zzzz')
 
     cy.contains('h3', 'Nenhuma turma encontrada').should('be.visible')
     cy.contains('button', 'Limpar busca').should('be.visible')
@@ -30,7 +30,7 @@ describe('estados vazios', () => {
   })
 
   it('volta à lista ao limpar a busca pelo próprio estado vazio', () => {
-    cy.get('input[type="search"]').type('zzzz')
+    cy.get('[aria-label="Buscar turmas"]').type('zzzz')
     cy.contains('button', 'Limpar busca').click()
 
     cy.contains('Cálculo I — Noturno').should('be.visible')

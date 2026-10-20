@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ClipboardList, FileText, GraduationCap, Library, ScanLine } from 'lucide-react'
+import { ClipboardList, FileText, GraduationCap, Library } from 'lucide-react'
 import {
   ApplicationsIllustration,
   Card,
@@ -10,7 +10,8 @@ import {
 } from '@/components/ui'
 import { buildPath, ROUTES } from '@/app/routes'
 import { formatDate } from '@/lib/utils'
-import { useDashboardSummary } from '../hooks/useDashboard'
+import { GradingShortcut } from '../components/GradingShortcut'
+import { EMPTY_SUMMARY, useDashboardSummary, type DashboardSummary, type RecentActivity } from '../hooks/useDashboard'
 
 /**
  * Every main action within three clicks of here, which is what RNF06 asks.
@@ -28,6 +29,7 @@ const QUICK_ACTIONS = [
 
 export function DashboardPage() {
   const { data, isPending, isError } = useDashboardSummary()
+  const summary = data ?? EMPTY_SUMMARY
 
   return (
     <div className="flex flex-col gap-6">
@@ -40,80 +42,80 @@ export function DashboardPage() {
       <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando o painel…">
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-4 lg:col-span-2">
-            <div data-tour="summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <SummaryCard label="Turmas" value={data?.classes ?? 0} to={ROUTES.classes} />
-              <SummaryCard label="Questões" value={data?.questions ?? 0} to={ROUTES.questions} />
-              <SummaryCard label="Provas" value={data?.exams ?? 0} to={ROUTES.exams} />
-              <SummaryCard
-                label="Aplicações"
-                value={data?.applications ?? 0}
-                to={ROUTES.applications}
-              />
-            </div>
-
-            <Card data-tour="recent">
-              <div className="border-b border-line px-5 py-4">
-                <h2 className="text-title text-primary">Atividade recente</h2>
-              </div>
-              {(data?.recent.length ?? 0) === 0 ? (
-                <EmptyState
-                  illustration={<ApplicationsIllustration />}
-                  title="Nada aconteceu ainda"
-                  description="Quando você aplicar uma prova a uma turma, as últimas aplicações aparecem aqui."
-                />
-              ) : (
-                <ul className="divide-y divide-line">
-                  {data?.recent.map((activity) => (
-                    <li key={activity.id}>
-                      <Link
-                        to={buildPath(ROUTES.applicationDetail, { id: activity.id })}
-                        className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-surface-muted"
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate text-body text-ink">{activity.title}</span>
-                          <span className="block text-caption text-ink-subtle">
-                            {activity.detail}
-                          </span>
-                        </span>
-                        <span className="shrink-0 text-caption text-ink-subtle">
-                          {formatDate(activity.date)}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
+            <SummaryCards summary={summary} />
+            <RecentActivityCard recent={summary.recent} />
           </div>
-
-          <Card data-tour="quick-actions" className="flex h-fit flex-col gap-2 p-5">
-            <h2 className="text-title text-primary">Ações rápidas</h2>
-            <p className="mb-2 text-caption text-ink-subtle">
-              Tudo que você faz com frequência, a um clique.
-            </p>
-            {QUICK_ACTIONS.map(({ to, label, Icon }) => (
-              <Link
-                key={to}
-                to={to}
-                className="touch-target flex items-center gap-3 rounded-[var(--radius-control)] border border-line px-3 text-body text-ink hover:border-primary hover:bg-surface-muted"
-              >
-                <Icon size={18} aria-hidden className="text-primary" />
-                {label}
-              </Link>
-            ))}
-            <Link
-              to={ROUTES.applications}
-              className="touch-target mt-2 flex items-center gap-3 rounded-[var(--radius-control)] bg-accent px-3 text-label text-on-accent hover:bg-accent-hover"
-            >
-              <ScanLine size={18} aria-hidden />
-              Corrigir folhas
-            </Link>
-          </Card>
+          <QuickActions gradable={summary.gradable} />
         </div>
       </QueryBoundary>
 
-      <Tour screen="dashboard" ready={(data?.classes ?? 0) > 0} />
+      <Tour screen="dashboard" ready={summary.classes > 0} />
     </div>
+  )
+}
+
+function SummaryCards({ summary }: Readonly<{ summary: DashboardSummary }>) {
+  return (
+    <div data-tour="summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <SummaryCard label="Turmas" value={summary.classes} to={ROUTES.classes} />
+      <SummaryCard label="Questões" value={summary.questions} to={ROUTES.questions} />
+      <SummaryCard label="Provas" value={summary.exams} to={ROUTES.exams} />
+      <SummaryCard label="Aplicações" value={summary.applications} to={ROUTES.applications} />
+    </div>
+  )
+}
+
+function RecentActivityCard({ recent }: Readonly<{ recent: readonly RecentActivity[] }>) {
+  return (
+    <Card data-tour="recent">
+      <div className="border-b border-line px-5 py-4">
+        <h2 className="text-title text-primary">Atividade recente</h2>
+      </div>
+      {recent.length === 0 ? (
+        <EmptyState
+          illustration={<ApplicationsIllustration />}
+          title="Nada aconteceu ainda"
+          description="Quando você aplicar uma prova a uma turma, as últimas aplicações aparecem aqui."
+        />
+      ) : (
+        <ul className="divide-y divide-line">
+          {recent.map((activity) => (
+            <li key={activity.id}>
+              <Link
+                to={buildPath(ROUTES.applicationDetail, { id: activity.id })}
+                className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-surface-muted"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-body text-ink">{activity.title}</span>
+                  <span className="block text-caption text-ink-subtle">{activity.detail}</span>
+                </span>
+                <span className="shrink-0 text-caption text-ink-subtle">{formatDate(activity.date)}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+function QuickActions({ gradable }: Readonly<{ gradable: readonly RecentActivity[] }>) {
+  return (
+    <Card data-tour="quick-actions" className="flex h-fit flex-col gap-2 p-5">
+      <h2 className="text-title text-primary">Ações rápidas</h2>
+      <p className="mb-2 text-caption text-ink-subtle">Tudo que você faz com frequência, a um clique.</p>
+      {QUICK_ACTIONS.map(({ to, label, Icon }) => (
+        <Link
+          key={to}
+          to={to}
+          className="touch-target flex items-center gap-3 rounded-[var(--radius-control)] border border-line px-3 text-body text-ink hover:border-primary hover:bg-surface-muted"
+        >
+          <Icon size={18} aria-hidden className="text-primary" />
+          {label}
+        </Link>
+      ))}
+      <GradingShortcut gradable={gradable} />
+    </Card>
   )
 }
 

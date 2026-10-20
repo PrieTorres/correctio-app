@@ -80,6 +80,11 @@ export interface ReadSheetsInput {
  * the grading, the status, and the fact that nothing is final until the teacher
  * confirms it on the review screen.
  */
+/** A sheet read again keeps the correction it already had, so its id and the app's key never change. */
+function identityOf(existing: Correction | null): Pick<Correction, 'id' | 'clientCorrectionId'> {
+  return existing === null ? { id: createId(), clientCorrectionId: createId() } : { id: existing.id, clientCorrectionId: existing.clientCorrectionId };
+}
+
 export function useReadSheets() {
   const { repositories, auth } = useServices();
   const invalidate = useInvalidateGrading();
@@ -124,7 +129,7 @@ export function useReadSheets() {
 
         saved.push(
           await repositories.corrections.save({
-            id: existing?.id ?? createId(),
+            ...identityOf(existing),
             examVersionId: version.id,
             answerSheetId: sheet.id,
             ...(sheet.studentId === undefined ? {} : { studentId: sheet.studentId }),
@@ -136,6 +141,7 @@ export function useReadSheets() {
             confirmedAt: new Date().toISOString(),
             correctedBy: teacher.id,
             isAutomaticallyAssigned: sheet.studentId !== undefined,
+            syncStatus: 'synced',
           }),
         );
       }

@@ -396,7 +396,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - “+ Nova turma” → P4
 - “+ Nova prova” → P9
 - “+ Nova aplicação” → P12
-- “Corrigir provas” → P11 (escolher a aplicação) → P15
+- “Corrigir provas” (na tela, “Corrigir folhas”) → P15 da aplicação gerada. Com mais de uma aplicação gerada, um diálogo lista prova, turma e data, da mais recente para a mais antiga, e a escolha leva à P15 dela. Sem nenhuma, o diálogo explica que as folhas saem de uma aplicação gerada e oferece “+ Nova aplicação” (→ P12)
 
 #### P2. Meu perfil
 
