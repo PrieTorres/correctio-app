@@ -32,6 +32,8 @@ function correction(id: string): Correction {
     confirmedAt: '2026-10-06T13:00:00.000Z',
     correctedBy: 'ana',
     isAutomaticallyAssigned: true,
+    clientCorrectionId: `client-${id}`,
+    syncStatus: 'synced',
   }
 }
 

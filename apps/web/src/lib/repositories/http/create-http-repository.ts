@@ -43,7 +43,7 @@ function withoutNulls(raw: unknown): unknown {
  * data. A record that fails is an error, never a silent drop: an item vanishing
  * from a list is worse than a message saying something went wrong.
  */
-function parseEntity<TEntity>(schema: z.ZodType<TEntity>, raw: unknown): TEntity {
+export function parseEntity<TEntity>(schema: z.ZodType<TEntity>, raw: unknown): TEntity {
   const clean = withoutNulls(raw)
   const result = schema.safeParse(clean)
   if (!result.success) throw new StorageError(UNEXPECTED_RESPONSE, 'failure', { cause: result.error })
@@ -55,7 +55,7 @@ function isPagePayload(raw: unknown): raw is { items: unknown[]; total: number }
   return 'items' in raw && Array.isArray(raw.items) && 'total' in raw && typeof raw.total === 'number'
 }
 
-function parsePage<TEntity>(schema: z.ZodType<TEntity>, raw: unknown): Page<TEntity> {
+export function parsePage<TEntity>(schema: z.ZodType<TEntity>, raw: unknown): Page<TEntity> {
   if (!isPagePayload(raw)) throw new StorageError(UNEXPECTED_RESPONSE, 'failure')
   return { items: raw.items.map((item) => parseEntity(schema, item)), total: raw.total }
 }

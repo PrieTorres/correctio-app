@@ -65,7 +65,7 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 | Merge da release do dia em `main`, pela PM | publica só o front no **GitHub Pages** (`pages.yml`), como demo: build com `VITE_DEMO_MODE`, sem API nem banco, com dados de exemplo; fecha as issues do dia |
 | "1. Pre-release: publish to pre-production" (`preview.yml`), sob demanda | a **pré-versão do dia**: publica a `release/AAAA-MM-DD` no link fixo da **pré-produção** (`https://correctio-app-preview.web.app`), depois da aprovação da PM. Outra branch, pelo nome ou pelo número do PR, ganha um link próprio que expira em 7 dias e é comentado no PR; ficam só os 10 mais recentes |
 | "2. Release: publish to production" (`release.yml`) | a **versão oficial**: portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
-| A cada 6 horas (`keep-alive.yml`) | chama o `/api/health` da produção. O plano gratuito do Aiven desliga o banco depois de 24 horas sem consulta, e a produção cai junto; uma execução que falha avisa por e-mail que a produção está respondendo 503 |
+| A cada 6 horas (`keep-alive.yml`) | chama o `/api/health` da produção, para o banco ter atividade. O plano gratuito do Aiven pode desligar o banco por inatividade, sem prazo definido, e a produção cai junto; isso reduz o risco, mas não o elimina (ADR-001). Uma execução que falha avisa por e-mail que a produção está respondendo 503 |
 | "Rollback: republish a released version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada, também com aprovação da PM: o caminho de volta quando uma release dá errado |
 
 **Só a PM publica, na pré e na produção.** Qualquer pessoa do time pode iniciar os workflows, mas o
@@ -112,8 +112,12 @@ porque quem os cobre é o Cypress.
 **O Cypress precisa da aplicação servida.** Não adianta rodar contra o código-fonte: sobe o build de produção, espera a porta responder, roda os testes, derruba. Rodar contra o servidor de desenvolvimento esconde justamente os problemas que só aparecem no build. Os jobs do Cypress e da jornada também sobem um MySQL e a API (`.github/actions/start-api`), e o `vite preview` encaminha `/api` para ela, como o Hosting faz no Firebase.
 
 **Cada teste do Cypress entra como um professor novo.** O `cypress/support/e2e.ts` cadastra um
-professor na API antes de cada teste e grava os dados de exemplo para ele, então o build testado é
-o mesmo de produção, sem demo. O demo do GitHub Pages tem um build próprio e um spec próprio
+professor na API antes de cada teste e prepara os dados de exemplo para ele, então o build testado é
+o mesmo de produção, sem demo. O que já vive na API é criado nela: as turmas e os alunos de exemplo
+são cadastrados pelas rotas da #41, e o resto do exemplo, ainda no navegador, aponta para os ids que
+a API devolveu (`signInAsNewTeacher`, em `cypress/support/commands.ts`). Como cada teste usa um
+professor próprio, os limites da API contados por professor, como o de 10 importações por hora, nunca
+se acumulam entre testes. O demo do GitHub Pages tem um build próprio e um spec próprio
 (`cypress/demo`), que o job de E2E roda em seguida com `npm run test:e2e:demo`.
 
 **O Sonar precisa do histórico completo.** O checkout padrão traz um commit só, e sem histórico o Sonar não consegue identificar o que é código novo — o portão passa a avaliar o repositório inteiro e reprova tudo. Precisa de checkout com histórico completo.

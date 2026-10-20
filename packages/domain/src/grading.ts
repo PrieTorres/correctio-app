@@ -1,4 +1,16 @@
-import type { DiscursiveScore, Exam, ObjectiveResult, Question } from '@/types/domain'
+import { CORRECTION_STATUS, type CorrectionStatus, type DiscursiveScore, type ExamQuestion, type Id, type ObjectiveResult, type Question } from './domain'
+
+/**
+ * What grading reads of an exam: each question's place and weight. Narrower
+ * than `Exam`, so the API can grade from the rows it loads without building a
+ * whole exam it does not need.
+ */
+export interface GradedExam {
+  questions: readonly Pick<ExamQuestion, 'questionId' | 'order' | 'score'>[]
+}
+
+/** What grading reads of a question: its kind and, for a multiple-choice one, the right alternative. */
+export type GradedQuestion = Pick<Question, 'id' | 'type' | 'correctAlternativeId'>
 
 export interface MarkedAnswer {
   questionId: string
@@ -23,8 +35,8 @@ export interface GradedObjectives {
  * can be worth different points in different exams.
  */
 export function gradeObjectives(
-  exam: Exam,
-  bank: readonly Question[],
+  exam: GradedExam,
+  bank: readonly GradedQuestion[],
   answers: readonly MarkedAnswer[],
 ): GradedObjectives {
   const byId = new Map(bank.map((question) => [question.id, question]))
@@ -69,7 +81,7 @@ export function totalCorrectionScore(
 }
 
 /** The open-ended questions of an exam, in the order the exam puts them. */
-export function discursiveQuestionIdsOf(exam: Exam, bank: readonly Question[]): string[] {
+export function discursiveQuestionIdsOf(exam: GradedExam, bank: readonly GradedQuestion[]): string[] {
   const byId = new Map(bank.map((question) => [question.id, question]))
 
   return exam.questions
@@ -113,4 +125,21 @@ export function clampDiscursiveScore(score: number, maximum: number): number {
 
 function roundScore(value: number): number {
   return Math.round(value * 100) / 100
+}
+
+/**
+ * Decides whether a correction is finished or still waiting on the teacher.
+ *
+ * An exam without open-ended questions is done the moment the sheet is read.
+ * With them, the machine grades what it can and the correction stays open
+ * until every open-ended question carries a score — including a score of zero,
+ * which is a deliberate grade and not an absence.
+ */
+export function resolveCorrectionStatus(
+  discursiveQuestionIds: readonly Id[],
+  discursiveScores: readonly DiscursiveScore[],
+): CorrectionStatus {
+  const scored = new Set(discursiveScores.map((entry) => entry.questionId))
+  const allScored = discursiveQuestionIds.every((questionId) => scored.has(questionId))
+  return allScored ? CORRECTION_STATUS.DONE : CORRECTION_STATUS.IN_PROGRESS
 }

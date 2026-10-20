@@ -1,10 +1,15 @@
-export { resolveCorrectionStatus } from './correction-status'
+/**
+ * The grading rules live in `@correctio/domain`, because the API recalculates
+ * every grade the screens show (#47). They are re-exported here so the screens
+ * keep importing from where they always did.
+ */
 export {
-  gradeObjectives,
-  totalCorrectionScore,
-  discursiveQuestionIdsOf,
   clampDiscursiveScore,
+  discursiveQuestionIdsOf,
+  gradeObjectives,
+  resolveCorrectionStatus,
+  totalCorrectionScore,
   withDefaultDiscursiveScores,
-} from './score'
-export type { MarkedAnswer, GradedObjectives } from './score'
+} from '@correctio/domain'
+export type { GradedObjectives, MarkedAnswer } from '@correctio/domain'
 export { readSheet, DEMO_SHEET_IMAGES } from './read-sheet'

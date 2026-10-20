@@ -2,9 +2,11 @@ import { Router, type RequestHandler } from 'express'
 import type { Kysely } from 'kysely'
 import type { AuthController } from '../controllers/auth-controller'
 import type { FieldCipher } from '../lib/field-encryption'
+import type { FileStorage } from '../lib/file-storage'
 import type { AuthLimits } from '../middlewares/rate-limit'
 import type { Database } from '../models/tables'
 import type { HealthService } from '../services/health-service'
+import { applicationRoutes } from './application-routes'
 import { meRoutes, publicAuthRoutes, signedInAuthRoutes } from './auth-routes'
 import { classRoutes } from './class-routes'
 import { healthRoutes } from './health-routes'
@@ -14,6 +16,7 @@ export interface RouteDependencies {
   healthService: HealthService
   db: Kysely<Database>
   fieldCipher: FieldCipher
+  fileStorage: FileStorage
   /** Counts refused tokens per address, ahead of the gate, against guessing. */
   failedAuthLimit: RequestHandler
   requireAuth: RequestHandler
@@ -35,6 +38,7 @@ export function createRouter({
   healthService,
   db,
   fieldCipher,
+  fileStorage,
   failedAuthLimit,
   requireAuth,
   teacherLimit,
@@ -54,6 +58,7 @@ export function createRouter({
   }
   router.use('/questions', questionRoutes(db))
   router.use('/classes', classRoutes({ db, fieldCipher, expensiveLimit }))
+  router.use('/applications', applicationRoutes({ db, fileStorage }))
 
   return router
 }

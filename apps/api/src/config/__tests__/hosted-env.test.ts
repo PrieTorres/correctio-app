@@ -39,11 +39,17 @@ describe('hostedEnvSource', () => {
     expect(env.TRUST_PROXY_HOPS).toBe(2)
   })
 
-  it('cannot be turned into development or a connection without the certificate check', () => {
-    const source = hostedEnvSource({ GCLOUD_PROJECT: 'correctio-app', NODE_ENV: 'development', DATABASE_TLS: 'local' })
+  it('cannot be turned into development, a connection without the certificate check or files on disk', () => {
+    const source = hostedEnvSource({
+      GCLOUD_PROJECT: 'correctio-app',
+      NODE_ENV: 'development',
+      DATABASE_TLS: 'local',
+      FILE_STORAGE: 'local',
+    })
 
     expect(source.NODE_ENV).toBe('production')
     expect(source.DATABASE_TLS).toBe('verify')
+    expect(source.FILE_STORAGE).toBe('firebase')
   })
 
   it('refuses to start without the secrets production requires', () => {

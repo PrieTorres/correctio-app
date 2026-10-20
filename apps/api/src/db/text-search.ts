@@ -28,6 +28,23 @@ export function anyColumnContains(columns: readonly string[], term: string): Raw
   return sql<SqlBool>`(${sql.join(matches, OR_SEPARATOR)})`
 }
 
+/** How a teacher types a day: as the screens print it, and as the date field of the form writes it. */
+const DAY_FORMATS = ['%d/%m/%Y', '%Y-%m-%d'] as const
+
+/**
+ * True when the day of `column` contains `term`, written either way of
+ * `DAY_FORMATS`, so "05/10" and "2026-10" both find the 5th of October. The
+ * day is read in UTC, the zone of the connection, and the form stores noon UTC
+ * of the day picked (`fromDateInputValue` in the web app), so it is that day.
+ */
+export function dayContains(column: string, term: string): RawBuilder<SqlBool> {
+  const pattern = containsPattern(term)
+  const matches = DAY_FORMATS.map(
+    (format) => sql<SqlBool>`DATE_FORMAT(${sql.ref(column)}, ${format}) LIKE ${pattern} ESCAPE ${sql.lit(LIKE_ESCAPE)}`,
+  )
+  return sql<SqlBool>`(${sql.join(matches, OR_SEPARATOR)})`
+}
+
 /**
  * Equal ignoring accents, case and the spaces around, the identity rule of
  * `requireUnique` in the web app: "Cálculo I " and "calculo i" are one class.

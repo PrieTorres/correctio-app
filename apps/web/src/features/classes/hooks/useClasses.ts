@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
 import type { ClassInput, StudentInput } from '@/lib/schemas';
 
@@ -11,17 +11,26 @@ import type { ClassInput, StudentInput } from '@/lib/schemas';
  */
 export const classKeys = {
   all: ['classes'] as const satisfies QueryKey,
-  list: (archived: boolean, search: string) => ['classes', 'list', { archived, search }] as const,
+  list: (archived: boolean, search: string, page = 1) => ['classes', 'list', { archived, search, page }] as const,
   detail: (id: string) => ['classes', 'detail', id] as const,
   students: (classId: string) => ['classes', classId, 'students'] as const,
 };
 
-export function useClassList(archived: boolean, search: string) {
+/** One page of the list, as the API serves it; the screen pages beyond it. */
+export const CLASS_PAGE_SIZE = 50;
+
+/**
+ * Search and paging run on the server, so each term and page is a request.
+ * While the next one loads, the list keeps showing the last answer instead of
+ * blinking into the loading state on every page turn.
+ */
+export function useClassList(archived: boolean, search: string, page = 1) {
   const { repositories } = useServices();
 
   return useQuery({
-    queryKey: classKeys.list(archived, search),
-    queryFn: () => repositories.classes.list({ archived: archived, search }),
+    queryKey: classKeys.list(archived, search, page),
+    queryFn: () => repositories.classes.list({ archived, search, page, pageSize: CLASS_PAGE_SIZE }),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -51,6 +60,12 @@ function useInvalidateClasses() {
   return () => queryClient.invalidateQueries({ queryKey: classKeys.all });
 }
 
+/** Every change to a class's students refreshes that class's list, and nothing else. */
+function useInvalidateStudents(classId: string) {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: classKeys.students(classId) });
+}
+
 export function useSaveClass() {
   const { repositories } = useServices();
   const invalidate = useInvalidateClasses();
@@ -78,11 +93,26 @@ export function useArchiveClass() {
 
 export function useAddStudent(classId: string) {
   const { repositories } = useServices();
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateStudents(classId);
 
   return useMutation({
     mutationFn: (input: StudentInput) => repositories.students.add(classId, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: classKeys.students(classId) }),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * The pasted list, written in one request. The answer counts what came in and
+ * what was skipped because the registration was already in the class, and the
+ * import screen shows both.
+ */
+export function useImportStudents(classId: string) {
+  const { repositories } = useServices();
+  const invalidate = useInvalidateStudents(classId);
+
+  return useMutation({
+    mutationFn: (rows: StudentInput[]) => repositories.students.importMany(classId, rows),
+    onSuccess: invalidate,
   });
 }
 
@@ -90,13 +120,13 @@ export type StudentAction = 'remove' | 'anonymize';
 
 export function useStudentAction(classId: string) {
   const { repositories } = useServices();
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateStudents(classId);
 
   return useMutation({
     mutationFn: ({ id, action }: { id: string; action: StudentAction }) =>
       action === 'remove'
-        ? repositories.students.remove(id)
-        : repositories.students.anonymize(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: classKeys.students(classId) }),
+        ? repositories.students.remove(classId, id)
+        : repositories.students.anonymize(classId, id),
+    onSuccess: invalidate,
   });
 }

@@ -1,15 +1,15 @@
 export interface PageBlock {
   /** Identifies what was laid out, so the caller can render it. */
-  id: string
+  id: string;
   /** In the same unit as the usable page height. */
-  height: number
+  height: number;
 }
 
 export interface PaginationResult {
   /** Blocks per page, in order. A blank page is an empty array. */
-  pages: PageBlock[][]
+  pages: PageBlock[][];
   /** Set when a page was added only to keep the total even. */
-  blankPageAdded: boolean
+  blankPageAdded: boolean;
 }
 
 /**
@@ -25,41 +25,42 @@ export interface PaginationResult {
  * last page of this one.
  *
  * Kept free of any PDF concern on purpose: it takes heights and gives back a
- * distribution, so the rule can be tested without rendering anything. The
- * renderer that arrives in N2 measures the blocks and calls this.
+ * distribution, so the rule can be tested without rendering anything. It lives
+ * in the shared package because the API prints the exam (#46) and measures the
+ * blocks before calling it.
  */
 export function paginate(
   blocks: readonly PageBlock[],
   usablePageHeight: number,
 ): PaginationResult {
-  if (usablePageHeight <= 0) return { pages: [], blankPageAdded: false }
+  if (usablePageHeight <= 0) return { pages: [], blankPageAdded: false };
 
-  const pages: PageBlock[][] = []
-  let current: PageBlock[] = []
-  let remaining = usablePageHeight
+  const pages: PageBlock[][] = [];
+  let current: PageBlock[] = [];
+  let remaining = usablePageHeight;
 
   for (const block of blocks) {
-    const fits = block.height <= remaining
+    const fits = block.height <= remaining;
 
     if (!fits && current.length > 0) {
-      pages.push(current)
-      current = []
-      remaining = usablePageHeight
+      pages.push(current);
+      current = [];
+      remaining = usablePageHeight;
     }
 
-    current.push(block)
-    remaining -= block.height
+    current.push(block);
+    remaining -= block.height;
   }
 
-  if (current.length > 0) pages.push(current)
+  if (current.length > 0) pages.push(current);
 
   /**
    * A block taller than a whole page still occupies one of its own: refusing
    * to place it would drop a question from the exam, which is worse than a
    * page that overflows and can be seen and fixed.
    */
-  const blankPageAdded = pages.length > 0 && pages.length % 2 === 1
-  if (blankPageAdded) pages.push([])
+  const blankPageAdded = pages.length > 0 && pages.length % 2 === 1;
+  if (blankPageAdded) pages.push([]);
 
-  return { pages, blankPageAdded }
+  return { pages, blankPageAdded };
 }
