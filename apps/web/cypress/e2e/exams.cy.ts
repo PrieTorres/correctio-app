@@ -270,8 +270,20 @@ describe('geração automática', () => {
    * The screen opens straight into this dialog, so it is normally on screen
    * before the bank has arrived. Drawing then finds nothing and blames the
    * bank for being short, which is the one thing that is not true.
+   *
+   * The bank comes from the API, which on the same machine answers before the
+   * first check, so its answer is held back here: the test needs the moment
+   * before it arrives to exist on every run.
    */
   it('não deixa sortear enquanto o banco não chegou', () => {
+    cy.intercept({ method: 'GET', pathname: '/api/questions' }, (req) => {
+      req.on('response', (res) => {
+        res.setDelay(1500)
+      })
+    })
+    cy.visit('/provas')
+    cy.contains('a', 'Gerar automaticamente').click()
+
     cy.findInDialog('button', 'Gerar seleção').should('be.disabled')
 
     cy.contains('questões disponíveis com estes filtros').should('be.visible')

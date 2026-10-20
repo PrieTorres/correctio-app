@@ -145,3 +145,132 @@ describe('question repository, order', () => {
     expect(items[items.length - 1]?.id).toBe('legacy')
   })
 })
+
+describe('question repository, server-side filters', () => {
+  beforeEach(clearAllCollections)
+
+  const question = (statement: string, type: 'objetiva' | 'discursiva') =>
+    type === 'objetiva'
+      ? {
+          type,
+          statement,
+          tags: [] as string[],
+          alternatives: [
+            { id: `${statement}-a`, text: 'uma' },
+            { id: `${statement}-b`, text: 'outra' },
+          ],
+          correctAlternativeId: `${statement}-a`,
+          allowShuffleAlternatives: true,
+        }
+      : {
+          type,
+          statement,
+          tags: [] as string[],
+          maxScore: 2,
+          allowShuffleAlternatives: false,
+        }
+
+  /**
+   * The bug this test was written against: with pagination running on the
+   * server, filtering the page in the browser hid records that lived past the
+   * first page. A discursive question is invisible in a listing whose first
+   * page happens to be all objective ones if the filter runs after the slice.
+   *
+   * With the filter running before pagination, the discursive question is the
+   * only one in the listing and the total is 1 regardless of how many pages of
+   * objective questions exist.
+   */
+  it('finds a discursive question that lives past the first page of objectives', async () => {
+    const repository = createLocalQuestionRepository('ana')
+    await repository.create(question('Objetiva 1', 'objetiva'))
+    await repository.create(question('Objetiva 2', 'objetiva'))
+    await repository.create(question('Objetiva 3', 'objetiva'))
+    await repository.create(question('Discursiva 1', 'discursiva'))
+
+    const page = await repository.list({ type: 'discursiva', pageSize: 2 })
+
+    expect(page.total).toBe(1)
+    expect(page.items).toHaveLength(1)
+    expect(page.items[0]?.statement).toBe('Discursiva 1')
+  })
+
+  it('filters by tag, keeping only questions that carry every chosen tag', async () => {
+    const repository = createLocalQuestionRepository('ana')
+    await repository.create({
+      ...question('Tem matemática', 'objetiva'),
+      tags: ['matemática'],
+    })
+    await repository.create({
+      ...question('Tem matemática e álgebra', 'objetiva'),
+      tags: ['matemática', 'álgebra'],
+    })
+
+    const both = await repository.list({ tags: ['matemática', 'álgebra'] })
+    expect(both.total).toBe(1)
+    expect(both.items[0]?.statement).toBe('Tem matemática e álgebra')
+
+    const one = await repository.list({ tags: ['matemática'] })
+    expect(one.total).toBe(2)
+  })
+
+  it('filters by onlyUntagged', async () => {
+    const repository = createLocalQuestionRepository('ana')
+    await repository.create({ ...question('Com tag', 'objetiva'), tags: ['qualquer'] })
+    await repository.create(question('Sem tag', 'objetiva'))
+
+    const untagged = await repository.list({ onlyUntagged: true })
+    expect(untagged.total).toBe(1)
+    expect(untagged.items[0]?.statement).toBe('Sem tag')
+  })
+
+  it('sorts by statement when asked, before paginating', async () => {
+    const repository = createLocalQuestionRepository('ana')
+    await repository.create(question('Zebra', 'objetiva'))
+    await repository.create(question('Abacaxi', 'objetiva'))
+    await repository.create(question('Manga', 'objetiva'))
+
+    const page = await repository.list({ sort: 'statement', pageSize: 2 })
+    expect(page.items.map((q) => q.statement)).toEqual(['Abacaxi', 'Manga'])
+    expect(page.total).toBe(3)
+  })
+
+  it('pages without dropping records when a filter narrows the listing', async () => {
+    const repository = createLocalQuestionRepository('ana')
+    for (let i = 1; i <= 5; i += 1) {
+      await repository.create(question(`Objetiva ${i}`, 'objetiva'))
+    }
+    await repository.create(question('Discursiva', 'discursiva'))
+
+    const page1 = await repository.list({ type: 'objetiva', page: 1, pageSize: 2 })
+    expect(page1.items).toHaveLength(2)
+    expect(page1.total).toBe(5)
+
+    const page3 = await repository.list({ type: 'objetiva', page: 3, pageSize: 2 })
+    expect(page3.items).toHaveLength(1)
+    expect(page3.total).toBe(5)
+  })
+
+  it('reports every tag in use by the teacher, without repetition', async () => {
+    const repository = createLocalQuestionRepository('ana')
+    await repository.create({
+      ...question('A', 'objetiva'),
+      tags: ['álgebra', 'matemática'],
+    })
+    await repository.create({ ...question('B', 'objetiva'), tags: ['matemática'] })
+
+    const tags = await repository.tags()
+    expect(tags).toEqual(['álgebra', 'matemática'])
+  })
+
+  it('leaves out another teacher when collecting tags', async () => {
+    const ana = createLocalQuestionRepository('ana')
+    const bruno = createLocalQuestionRepository('bruno')
+    await bruno.create({
+      ...question('Do Bruno', 'objetiva'),
+      tags: ['particular-do-bruno'],
+    })
+
+    const tags = await ana.tags()
+    expect(tags).toEqual([])
+  })
+})

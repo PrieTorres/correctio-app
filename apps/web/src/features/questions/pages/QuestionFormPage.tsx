@@ -6,9 +6,11 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import {
   Button,
   Card,
+  EmptyState,
   PageHeader,
   QueryBoundary,
   SaveError,
+  SearchIllustration,
   SegmentedControl,
   TextField,
   Tour,
@@ -42,9 +44,10 @@ function blankAlternative() {
  * the stored schema refuses a blank alternative — so the record was written and
  * then never read back again.
  *
- * The unwanted fields are set to `undefined` rather than omitted, so that
- * editing a question into the other type clears them instead of leaving the
- * previous ones behind on the merge.
+ * The unwanted fields are set to `undefined` so they are not sent in the body.
+ * The local schema rejects `null` on these fields; the API only needs the
+ * absence of the key. When editing, the HTTP adapter converts `undefined`
+ * back to `null` so the server clears the old values.
  */
 function onlyFieldsOfItsType(input: QuestionInput): QuestionInput {
   return input.type === 'discursiva'
@@ -78,12 +81,38 @@ function hasAlternatives(stored: Question | null | undefined): boolean {
  * The filled letter is the whole point of the card: which option is the answer
  * has to be readable at a glance while scrolling past five of them, not
  * inferred from a 16px dot.
+ *
+ * Keeps the routing and the two "not found" branches, and hands the actual
+ * form to `QuestionFormBody` so the complexity stays per function.
  */
 export function QuestionFormPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>()
+  const isNew = id === 'nova'
+  const { data: existing, isPending, isError } = useQuestion(isNew ? undefined : id)
+
+  const notFound = id !== undefined && !isNew && !isPending && !isError && existing === null
+
+  return (
+    <QueryBoundary
+      isPending={id !== undefined && !isNew && isPending}
+      isError={isError}
+      pendingLabel="Carregando questão…"
+    >
+      {notFound ? (
+        <QuestionNotFound />
+      ) : (
+        <QuestionFormBody id={isNew ? undefined : id} existing={existing} />
+      )}
+    </QueryBoundary>
+  )
+}
+
+function QuestionFormBody({
+  id,
+  existing,
+}: Readonly<{ id: string | undefined; existing: Question | null | undefined }>) {
   const navigate = useNavigate();
   const save = useSaveQuestion();
-  const { data: existing, isPending, isError } = useQuestion(id);
 
   const form = useForm<QuestionInput>({
     resolver: zodResolver(questionInputSchema),
@@ -130,114 +159,196 @@ export function QuestionFormPage() {
   };
 
   return (
-    <QueryBoundary
-      isPending={id !== undefined && isPending}
-      isError={isError}
-      pendingLabel="Carregando questão…"
-    >
-      <div className="flex flex-col gap-6">
-        <Link
-          to={ROUTES.questions}
-          className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-        >
-          <ArrowLeft size={16} aria-hidden />
-          Banco de questões
-        </Link>
+    <div className="flex flex-col gap-6">
+      <Link
+        to={ROUTES.questions}
+        className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
+      >
+        <ArrowLeft size={16} aria-hidden />
+        Banco de questões
+      </Link>
 
-        <PageHeader help
-          title={id === undefined ? 'Nova questão' : 'Editar questão'}
-          description="A questão fica no banco e pode ser usada em quantas provas você quiser."
-        />
+      <PageHeader
+        help
+        title={id === undefined ? 'Nova questão' : 'Editar questão'}
+        description="A questão fica no banco e pode ser usada em quantas provas você quiser."
+      />
 
-        <form onSubmit={(event) => void handleSubmit(onSubmit)(event)} noValidate>
-          <Card className="flex flex-col gap-6 p-6">
-            <SegmentedControl
-              label="Tipo da questão"
-              segments={TYPE_SEGMENTS}
-              value={type}
-              onChange={(next) => setValue('type', next, { shouldValidate: false })}
-            />
+      <form onSubmit={(event) => void handleSubmit(onSubmit)(event)} noValidate>
+        <Card className="flex flex-col gap-6 p-6">
+          <SegmentedControl
+            label="Tipo da questão"
+            segments={TYPE_SEGMENTS}
+            value={type}
+            onChange={(next) => setValue('type', next, { shouldValidate: false })}
+          />
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="statement" className="text-label text-ink-muted">
-                Enunciado
-              </label>
-              <textarea
-                id="statement"
-                rows={5}
-                aria-invalid={errors.statement ? true : undefined}
-                className="rounded-[var(--radius-control)] border border-line bg-surface p-3 text-body focus:outline-none focus-visible:border-primary"
-                {...register('statement')}
-              />
-              {errors.statement && (
-                <p role="alert" className="text-caption text-danger">
-                  {errors.statement.message}
-                </p>
-              )}
-            </div>
+          <StatementField register={register} error={errors.statement?.message} />
 
-            <TagField value={tags} onChange={(next) => setValue('tags', next)} />
+          <TagField value={tags} onChange={(next) => setValue('tags', next)} />
 
-            {type === 'objetiva' ? (
-              <AlternativesField
-                fields={alternatives.fields}
-                correctAlternativeId={correctAlternativeId}
-                error={fieldArrayMessage(errors.alternatives) ?? errors.correctAlternativeId?.message}
-                register={register}
-                onAdd={() => alternatives.append(blankAlternative())}
-                onRemove={(index) => alternatives.remove(index)}
-                onMarkCorrect={(alternativeId) => setValue('correctAlternativeId', alternativeId)}
-              />
-            ) : (
-              <section className="flex flex-col gap-3 rounded-[var(--radius-control)] border border-line bg-surface-muted p-4">
-                <div>
-                  <h2 className="text-title text-primary">Resposta discursiva</h2>
-                  <p className="mt-1 text-caption text-ink-subtle">
-                    Sem alternativas e sem gabarito: o sistema corrige as objetivas sozinho e deixa
-                    esta para você atribuir a nota na tela de correção.
-                  </p>
-                </div>
-                <div className="max-w-48">
-                  <TextField
-                    label="Nota máxima"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    error={errors.maxScore?.message}
-                    {...register('maxScore', {
-                      /**
-                       * `valueAsNumber` turns an empty field into `NaN`, which
-                       * is a number as far as the schema is concerned: the
-                       * friendly message never fired and Zod's own "received
-                       * nan" reached the screen in English. Empty means absent.
-                       */
-                      setValueAs: (value: string) => (value === '' ? undefined : Number(value)),
-                    })}
-                  />
-                </div>
-              </section>
-            )}
+          <TypeFields
+            type={type}
+            fields={alternatives.fields}
+            correctAlternativeId={correctAlternativeId}
+            error={fieldArrayMessage(errors.alternatives) ?? errors.correctAlternativeId?.message}
+            maxScoreError={errors.maxScore?.message}
+            register={register}
+            onAdd={() => alternatives.append(blankAlternative())}
+            onRemove={(index) => alternatives.remove(index)}
+            onMarkCorrect={(alternativeId) => setValue('correctAlternativeId', alternativeId)}
+          />
 
-            {type === 'objetiva' && <ShuffleToggle form={form} />}
-          </Card>
+          {type === 'objetiva' && <ShuffleToggle form={form} />}
+        </Card>
 
-          <div className="mt-6">
-            <SaveError error={save.error} />
-          </div>
+        <div className="mt-6">
+          <SaveError error={save.error} />
+        </div>
 
-          <div className="mt-6 flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => void navigate(ROUTES.questions)}>
-              Cancelar
-            </Button>
-            <Button variant="primary" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Salvando…' : 'Salvar questão'}
-            </Button>
-          </div>
-        </form>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="ghost" onClick={() => void navigate(ROUTES.questions)}>
+            Cancelar
+          </Button>
+          <Button variant="primary" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Salvando…' : 'Salvar questão'}
+          </Button>
+        </div>
+      </form>
 
-        <Tour screen="questionForm" ready={hasAlternatives(existing)} />
+      <Tour screen="questionForm" ready={hasAlternatives(existing)} />
+    </div>
+  );
+}
+
+function StatementField({
+  register,
+  error,
+}: Readonly<{
+  register: ReturnType<typeof useForm<QuestionInput>>['register'];
+  error?: string;
+}>) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor="statement" className="text-label text-ink-muted">
+        Enunciado
+      </label>
+      <textarea
+        id="statement"
+        rows={5}
+        aria-invalid={error ? true : undefined}
+        className="rounded-[var(--radius-control)] border border-line bg-surface p-3 text-body focus:outline-none focus-visible:border-primary"
+        {...register('statement')}
+      />
+      {error && (
+        <p role="alert" className="text-caption text-danger">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function TypeFields({
+  type,
+  fields,
+  correctAlternativeId,
+  error,
+  maxScoreError,
+  register,
+  onAdd,
+  onRemove,
+  onMarkCorrect,
+}: Readonly<{
+  type: QuestionType;
+  fields: { fieldKey: string; id: string }[];
+  correctAlternativeId: string | undefined;
+  error?: string;
+  maxScoreError?: string;
+  register: ReturnType<typeof useForm<QuestionInput>>['register'];
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  onMarkCorrect: (alternativeId: string) => void;
+}>) {
+  if (type === 'objetiva') {
+    return (
+      <AlternativesField
+        fields={fields}
+        correctAlternativeId={correctAlternativeId}
+        error={error}
+        register={register}
+        onAdd={onAdd}
+        onRemove={onRemove}
+        onMarkCorrect={onMarkCorrect}
+      />
+    );
+  }
+
+  return <DiscursiveField register={register} error={maxScoreError} />;
+}
+
+function DiscursiveField({
+  register,
+  error,
+}: Readonly<{
+  register: ReturnType<typeof useForm<QuestionInput>>['register'];
+  error?: string;
+}>) {
+  return (
+    <section className="flex flex-col gap-3 rounded-[var(--radius-control)] border border-line bg-surface-muted p-4">
+      <div>
+        <h2 className="text-title text-primary">Resposta discursiva</h2>
+        <p className="mt-1 text-caption text-ink-subtle">
+          Sem alternativas e sem gabarito: o sistema corrige as objetivas sozinho e deixa esta para
+          você atribuir a nota na tela de correção.
+        </p>
       </div>
-    </QueryBoundary>
+      <div className="max-w-48">
+        <TextField
+          label="Nota máxima"
+          type="number"
+          step="0.1"
+          min="0"
+          error={error}
+          {...register('maxScore', {
+            setValueAs: (value: string) => (value === '' ? undefined : Number(value)),
+          })}
+        />
+      </div>
+    </section>
+  );
+}
+
+/**
+ * A question can disappear from under the form for two reasons: it never
+ * existed, or it belongs to another teacher (the API answers 404 for both, so
+ * the second case does not reveal that the record exists). Either way the form
+ * is useless, and the link back is the only thing the visitor needs.
+ */
+function QuestionNotFound() {
+  return (
+    <div className="flex flex-col gap-6">
+      <Link
+        to={ROUTES.questions}
+        className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
+      >
+        <ArrowLeft size={16} aria-hidden />
+        Banco de questões
+      </Link>
+
+      <Card>
+        <EmptyState
+          illustration={<SearchIllustration />}
+          title="Questão não encontrada"
+          description="Esta questão não existe ou pertence a outro professor."
+          action={
+            <Link to={ROUTES.questions}>
+              <Button variant="primary">Voltar ao banco de questões</Button>
+            </Link>
+          }
+        />
+      </Card>
+    </div>
   );
 }
 
@@ -328,7 +439,12 @@ function AlternativesField({
       )}
 
       {fields.length < MAX_ALTERNATIVES && (
-        <Button variant="ghost" icon={<Plus size={16} aria-hidden />} onClick={onAdd} className="self-start">
+        <Button
+          variant="ghost"
+          icon={<Plus size={16} aria-hidden />}
+          onClick={onAdd}
+          className="self-start"
+        >
           Alternativa
         </Button>
       )}
