@@ -1,4 +1,4 @@
-import { sampleClasses, writeDemoData, type RemoteRoster } from '@/lib/seed'
+import { sampleClasses, sampleQuestions, writeDemoData, type RemoteRoster } from '@/lib/seed'
 import type { AuthenticatedUser, Class, Student } from '@/types/domain'
 
 /** The password of every teacher the suite signs up; long enough for the 8-character rule. */
@@ -15,6 +15,12 @@ interface NewSession {
   accessToken: string
 }
 
+/** A request to the API as the teacher just signed up. */
+function apiAs(accessToken: string) {
+  return <T>(method: Cypress.HttpMethod, path: string, body?: Cypress.RequestBody) =>
+    cy.request<T>({ method, url: `/api${path}`, body, auth: { bearer: accessToken } })
+}
+
 /**
  * Creates the sample classes and their students on the API, as the teacher
  * just signed up, and answers which id each sample class got there.
@@ -24,11 +30,10 @@ interface NewSession {
  * sheets would point at classes that do not exist. Each test signs up its own
  * teacher, so the import limit of the API, counted per teacher, is never near.
  */
-function createSampleClasses(accessToken: string): Cypress.Chainable<RemoteRoster> {
+function createSampleClasses(accessToken: string): Cypress.Chainable<Pick<RemoteRoster, 'classIds' | 'students'>> {
   const classIds: Record<string, string> = {}
   const students: Student[] = []
-  const api = <T>(method: Cypress.HttpMethod, path: string, body?: Cypress.RequestBody) =>
-    cy.request<T>({ method, url: `/api${path}`, body, auth: { bearer: accessToken } })
+  const api = apiAs(accessToken)
 
   for (const sample of sampleClasses()) {
     api<Class>('POST', '/classes', sample.input).then(({ body: created }) => {
@@ -43,7 +48,26 @@ function createSampleClasses(accessToken: string): Cypress.Chainable<RemoteRoste
     })
   }
 
-  return cy.wrap(null, { log: false }).then((): RemoteRoster => ({ classIds, students }))
+  return cy.wrap(null, { log: false }).then(() => ({ classIds, students }))
+}
+
+/**
+ * Creates the sample questions on the API and answers which id each got
+ * there. The question bank reads the API since #44, so the sample exams and
+ * the versions printed from them have to point at those ids; the
+ * alternatives keep their sample ids, which the API stores as sent.
+ */
+function createSampleQuestions(accessToken: string): Cypress.Chainable<Record<string, string>> {
+  const questionIds: Record<string, string> = {}
+  const api = apiAs(accessToken)
+
+  for (const sample of sampleQuestions()) {
+    api<{ id: string }>('POST', '/questions', sample.input).then(({ body: created }) => {
+      questionIds[sample.sampleId] = created.id
+    })
+  }
+
+  return cy.wrap(null, { log: false }).then(() => questionIds)
 }
 
 /**
@@ -52,8 +76,9 @@ function createSampleClasses(accessToken: string): Cypress.Chainable<RemoteRoste
  * the app restores the session from it on the next visit.
  *
  * The sample data is created for this teacher, so every spec starts from the
- * same populated screens the demo shows, owned by a real account: the classes
- * and students on the API, and the rest in `localStorage`, pointing at them.
+ * same populated screens the demo shows, owned by a real account: the classes,
+ * students and questions on the API, and the rest in `localStorage`, pointing
+ * at them.
  */
 Cypress.Commands.add('signInAsNewTeacher', ({ withSampleData = true }: { withSampleData?: boolean } = {}) => {
   const account = { fullName: 'Professora Ana Ribeiro', email: uniqueEmail(), password: TEST_PASSWORD }
@@ -61,10 +86,12 @@ Cypress.Commands.add('signInAsNewTeacher', ({ withSampleData = true }: { withSam
     const teacher = { ...body.user, password: TEST_PASSWORD }
     if (!withSampleData) return cy.wrap(teacher, { log: false })
 
-    return createSampleClasses(body.accessToken).then((remote) => {
-      writeDemoData(body.user.id, remote)
-      return teacher
-    })
+    return createSampleClasses(body.accessToken).then((roster) =>
+      createSampleQuestions(body.accessToken).then((questionIds) => {
+        writeDemoData(body.user.id, { ...roster, questionIds })
+        return teacher
+      }),
+    )
   })
 })
 

@@ -14,6 +14,7 @@ import {
   hasDemoData,
   resetDemoData,
   sampleClasses,
+  sampleQuestions,
   seedIfEmpty,
   writeDemoData,
   type RemoteRoster,
@@ -318,18 +319,46 @@ function rosterFromApi(): RemoteRoster {
   const remoteStudents = samples.flatMap((sample) =>
     sample.students.map((student) => ({ ...student, id: `api-student-${student.registration}`, classId: `api-${sample.sampleId}` })),
   )
-  return { classIds, students: remoteStudents }
+  const questionIds = Object.fromEntries(sampleQuestions().map((sample) => [sample.sampleId, `api-${sample.sampleId}`]))
+  return { classIds, students: remoteStudents, questionIds }
 }
 
-describe('writeDemoData with the classes on the API', () => {
+describe('sampleQuestions', () => {
+  /** The API gives the question its id; the input carries everything else, alternatives with their own ids included. */
+  it('hands every sample question over in the shape the API takes, without its id or owner', () => {
+    const samples = sampleQuestions()
+    const limits = samples.find((sample) => sample.sampleId === 'question-limits')
+
+    expect(samples.map((sample) => sample.sampleId)).toContain('question-essay-vectors')
+    expect(samples.every((sample) => !('id' in sample.input) && !('teacherId' in sample.input))).toBe(true)
+    expect(limits?.input).toMatchObject({
+      type: 'objetiva',
+      correctAlternativeId: 'question-limits-alt-1',
+      alternatives: expect.arrayContaining([{ id: 'question-limits-alt-1', text: '1' }]),
+    })
+  })
+})
+
+describe('writeDemoData with the classes and questions on the API', () => {
   beforeEach(() => window.localStorage.clear())
 
-  it('writes no class and no student to this browser, since they live on the API', () => {
+  it('writes no class, student or question to this browser, since they live on the API', () => {
     writeDemoData('teacher-from-the-api', rosterFromApi())
 
     expect(classes()).toEqual([])
     expect(students()).toEqual([])
-    expect(questions().length).toBeGreaterThan(0)
+    expect(questions()).toEqual([])
+    expect(exams().length).toBeGreaterThan(0)
+  })
+
+  /** An exam pointing at a sample id would show none of its questions, since the API knows them by its own ids. */
+  it('points every exam and every printed version at the ids the API gave the questions', () => {
+    writeDemoData('teacher-from-the-api', rosterFromApi())
+
+    const examQuestionIds = exams().flatMap((exam) => exam.questions.map((entry) => entry.questionId))
+    const printedIds = versions().flatMap((version) => version.layout.questionOrder)
+    expect(examQuestionIds.length).toBeGreaterThan(0)
+    expect([...examQuestionIds, ...printedIds].every((id) => id.startsWith('api-question-'))).toBe(true)
   })
 
   it('points every application at the id the API gave its class', () => {
@@ -353,9 +382,13 @@ describe('writeDemoData with the classes on the API', () => {
   it('stops when a sample class is missing from the roster, instead of pointing at nothing', () => {
     const { students: remoteStudents } = rosterFromApi()
 
-    expect(() => writeDemoData('teacher-from-the-api', { classIds: {}, students: remoteStudents })).toThrow(
+    expect(() => writeDemoData('teacher-from-the-api', { ...rosterFromApi(), classIds: {}, students: remoteStudents })).toThrow(
       'class-calculus-1',
     )
+  })
+
+  it('stops when a sample question is missing from the roster, instead of pointing at nothing', () => {
+    expect(() => writeDemoData('teacher-from-the-api', { ...rosterFromApi(), questionIds: {} })).toThrow('question-')
   })
 })
 
