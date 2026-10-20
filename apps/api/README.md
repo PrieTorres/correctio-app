@@ -124,6 +124,8 @@ com as mesmas regras das telas, sem cópia.
 | `POST /applications/:id/grades-release` | Libera ou recolhe as notas, com `{ released }`. Responde a aplicação |
 | `GET /applications/:id/sheets` | Folhas impressas, por `sheetNumber`. Faz o papel do `GET /applications/:id/students` da Spec, porque a `AnswerSheet` substituiu o `ExamAssignment` (`docs/Modelo_de_Dados.md`) |
 | `GET /applications/:id/pdf` | Baixa o PDF consolidado. É o endereço que o `pdfUrl` da aplicação traz |
+| `POST /applications/:id/corrections` | Grava a revisão de uma folha (RF28, RF30). A Spec só lista e edita as correções |
+| `GET /applications/:id/corrections/:correctionId` | Uma correção, para a tela de revisão (P16) |
 | `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49) |
 
 ### Aplicações
@@ -145,6 +147,35 @@ leem a prova e chegam junto com as provas da #45.
 - **PDF:** o `pdfUrl` aparece só quando há PDF e traz o endereço da rota de download, relativo à
   raiz da API. O arquivo contém o nome dos alunos quando a aplicação é identificada, então
   não existe link público: o front baixa com o token, como qualquer outra chamada.
+
+### Correções
+
+As correções ficam debaixo da aplicação: `GET` e `POST /applications/:id/corrections`, e `GET` e
+`PATCH /applications/:id/corrections/:correctionId`. O dono é o professor da aplicação.
+
+- **A nota é do servidor.** O cliente manda só o que o professor escolheu: a folha
+  (`answerSheetId`), a alternativa marcada em cada objetiva (`answers`), as notas das discursivas
+  (`discursiveScores`), `notes`, `studentId` e `finalize`. O servidor calcula acerto, nota por
+  questão, `totalScore` e `status` com as mesmas regras das telas (`@correctio/domain`) e
+  descarta esses campos se vierem do cliente.
+- **Validação contra a prova:** cada resposta é de uma objetiva da prova e marca uma alternativa
+  dela; cada nota é de uma discursiva e fica entre 0 e o `maxScore` da questão. A prova é lida
+  como foi impressa, inclusive a questão excluída do banco depois.
+- **Status:** `finalize: false` grava `IN_PROGRESS`. `finalize: true` grava `DONE` só quando toda
+  discursiva tem nota, e zero conta como nota (RF28, RF47). No `PATCH`, sem `finalize`, a
+  correção continua como estava.
+- **Uma correção por folha:** a segunda responde 409, e a edição é pelo `PATCH`, que mescla e
+  calcula a nota de novo.
+- **Aluno (RF31):** a folha impressa com nome é daquele aluno, com `isAutomaticallyAssigned: true`.
+  Na folha sem nome, o `studentId` enviado precisa ser da turma, e grava
+  `isAutomaticallyAssigned: false`. O mesmo aluno duas vezes na mesma versão responde 409.
+- **`clientCorrectionId` e `syncStatus`** são obrigatórios, como na Spec. O site não manda nenhum
+  dos dois, e o servidor gera a chave e grava `synced`. Um app que migre para cá manda os seus, e a
+  API guarda; a mesma chave duas vezes responde 409.
+- **Lista:** na ordem das folhas, com os filtros `assigned` (`false` lista as pendentes de
+  atribuição, P17) e `status` (`IN_PROGRESS`, RF48).
+- Por enquanto toda correção é `MANUAL`. A correção que vem de uma foto (`IMAGE_UPLOAD`), com a
+  `imageUrl`, chega com o envio das fotos (#47, segunda parte).
 
 `POST /classes/:id/students` cria o registro do aluno, com nome, matrícula e e-mail opcional. Na
 Spec, a mesma rota matricula por e-mail um aluno que já tem conta, mas aqui o aluno não tem conta

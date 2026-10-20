@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { questionInputSchema } from '@correctio/domain'
 import { z } from 'zod'
 import { API_ERROR_CODE, ApiError } from '../lib/api-error'
+import { booleanParam } from '../lib/pagination'
 import type {
   QuestionRecord,
   QuestionRepository,
@@ -15,11 +16,6 @@ const MAX_PAGE_SIZE = 1000
 const tagsParam = z
   .union([z.string(), z.array(z.string())])
   .transform((value) => (Array.isArray(value) ? value : [value]))
-
-/** `?archived=true` is the string `"true"`; the schema turns it into a boolean. */
-const booleanParam = z
-  .enum(['true', 'false'])
-  .transform((value) => value === 'true')
 
 /** Validates and normalises `GET /questions` query string before the repository sees it. */
 const listFiltersSchema = z.object({

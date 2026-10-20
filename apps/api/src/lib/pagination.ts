@@ -24,6 +24,9 @@ export interface PageRequest {
   archived: boolean
 }
 
+/** `?archived=true` is the string `"true"`; the schema turns it into a boolean, and refuses anything else. */
+export const booleanParam = z.enum(['true', 'false']).transform((value) => value === 'true')
+
 const flag = z
   .enum(['true', 'false'])
   .default('false')
