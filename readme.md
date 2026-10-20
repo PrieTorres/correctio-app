@@ -187,11 +187,24 @@ A especificação detalhada de cada tela — conteúdo, elementos e destino de c
 
 **A camada que torna a evolução barata:** a aplicação inteira conversa com uma única fronteira de repositórios. Na N1, a implementação lê do `localStorage`; na N2, do Express com MySQL. Os mesmos schemas de validação e os mesmos hooks servem aos dois — **nenhuma tela muda na migração**.
 
-**Publicação:** GitHub Pages na N1; a partir da N2, Firebase Hosting para o front e Cloud Functions para a API, no mesmo endereço. Produção em `https://correctio-app.web.app`, atualizada a cada release; o GitHub Pages segue publicando o front da `main` a cada merge, para teste; pré-produção sob demanda, por branch (`docs/CI_CD.md`, seção 4). A rota de consulta pública mantém o mesmo formato de caminho nos dois hosts.
+**Publicação:** GitHub Pages na N1; a partir da N2, Firebase Hosting para o front e Cloud Functions para a API, no mesmo endereço. Produção em `https://correctio-app.web.app`, atualizada a cada release; o GitHub Pages segue publicando o front da `main` a cada merge, como demonstração sem API; pré-produção sob demanda, por branch (`docs/CI_CD.md`, seção 4). A rota de consulta pública mantém o mesmo formato de caminho nos dois hosts.
 
 **Entidades de domínio:** `User` · `RefreshToken` · `Class` · `Student` · `Question` · `Exam` · `Application` · `ExamVersion` · `AnswerSheet` · `Correction`
 
 A estrutura obrigatória de cada uma segue a seção 8 da Spec SGP Católica e está travada em [docs/Modelo_de_Dados.md](docs/Modelo_de_Dados.md): campos podem ser acrescentados, mas nenhuma chave da Spec pode ser removida, renomeada ou ter a forma alterada.
+
+### Decisões arquiteturais (ADRs)
+
+Cada decisão técnica importante tem um registro próprio em [`docs/adr/`](docs/adr/), com contexto, decisão e consequências.
+
+| ADR | Decisão |
+|---|---|
+| [ADR-001](docs/adr/ADR-001-mysql-database-hosting.md) | MySQL 8 no Aiven, com um banco por ambiente |
+| [ADR-002](docs/adr/ADR-002-layered-api.md) | API Express em camadas: rota → controle → serviço → repositório → model |
+| [ADR-003](docs/adr/ADR-003-authentication.md) | Sessão própria da API, com login por e-mail e senha ou pelo Google |
+| [ADR-004](docs/adr/ADR-004-answer-sheet-image-storage.md) | Imagens das folhas no Firebase Storage, fora do banco |
+| [ADR-005](docs/adr/ADR-005-api-hosting.md) | API em Cloud Functions do Firebase, no mesmo endereço do front |
+| [ADR-006](docs/adr/ADR-006-answer-sheet-reading.md) | Leitura da folha no servidor por padrão, com o mesmo leitor no navegador |
 
 ---
 

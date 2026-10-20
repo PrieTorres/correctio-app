@@ -45,15 +45,30 @@ que registra o que foi impresso.
 
 ## Como ler uma foto
 
-1. Achar os quatro marcadores e o centro de cada um na foto.
-2. Endireitar a foto com a transformação que leva esses quatro centros aos centros da tabela, em
-   milímetros.
-3. Ler o QR Code e, pelo código, chegar ao `layout` da versão da folha.
-4. Montar as linhas com `answerCardRows(layout)`. A linha `n` é a questão
+É o que faz o `readSheet`, em `packages/sheet-reader` (ADR-006), igual no navegador e no
+servidor.
+
+1. **Ler o QR Code primeiro.** Pelo código se chega à folha e ao `layout` da versão. Código que
+   não é desta aplicação é "QR não reconhecido" (RF30).
+2. **Tirar a orientação do próprio QR.** O leitor devolve os quatro cantos do símbolo com o nome
+   que o símbolo dá a cada um: o canto superior esquerdo do QR é sempre o mesmo, com a folha
+   girada 90°, 180° ou de cabeça para baixo. Como o QR tem lugar fixo no cartão, esses cantos
+   dão um primeiro mapa do cartão na foto. Os quatro marcadores são iguais entre si, então
+   sozinhos não diriam qual lado é o de cima.
+3. **Achar cada marcador perto de onde o primeiro mapa diz.** A busca fica numa janela em volta
+   da posição prevista. Isso deixa de fora os três quadrados dos cantos do próprio QR, que também
+   têm 5 mm.
+4. **Endireitar pelos marcadores.** A transformação que leva os quatro centros achados aos
+   centros da tabela, em milímetros, corrige a inclinação do celular. Os marcadores cercam as
+   bolinhas, então elas ficam entre pontos medidos, e não extrapoladas a partir do QR. Sem os
+   quatro marcadores, a leitura falha ("Falha na leitura"), mas a folha já está identificada.
+5. **Montar as linhas** com `answerCardRows(layout)`. A linha `n` é a questão
    `layout.questionOrder[n]`. A bolinha `k` dessa linha é a alternativa `printedOrder[k]` da
    entrada da questão em `layout.alternativeOrder`.
-5. Em cada linha com bolinhas, medir o preenchimento em `bubbleCenter(n, k)`. Duas marcações na
-   mesma linha anulam a questão, como diz a instrução impressa na capa.
+6. **Medir a tinta de cada bolinha** no miolo, longe do contorno impresso, contra o papel entre
+   as bolinhas da mesma linha, o que compensa a luz desigual. Nenhuma marcada, ou duas marcadas
+   na mesma linha, volta sem alternativa, e o professor decide na revisão (RF28). Pela instrução
+   impressa na capa, duas marcações anulam a questão.
 
 Uma linha sem bolinhas é questão discursiva: aparece no cartão com o número e a palavra
 "discursiva", e não é lida. As linhas depois da última questão ficam em branco. O espaço é sempre
