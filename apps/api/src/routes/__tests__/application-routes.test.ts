@@ -272,6 +272,25 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       expect(response.status).toBe(400)
       expect(response.body).toEqual({ code: 'invalid', message: 'Parâmetro de lista inválido: status.' })
     })
+
+    /** Each status lives on one side of the archive; asking across it used to answer an empty list that read as "none". */
+    it('refuses a status from the other side of the archive, and lists the archived ones by their status', async () => {
+      const archived = await insertApplication({ status: 'closed' })
+      await insertApplication({ date: day('2026-10-06') })
+
+      const closedAmongActive = await ana().get('/applications').query({ status: 'closed' })
+      expect(closedAmongActive.status).toBe(400)
+      expect(closedAmongActive.body).toEqual({
+        code: 'invalid',
+        message: 'A situação closed só existe entre as aplicações arquivadas: use archived=true.',
+      })
+
+      const draftAmongArchived = await ana().get('/applications').query({ status: 'draft', archived: 'true' })
+      expect(draftAmongArchived.status).toBe(400)
+      expect(draftAmongArchived.body).toEqual({ code: 'invalid', message: 'Entre as aplicações arquivadas, a única situação é closed.' })
+
+      expect(itemsIn(await ana().get('/applications').query({ status: 'closed', archived: 'true' }))).toEqual([archived])
+    })
   })
 
   describe('GET /applications/:id', () => {
