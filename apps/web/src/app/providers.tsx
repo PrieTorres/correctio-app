@@ -25,6 +25,13 @@ const api = createApiClient({
   onUnauthorized: () => recheckSession(queryClient),
 })
 
+/**
+ * The demo has no API, so its repositories get no client and keep everything
+ * in this browser (`createTeacherRepositories`). The Firebase builds hand the
+ * client over, and the areas already on the API read from it.
+ */
+const repositoryApi = DEMO_MODE ? undefined : api
+
 /** Teacher id of the repositories while nobody is signed in; the guard keeps every screen that reads them closed. */
 const SIGNED_OUT = ''
 
@@ -35,7 +42,7 @@ const SIGNED_OUT = ''
 function TeacherServices({ children }: Readonly<{ children: ReactNode }>) {
   const { data: user } = useQuery(currentUserQuery(auth))
   const teacherId = user?.id ?? SIGNED_OUT
-  const services = useMemo(() => ({ auth, repositories: createTeacherRepositories(teacherId, api) }), [teacherId])
+  const services = useMemo(() => ({ auth, repositories: createTeacherRepositories(teacherId, repositoryApi) }), [teacherId])
 
   return <AppServicesContext.Provider value={services}>{children}</AppServicesContext.Provider>
 }

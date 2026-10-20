@@ -45,18 +45,24 @@ const GRADED_STUDENT: Student = {
 const SECOND_STUDENT: Student = { fullName: 'Bruno Henrique Lima', registration: '2026102' }
 
 /**
- * Pasted the way a spreadsheet exports it, header row included, with semicolons
- * and one student without an e-mail: the three things the import has to cope
- * with on a real list.
+ * Pasted the way a spreadsheet exports it, header row included, with semicolons,
+ * one student without an e-mail and one whose e-mail is malformed: the four
+ * things the import has to cope with on a real list. The preview points at the
+ * malformed line and leaves it out, since the API would refuse the whole list.
  */
 const SPREADSHEET_ROWS = [
   'Nome;Matrícula;E-mail',
   'Carla Mendes Rocha;2026103;carla.rocha@exemplo.edu.br',
   'Diego Fernandes Alves;2026104',
   'Elisa Prado Nunes;2026105',
+  'Fábio Souza Lima;2026106;fabio.lima@',
 ] as const
 
-const IMPORTED_COUNT = SPREADSHEET_ROWS.length - 1
+/** Its line number in the pasted list, as the preview reports it. */
+const MALFORMED_LINE = SPREADSHEET_ROWS.length
+
+/** Every line but the header and the malformed one. */
+const IMPORTED_COUNT = SPREADSHEET_ROWS.length - 2
 const STUDENT_COUNT = 2 + IMPORTED_COUNT
 
 /**
@@ -191,12 +197,19 @@ function addStudentByHand({ fullName, registration, email }: Student): void {
   cy.contains('li', fullName).should('be.visible')
 }
 
+/** The result stays on screen until the teacher closes it, so the video shows what came in. */
 function importStudents(): void {
   cy.contains('button', 'Importar alunos').click()
   cy.findByLabel('Nome, matrícula e e-mail').type(SPREADSHEET_ROWS.join('{enter}'))
 
+  cy.findInDialog('li', `Linha ${MALFORMED_LINE}: E-mail inválido.`).should('be.visible')
   cy.findInDialog('h3', `${IMPORTED_COUNT} alunos prontos para importar`).should('be.visible')
+  cy.findInDialog('a', 'Aviso de privacidade').should('be.visible')
   cy.findInDialog('button', `Importar ${IMPORTED_COUNT} alunos`).click()
+
+  cy.findInDialog('h3', 'Importação concluída').should('be.visible')
+  cy.get('[role="dialog"]').should('contain', `${IMPORTED_COUNT} alunos entraram na turma.`)
+  cy.findInDialog('button', 'Fechar').click()
   cy.get('[role="dialog"]').should('not.exist')
 }
 
