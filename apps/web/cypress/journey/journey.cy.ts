@@ -411,9 +411,15 @@ function reviewSheetOf(fullName: string): void {
 /**
  * Reading is simulated in this phase: the demonstration sheets stand in for the
  * photographs, and everything after the reading is real.
+ *
+ * Grading starts from the panel's shortcut, as on a test day. With this the
+ * only application generated, it goes straight to the upload screen. The
+ * panel's tour is left open, not dismissed, so step 14 can still walk it.
  */
 function gradeSheets(): void {
-  cy.contains('a', 'Corrigir folhas').click()
+  openFromMenu('Painel')
+  cy.contains('h1', 'Painel').should('be.visible')
+  cy.get('main').contains('a', 'Corrigir folhas').click()
   cy.contains('h1', 'Enviar folhas de respostas').should('be.visible')
   skipTour()
 

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { waitFor } from '@testing-library/react'
 import { clearAllCollections } from '@/lib/storage/collection'
-import { renderHookWithProviders } from '@/test-utils'
+import { createTeacherRepositories } from '@/lib/repositories'
+import { renderHookWithProviders, TEST_TEACHER_ID } from '@/test-utils'
 import { seedApplicationChain } from '@/test-fixtures'
 import { useDashboardSummary } from '../useDashboard'
 
@@ -41,5 +42,21 @@ describe('useDashboardSummary', () => {
 
     expect(result.current.data?.recent[0]?.title).toBe('Prova de teste')
     expect(result.current.data?.recent[0]?.detail).toBe('Turma')
+  })
+
+  /** What "Corrigir folhas" offers: the seeded draft has no sheets, so only the two generated ones count. */
+  it('lists the applications to grade, generated only and the most recent first', async () => {
+    const { examId, classId } = await seedApplicationChain()
+    const { applications } = createTeacherRepositories(TEST_TEACHER_ID)
+    const earlier = await applications.create({ examId, classId, date: '2026-10-01T12:00:00.000Z' })
+    const later = await applications.create({ examId, classId, date: '2026-10-12T12:00:00.000Z' })
+    await applications.markGenerated(earlier.id)
+    await applications.markGenerated(later.id)
+
+    const { result } = renderHookWithProviders(() => useDashboardSummary())
+
+    await waitFor(() => expect(result.current.data?.gradable).toHaveLength(2), { timeout: 8000 })
+    expect(result.current.data?.gradable.map((item) => item.id)).toEqual([later.id, earlier.id])
+    expect(result.current.data?.gradable[0]).toMatchObject({ title: 'Prova de teste', detail: 'Turma' })
   })
 })
