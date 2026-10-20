@@ -44,6 +44,51 @@ describe('painel', () => {
   })
 })
 
+/**
+ * "Corrigir folhas" leads to the upload screen of an application, never to the
+ * list of applications. The sample data has one application generated,
+ * "Cálculo I — Prova 1", and one still a draft, "Física II — Teste rápido".
+ */
+describe('painel: corrigir folhas', () => {
+  /** RNF06: the main action of a test day, two clicks from the panel. */
+  it('leva direto ao envio de folhas da única aplicação gerada', () => {
+    cy.visit('/painel')
+    cy.contains('a', 'Corrigir folhas').click()
+
+    cy.contains('h1', 'Enviar folhas de respostas').should('be.visible')
+  })
+
+  it('pede para escolher a aplicação quando há mais de uma gerada', () => {
+    cy.visit('/aplicacoes')
+    cy.contains('a', 'Física II — Teste rápido').click()
+    cy.contains('a', 'Gerar').click()
+    cy.contains('button', 'Gerar').click()
+    cy.contains('h1', 'Física II — Teste rápido', { timeout: 10000 }).should('be.visible')
+
+    cy.get('[aria-label="Navegação principal"]').contains('a', 'Painel').click()
+    cy.contains('button', 'Corrigir folhas').click()
+
+    cy.findInDialog('h2', 'De qual aplicação são as folhas?').should('be.visible')
+    cy.findInDialog('a', 'Cálculo I — Prova 1').should('be.visible')
+    cy.findInDialog('a', 'Física II — Teste rápido').click()
+
+    cy.contains('h1', 'Enviar folhas de respostas').should('be.visible')
+    cy.location('pathname').should('match', /^\/aplicacoes\/[^/]+\/corrigir$/)
+  })
+
+  /** An empty list of applications would not say what is missing; the panel does. */
+  it('explica o que fazer quando nenhuma aplicação foi gerada', () => {
+    cy.signInAsNewTeacher({ withSampleData: false })
+    cy.visit('/painel')
+    cy.contains('button', 'Corrigir folhas').click()
+
+    cy.findInDialog('h2', 'Nenhuma aplicação para corrigir').should('be.visible')
+    cy.findInDialog('a', 'Nova aplicação').click()
+
+    cy.contains('h1', 'Nova aplicação').should('be.visible')
+  })
+})
+
 describe('perfil', () => {
   beforeEach(() => cy.visit('/perfil'))
 

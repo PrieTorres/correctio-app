@@ -16,7 +16,6 @@ const LEGACY_COMPLEXITY = {
   'src/features/applications/pages/ApplicationFormPage.tsx': { cyclomatic: 17 },
   'src/features/applications/pages/ApplicationGeneratePage.tsx': { cyclomatic: 22 },
   'src/features/applications/pages/ApplicationListPage.tsx': { cyclomatic: 12 },
-  'src/features/dashboard/pages/DashboardPage.tsx': { cyclomatic: 15 },
   'src/features/grading/pages/GradingSheetPage.tsx': { cyclomatic: 30 },
   'src/features/grading/pages/GradingUploadPage.tsx': { cyclomatic: 19 },
   'src/features/questions/pages/QuestionFormPage.tsx': { cyclomatic: 11 },
