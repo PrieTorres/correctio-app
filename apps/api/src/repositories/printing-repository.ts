@@ -39,6 +39,8 @@ export interface PrintingRepository {
   takeBackAnswerKey: (applicationId: string, versionId: string) => Promise<boolean>
   /** The sheets of an application, by `sheetNumber`. */
   listSheets: (applicationId: string, request: PageWindowRequest) => Promise<Page<AnswerSheet>>
+  /** One sheet, looked for inside its application, so the id of another application's sheet finds nothing. */
+  findSheet: (applicationId: string, sheetId: string) => Promise<AnswerSheet | undefined>
 }
 
 function toVersion(row: VersionRow): ExamVersion {
@@ -113,6 +115,11 @@ export function createPrintingRepository(db: Kysely<Database>): PrintingReposito
         await versionUpdate(trx, applicationId, versionId).set({ answerKeyPublished: false, answerKeyPublishedAt: null }).execute()
         return true
       })
+    },
+
+    async findSheet(applicationId, sheetId) {
+      const row = await sheetsOf(applicationId).select(SHEET_COLUMNS).where('id', '=', sheetId).executeTakeFirst()
+      return row === undefined ? undefined : toSheet(row)
     },
 
     async listSheets(applicationId, request) {

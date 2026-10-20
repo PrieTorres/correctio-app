@@ -390,8 +390,17 @@ export const correctionSchema = z.object({
   confirmedAt: timestamp,
   correctedBy: id,
   isAutomaticallyAssigned: z.boolean(),
-  clientCorrectionId: z.string().optional(),
-  syncStatus: z.enum(['pending', 'synced', 'error']).optional(),
+  /**
+   * Required by the Spec. A record kept in a browser before the two became
+   * required is read with the values the site writes, instead of being
+   * dropped as invalid.
+   */
+  clientCorrectionId: z
+    .string()
+    .min(1)
+    .max(64)
+    .default(() => globalThis.crypto.randomUUID()),
+  syncStatus: z.enum(['pending', 'synced', 'error']).default('synced'),
   status: correctionStatusSchema,
   answerSheetId: id,
   source: z.nativeEnum(CORRECTION_SOURCE),

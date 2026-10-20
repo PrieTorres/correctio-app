@@ -291,6 +291,9 @@ export const CORRECTION_STATUS = {
 
 export type CorrectionStatus = (typeof CORRECTION_STATUS)[keyof typeof CORRECTION_STATUS];
 
+/** The Spec's values, kept exactly as it writes them. */
+export type CorrectionSyncStatus = 'pending' | 'synced' | 'error';
+
 export interface Correction {
   id: Id;
   examVersionId: Id;
@@ -308,14 +311,13 @@ export interface Correction {
   correctedBy: Id;
   isAutomaticallyAssigned: boolean;
   /**
-   * Deduplication key and sync state for the mobile app's offline queue.
-   *
-   * This client has no requirement touching either, and never writes them.
-   * They stay in the contract because a system migrating onto this API would
-   * send them, and dropping a field on the way through is how data is lost.
+   * Deduplication key and sync state for the mobile app's offline queue,
+   * required by the Spec. The site writes a correction online, so it generates
+   * the key on the server and writes `synced`; an app migrating onto this API
+   * sends its own, and the API keeps them.
    */
-  clientCorrectionId?: string;
-  syncStatus?: 'pending' | 'synced' | 'error';
+  clientCorrectionId: string;
+  syncStatus: CorrectionSyncStatus;
   /** Group additions. */
   status: CorrectionStatus;
   answerSheetId: Id;
