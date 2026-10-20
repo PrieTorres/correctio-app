@@ -10,7 +10,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createTestDatabase, DATABASE_TEST_URL, type TestDatabase } from '../../__tests__/test-database'
 import { createApp } from '../../app'
 import { loadEnv } from '../../config/env'
-import { createLocalFileStorage, type FileStorage } from '../../lib/file-storage'
+import { createBucketFileStorage, createLocalFileStorage, type FileStorage, type StorageBucket } from '../../lib/file-storage'
 import { createLogger } from '../../lib/logger'
 import type { VerifyToken } from '../../middlewares/require-auth'
 import type { ApplicationsTable, Database, ExamVersionsTable } from '../../models/tables'
@@ -647,6 +647,22 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
 
       expect(response.status).toBe(404)
       expect(response.body.message).toBe('Aplicação não encontrada.')
+    })
+
+    /** A bucket that was never created looked like a lost file, and the message sent the teacher to generate again for nothing. */
+    it('answers that the storage is unavailable, without saying to generate again, when the bucket does not exist', async () => {
+      const noBucket = Object.assign(new Error('The specified bucket does not exist.'), { code: 404 })
+      const bucket: StorageBucket = {
+        exists: () => Promise.resolve([false]),
+        file: () => ({ save: () => Promise.reject(noBucket), download: () => Promise.reject(noBucket), delete: () => Promise.resolve() }),
+      }
+      const withoutBucket = createApp({ env, logger: createLogger('silent'), db, verifyToken, fileStorage: createBucketFileStorage(() => bucket) })
+      const id = await insertApplication({ status: 'generated', pdfUrl: 'applications/x/prova.pdf' })
+
+      const response = await request(withoutBucket).get(pdfPath(id)).set({ Authorization: 'Bearer token-ana' })
+
+      expect(response.status).toBe(500)
+      expect(response.body).toEqual({ code: 'failure', message: 'O armazenamento de arquivos do servidor não está disponível.' })
     })
 
     /** `bootstrapApi` always passes a storage; an app built without one must say so instead of serving nothing. */
