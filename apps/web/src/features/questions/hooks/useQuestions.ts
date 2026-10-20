@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
 import type { QuestionInput } from '@/lib/schemas';
 import type { QuestionType } from '@/types/domain';
@@ -24,6 +24,14 @@ export const questionKeys = {
   detail: (id: string) => ['questions', 'detail', id] as const,
 };
 
+/** One page of the bank, as the screen asks the server for it. */
+export const QUESTION_PAGE_SIZE = 50;
+
+/**
+ * Search, filters and paging run on the server, so each combination is a
+ * request. While the next one loads, the list keeps the last answer instead of
+ * blinking into the loading state on every page turn.
+ */
 export function useQuestionList(filters: QuestionFilters) {
   const { repositories } = useServices();
 
@@ -38,7 +46,9 @@ export function useQuestionList(filters: QuestionFilters) {
         onlyUntagged: filters.onlyUntagged,
         sort: filters.sort,
         page: filters.page,
+        pageSize: QUESTION_PAGE_SIZE,
       }),
+    placeholderData: keepPreviousData,
   });
 }
 

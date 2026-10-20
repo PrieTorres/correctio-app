@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Copy, Plus, RotateCcw, Shuffle, Trash2, Upload } from 'lucide-react';
 import {
@@ -9,16 +9,19 @@ import {
   ConfirmDialog,
   EmptyState,
   PageHeader,
+  Pagination,
   QueryBoundary,
   QuestionsIllustration,
   SearchIllustration,
   SearchInput,
   SegmentedControl,
   Tour,
+  useDebouncedValue,
 } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { isMultipleChoice, type Question, type QuestionType } from '@/types/domain';
 import {
+  QUESTION_PAGE_SIZE,
   useDeleteQuestion,
   useDuplicateQuestion,
   useQuestionList,
@@ -29,8 +32,6 @@ import {
 import { QuestionTypeBadge } from '../components/QuestionTypeBadge';
 
 type StatusFilter = 'active' | 'deleted';
-
-const PAGE_SIZE = 50;
 
 const STATUS_SEGMENTS = [
   { value: 'active', label: 'Ativas' },
@@ -48,36 +49,47 @@ const TYPE_SEGMENTS = [
   { value: 'discursiva', label: 'Discursivas' },
 ] as const satisfies readonly { value: QuestionType | 'all'; label: string }[];
 
-export function QuestionListPage() {
+/**
+ * What the list shows: the filters, the search and the page. The query reads
+ * the search only once typing pauses, so the server gets one request per term
+ * instead of one per key.
+ *
+ * The page belongs to the filters it was chosen under, and goes back to 1 as
+ * soon as any of them changes: page 3 of another search may not exist. Keeping
+ * the two together derives that without an effect or an extra request.
+ */
+function useQuestionListView() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StatusFilter>('active');
   const [type, setType] = useState<QuestionType | 'all'>('all');
   const [tags, setTags] = useState<string[]>([]);
   const [sort, setSort] = useState<QuestionSort>('newest');
   const [onlyUntagged, setOnlyUntagged] = useState(false);
-  const [page, setPage] = useState(1);
+  const settledSearch = useDebouncedValue(search);
+  const listKey = JSON.stringify([settledSearch, status, type, tags, sort, onlyUntagged]);
+  const [paging, setPaging] = useState({ listKey, page: 1 });
+  const page = paging.listKey === listKey ? paging.page : 1;
+
+  const filters: QuestionFilters = { search: settledSearch, type, tags, deleted: status === 'deleted', onlyUntagged, sort, page };
+  return {
+    search, setSearch, status, setStatus, type, setType, tags, setTags, sort, setSort, onlyUntagged, setOnlyUntagged,
+    filters,
+    page,
+    setPage: (next: number) => setPaging({ listKey, page: next }),
+  };
+}
+
+export function QuestionListPage() {
+  const view = useQuestionListView();
   const [pendingDelete, setPendingDelete] = useState<Question | null>(null);
 
-  useEffect(() => {
-    setPage(1);
-  }, [search, status, type, tags, sort, onlyUntagged]);
-
-  const filters: QuestionFilters = {
-    search,
-    type,
-    tags,
-    deleted: status === 'deleted',
-    onlyUntagged,
-    sort,
-    page,
-  };
-  const { data, isPending, isError } = useQuestionList(filters);
+  const { data, isPending, isError } = useQuestionList(view.filters);
   const { data: knownTags = [] } = useQuestionTags();
   const duplicateQuestion = useDuplicateQuestion();
 
   const questions = data?.items ?? [];
   const total = data?.total ?? 0;
-  const filtering = search.trim() !== '' || type !== 'all' || tags.length > 0 || onlyUntagged;
+  const filtering = view.filters.search.trim() !== '' || view.type !== 'all' || view.tags.length > 0 || view.onlyUntagged;
 
   const newQuestionButton = (
     <Link to={ROUTES.newQuestion}>
@@ -88,10 +100,15 @@ export function QuestionListPage() {
   );
 
   const clearFilters = () => {
-    setSearch('');
-    setType('all');
-    setTags([]);
-    setOnlyUntagged(false);
+    view.setSearch('');
+    view.setType('all');
+    view.setTags([]);
+    view.setOnlyUntagged(false);
+  };
+
+  /** Deleting the last question of a page empties it; the list steps back instead of looking empty. */
+  const stepBackIfEmptied = () => {
+    if (questions.length === 1 && view.page > 1) view.setPage(view.page - 1);
   };
 
   return (
@@ -115,21 +132,24 @@ export function QuestionListPage() {
       />
 
       <QuestionFiltersBar
-        search={search}
-        onSearchChange={setSearch}
-        type={type}
-        onTypeChange={setType}
-        status={status}
-        onStatusChange={setStatus}
-        sort={sort}
-        onSortChange={setSort}
+        search={view.search}
+        onSearchChange={view.setSearch}
+        type={view.type}
+        onTypeChange={view.setType}
+        status={view.status}
+        onStatusChange={view.setStatus}
+        sort={view.sort}
+        onSortChange={view.setSort}
         knownTags={knownTags}
-        tags={tags}
-        onTagsChange={setTags}
-        onlyUntagged={onlyUntagged}
+        tags={view.tags}
+        onTagsChange={(next) => {
+          view.setTags(next);
+          view.setOnlyUntagged(false);
+        }}
+        onlyUntagged={view.onlyUntagged}
         onToggleUntagged={() => {
-          setOnlyUntagged((current) => !current);
-          setTags([]);
+          view.setOnlyUntagged((current) => !current);
+          view.setTags([]);
         }}
       />
 
@@ -138,18 +158,22 @@ export function QuestionListPage() {
         isPending={isPending}
         isError={isError}
         filtering={filtering}
-        showingDeleted={status === 'deleted'}
+        showingDeleted={view.status === 'deleted'}
         onClearFilters={clearFilters}
         createButton={newQuestionButton}
-        page={page}
+        page={view.page}
         total={total}
-        onPageChange={setPage}
+        onPageChange={view.setPage}
         onDelete={setPendingDelete}
         onDuplicate={(question) => duplicateQuestion.mutate(question.id)}
       />
 
       {pendingDelete !== null && (
-        <DeleteQuestionDialog question={pendingDelete} onClose={() => setPendingDelete(null)} />
+        <DeleteQuestionDialog
+          question={pendingDelete}
+          onClose={() => setPendingDelete(null)}
+          onDone={stepBackIfEmptied}
+        />
       )}
 
       <Tour screen="questions" ready={questions.length > 0} />
@@ -283,58 +307,23 @@ function QuestionListResults({
             ))}
           </ul>
 
-          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={onPageChange} />
+          <Pagination page={page} pageSize={QUESTION_PAGE_SIZE} total={total} onPageChange={onPageChange} />
         </>
       )}
     </QueryBoundary>
   );
 }
 
-function Pagination({
-  page,
-  pageSize,
-  total,
-  onPageChange,
-}: Readonly<{
-  page: number;
-  pageSize: number;
-  total: number;
-  onPageChange: (page: number) => void;
-}>) {
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const first = (page - 1) * pageSize + 1;
-  const last = Math.min(page * pageSize, total);
-  const canGoBack = page > 1;
-  const canGoForward = page < pageCount;
-
-  return (
-    <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-      <p className="text-caption text-ink-subtle">
-        Mostrando {first}–{last} de {total} {total === 1 ? 'questão' : 'questões'}
-      </p>
-      <div className="flex gap-2">
-        <Button variant="secondary" disabled={!canGoBack} onClick={() => onPageChange(page - 1)}>
-          Anterior
-        </Button>
-        <span className="flex items-center px-2 text-caption text-ink-muted">
-          Página {page} de {pageCount}
-        </span>
-        <Button
-          variant="secondary"
-          disabled={!canGoForward}
-          onClick={() => onPageChange(page + 1)}
-        >
-          Próxima
-        </Button>
-      </div>
-    </div>
-  );
-}
-
+/**
+ * Deletes or restores a question. Closes only once the API accepted; a refusal
+ * stays on screen with its reason, since closing would look exactly like
+ * success.
+ */
 function DeleteQuestionDialog({
   question,
   onClose,
-}: Readonly<{ question: Question; onClose: () => void }>) {
+  onDone,
+}: Readonly<{ question: Question; onClose: () => void; onDone: () => void }>) {
   const deleteQuestion = useDeleteQuestion();
   const isRestoring = question.deletedAt !== undefined;
 
@@ -350,8 +339,17 @@ function DeleteQuestionDialog({
       }
       confirmLabel={isRestoring ? 'Restaurar' : 'Excluir'}
       pending={deleteQuestion.isPending}
+      error={deleteQuestion.error}
       onConfirm={() =>
-        deleteQuestion.mutate({ id: question.id, deleted: !isRestoring }, { onSettled: onClose })
+        deleteQuestion.mutate(
+          { id: question.id, deleted: !isRestoring },
+          {
+            onSuccess: () => {
+              onDone();
+              onClose();
+            },
+          },
+        )
       }
     />
   );
