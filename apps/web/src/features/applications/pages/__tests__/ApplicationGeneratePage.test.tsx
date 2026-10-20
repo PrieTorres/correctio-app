@@ -167,6 +167,8 @@ describe('ApplicationGeneratePage', () => {
       confirmedAt: '2026-10-06T12:00:00.000Z',
       correctedBy: TEST_TEACHER_ID,
       isAutomaticallyAssigned: true,
+      clientCorrectionId: 'client-correction-1',
+      syncStatus: 'synced',
     }
     createCollection('corrections', correctionSchema).writeAll([correction])
 

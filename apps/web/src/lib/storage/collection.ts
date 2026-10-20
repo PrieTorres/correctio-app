@@ -29,7 +29,11 @@ export interface Collection<T> {
   writeAll: (items: T[]) => void;
 }
 
-export function createCollection<T>(name: string, schema: z.ZodType<T>): Collection<T> {
+/**
+ * `T` is what the schema produces, not what it accepts: a field with a default
+ * may be missing from an old record, and is always there once read.
+ */
+export function createCollection<T>(name: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>): Collection<T> {
   const key = `${KEY_PREFIX}${name}`;
 
   return {
