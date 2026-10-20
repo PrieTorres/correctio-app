@@ -133,7 +133,7 @@ Limite por usuário não protege a conta: 600 professores legítimos na semana d
 | **Segurança** (Art. 46) | RNF04 (tráfego), RNF16 (arquivos), RNF18 (API), RNF14 (isolamento). |
 | **Registro das operações** (Art. 37) | RF40 e RNF17 — trilha de auditoria. |
 | **Retenção** | Definida pela instituição, não pelo sistema. Sem descarte automático — o que protege contra perda é o backup com restauração testada (RNF09), e o que é "excluído" pela interface é reversível (RF42). |
-| **Transferência internacional** (Art. 33) | Evitada na leitura da folha, feita no próprio servidor. O Firebase (Google) permanece como subprocessador e precisa estar declarado. |
+| **Transferência internacional** (Art. 33) | Acontece e precisa estar declarada. O banco fica nos EUA, no Aiven sobre a DigitalOcean, em São Francisco (ADR-001). A API e as imagens das folhas ficam no Google, em us-west1 (ADR-004 e ADR-005). Aiven, DigitalOcean e Google são subprocessadores. A leitura da folha roda no próprio servidor, sem mandar a imagem a terceiros. |
 | **Comunicação de incidente** (Art. 48) | Procedimento documentado: quem detecta, quem comunica, em quanto tempo. |
 
 ### Três pontos que não estavam previstos em lugar nenhum
