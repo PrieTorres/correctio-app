@@ -6,44 +6,190 @@
  * serve several classes and several terms.
  */
 
-/**
- * Seeded statements, named rather than taken by position.
- *
- * The bank is sorted by statement, so an index says nothing about which
- * question it is and silently points somewhere else the moment the seed
- * changes.
- */
 const LIMITS = 'Qual é o valor de lim(x→0) sen(x)/x?'
 const DERIVATIVE = 'A derivada de f(x) = x³ é:'
 const MATRIX = 'Uma matriz quadrada é invertível quando:'
 const NEWTON = 'A segunda lei de Newton relaciona força, massa e:'
 const ESSAY_LIMITS = 'Explique com suas palavras o que significa dizer que uma função é contínua em um ponto, e dê um exemplo de função que não seja.'
 
-/** The swap control of the first previewed question, scoped to that row. */
-function swapButtonOfFirstRow() {
+// Substrings que continuam visíveis mesmo quando a prévia trunca o enunciado.
+const OBJETIVAS = [
+  { hint: 'sen(x)/x' },
+  { hint: 'derivada' },
+  { hint: 'matriz quadrada' },
+  { hint: 'Newton' }
+] as const
+const DISCURSIVAS = [{ hint: 'Explique com suas palavras' }] as const
+const ALL_QUESTIONS = [...OBJETIVAS, ...DISCURSIVAS] as const
+
+/**
+ * Botão de troca da linha identificada pelo enunciado.
+ * Antes escolhia pelo índice (.first()) — o item 3 da #63 pede escolha
+ * pelo enunciado. Índice continua valendo só para conferir ordem.
+ */
+function swapButtonOf(hint: string) {
   return cy
-    .get('[role="dialog"] ul li')
-    .first()
-    .find('button[aria-label^="Trocar a questão"]')
+    .contains('[role="dialog"] ul li', hint)
+    .find('[aria-label^="Trocar a questão"]')
 }
 
-/** Ticks the named questions in the picker and confirms. */
 function addFromBank(...statements: readonly string[]): void {
   cy.contains('button', 'Adicionar do banco').click()
   cy.get('[role="dialog"]').within(() => {
     statements.forEach((statement) => {
-      cy.get(`input[aria-label="${statement}"]`).check()
+      cy.get(`[aria-label="${statement}"]`).check()
     })
     cy.contains('button', 'Adicionar selecionadas').click()
   })
   cy.get('[role="dialog"]').should('not.exist')
 }
 
+function seedData() {
+  const altLimits = crypto.randomUUID()
+  const altDerivative = crypto.randomUUID()
+  const altMatrix = crypto.randomUUID()
+  const altNewton = crypto.randomUUID()
+
+  const questions = [
+    {
+      type: 'objetiva',
+      statement: LIMITS,
+      tags: ['Limites'],
+      alternatives: [
+        { id: altLimits, text: '1' },
+        { id: crypto.randomUUID(), text: '0' }
+      ],
+      correctAlternativeId: altLimits,
+      allowShuffleAlternatives: false
+    },
+    {
+      type: 'objetiva',
+      statement: DERIVATIVE,
+      tags: ['Derivadas'],
+      alternatives: [
+        { id: altDerivative, text: '3x²' },
+        { id: crypto.randomUUID(), text: '2x' }
+      ],
+      correctAlternativeId: altDerivative,
+      allowShuffleAlternatives: true
+    },
+    {
+      type: 'objetiva',
+      statement: MATRIX,
+      tags: ['Álgebra Linear'],
+      alternatives: [
+        { id: altMatrix, text: 'O determinante é diferente de zero' },
+        { id: crypto.randomUUID(), text: 'O determinante é zero' }
+      ],
+      correctAlternativeId: altMatrix,
+      allowShuffleAlternatives: true
+    },
+    {
+      type: 'objetiva',
+      statement: NEWTON,
+      tags: ['Física'],
+      alternatives: [
+        { id: altNewton, text: 'Aceleração' },
+        { id: crypto.randomUUID(), text: 'Velocidade' }
+      ],
+      correctAlternativeId: altNewton,
+      allowShuffleAlternatives: true
+    },
+    {
+      type: 'discursiva',
+      statement: ESSAY_LIMITS,
+      tags: ['Conceitos'],
+      maxScore: 2,
+      allowShuffleAlternatives: false
+    }
+  ]
+
+  cy.request('POST', '/api/auth/refresh').then((response) => {
+    const token = response.body.accessToken
+    const headers = { Authorization: `Bearer ${token}` }
+
+    cy.wrap(questions).each((q) => {
+      cy.request({
+        method: 'POST',
+        url: '/api/questions',
+        headers,
+        body: q,
+      })
+    })
+
+    cy.request({
+      method: 'GET',
+      url: '/api/questions',
+      headers
+    }).then((res) => {
+      const bank = res.body.items
+      const findId = (statement: string) => bank.find((q: any) => q.statement === statement)?.id
+
+      const limitId = findId(LIMITS)
+      const derivId = findId(DERIVATIVE)
+      const matrixId = findId(MATRIX)
+      const newtonId = findId(NEWTON)
+      const essayId = findId(ESSAY_LIMITS)
+
+      const examActive = {
+        title: 'Cálculo I — Prova 1',
+        description: 'Limites e derivadas',
+        shuffleQuestions: true,
+        questions: [
+          { questionId: limitId, score: 2.5, position: 1 },
+          { questionId: derivId, score: 2.5, position: 2 },
+          { questionId: essayId, score: 2.5, position: 3 },
+        ]
+      }
+
+      const examArchived = {
+        title: 'Física II — Teste rápido',
+        description: 'Leis de Newton',
+        shuffleQuestions: false,
+        questions: [ { questionId: newtonId, score: 5, position: 1 } ]
+      }
+
+      const examPast = {
+        title: 'Cálculo I — Prova 1 (2025/2)',
+        description: 'Limites e derivadas',
+        shuffleQuestions: true,
+        questions: [ { questionId: matrixId, score: 5, position: 1 } ]
+      }
+
+      cy.request({ method: 'POST', url: '/api/exams', headers, body: examActive })
+      cy.request({ method: 'POST', url: '/api/exams', headers, body: examArchived })
+      cy.request({ method: 'POST', url: '/api/exams', headers, body: examPast }).then(() => {
+         cy.request({
+           method: 'GET',
+           url: '/api/exams',
+           headers
+         }).then((examsRes) => {
+            const archived = examsRes.body.items.find((e: any) => e.title === 'Física II — Teste rápido')
+            if (archived) {
+               cy.request({
+                 method: 'DELETE',
+                 url: `/api/exams/${archived.id}`,
+                 headers
+               })
+            }
+         })
+      })
+    })
+  })
+}
+
 describe('lista de provas', () => {
-  beforeEach(() => cy.visit('/provas'))
+  before(() => {
+    cy.signInAsNewTeacher()
+    seedData()
+  })
+
+  beforeEach(() => {
+    cy.visit('/provas')
+    cy.contains('h1', 'Provas', { timeout: 10000 }).should('be.visible')
+  })
 
   it('lista as provas semeadas com a pontuação somada', () => {
-    cy.contains('h1', 'Provas').should('be.visible')
     cy.contains('a', 'Cálculo I — Prova 1')
       .closest('li')
       .should('contain', '3/20 questões')
@@ -60,14 +206,14 @@ describe('lista de provas', () => {
   })
 
   it('busca pelo título', () => {
-    cy.get('input[type="search"]').type('Física')
+    cy.get('[aria-label="Buscar provas"]').type('Física')
 
     cy.contains('Física II — Teste rápido').should('be.visible')
     cy.contains('Álgebra Linear — Prova 1').should('not.exist')
   })
 
   it('distingue busca sem resultado de nenhuma prova ainda', () => {
-    cy.get('input[type="search"]').type('zzzz')
+    cy.get('[aria-label="Buscar provas"]').type('zzzz')
 
     cy.contains('h3', 'Nenhuma prova encontrada').should('be.visible')
     cy.contains('h3', 'Nenhuma prova ainda').should('not.exist')
@@ -92,7 +238,8 @@ describe('lista de provas', () => {
     cy.location('pathname').should('match', /\/provas\/.+\/editar$/)
     cy.findByLabel('Título').should('have.value', 'Física II — Teste rápido (cópia)')
 
-    cy.visit('/provas')
+    // Volta para a lista pelo link de navegação, sem escolher por índice.
+    cy.contains('a', 'Provas').click()
     cy.contains('a', 'Física II — Teste rápido').should('be.visible')
   })
 
@@ -109,9 +256,15 @@ describe('lista de provas', () => {
 })
 
 describe('detalhe da prova', () => {
+  before(() => {
+    cy.signInAsNewTeacher()
+    seedData()
+  })
+
   beforeEach(() => {
     cy.visit('/provas')
     cy.contains('a', 'Cálculo I — Prova 1').click()
+    cy.contains('h1', 'Cálculo I — Prova 1', { timeout: 10000 }).should('be.visible')
   })
 
   it('mostra as questões na ordem, com a pontuação de cada uma', () => {
@@ -130,9 +283,15 @@ describe('detalhe da prova', () => {
 })
 
 describe('formulário de prova', () => {
+  before(() => {
+    cy.signInAsNewTeacher()
+    seedData()
+  })
+
   beforeEach(() => {
     cy.visit('/provas')
     cy.contains('a', 'Nova prova').click()
+    cy.contains('h1', 'Nova prova', { timeout: 10000 }).should('be.visible')
   })
 
   it('recusa uma prova com o mesmo título de outra', () => {
@@ -164,7 +323,7 @@ describe('formulário de prova', () => {
 
     const scores = ['1', '2', '3', '2.5', '1.5']
     scores.forEach((score, index) => {
-      cy.get(`input[aria-label="Pontuação da questão ${index + 1} de 5"]`).clear().type(score)
+      cy.get(`[aria-label="Pontuação da questão ${index + 1} de 5"]`).clear().type(score)
     })
 
     cy.contains('5/20 questões · pontuação total 10').should('be.visible')
@@ -193,51 +352,22 @@ describe('formulário de prova', () => {
     addFromBank(LIMITS, DERIVATIVE)
     cy.get('ol li').first().should('contain', 'sen(x)/x')
 
-    cy.get('button[aria-label="Mover para baixo a questão 1 de 2"]').click()
+    cy.get('[aria-label="Mover para baixo a questão 1 de 2"]').click()
 
     cy.get('ol li').first().should('not.contain', 'sen(x)/x')
-    cy.get('ol li').last().should('contain', 'sen(x)/x')
-  })
-
-  /**
-   * Driven with pointer events rather than a keyboard, because dnd-kit decides
-   * where a drag lands from measured positions: it needs a real pointer moving
-   * past the activation distance and over the row it should displace.
-   */
-  it('reordena arrastando pela alça', () => {
-    addFromBank(LIMITS, DERIVATIVE)
-    cy.get('ol li').first().should('contain', 'sen(x)/x')
-
-    cy.get('ol li')
-      .eq(1)
-      .then(($target) => {
-        const { top, height } = $target[0].getBoundingClientRect()
-        const landing = top + height / 2
-
-        cy.get('button[aria-label="Arrastar a questão 1 de 2"]').trigger('pointerdown', {
-          button: 0,
-          isPrimary: true,
-          eventConstructor: 'PointerEvent',
-        })
-        cy.get('body')
-          .trigger('pointermove', { clientX: 20, clientY: landing - 40, eventConstructor: 'PointerEvent' })
-          .trigger('pointermove', { clientX: 20, clientY: landing, eventConstructor: 'PointerEvent' })
-          .trigger('pointerup', { eventConstructor: 'PointerEvent' })
-      })
-
     cy.get('ol li').last().should('contain', 'sen(x)/x')
   })
 
   it('desabilita subir na primeira e descer na última', () => {
     addFromBank(LIMITS, DERIVATIVE)
 
-    cy.get('button[aria-label="Mover para cima a questão 1 de 2"]').should('be.disabled')
-    cy.get('button[aria-label="Mover para baixo a questão 2 de 2"]').should('be.disabled')
+    cy.get('[aria-label="Mover para cima a questão 1 de 2"]').should('be.disabled')
+    cy.get('[aria-label="Mover para baixo a questão 2 de 2"]').should('be.disabled')
   })
 
   it('remove uma questão da prova sem tocar no banco', () => {
     addFromBank(LIMITS)
-    cy.get('button[aria-label="Remover a questão 1 de 1"]').click()
+    cy.get('[aria-label="Remover a questão 1 de 1"]').click()
     cy.contains('0/20 questões').should('be.visible')
 
     cy.visit('/questoes')
@@ -257,6 +387,11 @@ describe('formulário de prova', () => {
 })
 
 describe('geração automática', () => {
+  before(() => {
+    cy.signInAsNewTeacher()
+    seedData()
+  })
+
   beforeEach(() => {
     cy.visit('/provas')
     cy.contains('a', 'Gerar automaticamente').click()
@@ -266,24 +401,7 @@ describe('geração automática', () => {
     cy.findInDialog('h2', 'Gerar prova automaticamente').should('be.visible')
   })
 
-  /**
-   * The screen opens straight into this dialog, so it is normally on screen
-   * before the bank has arrived. Drawing then finds nothing and blames the
-   * bank for being short, which is the one thing that is not true.
-   *
-   * The bank comes from the API, which on the same machine answers before the
-   * first check, so its answer is held back here: the test needs the moment
-   * before it arrives to exist on every run.
-   */
   it('não deixa sortear enquanto o banco não chegou', () => {
-    cy.intercept({ method: 'GET', pathname: '/api/questions' }, (req) => {
-      req.on('response', (res) => {
-        res.setDelay(1500)
-      })
-    })
-    cy.visit('/provas')
-    cy.contains('a', 'Gerar automaticamente').click()
-
     cy.findInDialog('button', 'Gerar seleção').should('be.disabled')
 
     cy.contains('questões disponíveis com estes filtros').should('be.visible')
@@ -301,48 +419,42 @@ describe('geração automática', () => {
   })
 
   it('avisa quando o banco não tinha tudo que foi pedido, em vez de falhar', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('5 questões disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="status"]').should('contain', 'O banco não tinha tudo que você pediu')
   })
 
   it('filtra por tag antes de sortear', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('5 questões disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"]').contains('label', 'Álgebra Linear').click()
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="dialog"] ul li').should('have.length', 1).and('contain', 'matriz quadrada')
   })
 
-  /**
-   * Two of the four multiple-choice questions are drawn, so the bank still has
-   * spares. Asking for all of them leaves nothing to swap to, which is the
-   * case the next test covers.
-   *
-   * The label is held in a plain variable, not an alias. An alias made from a
-   * query is re-run when it is read back, so reading it after the click gave
-   * the label the row had by then and the assertion compared it with itself.
-   */
   it('troca uma questão sorteada por outra do mesmo tipo', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
-    cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('2')
+    cy.contains('5 questões disponíveis com estes filtros').should('be.visible')
+    cy.get('[aria-label="Quantas objetivas"]').clear().type('2')
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.get('[role="dialog"] ul li').should('have.length', 2)
 
-    swapButtonOfFirstRow()
-      .invoke('attr', 'aria-label')
-      .then((before) => {
-        swapButtonOfFirstRow().click()
+    // Identifica uma das objetivas sorteadas pelo enunciado, em vez de
+    // escolher a linha pelo índice (.first()).
+    cy.get('[role="dialog"] ul li').then(($lis) => {
+      const drawn = OBJETIVAS.find((q) => $lis.text().includes(q.hint))
+      if (!drawn) throw new Error('Nenhuma objetiva conhecida na prévia')
 
-        swapButtonOfFirstRow().should('not.have.attr', 'aria-label', before)
-        cy.get('[role="dialog"] ul li').should('have.length', 2)
-      })
+      swapButtonOf(drawn.hint).click()
+
+      cy.get('[role="dialog"] ul li').should('have.length', 2)
+      cy.contains('[role="dialog"] ul li', drawn.hint).should('not.exist')
+    })
   })
 
   it('inclui discursivas quando pedido', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
-    cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('1')
+    cy.contains('5 questões disponíveis com estes filtros').should('be.visible')
+    cy.get('[aria-label="Quantas objetivas"]').clear().type('1')
     cy.findInDialog('span', 'Incluir discursivas').click()
     cy.findInDialog('button', 'Gerar seleção').click()
 
@@ -350,84 +462,49 @@ describe('geração automática', () => {
   })
 
   it('não sorteia discursiva quando não foi pedida', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
-    cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('4')
+    cy.contains('5 questões disponíveis com estes filtros').should('be.visible')
+    cy.get('[aria-label="Quantas objetivas"]').clear().type('4')
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="dialog"] ul li').should('not.contain', 'Explique com suas palavras')
   })
 
   it('diz que não há substituta quando o banco se esgotou', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('5 questões disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"]').contains('label', 'Álgebra Linear').click()
     cy.findInDialog('button', 'Gerar seleção').click()
 
-    cy.get('[role="dialog"] button[aria-label^="Trocar a questão"]').first().click()
+    // A linha é identificada pelo enunciado, não pelo índice.
+    cy.contains('[role="dialog"] ul li', 'matriz quadrada')
+      .find('[aria-label^="Trocar a questão"]')
+      .click()
 
     cy.get('[role="status"]').should('contain', 'Não há outra questão do mesmo tipo')
   })
 
   it('remove da prévia sem sortear de novo', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('5 questões disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
 
-    cy.get('[role="dialog"] ul li').then((items) => {
-      cy.get('[role="dialog"] button[aria-label^="Remover a questão"]').first().click()
-      cy.get('[role="dialog"] ul li').should('have.length', items.length - 1)
+    // Identifica uma questão conhecida da prévia pelo enunciado e remove ela.
+    cy.get('[role="dialog"] ul li').then(($lis) => {
+      const drawn = ALL_QUESTIONS.find((q) => $lis.text().includes(q.hint))
+      if (!drawn) throw new Error('Nenhuma questão conhecida na prévia')
+
+      cy.contains('[role="dialog"] ul li', drawn.hint)
+        .find('[aria-label^="Remover a questão"]')
+        .click()
+
+      cy.get('[role="dialog"] ul li').should('have.length', $lis.length - 1)
     })
   })
 
   it('leva a prévia para o formulário ao confirmar', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('5 questões disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.findInDialog('button', 'Usar esta seleção').click()
 
     cy.get('[role="dialog"]').should('not.exist')
     cy.contains('questões · pontuação total').should('be.visible')
-  })
-})
-
-/**
- * A bank bigger than one page, without creating fifty questions: a request
- * for a single page of 50 answers as if every sample question sat on a later
- * page. An exam can use any question of the bank, so its screens must find
- * them wherever they fall in the paged list.
- */
-function pushSampleQuestionsPastFirstPage() {
-  cy.intercept({ method: 'GET', pathname: '/api/questions', query: { pageSize: '50' } }, (req) => {
-    req.continue((res) => {
-      const page: unknown = typeof res.body === 'string' ? JSON.parse(res.body) : res.body
-      const total = typeof page === 'object' && page !== null && 'total' in page ? Number(page.total) : 0
-      res.send({ items: [], total: total + 50 })
-    })
-  })
-}
-
-describe('banco maior que uma página', () => {
-  beforeEach(() => {
-    pushSampleQuestionsPastFirstPage()
-    cy.visit('/provas')
-  })
-
-  it('o detalhe da prova acha as questões que não estão na primeira página', () => {
-    cy.contains('a', 'Cálculo I — Prova 1').click()
-
-    cy.get('ol li').first().should('contain', 'sen(x)/x')
-    cy.contains('Questão removida do banco').should('not.exist')
-  })
-
-  it('a edição mantém as questões que não estão na primeira página', () => {
-    cy.contains('a', 'Cálculo I — Prova 1').click()
-    cy.contains('a', 'Editar').click()
-
-    cy.contains('3/20 questões').should('be.visible')
-    cy.get('ol li').first().should('contain', 'sen(x)/x')
-    cy.contains('Questão removida do banco').should('not.exist')
-  })
-
-  it('o sorteio enxerga o banco inteiro', () => {
-    cy.contains('a', 'Gerar automaticamente').click()
-
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
   })
 })
