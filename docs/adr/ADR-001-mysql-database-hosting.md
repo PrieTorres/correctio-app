@@ -1,6 +1,6 @@
 # ADR-001: MySQL 8 no Aiven, com um banco por ambiente
 
-**Status:** aceito em 15/10/2026 · Issues: #32 (banco), #11 (pré-produção), #84 (este registro)
+**Status:** aceito em 15/10/2026, revisto em 21/10/2026 · Issues: #32 (banco), #11 (pré-produção), #84 (este registro), #151 (backup)
 
 ## Contexto
 
@@ -50,12 +50,20 @@ Alternativas avaliadas:
 - **O serviço pode ser desligado por inatividade.**
   - O Aiven reserva o direito de desligar serviços gratuitos sem "atividade contínua", sem dizer depois de quanto tempo, e avisa por e-mail antes.
   - O serviço foi desligado em 13/10, o que motivou o workflow `keep-alive.yml`, que consulta o banco a cada 6 horas. Foi desligado de novo em 15/10, já com o keep-alive rodando. Quando isso acontece, produção e pré respondem 503 até alguém clicar em "Power on" no console do Aiven.
-  - O único plano que nunca desliga é o Developer, de US$ 5 a 8 por mês ([Aiven, planos gratuitos](https://aiven.io/blog/free-plans-postgresql-mysql-redis)). A troca nas semanas de entrega fica a critério da PM.
-- **O RNF09 não é atendido pelo plano gratuito.**
-  - Ele guarda um único backup, só para recuperação de desastre ([Aiven, preços do MySQL](https://aiven.io/pricing/mysql)), e o RNF09 pede backup diário com 30 dias de retenção, restauração testada todo mês e perda máxima de 24 horas.
-  - Esta lacuna fica registrada. O caminho é um dump diário agendado para armazenamento privado com retenção de 30 dias, ou um plano pago com retenção.
+  - O único plano que nunca desliga é o Developer, de US$ 5 a 8 por mês ([Aiven, planos gratuitos](https://aiven.io/blog/free-plans-postgresql-mysql-redis)). Em 20/10 a PM decidiu ficar no gratuito e aceitar esse risco (ver "Revisão de 21/10/2026").
+- **O backup do plano gratuito não atende o RNF09, e o projeto faz o seu.**
+  - O Aiven guarda um único backup, só para recuperação de desastre ([Aiven, preços do MySQL](https://aiven.io/pricing/mysql)), que o projeto não consegue baixar nem restaurar. O RNF09 pede backup diário com 30 dias de retenção, restauração testada todo mês e perda máxima de 24 horas.
+  - Desde 21/10, um dump diário da produção vai para um bucket privado do Google com retenção de 30 dias, e a restauração é testada todo mês num MySQL descartável da CI (`docs/CI_CD.md`, seção 8).
 - **Os dados ficam fora do Brasil.**
   - São Francisco é transferência internacional de dado de aluno (LGPD, Art. 33): nome, matrícula, e-mail cifrado e notas.
   - O Aiven e a DigitalOcean entram como subprocessadores, ao lado do Google (ADR-004, ADR-005), e precisam constar no aviso de privacidade (RF39) e no acordo com a instituição (`docs/Seguranca_e_LGPD.md`, seção 6).
   - Proteções em vigor: TLS 1.3 em trânsito, disco cifrado (LUKS, AES-XTS) e backups cifrados (AES-256) pelo próprio Aiven, e o e-mail do aluno cifrado na aplicação com AES-256-GCM (`DATA_ENCRYPTION_KEY`).
 - **Pré e produção dividem o mesmo serviço.** Os dados nunca se misturam, porque cada ambiente tem seu banco e seu usuário. Mas um desligamento derruba os dois juntos, e uma carga pesada na pré disputa a mesma CPU.
+
+## Revisão de 21/10/2026
+
+- **Fica no plano gratuito.** O desligamento por inatividade aconteceu duas vezes (13 e 15/10). A PM avaliou o plano Developer, de US$ 5 por mês, sempre ligado, e decidiu ficar no gratuito com o risco aceito.
+  - O que reduz o risco: o `keep-alive.yml` consulta o banco a cada 6 horas.
+  - O que avisa: uma execução do keep-alive que falha manda e-mail, e a volta é clicar em "Power on" no console do Aiven.
+- **O RNF09 passa a ser atendido pelo backup do projeto**, não pelo do Aiven (#151): dump diário, só de leitura, no bucket `correctio-app-db-backups`, e teste mensal de restauração com registro. Fica no Google, que já é subprocessador (ADR-004, ADR-005), na mesma região us-west1.
+- **Trocar de plano continua sendo uma decisão reversível.** Subir para o Developer é um clique no console e não muda nada no código, e o backup do projeto continua valendo do mesmo jeito.
