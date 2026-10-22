@@ -52,6 +52,26 @@ export function useQuestionList(filters: QuestionFilters) {
   });
 }
 
+/**
+ * The page size that reads the whole bank in one request: the API's ceiling
+ * (`MAX_PAGE_SIZE`), the same the other whole-list reads ask for.
+ */
+export const WHOLE_BANK_PAGE_SIZE = 1000;
+
+/**
+ * Every active question of the teacher, for the exam screens. An exam finds
+ * its questions by id and the automatic draw picks from all of them, so a
+ * question past the first page of the bank must not read as removed.
+ */
+export function useQuestionBank() {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: [...questionKeys.all, 'bank'] as const,
+    queryFn: () => repositories.questions.list({ archived: false, pageSize: WHOLE_BANK_PAGE_SIZE }),
+  });
+}
+
 export function useQuestion(id: string | undefined) {
   const { repositories } = useServices();
 

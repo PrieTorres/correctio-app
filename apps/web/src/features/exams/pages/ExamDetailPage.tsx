@@ -3,7 +3,7 @@ import { ArrowLeft, Copy, Pencil, Plus } from 'lucide-react';
 import { Badge, Button, Card, PageHeader, QueryBoundary } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { totalScore } from '@/lib/exams';
-import { useQuestionList } from '@/features/questions';
+import { useQuestionBank } from '@/features/questions';
 import { isMultipleChoice, type ExamStatus } from '@/types/domain';
 import { useDuplicateExam, useExam } from '../hooks/useExams';
 
@@ -17,7 +17,7 @@ export function ExamDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: exam, isPending, isError } = useExam(id);
-  const { data: bank } = useQuestionList({ search: '', type: 'all', tags: [], deleted: false });
+  const { data: bank } = useQuestionBank();
   const duplicate = useDuplicateExam();
 
   const byId = new Map((bank?.items ?? []).map((item) => [item.id, item]));
