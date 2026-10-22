@@ -23,7 +23,7 @@ import { totalScore } from '@/lib/exams';
 import { fieldArrayMessage } from '@/lib/forms';
 import { ROUTES, buildPath } from '@/app/routes';
 import type { ExamQuestion, Question } from '@/types/domain';
-import { useQuestionList } from '@/features/questions';
+import { useQuestionBank } from '@/features/questions';
 import { useExam, useSaveExam } from '../hooks/useExams';
 import { QuestionPickerDrawer } from '../components/QuestionPickerDrawer';
 import { AutoFillDialog } from '../components/AutoFillDialog';
@@ -46,12 +46,7 @@ export function ExamFormPage() {
   const save = useSaveExam();
 
   const { data: existing, isPending, isError } = useExam(id);
-  const { data: bankPage, isPending: bankPending } = useQuestionList({
-    search: '',
-    type: 'all',
-    tags: [],
-    deleted: false,
-  });
+  const { data: bankPage, isPending: bankPending } = useQuestionBank();
   const bank = useMemo(() => bankPage?.items ?? [], [bankPage]);
 
   const [pickerOpen, setPickerOpen] = useState(false);
