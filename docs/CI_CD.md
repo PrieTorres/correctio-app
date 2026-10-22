@@ -1,6 +1,6 @@
 # CI/CD e Portão de Qualidade — Correctio
 
-Como todo Pull Request é verificado antes de poder ser mergeado, e como o sistema é publicado. Atende **RNF08** (testes), **RNF18** (dependências) e **RNF20** (qualidade contínua).
+Como todo Pull Request é verificado antes de poder ser mergeado, e como o sistema é publicado. Atende **RNF08** (testes), **RNF18** (dependências), **RNF20** (qualidade contínua) e **RNF09** (backup, seção 8).
 
 ---
 
@@ -19,7 +19,7 @@ O portão de qualidade transforma isso em algo automático, em vez de depender d
 | 1 | **Instalação** (`npm ci`, Node fixado) | o lockfile estiver inconsistente |
 | 2 | **Lint** (regras de `tooling/eslint/`, mais o idioma dos comentários) | houver erro de ESLint, função acima dos limites de complexidade ou comentário que não seja JSDoc |
 | 3 | **Verificação de tipos** (`tsc --noEmit`) | houver erro de tipo |
-| 4 | **Testes unitários + cobertura** (inclui os testes das regras de lint, com `node:test`, e os da API contra um MySQL de verdade, que aplicam as migrations num banco vazio) | algum teste falhar ou a cobertura de código novo ficar abaixo de 80% |
+| 4 | **Testes unitários + cobertura** (inclui os testes das regras de lint e do backup, com `node:test`, e os da API contra um MySQL de verdade, que aplicam as migrations num banco vazio) | algum teste falhar ou a cobertura de código novo ficar abaixo de 80% |
 | 5 | **Build de produção** | o build quebrar |
 | 6 | **Testes E2E (Cypress)** | algum fluxo principal falhar |
 | 7 | **Auditoria de dependências** | houver vulnerabilidade alta ou crítica |
@@ -66,6 +66,8 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 | "1. Pre-release: publish to pre-production" (`preview.yml`), sob demanda | a **pré-versão do dia**: publica a `release/AAAA-MM-DD` no link fixo da **pré-produção** (`https://correctio-app-preview.web.app`), depois da aprovação da PM. Outra branch, pelo nome ou pelo número do PR, ganha um link próprio que expira em 7 dias e é comentado no PR; ficam só os 10 mais recentes |
 | "2. Release: publish to production" (`release.yml`) | a **versão oficial**: portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
 | A cada 6 horas (`keep-alive.yml`) | chama o `/api/health` da produção, para o banco ter atividade. O plano gratuito do Aiven pode desligar o banco por inatividade, sem prazo definido, e a produção cai junto; isso reduz o risco, mas não o elimina (ADR-001). Uma execução que falha avisa por e-mail que a produção está respondendo 503 |
+| Todo dia, às 06:23 UTC (`database-backup.yml`) | dump da produção no bucket privado `correctio-app-db-backups`, guardado por 30 dias (seção 8). Uma execução que falha avisa por e-mail que o dia ficou sem backup |
+| Dia 1 de cada mês (`database-restore-test.yml`) | restaura o backup mais recente num MySQL descartável da própria execução, roda as migrations por cima e registra o resultado (seção 8) |
 | "Rollback: republish a released version" (`republish.yml`), sob demanda | põe de volta em produção uma versão já lançada, também com aprovação da PM: o caminho de volta quando uma release dá errado |
 
 **Só a PM publica, na pré e na produção.** Qualquer pessoa do time pode iniciar os workflows, mas o
@@ -147,11 +149,13 @@ antes do Express, com limite próprio de 10 MB, e o `express.json` não reaplica
 | Secrets do repositório | `SONAR_TOKEN`, `CYPRESS_RECORD_KEY` |
 | Ambientes `production` e `preview` do GitHub, secrets | `DATABASE_URL` e `DATABASE_CA_CERT` do banco daquele ambiente, usados pelas migrations |
 | Ambientes `production` e `preview` do GitHub, variáveis | `FIREBASE_PROJECT_ID`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_DEPLOY_SERVICE_ACCOUNT` |
+| Ambiente `backup` do GitHub | secrets `DATABASE_URL` e `DATABASE_CA_CERT` da produção, só para o dump; variáveis `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_BACKUP_SERVICE_ACCOUNT` e `BACKUP_BUCKET` |
 | Secret Manager de cada projeto Firebase | `DATABASE_URL`, `DATABASE_CA_CERT`, `DATA_ENCRYPTION_KEY`, lidos pela API em execução |
 
 O mesmo nome em cada ambiente: o job declara `environment: production` ou `environment: preview`
 e recebe o conjunto certo. O ambiente `production` só aceita execuções da `main` e exige a
-aprovação da PM.
+aprovação da PM. O `backup` também só aceita a `main`, mas sem aprovação: é o que deixa o backup
+rodar sozinho todo dia.
 
 ---
 
@@ -179,6 +183,10 @@ na interface do GitHub, que nenhum arquivo versionado consegue ligar:
 | Workload Identity Federation e conta de serviço do deploy, em cada projeto | Google Cloud, IAM | ✅ |
 | Segredos da API no Secret Manager de cada projeto | Google Cloud, Secret Manager | ✅ |
 | Ambientes `production` (só `main`, PM como revisora obrigatória) e `preview` | Settings → Environments | ✅ |
+| Bucket `correctio-app-db-backups` (us-west1, privado, apaga o que passa de 30 dias em `production/`) | Google Cloud, projeto `correctio-app` | ✅ |
+| Conta de serviço `github-db-backup`, só no bucket do backup, e provedor `correctio-backup` do Workload Identity Federation, só para o ambiente `backup` vindo da `main` | Google Cloud, IAM | ✅ |
+| Ambiente `backup` (só `main`, sem revisora) com as variáveis do backup | Settings → Environments | ✅ |
+| Secrets `DATABASE_URL` e `DATABASE_CA_CERT` no ambiente `backup` | Settings → Environments | ⏳ pendente |
 | Tags de versão `v*` não podem ser movidas nem apagadas (só a admin passa por cima) | Settings → Rules, "release tags" | ✅ |
 | Branches `release/**` com a proteção da `main` (PR, aprovação da PM e verificações) | Settings → Rules, "release branches" | ✅ |
 | GitHub Pages publicando o front da `main`, para teste | Settings → Pages, fonte GitHub Actions | ✅ |
@@ -186,3 +194,65 @@ na interface do GitHub, que nenhum arquivo versionado consegue ligar:
 > **Workflow sob demanda só aparece depois de estar na `main`.** O GitHub lista em Actions apenas
 > os workflows que existem na branch padrão, então o "1. Pre-release" e o "Rollback"
 > ficam disponíveis a partir do merge que os cria.
+
+---
+
+## 8. Backup do banco (RNF09)
+
+O plano gratuito do Aiven guarda um único backup, só para recuperação de desastre, que o projeto não
+consegue baixar nem restaurar por conta própria (ADR-001). O RNF09 é atendido por um backup do próprio
+projeto:
+
+| | |
+|---|---|
+| **O quê** | `mysqldump` do banco `correctio` de produção, compactado, um arquivo por dia: `production/correctio-AAAA-MM-DDTHH-MM-SSZ.sql.gz` |
+| **Quando** | todo dia às 06:23 UTC (03:23 em Brasília), pelo `database-backup.yml` |
+| **Onde** | bucket `correctio-app-db-backups`, no projeto Firebase de produção, em us-west1: acesso público bloqueado e cifrado em repouso pelo Google |
+| **Retenção** | 30 dias. O próprio bucket apaga o que passa disso, e um arquivo apagado ainda pode ser recuperado por 7 dias |
+| **Quem acessa** | a conta de serviço `github-db-backup`, que grava e lê nesse bucket mas não apaga nem substitui arquivo, e a conta do projeto (`correctioapp@gmail.com`) |
+| **Teste de restauração** | dia 1 de cada mês, pelo `database-restore-test.yml` |
+| **Perda máxima e prazo de volta** | até 24 h de dados, o intervalo entre dois backups. A restauração leva segundos, então o prazo de 4 h do RNF09 é o tempo de seguir o roteiro abaixo |
+
+**O dump só lê.** `--single-transaction` tira uma foto consistente sem travar tabela, então a API
+continua respondendo durante o backup. Antes de subir o arquivo, o script confere a última linha que o
+`mysqldump` escreve: um dump cortado no meio falha a execução, em vez de virar um backup que não
+restaura.
+
+**O teste de restauração nunca toca um banco hospedado.** Ele baixa o backup mais recente, restaura
+num MySQL que só existe dentro da execução e:
+
+1. confere que o backup tem no máximo 26 horas (o limite de 24 h, mais uma folga para o atraso do
+   agendamento do GitHub);
+2. conta as linhas de cada tabela e exige ao menos uma conta em `users`;
+3. roda as migrations por cima, o que prova que o backup funciona com o código no ar.
+
+O registro mensal é o resumo da execução, mais um relatório em `restore-tests/` no mesmo bucket, que
+não expira. O relatório tem só contagens e tempos, nunca uma linha de dado. O script de restauração
+recusa qualquer endereço que não seja a própria máquina.
+
+**Testado em todo PR.** `scripts/database-backup/__tests__` faz um dump e uma restauração de verdade
+contra o MySQL da CI, com acentos, JSON, binário e decimal, e confere que tudo volta igual.
+
+**Os segredos ficam num ambiente próprio, o `backup`.** O `production` pede a aprovação da PM a cada
+execução, e um backup diário não pode esperar um clique. O `backup` só aceita execuções da `main`, e o
+Google só troca o token desse ambiente vindo da `main` (provedor `correctio-backup`).
+
+> **Agendamento só vale na `main`.** Os dois workflows passam a rodar quando chegam à `main`. O GitHub
+> também suspende os agendamentos de um repositório público depois de 60 dias sem atividade, o que vale
+> igualmente para o `keep-alive.yml`.
+
+### Restaurar a produção a partir de um backup
+
+Só a PM, e só numa perda real de dados: nada aqui roda sozinho.
+
+1. No console do Aiven, conferir se o serviço está ligado e, se não estiver, clicar em "Power on".
+2. Baixar o arquivo do dia desejado:
+   `gcloud storage cp gs://correctio-app-db-backups/production/<arquivo> . --account correctioapp@gmail.com`.
+3. Criar um banco novo no mesmo serviço, por exemplo `correctio_restored`, e restaurar nele com o
+   `avnadmin`:
+   `gunzip -c <arquivo> | mysql -h <host> -P <porta> -u avnadmin -p --ssl-mode=VERIFY_IDENTITY --ssl-ca=ca.pem correctio_restored`.
+   O banco com problema fica intacto, para entender o que aconteceu.
+4. Dar ao `correctio_prod` acesso ao banco novo e apontar a `DATABASE_URL` para ele no Secret Manager
+   do projeto `correctio-app` e nos ambientes `production` e `backup` do GitHub.
+5. Republicar a versão no ar ("Rollback: republish a released version"), para a API subir lendo o
+   segredo novo, e conferir o `/api/health`.
