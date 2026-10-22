@@ -53,7 +53,7 @@ const QUESTIONS = [
 describe('banco de questões', () => {
   before(() => {
     cy.signInAsNewTeacher()
-    cy.request('POST', '/api/auth/refresh').then((response) => {
+    cy.request<{ accessToken: string }>('POST', '/api/auth/refresh').then((response) => {
       const token = response.body.accessToken
       cy.wrap(QUESTIONS).each((q) => {
         cy.request({

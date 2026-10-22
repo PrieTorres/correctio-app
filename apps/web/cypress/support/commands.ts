@@ -1,17 +1,17 @@
 import type { AuthenticatedUser } from '@/types/domain'
 import type { QuestionInput } from '@/lib/schemas'
 
-/** A senha de todo professor que a suíte cadastra; longa o bastante para a regra de 8 caracteres. */
+/** The password for every teacher created by the suite; long enough for the 8-character rule. */
 export const TEST_PASSWORD = 'senha-de-teste-1'
 
-/** Um endereço que nenhuma execução anterior usou. */
+/** An address that no previous run has used. */
 export function uniqueEmail(prefix = 'prof'): string {
   return `${prefix}-${Date.now()}-${Cypress._.random(1e6)}@exemplo.edu.br`
 }
 
 /**
- * Cadastra um novo professor pela API e deixa o navegador logado.
- * O `cy.session` no `e2e.ts` guarda os cookies para os próximos testes.
+ * Registers a new teacher via the API and leaves the browser logged in.
+ * The `cy.session` in `e2e.ts` stores cookies for subsequent tests.
  */
 Cypress.Commands.add('signInAsNewTeacher', () => {
   const account = { fullName: 'Professora Ana Ribeiro', email: uniqueEmail(), password: TEST_PASSWORD }
@@ -21,10 +21,10 @@ Cypress.Commands.add('signInAsNewTeacher', () => {
 })
 
 /**
- * Pega o token atual e cria uma questão na API.
+ * Fetches the current token and creates a question in the API.
  */
 Cypress.Commands.add('createQuestion', (question: QuestionInput) => {
-  cy.request('POST', '/api/auth/refresh').then((response) => {
+  cy.request<{ accessToken: string }>('POST', '/api/auth/refresh').then((response) => {
     const token = response.body.accessToken
     cy.request({
       method: 'POST',
@@ -36,10 +36,10 @@ Cypress.Commands.add('createQuestion', (question: QuestionInput) => {
 })
 
 /**
- * Pega o token atual e cria uma prova na API.
+ * Fetches the current token and creates an exam in the API.
  */
 Cypress.Commands.add('createExam', (exam: Record<string, unknown>) => {
-  cy.request('POST', '/api/auth/refresh').then((response) => {
+  cy.request<{ accessToken: string }>('POST', '/api/auth/refresh').then((response) => {
     const token = response.body.accessToken
     cy.request({
       method: 'POST',
@@ -51,25 +51,25 @@ Cypress.Commands.add('createExam', (exam: Record<string, unknown>) => {
 })
 
 /**
- * Encontra um campo de formulário pelo seu rótulo visível.
+ * Finds a form field by its visible label.
  */
 Cypress.Commands.add('findByLabel', (text: string) => {
   return cy.contains('label', text).then(($label) => {
     const id = $label.attr('for')
-    if (id === undefined) throw new Error(`O label "${text}" não aponta para nenhum campo.`)
+    if (id === undefined) throw new Error(`The label "${text}" does not point to any field.`)
     return cy.get(`#${CSS.escape(id)}`)
   })
 })
 
 /**
- * Foca a busca dentro do diálogo aberto.
+ * Focuses the search inside the open dialog.
  */
 Cypress.Commands.add('findInDialog', (selector: string, text: string) => {
   return cy.get('[role="dialog"]').should('be.visible').contains(selector, text)
 })
 
 /**
- * Escolhe uma opção de um controle segmentado pelo texto visível.
+ * Selects an option from a segmented control by its visible text.
  */
 Cypress.Commands.add('chooseSegment', (text: string) => {
   cy.contains('label', text).click()

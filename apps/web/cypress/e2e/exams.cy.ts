@@ -12,7 +12,7 @@ const MATRIX = 'Uma matriz quadrada é invertível quando:'
 const NEWTON = 'A segunda lei de Newton relaciona força, massa e:'
 const ESSAY_LIMITS = 'Explique com suas palavras o que significa dizer que uma função é contínua em um ponto, e dê um exemplo de função que não seja.'
 
-// Substrings que continuam visíveis mesmo quando a prévia trunca o enunciado.
+/** Substrings that remain visible even when the preview truncates the statement. */
 const OBJETIVAS = [
   { hint: 'sen(x)/x' },
   { hint: 'derivada' },
@@ -23,9 +23,8 @@ const DISCURSIVAS = [{ hint: 'Explique com suas palavras' }] as const
 const ALL_QUESTIONS = [...OBJETIVAS, ...DISCURSIVAS] as const
 
 /**
- * Botão de troca da linha identificada pelo enunciado.
- * Antes escolhia pelo índice (.first()) — o item 3 da #63 pede escolha
- * pelo enunciado. Índice continua valendo só para conferir ordem.
+ * Swap button for the row identified by the statement.
+ * Index is only for order.
  */
 function swapButtonOf(hint: string) {
   return cy
@@ -104,7 +103,7 @@ function seedData() {
     }
   ]
 
-  cy.request('POST', '/api/auth/refresh').then((response) => {
+  cy.request<{ accessToken: string }>('POST', '/api/auth/refresh').then((response) => {
     const token = response.body.accessToken
     const headers = { Authorization: `Bearer ${token}` }
 
@@ -117,13 +116,13 @@ function seedData() {
       })
     })
 
-    cy.request({
+    cy.request<{ items: Array<{ id: string; statement: string }> }>({
       method: 'GET',
       url: '/api/questions',
       headers
     }).then((res) => {
       const bank = res.body.items
-      const findId = (statement: string) => bank.find((q: any) => q.statement === statement)?.id
+      const findId = (statement: string) => bank.find((q) => q.statement === statement)?.id
 
       const limitId = findId(LIMITS)
       const derivId = findId(DERIVATIVE)
@@ -159,12 +158,12 @@ function seedData() {
       cy.request({ method: 'POST', url: '/api/exams', headers, body: examActive })
       cy.request({ method: 'POST', url: '/api/exams', headers, body: examArchived })
       cy.request({ method: 'POST', url: '/api/exams', headers, body: examPast }).then(() => {
-         cy.request({
+         cy.request<{ items: Array<{ id: string; title: string }> }>({
            method: 'GET',
            url: '/api/exams',
            headers
          }).then((examsRes) => {
-            const archived = examsRes.body.items.find((e: any) => e.title === 'Física II — Teste rápido')
+            const archived = examsRes.body.items.find((e) => e.title === 'Física II — Teste rápido')
             if (archived) {
                cy.request({
                  method: 'DELETE',
@@ -238,7 +237,7 @@ describe('lista de provas', () => {
     cy.location('pathname').should('match', /\/provas\/.+\/editar$/)
     cy.findByLabel('Título').should('have.value', 'Física II — Teste rápido (cópia)')
 
-    // Volta para a lista pelo link de navegação, sem escolher por índice.
+    /** Returns to the list using the navigation link, without choosing by index. */
     cy.contains('a', 'Provas').click()
     cy.contains('a', 'Física II — Teste rápido').should('be.visible')
   })
@@ -439,8 +438,7 @@ describe('geração automática', () => {
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.get('[role="dialog"] ul li').should('have.length', 2)
 
-    // Identifica uma das objetivas sorteadas pelo enunciado, em vez de
-    // escolher a linha pelo índice (.first()).
+    /** Identifies one of the objective questions drawn by the statement, instead of choosing the row by index. */
     cy.get('[role="dialog"] ul li').then(($lis) => {
       const drawn = OBJETIVAS.find((q) => $lis.text().includes(q.hint))
       if (!drawn) throw new Error('Nenhuma objetiva conhecida na prévia')
@@ -474,7 +472,7 @@ describe('geração automática', () => {
     cy.get('[role="dialog"]').contains('label', 'Álgebra Linear').click()
     cy.findInDialog('button', 'Gerar seleção').click()
 
-    // A linha é identificada pelo enunciado, não pelo índice.
+    /** The row is identified by the statement, not by index. */
     cy.contains('[role="dialog"] ul li', 'matriz quadrada')
       .find('[aria-label^="Trocar a questão"]')
       .click()
@@ -486,7 +484,7 @@ describe('geração automática', () => {
     cy.contains('5 questões disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
 
-    // Identifica uma questão conhecida da prévia pelo enunciado e remove ela.
+    /** Identifies a known question from the preview by the statement and removes it. */
     cy.get('[role="dialog"] ul li').then(($lis) => {
       const drawn = ALL_QUESTIONS.find((q) => $lis.text().includes(q.hint))
       if (!drawn) throw new Error('Nenhuma questão conhecida na prévia')
