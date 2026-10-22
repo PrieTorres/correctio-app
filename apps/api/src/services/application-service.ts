@@ -1,4 +1,4 @@
-import { applicationStatusSchema, type Application } from '@correctio/domain'
+import { applicationStatusSchema, type Application, type ApplicationStatus } from '@correctio/domain'
 import { z } from 'zod'
 import { API_ERROR_CODE, ApiError } from '../lib/api-error'
 import type { FileStorage } from '../lib/file-storage'
@@ -11,12 +11,26 @@ const NO_PDF = 'O PDF desta aplicação ainda não foi gerado.'
 const PDF_FILE_MISSING = 'O arquivo do PDF não foi encontrado. Gere a prova de novo.'
 const NOTHING_GENERATED = 'Gere a prova antes de liberar as notas.'
 const ANSWER_KEY_PENDING = 'Publique o gabarito de todas as versões antes de liberar as notas.'
+const CLOSED_OUTSIDE_ARCHIVED = 'A situação closed só existe entre as aplicações arquivadas: use archived=true.'
+const ACTIVE_STATUS_IN_ARCHIVED = 'Entre as aplicações arquivadas, a única situação é closed.'
 
 /** The filters of P11. An id of something the teacher does not own simply matches nothing. */
 const LIST_FILTERS = {
   classId: z.string().min(1).optional(),
   examId: z.string().min(1).optional(),
   status: applicationStatusSchema.optional(),
+}
+
+/**
+ * `archived` chooses between the active applications and the archived ones,
+ * and each status lives on one side only: `closed` among the archived, `draft`
+ * and `generated` among the active. Asking for a status on the other side used
+ * to answer an empty list, which reads as "there is none" rather than as a
+ * question that cannot match, so it is refused instead.
+ */
+function refuseStatusOutsideItsList({ archived, status }: { archived: boolean; status?: ApplicationStatus }): void {
+  if (status === undefined || (status === 'closed') === archived) return
+  throw new ApiError(API_ERROR_CODE.INVALID, archived ? ACTIVE_STATUS_IN_ARCHIVED : CLOSED_OUTSIDE_ARCHIVED)
 }
 
 const gradesReleaseSchema = z.object(
@@ -88,7 +102,9 @@ function releaseBlocker(answerKeysPublished: readonly boolean[]): string | undef
 export function createApplicationService({ applications, fileStorage }: ApplicationServiceDependencies): ApplicationService {
   return {
     async list(teacherId, query) {
-      const page = await applications.list(teacherId, parseListRequest(query, LIST_FILTERS))
+      const filters = parseListRequest(query, LIST_FILTERS)
+      refuseStatusOutsideItsList(filters)
+      const page = await applications.list(teacherId, filters)
       return { items: page.items.map(present), total: page.total }
     },
 

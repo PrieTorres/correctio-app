@@ -136,7 +136,9 @@ leem a prova e chegam junto com as provas da #45.
 
 - **Lista:** além dos parâmetros de lista, aceita `classId`, `examId` e `status`, da mais antiga
   para a mais recente. A busca procura o dia, escrito como a tela mostra (`05/10/2026`) ou como
-  ISO (`2026-10-05`), inteiro ou em parte.
+  ISO (`2026-10-05`), inteiro ou em parte. Cada `status` fica de um lado só do `archived`:
+  `closed` só entre as arquivadas, `draft` e `generated` só entre as ativas. Pedir um `status` do
+  outro lado responde 400, em vez de uma lista vazia que pareceria "não há nenhuma".
 - **Restaurar** devolve a aplicação arquivada como `draft`, nunca como `generated`; uma que não
   está arquivada fica como está.
 - **Versões e folhas** são listas `{ items, total }`, por `versionNumber` e `sheetNumber`.
@@ -228,7 +230,10 @@ encaminha `/api/**` para ela, então em produção as rotas respondem em
 - Os PDFs vão para o bucket padrão do Firebase Storage de cada projeto, criado em `us-west1` e
   privado, com as regras do Storage negando todo acesso vindo do navegador (ADR-004). A função
   usa a própria conta de serviço, sem chave salva em lugar nenhum. Enquanto o bucket não existir,
-  a API sobe normalmente e só as rotas de arquivo respondem com erro.
+  a API sobe normalmente e só as rotas de arquivo respondem com erro: 500, com a mensagem "O
+  armazenamento de arquivos do servidor não está disponível.", registrado no log com a causa. O
+  Cloud Storage responde 404 tanto para o bucket que não existe quanto para o arquivo que sumiu,
+  e por isso a API pergunta se o bucket existe antes de tratar o 404 como arquivo perdido.
 - A função também responde no endereço direto do Google, sem passar pelo Hosting, e ali o
   `X-Forwarded-For` pode ser forjado: os limites por endereço valem para quem usa o site, não para
   quem chama a função direto. Os limites por professor não dependem do endereço.
