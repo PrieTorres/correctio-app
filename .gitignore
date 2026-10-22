@@ -4,6 +4,9 @@
 # internal working plan, not shared
 .plano
 
+# drafts the AI assistant writes for the team (logbooks, guides), kept local
+Claude outputs/
+
 # dependencies
 node_modules/
 .pnpm-store/

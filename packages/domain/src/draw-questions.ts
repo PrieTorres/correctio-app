@@ -1,4 +1,4 @@
-import type { Question } from '@/types/domain'
+import type { Question } from './domain'
 
 export interface DrawCriteria {
   /** A question qualifies when it carries every tag listed. Empty means any. */
@@ -7,8 +7,15 @@ export interface DrawCriteria {
   openEndedCount: number
 }
 
-export interface DrawResult {
-  questions: Question[]
+/**
+ * What the draw reads of a question: its kind, its tags and whether it was
+ * deleted. The screens pass the `Question` of the contract; the API passes the
+ * record it loaded, whose dates are still `Date`.
+ */
+export type DrawableQuestion = Pick<Question, 'id' | 'type' | 'tags'> & { deletedAt?: unknown }
+
+export interface DrawResult<Drawn extends DrawableQuestion = Question> {
+  questions: Drawn[]
   /** Set when the bank could not supply everything asked for. */
   shortfall: { multipleChoice: number; openEnded: number } | null
 }
@@ -19,7 +26,7 @@ export interface DrawResult {
  */
 export type RandomSource = () => number
 
-function matchesCriteria(question: Question, tags: string[]): boolean {
+function matchesCriteria(question: DrawableQuestion, tags: readonly string[]): boolean {
   return question.deletedAt === undefined && tags.every((tag) => question.tags.includes(tag))
 }
 
@@ -30,9 +37,9 @@ function matchesCriteria(question: Question, tags: string[]): boolean {
  * collision: retrying degrades badly once the pool is nearly exhausted, which
  * is exactly the case a small question bank hits.
  */
-function takeRandom(pool: readonly Question[], count: number, random: RandomSource): Question[] {
+function takeRandom<Drawn extends DrawableQuestion>(pool: readonly Drawn[], count: number, random: RandomSource): Drawn[] {
   const remaining = [...pool]
-  const taken: Question[] = []
+  const taken: Drawn[] = []
 
   while (taken.length < count && remaining.length > 0) {
     const index = Math.min(Math.floor(random() * remaining.length), remaining.length - 1)
@@ -50,11 +57,11 @@ function takeRandom(pool: readonly Question[], count: number, random: RandomSour
  * returns what it found and reports the gap, so the teacher sees a partial
  * selection and the reason rather than an empty screen.
  */
-export function drawQuestions(
-  bank: readonly Question[],
+export function drawQuestions<Drawn extends DrawableQuestion>(
+  bank: readonly Drawn[],
   criteria: DrawCriteria,
   random: RandomSource = Math.random,
-): DrawResult {
+): DrawResult<Drawn> {
   const eligible = bank.filter((question) => matchesCriteria(question, criteria.tags))
   const multipleChoice = takeRandom(
     eligible.filter((question) => question.type === 'objetiva'),
@@ -79,22 +86,27 @@ export function drawQuestions(
   }
 }
 
+/** What a swap looks for: the tags of the draw, what is already chosen, and the question going out. */
+export interface RedrawRequest<Drawn extends DrawableQuestion> {
+  tags: readonly string[]
+  alreadyChosenIds: readonly string[]
+  replacing: Pick<Drawn, 'type'>
+}
+
 /**
  * Swaps one drawn question for another the teacher has not seen in this draw.
  *
  * Returns `null` when the bank has nothing else to offer, so the caller can say
  * so instead of silently leaving the same question in place.
  */
-export function redrawQuestion(
-  bank: readonly Question[],
-  criteria: Pick<DrawCriteria, 'tags'>,
-  alreadyChosenIds: readonly string[],
-  replacing: Question,
+export function redrawQuestion<Drawn extends DrawableQuestion>(
+  bank: readonly Drawn[],
+  { tags, alreadyChosenIds, replacing }: RedrawRequest<Drawn>,
   random: RandomSource = Math.random,
-): Question | null {
+): Drawn | null {
   const alternatives = bank.filter(
     (question) =>
-      matchesCriteria(question, criteria.tags) &&
+      matchesCriteria(question, tags) &&
       question.type === replacing.type &&
       !alreadyChosenIds.includes(question.id),
   )

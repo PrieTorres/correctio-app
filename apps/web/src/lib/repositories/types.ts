@@ -21,9 +21,17 @@ export interface ListParams {
  *
  * `archive`/`restore` replace deletion — records leave the listing but are
  * never destroyed.
+ *
+ * `TParams` defaults to `ListParams`; a repository with extra filters extends
+ * it (for example, `QuestionListParams` adds `type`, `tags`, `onlyUntagged`
+ * and `sort`).
  */
-export interface OwnedRepository<TEntity, TInput> {
-  list: (params?: ListParams) => Promise<Page<TEntity>>
+export interface OwnedRepository<
+  TEntity,
+  TInput,
+  TParams extends ListParams = ListParams,
+> {
+  list: (params?: TParams) => Promise<Page<TEntity>>
   getById: (id: string) => Promise<TEntity | null>
   create: (input: TInput) => Promise<TEntity>
   update: (id: string, input: Partial<TInput>) => Promise<TEntity>

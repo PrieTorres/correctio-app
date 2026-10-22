@@ -270,8 +270,20 @@ describe('geração automática', () => {
    * The screen opens straight into this dialog, so it is normally on screen
    * before the bank has arrived. Drawing then finds nothing and blames the
    * bank for being short, which is the one thing that is not true.
+   *
+   * The bank comes from the API, which on the same machine answers before the
+   * first check, so its answer is held back here: the test needs the moment
+   * before it arrives to exist on every run.
    */
   it('não deixa sortear enquanto o banco não chegou', () => {
+    cy.intercept({ method: 'GET', pathname: '/api/questions' }, (req) => {
+      req.on('response', (res) => {
+        res.setDelay(1500)
+      })
+    })
+    cy.visit('/provas')
+    cy.contains('a', 'Gerar automaticamente').click()
+
     cy.findInDialog('button', 'Gerar seleção').should('be.disabled')
 
     cy.contains('questões disponíveis com estes filtros').should('be.visible')
@@ -372,5 +384,50 @@ describe('geração automática', () => {
 
     cy.get('[role="dialog"]').should('not.exist')
     cy.contains('questões · pontuação total').should('be.visible')
+  })
+})
+
+/**
+ * A bank bigger than one page, without creating fifty questions: a request
+ * for a single page of 50 answers as if every sample question sat on a later
+ * page. An exam can use any question of the bank, so its screens must find
+ * them wherever they fall in the paged list.
+ */
+function pushSampleQuestionsPastFirstPage() {
+  cy.intercept({ method: 'GET', pathname: '/api/questions', query: { pageSize: '50' } }, (req) => {
+    req.continue((res) => {
+      const page: unknown = typeof res.body === 'string' ? JSON.parse(res.body) : res.body
+      const total = typeof page === 'object' && page !== null && 'total' in page ? Number(page.total) : 0
+      res.send({ items: [], total: total + 50 })
+    })
+  })
+}
+
+describe('banco maior que uma página', () => {
+  beforeEach(() => {
+    pushSampleQuestionsPastFirstPage()
+    cy.visit('/provas')
+  })
+
+  it('o detalhe da prova acha as questões que não estão na primeira página', () => {
+    cy.contains('a', 'Cálculo I — Prova 1').click()
+
+    cy.get('ol li').first().should('contain', 'sen(x)/x')
+    cy.contains('Questão removida do banco').should('not.exist')
+  })
+
+  it('a edição mantém as questões que não estão na primeira página', () => {
+    cy.contains('a', 'Cálculo I — Prova 1').click()
+    cy.contains('a', 'Editar').click()
+
+    cy.contains('3/20 questões').should('be.visible')
+    cy.get('ol li').first().should('contain', 'sen(x)/x')
+    cy.contains('Questão removida do banco').should('not.exist')
+  })
+
+  it('o sorteio enxerga o banco inteiro', () => {
+    cy.contains('a', 'Gerar automaticamente').click()
+
+    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
   })
 })

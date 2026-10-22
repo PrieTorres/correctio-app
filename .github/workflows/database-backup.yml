@@ -1,0 +1,74 @@
+name: Back up the database
+
+# RNF09: one dump of production a day, kept for 30 days in a private bucket of
+# the production Firebase project. The bucket deletes what is older by itself.
+# The dump only reads, from one consistent snapshot, so the API keeps answering
+# while it runs. A failed run is the alarm: GitHub emails it, and it means the
+# day has no backup.
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump production to the bucket
+    runs-on: ubuntu-latest
+    # Its own environment: the database secrets, only for runs from main, and
+    # none of the approval production asks for, so a daily job needs no click.
+    environment: backup
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+
+      # The runner image ships the MySQL 8 client; installing it is the
+      # fallback for an image that stops shipping it.
+      - name: Check the MySQL client
+        run: command -v mysqldump || (sudo apt-get update && sudo apt-get install -y mysql-client)
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_BACKUP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Dump the database
+        id: dump
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_CA_CERT: ${{ secrets.DATABASE_CA_CERT }}
+          DATABASE_TLS: verify
+        run: |
+          file=$(node scripts/backup-database.mjs "$RUNNER_TEMP")
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+
+      # The service account may add files but not replace or delete them, so a
+      # run can never overwrite an older backup.
+      - name: Upload to the bucket
+        env:
+          FILE: ${{ steps.dump.outputs.file }}
+          BUCKET: ${{ vars.BACKUP_BUCKET }}
+        run: gcloud storage cp --no-clobber "$FILE" "gs://$BUCKET/production/"
+
+      - name: Summary
+        env:
+          FILE: ${{ steps.dump.outputs.file }}
+          BUCKET: ${{ vars.BACKUP_BUCKET }}
+        run: |
+          {
+            echo "### Backup do banco de produção"
+            echo ""
+            echo "\`gs://$BUCKET/production/$(basename "$FILE")\`, $(du -h "$FILE" | cut -f1) compactado."
+          } >> "$GITHUB_STEP_SUMMARY"

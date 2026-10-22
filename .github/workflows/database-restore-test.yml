@@ -1,0 +1,91 @@
+name: Test restoring the database backup
+
+# RNF09 asks for a restore tested and recorded once a month. The latest backup
+# goes into a throwaway MySQL inside this job, never into a hosted database,
+# and the migrations run on top of it, so it is known to work with the code
+# that is live. The record is this run's summary plus a report kept in the
+# bucket, which outlives the 90 days GitHub keeps a run. The report holds
+# counts and times only, never a row of data.
+on:
+  schedule:
+    - cron: '47 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  restore:
+    name: Restore the latest backup
+    runs-on: ubuntu-latest
+    environment: backup
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/correctio_restored
+      DATABASE_TLS: local
+      BUCKET: ${{ vars.BACKUP_BUCKET }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Check the MySQL client
+        run: command -v mysql || (sudo apt-get update && sudo apt-get install -y mysql-client)
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_BACKUP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # The names carry the time they were taken, so the last one in order is
+      # the latest backup.
+      - name: Download the latest backup
+        id: latest
+        run: |
+          latest=$(gcloud storage ls "gs://$BUCKET/production/" | sort | tail -n 1)
+          if [ -z "$latest" ]; then
+            echo "::error::The bucket has no backup"
+            exit 1
+          fi
+          gcloud storage cp "$latest" "$RUNNER_TEMP/"
+          echo "file=$RUNNER_TEMP/$(basename "$latest")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore it
+        id: restore
+        env:
+          FILE: ${{ steps.latest.outputs.file }}
+        run: node scripts/check-database-restore.mjs "$FILE" "$RUNNER_TEMP/restore-report.json" >> "$GITHUB_STEP_SUMMARY"
+
+      - run: npm ci
+
+      # Nothing pending means the backup has every migration the live code
+      # expects; a pending one means it applies on top, which a real restore
+      # would also need.
+      - name: Apply the migrations on top
+        id: migrate
+        run: npm run db:migrate
+
+      - name: Keep the record in the bucket
+        if: ${{ always() && steps.restore.outcome != 'skipped' }}
+        env:
+          MIGRATIONS: ${{ steps.migrate.outcome }}
+        run: |
+          report="$RUNNER_TEMP/restore-report.json"
+          jq --arg migrations "$MIGRATIONS" '. + { migrations: $migrations }' "$report" > "$report.final"
+          gcloud storage cp --no-clobber "$report.final" \
+            "gs://$BUCKET/restore-tests/$(date -u +%Y-%m-%dT%H-%M-%SZ).json"

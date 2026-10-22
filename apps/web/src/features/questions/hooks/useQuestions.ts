@@ -1,9 +1,10 @@
-import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
 import type { QuestionInput } from '@/lib/schemas';
-import type { Question, QuestionType } from '@/types/domain';
+import type { QuestionType } from '@/types/domain';
+import type { QuestionSort } from '@/lib/repositories/question-repository';
 
-export type QuestionSort = 'newest' | 'statement';
+export type { QuestionSort };
 
 export interface QuestionFilters {
   search: string;
@@ -13,6 +14,8 @@ export interface QuestionFilters {
   /** Untagged questions are the ones that never reach an automatic draw. */
   onlyUntagged?: boolean;
   sort?: QuestionSort;
+  /** 1-based page. Pagination runs on the server, so it is part of the key. */
+  page?: number;
 }
 
 export const questionKeys = {
@@ -21,45 +24,51 @@ export const questionKeys = {
   detail: (id: string) => ['questions', 'detail', id] as const,
 };
 
-/**
- * Type and tag are narrowed here rather than in the repository.
- *
- * The repository mirrors the future HTTP contract, which pages and searches by
- * text. Filtering the page it returns keeps that contract honest, and the data
- * volume of a question bank makes the difference immaterial.
- */
-function matchesFilters(question: Question, filters: QuestionFilters): boolean {
-  const matchesType = filters.type === 'all' || question.type === filters.type;
-  const matchesTags =
-    filters.tags.length === 0 || filters.tags.every((tag) => question.tags.includes(tag));
-  const matchesUntagged = filters.onlyUntagged !== true || question.tags.length === 0;
-  return matchesType && matchesTags && matchesUntagged;
-}
+/** One page of the bank, as the screen asks the server for it. */
+export const QUESTION_PAGE_SIZE = 50;
 
 /**
- * The repository already answers newest first, which is what someone who just
- * wrote a question needs. Sorting by statement is the other way to look at a
- * bank — reading it — and belongs to whoever asked for it.
+ * Search, filters and paging run on the server, so each combination is a
+ * request. While the next one loads, the list keeps the last answer instead of
+ * blinking into the loading state on every page turn.
  */
-function sortQuestions(items: Question[], sort: QuestionSort | undefined): Question[] {
-  return sort === 'statement'
-    ? items.toSorted((a, b) => a.statement.localeCompare(b.statement, 'pt-BR'))
-    : items;
-}
-
 export function useQuestionList(filters: QuestionFilters) {
   const { repositories } = useServices();
 
   return useQuery({
     queryKey: questionKeys.list(filters),
-    queryFn: async () => {
-      const page = await repositories.questions.list({
+    queryFn: () =>
+      repositories.questions.list({
         search: filters.search,
         archived: filters.deleted,
-      });
-      const items = page.items.filter((item) => matchesFilters(item, filters));
-      return { ...page, items: sortQuestions(items, filters.sort) };
-    },
+        type: filters.type === 'all' ? undefined : filters.type,
+        tags: filters.tags.length > 0 ? filters.tags : undefined,
+        onlyUntagged: filters.onlyUntagged,
+        sort: filters.sort,
+        page: filters.page,
+        pageSize: QUESTION_PAGE_SIZE,
+      }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * The page size that reads the whole bank in one request: the API's ceiling
+ * (`MAX_PAGE_SIZE`), the same the other whole-list reads ask for.
+ */
+export const WHOLE_BANK_PAGE_SIZE = 1000;
+
+/**
+ * Every active question of the teacher, for the exam screens. An exam finds
+ * its questions by id and the automatic draw picks from all of them, so a
+ * question past the first page of the bank must not read as removed.
+ */
+export function useQuestionBank() {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: [...questionKeys.all, 'bank'] as const,
+    queryFn: () => repositories.questions.list({ archived: false, pageSize: WHOLE_BANK_PAGE_SIZE }),
   });
 }
 
@@ -79,11 +88,7 @@ export function useQuestionTags() {
 
   return useQuery({
     queryKey: [...questionKeys.all, 'tags'] as const,
-    queryFn: async () => {
-      const page = await repositories.questions.list({ pageSize: 1000 });
-      const tags = new Set(page.items.flatMap((item) => item.tags));
-      return [...tags].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    },
+    queryFn: () => repositories.questions.tags(),
   });
 }
 
@@ -105,13 +110,6 @@ export function useSaveQuestion() {
   });
 }
 
-/**
- * Copies a question so a variant can start from it.
- *
- * The copy is created through the same input the form submits, so it enters the
- * bank as a new question with its own identity — duplicating must never touch
- * the one being copied.
- */
 export function useDuplicateQuestion() {
   const { repositories } = useServices();
   const invalidate = useInvalidateQuestions();
@@ -135,7 +133,6 @@ export function useDuplicateQuestion() {
   });
 }
 
-/** Soft delete and restore are the same operation seen from either side. */
 export function useDeleteQuestion() {
   const { repositories } = useServices();
   const invalidate = useInvalidateQuestions();
