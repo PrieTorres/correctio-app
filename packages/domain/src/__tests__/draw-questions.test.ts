@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Question } from '@/types/domain'
+import type { Question } from '../domain'
 import { distributeScore, drawQuestions, redrawQuestion } from '../draw-questions'
 
 function multipleChoice(id: string, tags: string[] = []): Question {
@@ -120,30 +120,29 @@ describe('redrawQuestion', () => {
   ]
 
   it('replaces with another of the same type', () => {
-    const replacement = redrawQuestion(bank, { tags: [] }, ['mc1'], bank[0] as never, takeFirst)
+    const replacement = redrawQuestion(bank, { tags: [], alreadyChosenIds: ['mc1'], replacing: bank[0] as never }, takeFirst)
 
     expect(replacement?.id).toBe('mc2')
   })
 
   it('never offers one already in the draw', () => {
-    const replacement = redrawQuestion(bank, { tags: [] }, ['mc1', 'mc2'], bank[0] as never)
+    const replacement = redrawQuestion(bank, { tags: [], alreadyChosenIds: ['mc1', 'mc2'], replacing: bank[0] as never })
 
     expect(replacement).toBeNull()
   })
 
   it('says nothing is left rather than repeating the same question', () => {
-    const replacement = redrawQuestion(
-      [multipleChoice('only')],
-      { tags: [] },
-      ['only'],
-      multipleChoice('only'),
-    )
+    const replacement = redrawQuestion([multipleChoice('only')], {
+      tags: [],
+      alreadyChosenIds: ['only'],
+      replacing: multipleChoice('only'),
+    })
 
     expect(replacement).toBeNull()
   })
 
   it('honours the tag filter when replacing', () => {
-    const replacement = redrawQuestion(bank, { tags: ['Matrizes'] }, [], bank[0] as never)
+    const replacement = redrawQuestion(bank, { tags: ['Matrizes'], alreadyChosenIds: [], replacing: bank[0] as never })
 
     expect(replacement).toBeNull()
   })

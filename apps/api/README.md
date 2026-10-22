@@ -148,6 +148,27 @@ leem a prova e chegam junto com as provas da #45.
   raiz da API. O arquivo contém o nome dos alunos quando a aplicação é identificada, então
   não existe link público: o front baixa com o token, como qualquer outra chamada.
 
+### Provas
+
+`GET` e `POST /exams`, `GET` e `PATCH /exams/:id`, `PATCH /exams/:id/archive` e
+`PATCH /exams/:id/restore`, mais o sorteio `POST /exams/draw`.
+
+- **Questões da prova:** cada prova traz `questions`, na ordem, com `order`, `score` e
+  `allowShuffleAlternatives`, que as versões herdam na geração (#46). O servidor recusa mais de 20
+  questões (RF15), questão repetida, duas na mesma posição e questão que não é do professor, sem dizer
+  se ela existe para outra pessoa. Questão excluída do banco depois continua valendo: a prova antiga
+  precisa continuar salvando.
+- **Título único**, comparado sem acento e sem maiúscula, contando as arquivadas, com as mesmas
+  mensagens das telas.
+- **Status é do servidor:** nasce `draft`, vira `ready` quando a primeira aplicação é gerada (o
+  serviço tem `markReady` para a #46, sem rota), arquivar grava `closed` e restaurar volta para
+  `draft`, nunca para `ready`. O `PATCH` mescla e ignora `status`, `id` e `teacherId`.
+- **Sorteio (RF16):** `POST /exams/draw` recebe `{ tags, multipleChoiceCount, openEndedCount,
+  excludeIds }` e responde `{ questions, shortfall }`. Sorteia entre as questões ativas do
+  professor que têm todas as tags pedidas, deixando de fora `excludeIds` (as que já estão na prova
+  ou na prévia). Pedir mais do que o banco tem não é erro: volta o que achou e o que faltou em
+  `shortfall`. Não grava nada; a prova só muda quando o professor salva.
+
 ### Correções
 
 As correções ficam debaixo da aplicação: `GET` e `POST /applications/:id/corrections`, e `GET` e

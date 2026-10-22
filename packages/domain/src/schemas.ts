@@ -292,11 +292,15 @@ export const examQuestionSchema = z.object({
 
 export const examStatusSchema = z.enum(['draft', 'ready', 'closed']);
 
+/** The most questions an exam takes (RF15), which is also the most the automatic draw hands back. */
+export const MAX_EXAM_QUESTIONS = 20;
+const TOO_MANY_QUESTIONS = `Máximo de ${MAX_EXAM_QUESTIONS} questões por prova`;
+
 export const examSchema = z.object({
   id,
   teacherId: id,
   title: z.string().min(1, 'Informe o título da prova').max(200),
-  questions: z.array(examQuestionSchema).max(20, 'Máximo de 20 questões por prova'),
+  questions: z.array(examQuestionSchema).max(MAX_EXAM_QUESTIONS, TOO_MANY_QUESTIONS),
   status: examStatusSchema,
   description: z.string(),
   defaultShuffleQuestions: z.boolean(),
@@ -311,10 +315,28 @@ export const examSchema = z.object({
 export const examInputSchema = z.object({
   title: z.string().min(1, 'Informe o título da prova').max(200),
   description: z.string(),
-  questions: z.array(examQuestionSchema).max(20, 'Máximo de 20 questões por prova'),
+  questions: z.array(examQuestionSchema).max(MAX_EXAM_QUESTIONS, TOO_MANY_QUESTIONS),
   defaultShuffleQuestions: z.boolean(),
   defaultShuffleAlternatives: z.boolean(),
 });
+
+/**
+ * What the automatic exam asks the server for (RF16): how many questions of
+ * each kind, carrying every tag listed, leaving out the ones already in the
+ * exam or on screen. Asking for more than the bank has is not an error; asking
+ * for more than an exam takes is.
+ */
+export const drawRequestSchema = z
+  .object({
+    tags: z.array(z.string().min(1)).max(MAX_EXAM_QUESTIONS).default([]),
+    multipleChoiceCount: z.number().int().nonnegative(),
+    openEndedCount: z.number().int().nonnegative(),
+    excludeIds: z.array(id).max(MAX_EXAM_QUESTIONS * 2).default([]),
+  })
+  .refine((request) => request.multipleChoiceCount + request.openEndedCount <= MAX_EXAM_QUESTIONS, {
+    message: TOO_MANY_QUESTIONS,
+    path: ['multipleChoiceCount'],
+  });
 
 export const applicationStatusSchema = z.enum(['draft', 'generated', 'closed']);
 
@@ -419,4 +441,5 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type GoogleExchange = z.infer<typeof googleExchangeSchema>;
 export type AuthSession = z.infer<typeof authSessionSchema>;
 export type ExamInput = z.infer<typeof examInputSchema>;
+export type DrawRequest = z.infer<typeof drawRequestSchema>;
 export type ApplicationInput = z.infer<typeof applicationInputSchema>;
