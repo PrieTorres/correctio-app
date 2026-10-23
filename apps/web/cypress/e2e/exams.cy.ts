@@ -13,14 +13,14 @@ const NEWTON = 'A segunda lei de Newton relaciona força, massa e:'
 const ESSAY_LIMITS = 'Explique com suas palavras o que significa dizer que uma função é contínua em um ponto, e dê um exemplo de função que não seja.'
 
 /** Substrings that remain visible even when the preview truncates the statement. */
-const OBJETIVAS = [
+const OBJECTIVES = [
   { hint: 'sen(x)/x' },
   { hint: 'derivada' },
   { hint: 'matriz quadrada' },
   { hint: 'Newton' }
 ] as const
-const DISCURSIVAS = [{ hint: 'Explique com suas palavras' }] as const
-const ALL_QUESTIONS = [...OBJETIVAS, ...DISCURSIVAS] as const
+const ESSAYS = [{ hint: 'Explique com suas palavras' }] as const
+const ALL_QUESTIONS = [...OBJECTIVES, ...ESSAYS] as const
 
 /**
  * Swap button for the row identified by the statement.
@@ -440,7 +440,7 @@ describe('geração automática', () => {
 
     /** Identifies one of the objective questions drawn by the statement, instead of choosing the row by index. */
     cy.get('[role="dialog"] ul li').then(($lis) => {
-      const drawn = OBJETIVAS.find((q) => $lis.text().includes(q.hint))
+      const drawn = OBJECTIVES.find((q) => $lis.text().includes(q.hint))
       if (!drawn) throw new Error('Nenhuma objetiva conhecida na prévia')
 
       swapButtonOf(drawn.hint).click()
