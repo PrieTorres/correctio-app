@@ -1,139 +1,75 @@
-import { sampleClasses, sampleQuestions, writeDemoData, type RemoteRoster } from '@/lib/seed'
-import type { AuthenticatedUser, Class, Student } from '@/types/domain'
+import type { AuthenticatedUser } from '@/types/domain'
+import type { QuestionInput } from '@/lib/schemas'
 
-/** The password of every teacher the suite signs up; long enough for the 8-character rule. */
+/** The password for every teacher created by the suite; long enough for the 8-character rule. */
 export const TEST_PASSWORD = 'senha-de-teste-1'
 
-/** An address no earlier run used: the API keeps every account, and the same address twice is refused. */
+/** An address that no previous run has used. */
 export function uniqueEmail(prefix = 'prof'): string {
   return `${prefix}-${Date.now()}-${Cypress._.random(1e6)}@exemplo.edu.br`
 }
 
-/** What the API answers on sign-up: the access token lets the suite create the sample as this teacher. */
-interface NewSession {
-  user: AuthenticatedUser
-  accessToken: string
-}
-
-/** A request to the API as the teacher just signed up. */
-function apiAs(accessToken: string) {
-  return <T>(method: Cypress.HttpMethod, path: string, body?: Cypress.RequestBody) =>
-    cy.request<T>({ method, url: `/api${path}`, body, auth: { bearer: accessToken } })
-}
-
 /**
- * Creates the sample classes and their students on the API, as the teacher
- * just signed up, and answers which id each sample class got there.
- *
- * The class and student screens read the API, so a sample written only to
- * `localStorage` would be invisible to them, and the sample applications and
- * sheets would point at classes that do not exist. Each test signs up its own
- * teacher, so the import limit of the API, counted per teacher, is never near.
+ * Registers a new teacher via the API and leaves the browser logged in.
+ * The `cy.session` in `e2e.ts` stores cookies for subsequent tests.
  */
-function createSampleClasses(accessToken: string): Cypress.Chainable<Pick<RemoteRoster, 'classIds' | 'students'>> {
-  const classIds: Record<string, string> = {}
-  const students: Student[] = []
-  const api = apiAs(accessToken)
-
-  for (const sample of sampleClasses()) {
-    api<Class>('POST', '/classes', sample.input).then(({ body: created }) => {
-      classIds[sample.sampleId] = created.id
-      if (sample.archived) api('PATCH', `/classes/${created.id}/archive`)
-      if (sample.students.length === 0) return
-
-      api('POST', `/classes/${created.id}/students/import`, { rows: sample.students })
-      api<{ items: Student[] }>('GET', `/classes/${created.id}/students?pageSize=1000`).then(({ body: page }) => {
-        students.push(...page.items)
-      })
-    })
-  }
-
-  return cy.wrap(null, { log: false }).then(() => ({ classIds, students }))
-}
-
-/**
- * Creates the sample questions on the API and answers which id each got
- * there. The question bank reads the API since #44, so the sample exams and
- * the versions printed from them have to point at those ids; the
- * alternatives keep their sample ids, which the API stores as sent.
- */
-function createSampleQuestions(accessToken: string): Cypress.Chainable<Record<string, string>> {
-  const questionIds: Record<string, string> = {}
-  const api = apiAs(accessToken)
-
-  for (const sample of sampleQuestions()) {
-    api<{ id: string }>('POST', '/questions', sample.input).then(({ body: created }) => {
-      questionIds[sample.sampleId] = created.id
-    })
-  }
-
-  return cy.wrap(null, { log: false }).then(() => questionIds)
-}
-
-/**
- * Signs a new teacher up on the API and leaves the browser signed in, the way
- * the app itself would: `cy.request` keeps the refresh cookie the API sets, and
- * the app restores the session from it on the next visit.
- *
- * The sample data is created for this teacher, so every spec starts from the
- * same populated screens the demo shows, owned by a real account: the classes,
- * students and questions on the API, and the rest in `localStorage`, pointing
- * at them.
- */
-Cypress.Commands.add('signInAsNewTeacher', ({ withSampleData = true }: { withSampleData?: boolean } = {}) => {
+Cypress.Commands.add('signInAsNewTeacher', () => {
   const account = { fullName: 'Professora Ana Ribeiro', email: uniqueEmail(), password: TEST_PASSWORD }
-  return cy.request<NewSession>('POST', '/api/auth/register', account).then(({ body }) => {
-    const teacher = { ...body.user, password: TEST_PASSWORD }
-    if (!withSampleData) return cy.wrap(teacher, { log: false })
-
-    return createSampleClasses(body.accessToken).then((roster) =>
-      createSampleQuestions(body.accessToken).then((questionIds) => {
-        writeDemoData(body.user.id, { ...roster, questionIds })
-        return teacher
-      }),
-    )
+  return cy.request('POST', '/api/auth/register', account).then(({ body }: Cypress.Response<{ user: AuthenticatedUser }>) => {
+    return { ...body.user, password: TEST_PASSWORD }
   })
 })
 
 /**
- * Finds a form control by its visible label.
- *
- * Selecting by what the user sees keeps the tests off markup details, and fails
- * loudly when a field loses the label that names it for a screen reader.
- *
- * `cy.contains` retries, which matters: reading the DOM once through
- * `cy.get('body').then(...)` does not, so on a screen still resolving its query
- * the form is simply not there yet and the command misses it.
+ * Fetches the current token and creates a question in the API.
+ */
+Cypress.Commands.add('createQuestion', (question: QuestionInput) => {
+  cy.request<{ accessToken: string }>('POST', '/api/auth/refresh').then((response) => {
+    const token = response.body.accessToken
+    cy.request({
+      method: 'POST',
+      url: '/api/questions',
+      headers: { Authorization: `Bearer ${token}` },
+      body: question,
+    }).its('status').should('eq', 201)
+  })
+})
+
+/**
+ * Fetches the current token and creates an exam in the API.
+ */
+Cypress.Commands.add('createExam', (exam: Record<string, unknown>) => {
+  cy.request<{ accessToken: string }>('POST', '/api/auth/refresh').then((response) => {
+    const token = response.body.accessToken
+    cy.request({
+      method: 'POST',
+      url: '/api/exams',
+      headers: { Authorization: `Bearer ${token}` },
+      body: exam,
+    }).its('status').should('eq', 201)
+  })
+})
+
+/**
+ * Finds a form field by its visible label.
  */
 Cypress.Commands.add('findByLabel', (text: string) => {
   return cy.contains('label', text).then(($label) => {
     const id = $label.attr('for')
-    if (id === undefined) throw new Error(`O label "${text}" não aponta para nenhum campo.`)
+    if (id === undefined) throw new Error(`The label "${text}" does not point to any field.`)
     return cy.get(`#${CSS.escape(id)}`)
   })
 })
 
 /**
- * Scopes a query to the open dialog.
- *
- * A confirmation dialog usually repeats the label of the button that opened
- * it, and the original stays in the DOM behind the overlay. Without scoping,
- * the test picks the one the modal has made inert.
+ * Focuses the search inside the open dialog.
  */
 Cypress.Commands.add('findInDialog', (selector: string, text: string) => {
   return cy.get('[role="dialog"]').should('be.visible').contains(selector, text)
 })
 
 /**
- * Picks one option of a segmented control by its visible text.
- *
- * The control hides the radio with `sr-only` so the label can carry the
- * styling, which leaves the input with no size and covered by the fieldset:
- * `cy.check()` refuses it, and rightly so. Clicking the label is what a person
- * does, and the browser forwards it to the input.
- *
- * The assertion that follows is the point — it fails loudly if the label ever
- * stops being wired to its input, which no click alone would reveal.
+ * Selects an option from a segmented control by its visible text.
  */
 Cypress.Commands.add('chooseSegment', (text: string) => {
   cy.contains('label', text).click()
@@ -146,7 +82,9 @@ declare global {
       findByLabel(text: string): Chainable<JQuery<HTMLElement>>
       findInDialog(selector: string, text: string): Chainable<JQuery<HTMLElement>>
       chooseSegment(text: string): Chainable<JQuery<HTMLElement>>
-      signInAsNewTeacher(options?: { withSampleData?: boolean }): Chainable<AuthenticatedUser & { password: string }>
+      signInAsNewTeacher(): Chainable<AuthenticatedUser & { password: string }>
+      createQuestion(question: QuestionInput): Chainable<void>
+      createExam(exam: Record<string, unknown>): Chainable<void>
     }
   }
 }

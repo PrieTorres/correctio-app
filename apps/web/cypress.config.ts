@@ -16,5 +16,6 @@ export default defineConfig({
     screenshotOnRunFailure: true,
     viewportWidth: 1280,
     viewportHeight: 800,
+    testIsolation: false,
   },
 })
