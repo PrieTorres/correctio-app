@@ -30,6 +30,32 @@ export interface ApplicationFilters extends PageRequest {
 /** Why the grades cannot be released, given whether each version's answer key is published; `undefined` when nothing blocks. */
 export type ReleaseBlocker = (answerKeysPublished: readonly boolean[]) => string | undefined
 
+/** What makes two applications the same sitting: the same exam, to the same class, on the same day. */
+export type Sitting = Pick<Application, 'examId' | 'classId' | 'date'>
+
+/** Another application of the same sitting, archived ones included. */
+export interface ApplicationClash {
+  id: string
+  status: ApplicationStatus
+}
+
+/** What a write of a sitting is checked against, read under lock. */
+export interface SittingState {
+  clash?: ApplicationClash
+  /** Whether versions were already printed for the application being changed; never for a new one. */
+  printed: boolean
+}
+
+/** Why a sitting cannot be written, given its state under lock; `undefined` when nothing blocks. */
+export type SittingBlocker = (state: SittingState) => string | undefined
+
+/** An edit of the sitting: where the application ends up, and the columns the request carried. */
+export interface SittingChange {
+  sitting: Sitting
+  /** Only these columns are written, so a field the request did not carry is never touched. */
+  changes: Partial<Sitting>
+}
+
 export interface ApplicationRepository {
   /** Active or archived applications, searched by the day they happen, the oldest first. */
   list: (teacherId: string, filters: ApplicationFilters) => Promise<Page<StoredApplication>>
@@ -45,6 +71,61 @@ export interface ApplicationRepository {
   releaseGrades: (teacherId: string, id: string, blockerOf: ReleaseBlocker) => Promise<string | undefined>
   /** Takes the grades back, which RF46 always allows. */
   withdrawGrades: (teacherId: string, id: string) => Promise<void>
+  /**
+   * Stores a new application unless `blockerOf` names a reason, and answers
+   * that reason. The other application of the same sitting is looked for under
+   * the lock of the exam row, which every write of a sitting takes first, so
+   * two requests for one sitting at the same moment, such as a double click,
+   * cannot both pass.
+   */
+  insert: (application: StoredApplication, blockerOf: SittingBlocker) => Promise<string | undefined>
+  /**
+   * Writes the columns in `change.changes` unless `blockerOf` names a reason,
+   * and answers that reason. Read under the lock of the application row, which
+   * the generation takes too, and of the exam row, as `insert` does, so neither
+   * a generation nor another request can slip in between the check and the
+   * write.
+   */
+  changeSitting: (teacherId: string, id: string, change: SittingChange, blockerOf: SittingBlocker) => Promise<string | undefined>
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * The day of a sitting, as the instants it covers. Dates are kept in UTC and
+ * the form stores noon UTC of the day picked (`fromDateInputValue` in the web
+ * app), so the UTC day is the day the teacher chose.
+ */
+function dayOf(iso: string): { start: Date; end: Date } {
+  const instant = new Date(iso)
+  const start = new Date(Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth(), instant.getUTCDate()))
+  return { start, end: new Date(start.getTime() + DAY_MS) }
+}
+
+/**
+ * Takes the lock of the exam the sitting names, then looks for another
+ * application of the same sitting. A second request for the same sitting
+ * waits on that lock until the first has committed, and the read that
+ * follows, under READ COMMITTED, already sees it.
+ */
+async function clashUnderLock(trx: Kysely<Database>, teacherId: string, sitting: Sitting, exceptId?: string): Promise<ApplicationClash | undefined> {
+  await trx.selectFrom('exams').select('id').where('teacherId', '=', teacherId).where('id', '=', sitting.examId).forUpdate().execute()
+
+  const { start, end } = dayOf(sitting.date)
+  const sameSitting = trx
+    .selectFrom('applications')
+    .select(['id', 'status'])
+    .where('teacherId', '=', teacherId)
+    .where('examId', '=', sitting.examId)
+    .where('classId', '=', sitting.classId)
+    .where('date', '>=', start)
+    .where('date', '<', end)
+  return (exceptId === undefined ? sameSitting : sameSitting.where('id', '<>', exceptId)).executeTakeFirst()
+}
+
+/** The columns of a change, with the date as the instant the database stores. */
+function columnsOf({ date, ...ids }: Partial<Sitting>) {
+  return { ...ids, ...(date !== undefined && { date: new Date(date) }) }
 }
 
 function toStoredApplication(row: ApplicationRow): StoredApplication {
@@ -114,6 +195,38 @@ export function createApplicationRepository(db: Kysely<Database>): ApplicationRe
 
     async withdrawGrades(teacherId, id) {
       await ownedUpdate(teacherId, id).set({ gradesReleased: false }).execute()
+    },
+
+    async insert({ pdfKey, ...application }, blockerOf) {
+      return db
+        .transaction()
+        .setIsolationLevel('read committed')
+        .execute(async (trx) => {
+          const blocker = blockerOf({ clash: await clashUnderLock(trx, application.teacherId, application), printed: false })
+          if (blocker === undefined) {
+            await trx
+              .insertInto('applications')
+              .values({ ...application, date: new Date(application.date), pdfUrl: pdfKey ?? null })
+              .execute()
+          }
+          return blocker
+        })
+    },
+
+    async changeSitting(teacherId, id, { sitting, changes }, blockerOf) {
+      return db
+        .transaction()
+        .setIsolationLevel('read committed')
+        .execute(async (trx) => {
+          await trx.selectFrom('applications').select('id').where('teacherId', '=', teacherId).where('id', '=', id).forUpdate().execute()
+          const printed = await trx.selectFrom('exam_versions').select('id').where('applicationId', '=', id).limit(1).executeTakeFirst()
+
+          const blocker = blockerOf({ clash: await clashUnderLock(trx, teacherId, sitting, id), printed: printed !== undefined })
+          if (blocker === undefined) {
+            await trx.updateTable('applications').set(columnsOf(changes)).where('teacherId', '=', teacherId).where('id', '=', id).execute()
+          }
+          return blocker
+        })
     },
   }
 }

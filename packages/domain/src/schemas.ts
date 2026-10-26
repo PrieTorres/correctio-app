@@ -354,12 +354,13 @@ export const applicationSchema = z.object({
 /**
  * What the application form submits. The teacher picks an exam, a class and a
  * date; the status, the PDF and the release of grades belong to what happens
- * afterwards.
+ * afterwards. The API answers with these same messages, so they are written
+ * for the screen.
  */
 export const applicationInputSchema = z.object({
-  examId: id,
-  classId: id,
-  date: timestamp,
+  examId: z.string({ message: 'Escolha a prova' }).min(1, 'Escolha a prova'),
+  classId: z.string({ message: 'Escolha a turma' }).min(1, 'Escolha a turma'),
+  date: z.string({ message: 'Informe a data da aplicação' }).datetime('Informe a data da aplicação'),
 });
 
 /**

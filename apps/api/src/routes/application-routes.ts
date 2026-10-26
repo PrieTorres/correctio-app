@@ -6,7 +6,9 @@ import { createPrintingController } from '../controllers/printing-controller'
 import type { FileStorage } from '../lib/file-storage'
 import type { Database } from '../models/tables'
 import { createApplicationRepository } from '../repositories/application-repository'
+import { createClassRepository } from '../repositories/class-repository'
 import { createCorrectionRepository } from '../repositories/correction-repository'
+import { createExamRepository } from '../repositories/exam-repository'
 import { createGradingRepository } from '../repositories/grading-repository'
 import { createPrintingRepository } from '../repositories/printing-repository'
 import { createApplicationService } from '../services/application-service'
@@ -20,18 +22,21 @@ export interface ApplicationRouteDependencies {
 }
 
 /**
- * Applications and what was printed for them (P11 and P14). Creating, editing
- * and generating the PDF read the exam, so they arrive with the exams of #45;
- * everything here works on applications that already exist, and so do the
- * corrections of their sheets (P15 to P17, #47). `ExamAssignment`
- * gets no route: the answer sheets took its place, and it stays in the
- * contract only for a student area (`docs/Modelo_de_Dados.md`).
+ * Applications and what was printed for them (P11 to P14), and the
+ * corrections of their sheets (P15 to P17, #47). `ExamAssignment` gets no
+ * route: the answer sheets took its place, and it stays in the contract only
+ * for a student area (`docs/Modelo_de_Dados.md`).
  */
 export function applicationRoutes({ db, fileStorage }: ApplicationRouteDependencies): Router {
   const applicationRepository = createApplicationRepository(db)
   const printingRepository = createPrintingRepository(db)
   const applications = createApplicationController(
-    createApplicationService({ applications: applicationRepository, fileStorage }),
+    createApplicationService({
+      applications: applicationRepository,
+      exams: createExamRepository(db),
+      classes: createClassRepository(db),
+      fileStorage,
+    }),
   )
   const printing = createPrintingController(
     createPrintingService({ applications: applicationRepository, printing: printingRepository }),
@@ -47,7 +52,9 @@ export function applicationRoutes({ db, fileStorage }: ApplicationRouteDependenc
 
   const router = Router()
   router.get('/', applications.list)
+  router.post('/', applications.create)
   router.get('/:id', applications.get)
+  router.patch('/:id', applications.update)
   router.patch('/:id/archive', applications.archive)
   router.patch('/:id/restore', applications.restore)
   router.post('/:id/grades-release', applications.releaseGrades)

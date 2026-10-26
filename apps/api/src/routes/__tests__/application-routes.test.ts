@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { Application, ExamVersionLayout } from '@correctio/domain'
+import type { Application, ClassStatus, ExamStatus, ExamVersionLayout } from '@correctio/domain'
 import type { Express } from 'express'
 import type { Insertable, Kysely } from 'kysely'
 import request, { type Response } from 'supertest'
@@ -154,7 +154,21 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
     return { ...sheet, answerCardVersion: 1 }
   }
 
+  /** An exam of Ana's of its own, for a test that archives it without touching the others. */
+  async function insertExam(status: ExamStatus = 'ready'): Promise<string> {
+    const id = randomUUID()
+    await db.insertInto('exams').values({ ...examOf(id, 'ana'), status }).execute()
+    return id
+  }
+
+  async function insertClass(status: ClassStatus = 'active'): Promise<string> {
+    const id = randomUUID()
+    await db.insertInto('classes').values({ ...classOf(id, 'ana'), status }).execute()
+    return id
+  }
+
   const storedApplication = (id: string) => db.selectFrom('applications').selectAll().where('id', '=', id).executeTakeFirstOrThrow()
+  const applicationCount = async () => (await db.selectFrom('applications').select('id').execute()).length
   const storedVersion = (id: string) =>
     db.selectFrom('exam_versions').select(['answerKeyPublished', 'answerKeyPublishedAt']).where('id', '=', id).executeTakeFirstOrThrow()
 
@@ -162,7 +176,9 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
     const id = randomUUID()
     const responses = await Promise.all([
       request(app).get('/applications'),
+      request(app).post('/applications'),
       request(app).get(`/applications/${id}`),
+      request(app).patch(`/applications/${id}`),
       request(app).patch(`/applications/${id}/archive`),
       request(app).patch(`/applications/${id}/restore`),
       request(app).post(`/applications/${id}/grades-release`),
@@ -173,6 +189,180 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
     ])
 
     for (const response of responses) expect(response.status).toBe(401)
+  })
+
+  describe('POST /applications', () => {
+    const sitting = { examId: 'exam-ana', classId: 'class-ana', date: '2026-11-03T12:00:00.000Z' }
+
+    it('creates a draft with the grades withheld, owned by the teacher of the token', async () => {
+      const response = await ana().post('/applications', { ...sitting, teacherId: 'bia', status: 'generated', gradesReleased: true })
+
+      expect(response.status).toBe(201)
+      const created = response.body as Application
+      expect(created).toEqual({ id: expect.any(String) as string, ...sitting, teacherId: 'ana', status: 'draft', gradesReleased: false })
+      expect((await ana().get(`/applications/${created.id}`)).body).toEqual(created)
+    })
+
+    it('answers 404, never 403, for an exam or a class of another teacher, creating nothing', async () => {
+      const otherExam = await ana().post('/applications', { ...sitting, examId: 'exam-bia' })
+      const otherClass = await ana().post('/applications', { ...sitting, classId: 'class-bia' })
+
+      expect([otherExam.status, otherExam.body]).toEqual([404, { code: 'not-found', message: 'Prova não encontrada.' }])
+      expect([otherClass.status, otherClass.body]).toEqual([404, { code: 'not-found', message: 'Turma não encontrada.' }])
+      expect(await applicationCount()).toBe(0)
+    })
+
+    it('refuses an archived exam and an archived class, which take no new application (RF20)', async () => {
+      const archivedExam = await ana().post('/applications', { ...sitting, examId: await insertExam('closed') })
+      const archivedClass = await ana().post('/applications', { ...sitting, classId: await insertClass('archived') })
+
+      expect(archivedExam.status).toBe(409)
+      expect((archivedExam.body as { message: string }).message).toBe('Esta prova está arquivada. Restaure a prova antes de aplicá-la.')
+      expect(archivedClass.status).toBe(409)
+      expect((archivedClass.body as { message: string }).message).toBe('Esta turma está arquivada. Restaure a turma antes de aplicar uma prova a ela.')
+      expect(await applicationCount()).toBe(0)
+    })
+
+    it('refuses the same exam, class and day at any hour, and points at an archived twin', async () => {
+      const { id } = (await ana().post('/applications', sitting)).body as Application
+
+      const sameDay = await ana().post('/applications', { ...sitting, date: '2026-11-03T23:30:00.000Z' })
+      expect([sameDay.status, (sameDay.body as { message: string }).message]).toEqual([409, 'Já existe uma aplicação com estes dados.'])
+
+      await ana().patch(`/applications/${id}/archive`)
+      const archivedTwin = await ana().post('/applications', sitting)
+      expect([archivedTwin.status, (archivedTwin.body as { message: string }).message]).toEqual([
+        409,
+        'Já existe uma aplicação arquivada com estes dados. Restaure em vez de criar outra.',
+      ])
+    })
+
+    it('takes another day, another class or another exam as another sitting', async () => {
+      await ana().post('/applications', sitting)
+
+      const responses = await Promise.all([
+        ana().post('/applications', { ...sitting, date: '2026-11-04T12:00:00.000Z' }),
+        ana().post('/applications', { ...sitting, classId: 'class-ana-2' }),
+        ana().post('/applications', { ...sitting, examId: 'exam-ana-2' }),
+      ])
+
+      expect(responses.map((response) => response.status)).toEqual([201, 201, 201])
+    })
+
+    it('says which field is missing, in words the form can show', async () => {
+      const responses = await Promise.all([
+        ana().post('/applications', { classId: 'class-ana', date: sitting.date }),
+        ana().post('/applications', { examId: 'exam-ana', date: sitting.date }),
+        ana().post('/applications', { examId: 'exam-ana', classId: 'class-ana', date: '03/11/2026' }),
+      ])
+
+      expect(responses.map((response) => [response.status, (response.body as { message: string }).message])).toEqual([
+        [400, 'Escolha a prova'],
+        [400, 'Escolha a turma'],
+        [400, 'Informe a data da aplicação'],
+      ])
+    })
+
+    /**
+     * A double click on "Salvar e gerar": each request alone finds no twin, so
+     * only the lock of the exam row keeps both from passing. Repeated on a new
+     * day each round, since a race does not show on every run.
+     */
+    it('never stores the same sitting twice when both requests arrive together', async () => {
+      for (let round = 1; round <= 15; round++) {
+        const sameSitting = { ...sitting, date: `2026-12-${String(round).padStart(2, '0')}T12:00:00.000Z` }
+
+        const responses = await Promise.all([ana().post('/applications', sameSitting), ana().post('/applications', sameSitting)])
+
+        expect(responses.map((response) => response.status).sort()).toEqual([201, 409])
+      }
+      expect(await applicationCount()).toBe(15)
+    })
+  })
+
+  describe('PATCH /applications/:id', () => {
+    const edit = (id: string, body: object) => ana().patch(`/applications/${id}`).send(body)
+
+    it('moves the date and keeps what the body did not carry', async () => {
+      const id = await insertApplication({ status: 'generated' })
+
+      const response = await edit(id, { date: '2026-10-07T12:00:00.000Z', status: 'draft', teacherId: 'bia' })
+
+      expect(response.status).toBe(200)
+      expect(response.body).toMatchObject({ id, examId: 'exam-ana', classId: 'class-ana', teacherId: 'ana', status: 'generated', date: '2026-10-07T12:00:00.000Z' })
+      expect(await storedApplication(id)).toMatchObject({ examId: 'exam-ana', status: 'generated', date: day('2026-10-07') })
+    })
+
+    it('changes the exam and the class of an application nothing was printed for', async () => {
+      const id = await insertApplication()
+
+      const response = await edit(id, { examId: 'exam-ana-2', classId: 'class-ana-2' })
+
+      expect(response.status).toBe(200)
+      expect(await storedApplication(id)).toMatchObject({ examId: 'exam-ana-2', classId: 'class-ana-2', date: day('2026-10-05') })
+    })
+
+    it('only lets the date move once versions were printed, since the sheets belong to that exam and that class', async () => {
+      const id = await insertApplication({ status: 'generated' })
+      await insertVersion(id, 1)
+
+      const otherExam = await edit(id, { examId: 'exam-ana-2' })
+      const otherClass = await edit(id, { classId: 'class-ana-2' })
+      const otherDay = await edit(id, { date: '2026-10-09T12:00:00.000Z' })
+
+      expect([otherExam.status, otherClass.status, otherDay.status]).toEqual([409, 409, 200])
+      expect((otherExam.body as { message: string }).message).toContain('as folhas impressas são desta prova e desta turma')
+      expect(await storedApplication(id)).toMatchObject({ examId: 'exam-ana', classId: 'class-ana', date: day('2026-10-09') })
+    })
+
+    it('still moves the date when the exam was archived after the application was created (RF20)', async () => {
+      const examId = await insertExam()
+      const id = await insertApplication({ examId })
+      await db.updateTable('exams').set({ status: 'closed' }).where('id', '=', examId).execute()
+
+      expect((await edit(id, { date: '2026-10-08T12:00:00.000Z' })).status).toBe(200)
+      expect((await edit(id, { examId: 'exam-ana' })).status).toBe(200)
+      expect((await edit(id, { examId })).status).toBe(409)
+    })
+
+    it('refuses editing an archived application until it is restored', async () => {
+      const id = await insertApplication({ status: 'closed' })
+
+      const response = await edit(id, { date: '2026-10-08T12:00:00.000Z' })
+
+      expect([response.status, (response.body as { message: string }).message]).toEqual([
+        409,
+        'Esta aplicação está arquivada. Restaure a aplicação antes de editá-la.',
+      ])
+    })
+
+    it('refuses moving onto the sitting of another application', async () => {
+      await insertApplication({ date: day('2026-10-06') })
+      const id = await insertApplication()
+
+      const response = await edit(id, { date: '2026-10-06T08:00:00.000Z' })
+
+      expect([response.status, (response.body as { message: string }).message]).toEqual([409, 'Já existe uma aplicação com estes dados.'])
+      expect(await storedApplication(id)).toMatchObject({ date: day('2026-10-05') })
+    })
+
+    it('refuses clearing a field, which the form needs', async () => {
+      const id = await insertApplication()
+
+      const response = await edit(id, { examId: null })
+
+      expect([response.status, (response.body as { message: string }).message]).toEqual([400, 'Escolha a prova'])
+    })
+
+    it('answers 404 to another teacher, and for an exam of another teacher, changing nothing', async () => {
+      const id = await insertApplication()
+
+      const asBia = await bia().patch(`/applications/${id}`).send({ date: '2026-10-08T12:00:00.000Z' })
+      const otherExam = await edit(id, { examId: 'exam-bia' })
+
+      expect([asBia.status, otherExam.status]).toEqual([404, 404])
+      expect(await storedApplication(id)).toMatchObject({ examId: 'exam-ana', date: day('2026-10-05') })
+    })
   })
 
   describe('GET /applications', () => {
