@@ -74,12 +74,11 @@ export function AutoFillDialog({
   const swap = (question: Question) => {
     if (preview === null) return;
 
-    const replacement = redrawQuestion(
-      bank,
-      { tags },
-      preview.map((item) => item.id),
-      question,
-    );
+    const replacement = redrawQuestion(bank, {
+      tags,
+      alreadyChosenIds: preview.map((item) => item.id),
+      replacing: question,
+    });
 
     if (replacement === null) {
       setNotice('Não há outra questão do mesmo tipo com esses filtros para colocar no lugar.');

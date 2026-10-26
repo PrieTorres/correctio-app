@@ -21,7 +21,7 @@
     "test:e2e:record": "npm run test:e2e:record --workspace @correctio/web",
     "lint:comments": "node scripts/check-comment-language.mjs",
     "lint:root": "eslint eslint.config.js tooling scripts",
-    "test:tooling": "node --test \"tooling/**/*.test.js\"",
+    "test:tooling": "node --test \"tooling/**/*.test.js\" \"scripts/**/*.test.js\"",
     "test:e2e:journey": "npm run test:e2e:journey --workspace @correctio/web",
     "test:e2e:demo": "npm run build:demo --workspace @correctio/web && npm run test:e2e:demo --workspace @correctio/web",
     "dev:api": "npm run dev --workspace @correctio/api",

@@ -9,6 +9,7 @@ import type { HealthService } from '../services/health-service'
 import { applicationRoutes } from './application-routes'
 import { meRoutes, publicAuthRoutes, signedInAuthRoutes } from './auth-routes'
 import { classRoutes } from './class-routes'
+import { examRoutes } from './exam-routes'
 import { healthRoutes } from './health-routes'
 import { questionRoutes } from './question-routes'
 
@@ -58,6 +59,7 @@ export function createRouter({
   }
   router.use('/questions', questionRoutes(db))
   router.use('/classes', classRoutes({ db, fieldCipher, expensiveLimit }))
+  router.use('/exams', examRoutes(db))
   router.use('/applications', applicationRoutes({ db, fileStorage }))
 
   return router

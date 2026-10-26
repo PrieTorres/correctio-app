@@ -20,7 +20,6 @@ const LEGACY_COMPLEXITY = {
   'src/features/grading/pages/GradingUploadPage.tsx': { cyclomatic: 19 },
   'src/features/reports/pages/ApplicationReportPage.tsx': { cyclomatic: 24 },
   'src/lib/public-lookup/resolve.ts': { cyclomatic: 14 },
-  'src/lib/exams/draw-questions.ts': { params: 5 },
 };
 
 export default [

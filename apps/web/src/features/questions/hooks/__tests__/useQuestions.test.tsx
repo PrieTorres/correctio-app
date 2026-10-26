@@ -1,12 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { act, waitFor } from '@testing-library/react'
-import { clearAllCollections } from '@/lib/storage/collection'
-import { renderHookWithProviders } from '@/test-utils'
-import type { QuestionInput } from '@/lib/schemas'
+import { clearAllCollections, createCollection } from '@/lib/storage/collection'
+import { renderHookWithProviders, TEST_TEACHER_ID } from '@/test-utils'
+import { questionSchema, type QuestionInput } from '@/lib/schemas'
+import type { Question } from '@/types/domain'
 import {
+  QUESTION_PAGE_SIZE,
   questionKeys,
   useDeleteQuestion,
   useDuplicateQuestion,
+  useQuestionBank,
   useQuestionList,
   useQuestionTags,
   useSaveQuestion,
@@ -179,5 +182,41 @@ describe('useDuplicateQuestion', () => {
     const { result } = renderHookWithProviders(() => useDuplicateQuestion())
 
     await expect(result.current.mutateAsync('nope')).rejects.toThrow(/não encontrada/i)
+  })
+})
+
+describe('useQuestionBank', () => {
+  beforeEach(clearAllCollections)
+
+  /** An exam looks its questions up in the bank, so one past the first page must still be found. */
+  it('reads every active question, past the first page of the list, and leaves out the deleted ones', async () => {
+    const numbered = (index: number) => String(index).padStart(3, '0')
+    const many: Question[] = Array.from({ length: QUESTION_PAGE_SIZE + 1 }, (_, index) => ({
+      id: `question-${numbered(index)}`,
+      teacherId: TEST_TEACHER_ID,
+      type: 'discursiva',
+      statement: `Questão ${numbered(index)}`,
+      tags: [],
+      maxScore: 1,
+      allowShuffleAlternatives: true,
+    }))
+    const deleted: Question = { ...essay, id: 'question-deleted', teacherId: TEST_TEACHER_ID, deletedAt: '2026-10-21T12:00:00.000Z' }
+    createCollection('questions', questionSchema).writeAll([...many, deleted])
+
+    const { result } = renderHookWithProviders(() => ({ bank: useQuestionBank(), page: useQuestionList(ALL) }))
+    await waitFor(() => expect(result.current.bank.isSuccess && result.current.page.isSuccess).toBe(true))
+
+    expect(result.current.page.data?.items).toHaveLength(QUESTION_PAGE_SIZE)
+    expect(result.current.bank.data?.items).toHaveLength(QUESTION_PAGE_SIZE + 1)
+    expect(result.current.bank.data?.items.map((item) => item.id)).not.toContain('question-deleted')
+  })
+
+  it('refreshes after a question is saved', async () => {
+    const { result } = renderHookWithProviders(() => ({ save: useSaveQuestion(), bank: useQuestionBank() }))
+    await waitFor(() => expect(result.current.bank.isSuccess).toBe(true))
+
+    await act(() => result.current.save.mutateAsync({ input: objective }))
+
+    await waitFor(() => expect(result.current.bank.data?.items).toHaveLength(1))
   })
 })
