@@ -130,17 +130,40 @@ com as mesmas regras das telas, sem cópia.
 
 ### Aplicações
 
-As rotas de aplicação trabalham, por enquanto, sobre aplicações que já existem. Criar, editar e
-gerar (`POST /applications`, `PATCH /applications/:id` e `POST /applications/:id/generate-pdf`)
-leem a prova e chegam junto com as provas da #45.
+`GET` e `POST /applications`, `GET` e `PATCH /applications/:id`, arquivar e restaurar, a geração
+(`POST /applications/:id/generate-pdf`), as versões, as folhas, o gabarito, as notas e o PDF.
 
-- **Lista:** além dos parâmetros de lista, aceita `classId`, `examId` e `status`, da mais antiga
-  para a mais recente. A busca procura o dia, escrito como a tela mostra (`05/10/2026`) ou como
+- **Lista:** além dos parâmetros de lista, aceita `classId`, `examId` e `status`, da mais recente
+  para a mais antiga. A busca procura o dia, escrito como a tela mostra (`05/10/2026`) ou como
   ISO (`2026-10-05`), inteiro ou em parte. Cada `status` fica de um lado só do `archived`:
   `closed` só entre as arquivadas, `draft` e `generated` só entre as ativas. Pedir um `status` do
   outro lado responde 400, em vez de uma lista vazia que pareceria "não há nenhuma".
+- **Criar:** `POST /applications` recebe `{ examId, classId, date }` e a aplicação nasce `draft`,
+  com as notas recolhidas. Prova ou turma de outro professor responde 404; arquivada responde 409
+  (RF20). A mesma prova, para a mesma turma, no mesmo dia, é a mesma aplicação, contando as
+  arquivadas, e responde 409 com as mensagens das telas. A conferência roda com a linha da prova
+  travada, então dois cliques não gravam a mesma aplicação duas vezes.
+- **Editar:** `PATCH /applications/:id` mescla e grava só o que veio. Depois de gerar, só a data
+  muda, porque as folhas impressas são daquela prova e daquela turma. Aplicação arquivada não é
+  editada até ser restaurada. Só o que muda é conferido: uma aplicação cuja prova foi arquivada
+  depois continua mudando de data.
 - **Restaurar** devolve a aplicação arquivada como `draft`, nunca como `generated`; uma que não
   está arquivada fica como está.
+- **Gerar (RF22 a RF24):** `POST /applications/:id/generate-pdf` recebe
+  `{ versions: [{ shuffleQuestions, shuffleAlternatives }], withStudentIdentification }`, de 1 a 6
+  versões, e usa o limite das rotas caras (10 por hora por professor).
+  - Lê a prova pelo serviço de provas, as questões pelo id, inclusive as excluídas do banco depois
+    de entrar na prova, e os alunos da turma que não foram removidos nem anonimizados, em ordem de
+    nome.
+  - Monta as versões, com o `layout`, e uma folha por aluno, com o `code` feito no servidor e o
+    `answerCardVersion` da geometria do cartão. Responde `{ versions, sheets }`.
+  - Desenha e guarda o PDF antes de mexer no banco. Depois, numa transação com a aplicação e as
+    folhas travadas, confere de novo se pode gerar, troca versões e folhas, marca a aplicação como
+    `generated` e aponta o `pdfUrl` para o PDF novo. O PDF anterior é apagado depois do commit, e a
+    prova vira `ready`.
+  - Responde 409 para aplicação arquivada, folha já corrigida (RF24), notas liberadas (as versões
+    novas nascem com o gabarito despublicado), prova sem questão, turma sem aluno ativo e questão
+    maior que uma página, com o número dela na prova.
 - **Versões e folhas** são listas `{ items, total }`, por `versionNumber` e `sheetNumber`.
 - **Gabarito e notas (RF46):** `POST /applications/:id/versions/:versionId/publish-answer-key`
   recebe `{ published }`. Liberar as notas exige o gabarito de todas as versões publicado, e o
@@ -162,8 +185,8 @@ leem a prova e chegam junto com as provas da #45.
   precisa continuar salvando.
 - **Título único**, comparado sem acento e sem maiúscula, contando as arquivadas, com as mesmas
   mensagens das telas.
-- **Status é do servidor:** nasce `draft`, vira `ready` quando a primeira aplicação é gerada (o
-  serviço tem `markReady` para a #46, sem rota), arquivar grava `closed` e restaurar volta para
+- **Status é do servidor:** nasce `draft`, vira `ready` quando a primeira aplicação é gerada (a
+  geração chama o `markReady` do serviço, sem rota), arquivar grava `closed` e restaurar volta para
   `draft`, nunca para `ready`. O `PATCH` mescla e ignora `status`, `id` e `teacherId`.
 - **Sorteio (RF16):** `POST /exams/draw` recebe `{ tags, multipleChoiceCount, openEndedCount,
   excludeIds }` e responde `{ questions, shortfall }`. Sorteia entre as questões ativas do
