@@ -57,12 +57,12 @@ describe('application repository', () => {
     await expect(bruno.getById(created.id)).resolves.toBeNull()
   })
 
-  it('orders by date, since an application is an event', async () => {
+  it('orders by date, the most recent first, since an application is an event', async () => {
     const repository = createLocalApplicationRepository('ana')
-    await repository.create({ ...input, date: '2026-12-01T13:00:00.000Z' })
     await repository.create({ ...input, date: '2026-03-01T13:00:00.000Z' })
+    await repository.create({ ...input, date: '2026-12-01T13:00:00.000Z' })
 
     const dates = (await repository.list()).items.map((item) => item.date)
-    expect(dates).toEqual(['2026-03-01T13:00:00.000Z', '2026-12-01T13:00:00.000Z'])
+    expect(dates).toEqual(['2026-12-01T13:00:00.000Z', '2026-03-01T13:00:00.000Z'])
   })
 })

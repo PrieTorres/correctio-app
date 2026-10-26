@@ -366,7 +366,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
   })
 
   describe('GET /applications', () => {
-    it('lists only the applications of the teacher, the oldest first, with the fields of the contract', async () => {
+    it('lists only the applications of the teacher, the most recent first, with the fields of the contract', async () => {
       const later = await insertApplication({ date: day('2026-12-01') })
       const earlier = await insertApplication({ date: day('2026-03-01'), status: 'generated', pdfUrl: 'applications/earlier/prova.pdf' })
       await insertApplication({ teacherId: 'bia', examId: 'exam-bia', classId: 'class-bia' })
@@ -378,6 +378,15 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
         total: 2,
         items: [
           {
+            id: later,
+            examId: 'exam-ana',
+            classId: 'class-ana',
+            teacherId: 'ana',
+            status: 'draft',
+            date: '2026-12-01T12:00:00.000Z',
+            gradesReleased: false,
+          },
+          {
             id: earlier,
             examId: 'exam-ana',
             classId: 'class-ana',
@@ -385,15 +394,6 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
             status: 'generated',
             pdfUrl: `/applications/${earlier}/pdf`,
             date: '2026-03-01T12:00:00.000Z',
-            gradesReleased: false,
-          },
-          {
-            id: later,
-            examId: 'exam-ana',
-            classId: 'class-ana',
-            teacherId: 'ana',
-            status: 'draft',
-            date: '2026-12-01T12:00:00.000Z',
             gradesReleased: false,
           },
         ],
@@ -412,7 +412,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       const draft = await insertApplication({ date: day('2026-10-06') })
       const generated = await insertApplication({ date: day('2026-10-07'), status: 'generated' })
 
-      expect(itemsIn(await ana().get('/applications'))).toEqual([draft, generated])
+      expect(itemsIn(await ana().get('/applications'))).toEqual([generated, draft])
       expect(itemsIn(await ana().get('/applications').query({ archived: 'true' }))).toEqual([archived])
     })
 
@@ -421,14 +421,14 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       const otherClass = await insertApplication({ date: day('2026-10-02'), classId: 'class-ana-2', status: 'generated' })
       const otherExam = await insertApplication({ date: day('2026-10-03'), examId: 'exam-ana-2', status: 'generated' })
 
-      expect(itemsIn(await ana().get('/applications').query({ classId: 'class-ana' }))).toEqual([first, otherExam])
-      expect(itemsIn(await ana().get('/applications').query({ examId: 'exam-ana' }))).toEqual([first, otherClass])
-      expect(itemsIn(await ana().get('/applications').query({ status: 'generated' }))).toEqual([otherClass, otherExam])
+      expect(itemsIn(await ana().get('/applications').query({ classId: 'class-ana' }))).toEqual([otherExam, first])
+      expect(itemsIn(await ana().get('/applications').query({ examId: 'exam-ana' }))).toEqual([otherClass, first])
+      expect(itemsIn(await ana().get('/applications').query({ status: 'generated' }))).toEqual([otherExam, otherClass])
       expect(itemsIn(await ana().get('/applications').query({ classId: 'class-ana', status: 'generated' }))).toEqual([otherExam])
 
       const paged = await ana().get('/applications').query({ status: 'generated', pageSize: 1, page: 2 })
       expect(paged.body.total).toBe(2)
-      expect(itemsIn(paged)).toEqual([otherExam])
+      expect(itemsIn(paged)).toEqual([otherClass])
     })
 
     it('matches nothing for a class of another teacher', async () => {
@@ -446,7 +446,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       expect(await search('05/10')).toEqual([october])
       expect(await search('2026-10-05')).toEqual([october])
       expect(await search('2026-11')).toEqual([november])
-      expect(await search('/2026')).toEqual([october, november])
+      expect(await search('/2026')).toEqual([november, october])
       expect(await search('calculo')).toEqual([])
     })
 

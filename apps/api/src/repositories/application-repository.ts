@@ -57,7 +57,7 @@ export interface SittingChange {
 }
 
 export interface ApplicationRepository {
-  /** Active or archived applications, searched by the day they happen, the oldest first. */
+  /** Active or archived applications, searched by the day they happen, the most recent first. */
   list: (teacherId: string, filters: ApplicationFilters) => Promise<Page<StoredApplication>>
   findById: (teacherId: string, id: string) => Promise<StoredApplication | undefined>
   setStatus: (teacherId: string, id: string, status: ApplicationStatus) => Promise<void>
@@ -145,7 +145,8 @@ function toStoredApplication(row: ApplicationRow): StoredApplication {
  * Every query is scoped by `teacherId` here, so no service can forget it: an
  * application of another teacher is simply not found (`docs/Seguranca_e_LGPD.md`,
  * section 2). The list is ordered by date because an application is an event,
- * and the one a teacher looks for is the one of a given day.
+ * and the one a teacher looks for is the one of a given day; the most recent
+ * come first, so a new one never lands on a page nobody opens.
  */
 export function createApplicationRepository(db: Kysely<Database>): ApplicationRepository {
   const owned = (teacherId: string) => db.selectFrom('applications').where('teacherId', '=', teacherId)
@@ -167,7 +168,7 @@ export function createApplicationRepository(db: Kysely<Database>): ApplicationRe
       const query = filtered(teacherId, filters)
       const { total } = await query.select((eb) => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow()
       const { limit, offset } = pageWindow(filters)
-      const rows = await query.select(APPLICATION_COLUMNS).orderBy('date').orderBy('id').limit(limit).offset(offset).execute()
+      const rows = await query.select(APPLICATION_COLUMNS).orderBy('date', 'desc').orderBy('id').limit(limit).offset(offset).execute()
       return { items: rows.map(toStoredApplication), total: Number(total) }
     },
 

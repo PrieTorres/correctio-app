@@ -23,7 +23,8 @@ export interface ApplicationRepository extends OwnedRepository<Application, Appl
  * back as generated would promise sheets that may no longer match the exam.
  *
  * Sorted and searched by date: an application is an event, and what a teacher
- * looks for is the one from a given day rather than one with a given name.
+ * looks for is the one from a given day rather than one with a given name. The
+ * most recent come first, as the API lists them.
  */
 export function createLocalApplicationRepository(teacherId: string): ApplicationRepository {
   const collection = createCollection('applications', applicationSchema)
@@ -41,6 +42,7 @@ export function createLocalApplicationRepository(teacherId: string): Application
     }),
     searchableFields: (item) => [item.date],
     sortKey: (item) => item.date,
+    sortDirection: 'desc',
     /** The same exam, to the same class, on the same day is one sitting. */
     identity: (item) => `${item.examId}|${item.classId}|${item.date.slice(0, 10)}`,
   })
