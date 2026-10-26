@@ -243,7 +243,7 @@ export interface ExamVersion {
  * whether or not the exam identifies students.
  *
  * `sheetNumber` and `code` must never be conflated. The former is short and
- * human-readable for sorting paper; the latter is the opaque 128-bit token
+ * human-readable for sorting paper; the latter is the opaque 130-bit token
  * behind the QR code and the only key to the public lookup.
  */
 export interface AnswerSheet {
@@ -253,6 +253,12 @@ export interface AnswerSheet {
   studentId?: Id;
   sheetNumber: number;
   code: string;
+  /**
+   * Group addition: the geometry of the answer card this sheet was printed
+   * with (`ANSWER_CARD.version`), so the reading of its photo looks for the
+   * marks where this paper has them, even after the card changes.
+   */
+  answerCardVersion: number;
 }
 
 export interface ObjectiveResult {

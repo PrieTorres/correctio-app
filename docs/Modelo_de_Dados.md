@@ -265,12 +265,18 @@ sem identificação.
   studentId?: string
   sheetNumber: number          // curto e legível, para o professor organizar papel
   code: string                 // token opaco de 26 caracteres (130 bits)
+  answerCardVersion: number    // geometria do cartão-resposta com que a folha foi impressa
 }
 ```
 
 > `sheetNumber` e `code` **nunca se confundem**. O primeiro é para organizar papel; o
 > segundo é a única chave da consulta pública. Usar um número curto como chave tornaria
 > todas as notas varreduráveis.
+
+**`answerCardVersion`** é o `ANSWER_CARD.version` do momento da geração. A leitura da foto
+procura as bolinhas onde aquela geometria as imprimiu, então o cartão pode mudar sem tornar
+ilegíveis as folhas que já estão com os alunos (`docs/answer-card/answer-card.md`). Uma folha
+gravada antes do campo existir é da primeira geometria, a única que havia.
 
 ### Correction
 

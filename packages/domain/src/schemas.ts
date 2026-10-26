@@ -418,6 +418,12 @@ export const answerSheetSchema = z.object({
   studentId: id.optional(),
   sheetNumber: z.number().int().positive(),
   code: z.string().length(26),
+  /**
+   * A sheet kept in a browser before this field existed was made for the
+   * first geometry, which is the only one there has been until then, so it
+   * is read as that one instead of being dropped as invalid.
+   */
+  answerCardVersion: z.number().int().positive().default(1),
 });
 
 export const correctionStatusSchema = z.nativeEnum(CORRECTION_STATUS);

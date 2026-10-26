@@ -24,7 +24,7 @@ function sheetCode(id: string): string {
 }
 
 function sheet(id: string, applicationId: string, examVersionId: string, n: number): AnswerSheet {
-  return { id, applicationId, examVersionId, sheetNumber: n, code: sheetCode(id) }
+  return { id, applicationId, examVersionId, sheetNumber: n, code: sheetCode(id), answerCardVersion: 1 }
 }
 
 describe('printing repository', () => {

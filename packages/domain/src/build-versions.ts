@@ -1,3 +1,4 @@
+import { ANSWER_CARD } from './answer-card'
 import { createAnswerSheetCode } from './answer-sheet-code'
 import type { AnswerSheet, Exam, ExamQuestion, ExamVersion, ExamVersionLayout, Question, Student } from './domain'
 import type { RandomSource } from './draw-questions'
@@ -125,5 +126,6 @@ export function buildAnswerSheets(
     ...(withStudentIdentification ? { studentId: student.id } : {}),
     sheetNumber: index + 1,
     code: createAnswerSheetCode(),
+    answerCardVersion: ANSWER_CARD.version,
   }))
 }

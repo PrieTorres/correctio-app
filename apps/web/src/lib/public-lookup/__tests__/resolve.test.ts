@@ -78,6 +78,7 @@ const SHEET: AnswerSheet = {
   studentId: 'student-1',
   sheetNumber: 3,
   code: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  answerCardVersion: 1,
 }
 
 function version(overrides: Partial<ExamVersion> = {}): ExamVersion {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ANSWER_CARD } from '../answer-card'
 import { isAnswerSheetCode } from '../answer-sheet-code'
 import { buildAnswerSheets, buildVersions, type VersionCriteria } from '../build-versions'
 import type { Exam, Question, Student } from '../domain'
@@ -198,6 +199,12 @@ describe('buildAnswerSheets', () => {
     const sheets = buildAnswerSheets('app-1', versions, students)
     expect(sheets[0]?.examVersionId).not.toBe(sheets[1]?.examVersionId)
     expect(sheets[0]?.examVersionId).toBe(sheets[2]?.examVersionId)
+  })
+
+  it('records the geometry of the answer card every sheet is printed with', () => {
+    const sheets = buildAnswerSheets('app-1', buildVersions(criteria()), students)
+
+    expect(sheets.every((sheet) => sheet.answerCardVersion === ANSWER_CARD.version)).toBe(true)
   })
 
   it('numbers the sheets from one', () => {

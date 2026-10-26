@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
 import {
+  answerSheetSchema,
   examInputSchema,
   generationRequestSchema,
   MAX_VERSIONS,
@@ -199,5 +200,17 @@ describe('generationRequestSchema', () => {
     ])
     expect(messagesOf(generationRequestSchema.safeParse({ withStudentIdentification: false }))).toEqual(['Informe as versões a gerar'])
     expect(messagesOf(generationRequestSchema.safeParse('3 versões'))).toEqual(['Dados inválidos'])
+  })
+})
+
+describe('answerSheetSchema', () => {
+  const sheet = { id: 's1', applicationId: 'a1', examVersionId: 'v1', sheetNumber: 1, code: 'ABCDEFGHJKLMNPQRSTUVWXYZ27' }
+
+  it('keeps the geometry of the answer card the sheet was printed with', () => {
+    expect(answerSheetSchema.parse({ ...sheet, answerCardVersion: 2 }).answerCardVersion).toBe(2)
+  })
+
+  it('reads a sheet stored before the geometry was recorded as one of the first geometry', () => {
+    expect(answerSheetSchema.parse(sheet).answerCardVersion).toBe(1)
   })
 })

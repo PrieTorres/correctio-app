@@ -17,7 +17,7 @@ const VERSION_COLUMNS = [
   'qrCodePayload',
 ] as const
 
-const SHEET_COLUMNS = ['id', 'applicationId', 'examVersionId', 'studentId', 'sheetNumber', 'code'] as const
+const SHEET_COLUMNS = ['id', 'applicationId', 'examVersionId', 'studentId', 'sheetNumber', 'code', 'answerCardVersion'] as const
 
 type VersionRow = Pick<Selectable<ExamVersionsTable>, (typeof VERSION_COLUMNS)[number]>
 type SheetRow = Pick<Selectable<AnswerSheetsTable>, (typeof SHEET_COLUMNS)[number]>
@@ -67,6 +67,7 @@ function toSheet(row: SheetRow): AnswerSheet {
     ...(row.studentId !== null && { studentId: row.studentId }),
     sheetNumber: row.sheetNumber,
     code: row.code,
+    answerCardVersion: row.answerCardVersion,
   }
 }
 

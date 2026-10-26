@@ -144,13 +144,14 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
     return id
   }
 
+  /** Leaves `answerCardVersion` to the column default, which is the first geometry. */
   async function insertSheet(applicationId: string, examVersionId: string, sheetNumber: number, studentId?: string) {
     const sheet = { id: randomUUID(), applicationId, examVersionId, sheetNumber, code: randomBytes(13).toString('hex').toUpperCase() }
     await db
       .insertInto('answer_sheets')
       .values({ ...sheet, studentId: studentId ?? null })
       .execute()
-    return sheet
+    return { ...sheet, answerCardVersion: 1 }
   }
 
   const storedApplication = (id: string) => db.selectFrom('applications').selectAll().where('id', '=', id).executeTakeFirstOrThrow()
@@ -423,6 +424,19 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
         total: 2,
         items: [{ ...identified, studentId: 'student-1' }, anonymous],
       })
+    })
+
+    it('answers the geometry of the answer card each sheet was printed with', async () => {
+      const id = await insertApplication({ status: 'generated' })
+      const version = await insertVersion(id, 1)
+      const first = await insertSheet(id, version, 1)
+      const second = await insertSheet(id, version, 2)
+      await db.updateTable('answer_sheets').set({ answerCardVersion: 2 }).where('id', '=', second.id).execute()
+
+      const response = await ana().get(`/applications/${id}/sheets`)
+
+      expect(itemsIn(response)).toEqual([first.id, second.id])
+      expect((response.body as { items: { answerCardVersion: number }[] }).items.map((sheet) => sheet.answerCardVersion)).toEqual([1, 2])
     })
 
     it('answers 404 to another teacher', async () => {

@@ -174,6 +174,8 @@ export interface AnswerSheetsTable {
   studentId: string | null
   sheetNumber: number
   code: string
+  /** `+` The geometry of the card the sheet was printed with (`0003-answer-card-version`); the first one by default. */
+  answerCardVersion: ColumnType<number, number | undefined, number>
 }
 
 export interface CorrectionsTable extends Audited {

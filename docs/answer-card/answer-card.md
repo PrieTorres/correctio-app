@@ -85,9 +85,10 @@ pode ter mudado depois.
 
 ## Antes de mudar uma medida
 
-- Mudar uma medida muda o PDF e a leitura ao mesmo tempo, mas não muda o papel já impresso. Depois
-  da primeira prova aplicada em produção, mudar a geometria exige saber com qual geometria cada
-  folha foi impressa.
+- Mudar uma medida muda o PDF e a leitura ao mesmo tempo, mas não muda o papel já impresso. Por
+  isso cada folha grava com qual geometria saiu, em `AnswerSheet.answerCardVersion`, que a
+  geração preenche com `ANSWER_CARD.version`. Quem muda uma medida aumenta essa versão e mantém
+  a geometria anterior para a leitura das folhas que já estão com os alunos.
 - `packages/domain/src/__tests__/answer-card.test.ts` confere que o cartão cabe na página, que as
   bolinhas não se encostam e ficam dentro dos marcadores, e que o QR Code nunca cobre uma bolinha.
 
