@@ -138,6 +138,8 @@ export function createApp({
       requireAuth: createRequireAuth(verifyToken),
       teacherLimit: createTeacherRateLimit(limits),
       expensiveLimit: createRateLimit(limits.expensive, { key: byTeacher }),
+      publicAppUrl: env.PUBLIC_APP_URL,
+      logger,
       auth: auth === undefined ? undefined : authRoutesFor(auth, env, limits, signInDelayStepMs),
     }),
   )

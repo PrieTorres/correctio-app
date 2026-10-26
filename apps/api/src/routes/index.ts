@@ -1,5 +1,6 @@
 import { Router, type RequestHandler } from 'express'
 import type { Kysely } from 'kysely'
+import type { Logger } from 'pino'
 import type { AuthController } from '../controllers/auth-controller'
 import type { FieldCipher } from '../lib/field-encryption'
 import type { FileStorage } from '../lib/file-storage'
@@ -25,6 +26,9 @@ export interface RouteDependencies {
   teacherLimit: RequestHandler
   /** The expensive tier, per teacher, which each costly route applies on its own. */
   expensiveLimit: RequestHandler
+  /** The origin of the web app, which the PDF prints in every QR code (`PUBLIC_APP_URL`). */
+  publicAppUrl: string
+  logger: Logger
   /** Absent in tests that exercise only the gate, which then answers every route as before #40. */
   auth?: { controller: AuthController; limits: AuthLimits }
 }
@@ -44,6 +48,8 @@ export function createRouter({
   requireAuth,
   teacherLimit,
   expensiveLimit,
+  publicAppUrl,
+  logger,
   auth,
 }: RouteDependencies): Router {
   const router = Router()
@@ -60,7 +66,7 @@ export function createRouter({
   router.use('/questions', questionRoutes(db))
   router.use('/classes', classRoutes({ db, fieldCipher, expensiveLimit }))
   router.use('/exams', examRoutes(db))
-  router.use('/applications', applicationRoutes({ db, fileStorage }))
+  router.use('/applications', applicationRoutes({ db, fileStorage, expensiveLimit, publicAppUrl, logger }))
 
   return router
 }

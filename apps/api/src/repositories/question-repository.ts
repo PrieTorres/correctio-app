@@ -156,6 +156,26 @@ export class QuestionRepository {
     return this.hydrate(row, children)
   }
 
+  /**
+   * The questions of the teacher with these ids, deleted ones included, in no
+   * particular order. An exam keeps a question deleted from the bank after it
+   * joined, and its printed versions still need the alternatives, so the
+   * generation of an application reads by id rather than from the bank.
+   */
+  async findByIds(teacherId: string, ids: readonly string[]): Promise<QuestionRecord[]> {
+    if (ids.length === 0) return []
+
+    const rows = await this.db
+      .selectFrom('questions')
+      .selectAll()
+      .where('teacherId', '=', teacherId)
+      .where('id', 'in', [...ids])
+      .execute()
+
+    const children = await this.loadChildren(rows.map((row) => row.id))
+    return rows.map((row) => this.hydrate(row, children))
+  }
+
   async findMany(teacherId: string, filters: QuestionFilters) {
     let query = this.db
       .selectFrom('questions')
