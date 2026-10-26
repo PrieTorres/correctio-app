@@ -362,6 +362,36 @@ export const applicationInputSchema = z.object({
   date: timestamp,
 });
 
+/**
+ * The most versions one application prints, the most P13 has always offered.
+ * Here rather than in the screen, so the API refuses what the screen would
+ * never send.
+ */
+export const MAX_VERSIONS = 6;
+
+export const versionShuffleSchema = z.object({
+  shuffleQuestions: z.boolean({ message: 'Informe se a versão embaralha as questões' }),
+  shuffleAlternatives: z.boolean({ message: 'Informe se a versão embaralha as alternativas' }),
+});
+
+/**
+ * What generating an application asks for (RF22): how each version shuffles,
+ * which P13 pre-fills with the preferences of the exam (RF17) and the teacher
+ * may change version by version, and whether the sheets carry the name of the
+ * student, which holds for the whole application. The number of versions is
+ * the length of `versions`.
+ */
+export const generationRequestSchema = z.object(
+  {
+    versions: z
+      .array(versionShuffleSchema, { message: 'Informe as versões a gerar' })
+      .min(1, 'Gere pelo menos uma versão')
+      .max(MAX_VERSIONS, `Máximo de ${MAX_VERSIONS} versões por aplicação`),
+    withStudentIdentification: z.boolean({ message: 'Informe se as folhas saem com o nome do aluno' }),
+  },
+  { message: 'Dados inválidos' },
+);
+
 export const examVersionLayoutSchema = z.object({
   questionOrder: z.array(id),
   alternativeOrder: z.array(z.object({ questionId: id, printedOrder: z.array(id) })),
@@ -443,3 +473,5 @@ export type AuthSession = z.infer<typeof authSessionSchema>;
 export type ExamInput = z.infer<typeof examInputSchema>;
 export type DrawRequest = z.infer<typeof drawRequestSchema>;
 export type ApplicationInput = z.infer<typeof applicationInputSchema>;
+export type VersionShuffle = z.infer<typeof versionShuffleSchema>;
+export type GenerationRequest = z.infer<typeof generationRequestSchema>;

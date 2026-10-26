@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { Exam, Question, Student } from '@/types/domain'
-import { buildAnswerSheets, buildVersions } from '../build-versions'
+import { isAnswerSheetCode } from '../answer-sheet-code'
+import { buildAnswerSheets, buildVersions, type VersionCriteria } from '../build-versions'
+import type { Exam, Question, Student } from '../domain'
+import type { VersionShuffle } from '../schemas'
 
 function question(id: string, alternatives: string[]): Question {
   return {
@@ -15,11 +17,9 @@ function question(id: string, alternatives: string[]): Question {
   }
 }
 
-const BANK = [
-  question('q1', ['a', 'b', 'c']),
-  question('q2', ['a', 'b', 'c']),
-  question('q3', ['a', 'b', 'c']),
-]
+const FIRST = question('q1', ['a', 'b', 'c'])
+const THIRD = question('q3', ['a', 'b', 'c'])
+const BANK = [FIRST, question('q2', ['a', 'b', 'c']), THIRD]
 
 function exam(allowShuffle: Record<string, boolean> = {}): Exam {
   return {
@@ -39,25 +39,32 @@ function exam(allowShuffle: Record<string, boolean> = {}): Exam {
   }
 }
 
-function criteria(overrides: Partial<Parameters<typeof buildVersions>[0]> = {}) {
+const KEEP_ORDER: VersionShuffle = { shuffleQuestions: false, shuffleAlternatives: false }
+
+/** `count` versions that shuffle alike, as P13 sends them when the teacher changes no version. */
+function alike(count: number, shuffle: Partial<VersionShuffle> = {}): VersionShuffle[] {
+  return Array.from({ length: count }, () => ({ ...KEEP_ORDER, ...shuffle }))
+}
+
+function criteria(overrides: Partial<VersionCriteria> = {}): VersionCriteria {
   return {
     applicationId: 'app-1',
     exam: exam(),
-    bank: BANK,
-    versionCount: 2,
-    shuffleQuestions: false,
-    shuffleAlternatives: false,
+    questions: BANK,
+    versions: alike(2),
     withStudentIdentification: true,
     ...overrides,
   }
 }
 
-/** Reverses every pick, so a shuffle is visible rather than sampled. */
-const reverseEverything = () => 0
+/** Picks the first place every time, so a shuffle is visible rather than sampled. */
+const alwaysFirst = () => 0
+
+const EXAM_ORDER = ['q1', 'q2', 'q3']
 
 describe('buildVersions', () => {
-  it('builds the number of versions asked for, numbered from one', () => {
-    const versions = buildVersions(criteria({ versionCount: 3 }))
+  it('builds one version per entry asked for, numbered from one', () => {
+    const versions = buildVersions(criteria({ versions: alike(3) }))
 
     expect(versions.map((item) => item.versionNumber)).toEqual([1, 2, 3])
   })
@@ -65,33 +72,26 @@ describe('buildVersions', () => {
   it('keeps the exam order when shuffling is off', () => {
     const [version] = buildVersions(criteria())
 
-    expect(version?.layout.questionOrder).toEqual(['q1', 'q2', 'q3'])
+    expect(version?.layout.questionOrder).toEqual(EXAM_ORDER)
   })
 
   it('records a layout for every question, so a sheet can be read back', () => {
-    const [version] = buildVersions(criteria({ shuffleQuestions: true }))
+    const [version] = buildVersions(criteria({ versions: alike(1, { shuffleQuestions: true }) }))
 
     expect(version?.layout.questionOrder).toHaveLength(3)
     expect(version?.layout.alternativeOrder).toHaveLength(3)
   })
 
-  it('shuffles the alternatives when the application asks for it', () => {
-    const [version] = buildVersions(
-      criteria({ shuffleAlternatives: true }),
-      reverseEverything,
-    )
+  it('shuffles the alternatives when the version asks for it', () => {
+    const [version] = buildVersions(criteria({ versions: alike(1, { shuffleAlternatives: true }) }), alwaysFirst)
 
-    expect(version?.layout.alternativeOrder[0]?.printedOrder).not.toEqual([
-      'q1-0',
-      'q1-1',
-      'q1-2',
-    ])
+    expect(version?.layout.alternativeOrder[0]?.printedOrder).not.toEqual(['q1-0', 'q1-1', 'q1-2'])
   })
 
   it('leaves a question that refuses shuffling in its own order', () => {
     const [version] = buildVersions(
-      criteria({ exam: exam({ q2: false }), shuffleAlternatives: true }),
-      reverseEverything,
+      criteria({ exam: exam({ q2: false }), versions: alike(1, { shuffleAlternatives: true }) }),
+      alwaysFirst,
     )
 
     const fixed = version?.layout.alternativeOrder.find((item) => item.questionId === 'q2')
@@ -99,17 +99,53 @@ describe('buildVersions', () => {
   })
 
   it('never loses or repeats an alternative while shuffling', () => {
-    const [version] = buildVersions(criteria({ shuffleAlternatives: true }))
+    const [version] = buildVersions(criteria({ versions: alike(1, { shuffleAlternatives: true }) }))
 
     const printed = version?.layout.alternativeOrder[0]?.printedOrder ?? []
     expect([...printed].sort()).toEqual(['q1-0', 'q1-1', 'q1-2'])
   })
 
-  it('gives every version its own public code', () => {
-    const versions = buildVersions(criteria({ versionCount: 4 }))
+  /** RF22: the preferences of the exam only pre-fill P13, and each version keeps what the teacher chose for it. */
+  it('shuffles each version as its own entry says, and records what it did', () => {
+    const [shuffledQuestions, shuffledAlternatives] = buildVersions(
+      criteria({
+        versions: [
+          { shuffleQuestions: true, shuffleAlternatives: false },
+          { shuffleQuestions: false, shuffleAlternatives: true },
+        ],
+      }),
+      alwaysFirst,
+    )
 
-    const codes = versions.map((item) => item.publicCode)
-    expect(new Set(codes).size).toBe(4)
+    expect(shuffledQuestions?.layout.questionOrder).not.toEqual(EXAM_ORDER)
+    expect(shuffledQuestions?.layout.alternativeOrder.map((item) => item.printedOrder[0])).toEqual(['q2-0', 'q3-0', 'q1-0'])
+    expect(shuffledQuestions).toMatchObject({ shuffleQuestions: true, shuffleAlternatives: false })
+
+    expect(shuffledAlternatives?.layout.questionOrder).toEqual(EXAM_ORDER)
+    expect(shuffledAlternatives?.layout.alternativeOrder[0]?.printedOrder).not.toEqual(['q1-0', 'q1-1', 'q1-2'])
+    expect(shuffledAlternatives).toMatchObject({ shuffleQuestions: false, shuffleAlternatives: true })
+  })
+
+  it('lays out a question deleted from the bank after it joined the exam', () => {
+    const deleted = { ...question('q2', ['a', 'b', 'c']), deletedAt: '2026-10-01T12:00:00.000Z' }
+    const [version] = buildVersions(criteria({ questions: [FIRST, deleted, THIRD] }))
+
+    expect(version?.layout.alternativeOrder.find((item) => item.questionId === 'q2')?.printedOrder).toEqual(['q2-0', 'q2-1', 'q2-2'])
+  })
+
+  it('gives an open-ended question its place in the order and no letters', () => {
+    const essay: Question = { id: 'q2', teacherId: 'ana', type: 'discursiva', statement: 'Explique', tags: [], maxScore: 2, allowShuffleAlternatives: true }
+    const [version] = buildVersions(criteria({ questions: [FIRST, essay, THIRD] }))
+
+    expect(version?.layout.questionOrder).toEqual(EXAM_ORDER)
+    expect(version?.layout.alternativeOrder.map((item) => item.questionId)).toEqual(['q1', 'q3'])
+  })
+
+  it('gives every version its own id and its own public code', () => {
+    const versions = buildVersions(criteria({ versions: alike(4) }))
+
+    expect(new Set(versions.map((item) => item.id)).size).toBe(4)
+    expect(new Set(versions.map((item) => item.publicCode)).size).toBe(4)
   })
 
   it('starts with the answer key unpublished', () => {
@@ -128,7 +164,7 @@ describe('buildVersions', () => {
     const original = exam()
     const before = original.questions.map((item) => item.questionId)
 
-    buildVersions(criteria({ exam: original, shuffleQuestions: true }))
+    buildVersions(criteria({ exam: original, versions: alike(2, { shuffleQuestions: true }) }))
 
     expect(original.questions.map((item) => item.questionId)).toEqual(before)
   })
@@ -148,15 +184,16 @@ describe('buildAnswerSheets', () => {
     expect(buildAnswerSheets('app-1', versions, students)).toHaveLength(5)
   })
 
-  it('gives every sheet a code of its own', () => {
+  it('gives every sheet a code of its own, which the public lookup accepts', () => {
     const versions = buildVersions(criteria())
 
     const codes = buildAnswerSheets('app-1', versions, students).map((item) => item.code)
     expect(new Set(codes).size).toBe(5)
+    expect(codes.every(isAnswerSheetCode)).toBe(true)
   })
 
   it('spreads the versions so neighbours do not share a paper', () => {
-    const versions = buildVersions(criteria({ versionCount: 2 }))
+    const versions = buildVersions(criteria({ versions: alike(2) }))
 
     const sheets = buildAnswerSheets('app-1', versions, students)
     expect(sheets[0]?.examVersionId).not.toBe(sheets[1]?.examVersionId)
@@ -166,9 +203,7 @@ describe('buildAnswerSheets', () => {
   it('numbers the sheets from one', () => {
     const versions = buildVersions(criteria())
 
-    expect(buildAnswerSheets('app-1', versions, students).map((s) => s.sheetNumber)).toEqual([
-      1, 2, 3, 4, 5,
-    ])
+    expect(buildAnswerSheets('app-1', versions, students).map((s) => s.sheetNumber)).toEqual([1, 2, 3, 4, 5])
   })
 
   it('builds nothing when there is no version to print', () => {
@@ -206,10 +241,6 @@ describe('buildAnswerSheets, without identification', () => {
   it('ties each sheet to its student when the paper does carry a name', () => {
     const sheets = buildAnswerSheets('app-1', buildVersions(criteria()), students, true)
 
-    expect(sheets.map((sheet) => sheet.studentId)).toEqual([
-      'student-0',
-      'student-1',
-      'student-2',
-    ])
+    expect(sheets.map((sheet) => sheet.studentId)).toEqual(['student-0', 'student-1', 'student-2'])
   })
 })

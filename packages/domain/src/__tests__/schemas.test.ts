@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
 import {
   examInputSchema,
+  generationRequestSchema,
+  MAX_VERSIONS,
   questionInputSchema,
   questionSchema,
   resetPasswordSchema,
@@ -173,5 +175,29 @@ describe('examInputSchema', () => {
     expect(messagesOf(examInputSchema.safeParse({ ...exam, questions: questions(21) }))).toEqual([
       'Máximo de 20 questões por prova',
     ])
+  })
+})
+
+describe('generationRequestSchema', () => {
+  const version = { shuffleQuestions: true, shuffleAlternatives: false }
+  const request = (count: number) => ({ versions: Array.from({ length: count }, () => version), withStudentIdentification: true })
+
+  it('accepts from one to six versions, each with its own shuffle', () => {
+    expect(generationRequestSchema.safeParse(request(1)).success).toBe(true)
+    expect(generationRequestSchema.safeParse(request(MAX_VERSIONS)).success).toBe(true)
+  })
+
+  it('refuses no version at all and a seventh one', () => {
+    expect(messagesOf(generationRequestSchema.safeParse(request(0)))).toEqual(['Gere pelo menos uma versão'])
+    expect(messagesOf(generationRequestSchema.safeParse(request(MAX_VERSIONS + 1)))).toEqual(['Máximo de 6 versões por aplicação'])
+  })
+
+  it('asks how each version shuffles and whether the sheets carry the name, in words the screen can show', () => {
+    expect(messagesOf(generationRequestSchema.safeParse({ versions: [{ shuffleQuestions: true }] }))).toEqual([
+      'Informe se a versão embaralha as alternativas',
+      'Informe se as folhas saem com o nome do aluno',
+    ])
+    expect(messagesOf(generationRequestSchema.safeParse({ withStudentIdentification: false }))).toEqual(['Informe as versões a gerar'])
+    expect(messagesOf(generationRequestSchema.safeParse('3 versões'))).toEqual(['Dados inválidos'])
   })
 })

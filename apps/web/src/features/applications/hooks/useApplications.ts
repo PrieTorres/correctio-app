@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
 import { buildAnswerSheets, buildVersions } from '@/lib/applications';
-import type { ApplicationInput } from '@/lib/schemas';
+import type { ApplicationInput, VersionShuffle } from '@/lib/schemas';
 
 export const applicationKeys = {
   all: ['applications'] as const satisfies QueryKey,
@@ -103,6 +103,15 @@ export interface GenerateOptions {
 }
 
 /**
+ * The shuffle of every version, which RF22 lets differ per version. P13 still
+ * offers one pair of switches for the whole application, so each version gets
+ * the same until the screen asks version by version (#46).
+ */
+function sameShuffleForEvery({ versionCount, shuffleQuestions, shuffleAlternatives }: GenerateOptions): VersionShuffle[] {
+  return Array.from({ length: versionCount }, () => ({ shuffleQuestions, shuffleAlternatives }));
+}
+
+/**
  * Produces the paper for an application: the versions and one sheet per student.
  *
  * Generating is where the exam stops being editable content and becomes a
@@ -130,8 +139,9 @@ export function useGenerateApplication() {
       const versions = buildVersions({
         applicationId: id,
         exam,
-        bank: bank.items,
-        ...options,
+        questions: bank.items,
+        versions: sameShuffleForEvery(options),
+        withStudentIdentification: options.withStudentIdentification,
       });
       const sheets = buildAnswerSheets(id, versions, students, options.withStudentIdentification);
 

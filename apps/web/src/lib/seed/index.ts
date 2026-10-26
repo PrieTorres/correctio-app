@@ -248,13 +248,12 @@ function printingForDemo({ applications, students, exams, questions }: PrintingS
   const application = applications.find((item) => item.status === 'generated')
   if (exam === undefined || application === undefined) return { versions: [], sheets: [] }
 
+  const shuffle = { shuffleQuestions: exam.defaultShuffleQuestions, shuffleAlternatives: exam.defaultShuffleAlternatives }
   const versions = buildVersions({
     applicationId: application.id,
     exam,
-    bank: questions,
-    versionCount: 2,
-    shuffleQuestions: exam.defaultShuffleQuestions,
-    shuffleAlternatives: exam.defaultShuffleAlternatives,
+    questions,
+    versions: [shuffle, shuffle],
     withStudentIdentification: true,
   })
   const sheets = buildAnswerSheets(
