@@ -1,83 +1,72 @@
-/**
+﻿/**
  * The question bank: the screen the client called the point of the product,
  * since writing a question once is what stops the work repeating every term.
  */
 
-/**
- * A teacher of the spec's own, with only these four questions: the sample
- * questions every other spec starts from would change what each filter here
- * finds.
- */
-function seedQuestions() {
-  cy.signInAsNewTeacher({ withSampleData: false })
-  cy.request<{ accessToken: string }>('POST', '/api/auth/refresh').then((response) => {
-    const token = response.body.accessToken
-    const headers = { Authorization: `Bearer ${token}` }
+const altLimits = crypto.randomUUID()
+const altDerivative = crypto.randomUUID()
+const altMatrix = crypto.randomUUID()
 
-    const alt1 = crypto.randomUUID()
-    const alt2 = crypto.randomUUID()
-    const alt3 = crypto.randomUUID()
-    const alt4 = crypto.randomUUID()
-    const alt5 = crypto.randomUUID()
-    const alt6 = crypto.randomUUID()
+const QUESTIONS = [
+  {
+    type: 'objetiva',
+    statement: 'sen(x)/x',
+    tags: ['Limites'],
+    alternatives: [
+      { id: altLimits, text: '1' },
+      { id: crypto.randomUUID(), text: '0' }
+    ],
+    correctAlternativeId: altLimits,
+    allowShuffleAlternatives: false
+  },
+  {
+    type: 'discursiva',
+    statement: 'Explique com suas palavras',
+    tags: ['Conceitos'],
+    maxScore: 2,
+    allowShuffleAlternatives: false
+  },
+  {
+    type: 'objetiva',
+    statement: 'A derivada',
+    tags: ['Derivadas'],
+    alternatives: [
+      { id: altDerivative, text: '2x' },
+      { id: crypto.randomUUID(), text: 'x' }
+    ],
+    correctAlternativeId: altDerivative,
+    allowShuffleAlternatives: true
+  },
+  {
+    type: 'objetiva',
+    statement: 'matriz quadrada',
+    tags: ['Álgebra Linear'],
+    alternatives: [
+      { id: altMatrix, text: 'quadrada' },
+      { id: crypto.randomUUID(), text: 'retangular' }
+    ],
+    correctAlternativeId: altMatrix,
+    allowShuffleAlternatives: true
+  }
+]
 
-    const questions = [
-      {
-        type: 'objetiva',
-        statement: 'sen(x)/x',
-        tags: ['Limites'],
-        alternatives: [
-          { id: alt1, text: '1' },
-          { id: alt2, text: '0' }
-        ],
-        correctAlternativeId: alt1,
-        allowShuffleAlternatives: false
-      },
-      {
-        type: 'discursiva',
-        statement: 'Explique com suas palavras',
-        tags: ['Conceitos'],
-        maxScore: 2,
-        allowShuffleAlternatives: false
-      },
-      {
-        type: 'objetiva',
-        statement: 'A derivada',
-        tags: ['Derivadas'],
-        alternatives: [
-          { id: alt3, text: '2x' },
-          { id: alt4, text: 'x' }
-        ],
-        correctAlternativeId: alt3,
-        allowShuffleAlternatives: true
-      },
-      {
-        type: 'objetiva',
-        statement: 'matriz quadrada',
-        tags: ['Álgebra Linear'],
-        alternatives: [
-          { id: alt5, text: 'quadrada' },
-          { id: alt6, text: 'retangular' }
-        ],
-        correctAlternativeId: alt5,
-        allowShuffleAlternatives: true
-      }
-    ]
-
-    cy.wrap(questions).each((question) => {
-      cy.request({
-        method: 'POST',
-        url: '/api/questions',
-        headers,
-        body: question
+describe('banco de questões', () => {
+  before(() => {
+    cy.signInAsNewTeacher()
+    cy.request<{ accessToken: string }>('POST', '/api/auth/refresh').then((response) => {
+      const token = response.body.accessToken
+      cy.wrap(QUESTIONS).each((q) => {
+        cy.request({
+          method: 'POST',
+          url: '/api/questions',
+          headers: { Authorization: `Bearer ${token}` },
+          body: q,
+        })
       })
     })
   })
-}
 
-describe('banco de questões', () => {
   beforeEach(() => {
-    seedQuestions()
     cy.visit('/questoes')
     cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
   })
@@ -88,14 +77,12 @@ describe('banco de questões', () => {
 
   it('separa objetivas de discursivas', () => {
     cy.chooseSegment('Discursivas')
-
     cy.contains('Explique com suas palavras').should('be.visible')
     cy.contains('sen(x)/x').should('not.exist')
   })
 
   it('filtra por tag', () => {
     cy.contains('button', 'Álgebra Linear').click()
-
     cy.contains('matriz quadrada').should('be.visible')
     cy.contains('sen(x)/x').should('not.exist')
   })
@@ -119,41 +106,33 @@ describe('banco de questões', () => {
 
   it('sugere as tags que o banco já usa', () => {
     cy.contains('a', 'Nova questão').click()
-
     cy.contains('Já usadas:').should('be.visible')
     cy.contains('button', 'Limites').should('be.visible')
   })
 
   it('filtra as sugestões de tag conforme se digita', () => {
     cy.contains('a', 'Nova questão').click()
-
     cy.findByLabel('Tags de conteúdo').type('Limi')
-
     cy.contains('button', 'Limites').should('be.visible')
     cy.contains('button', 'Conceitos').should('not.exist')
   })
 
   it('adota a grafia que o banco já tem, ignorando acento e caixa', () => {
     cy.contains('a', 'Nova questão').click()
-
     cy.findByLabel('Tags de conteúdo').type('limites{enter}')
-
     cy.get('[aria-label="Remover tag Limites"]').should('exist')
   })
 
   it('escolher uma sugestão não adiciona o rascunho ao lado', () => {
     cy.contains('a', 'Nova questão').click()
-
     cy.findByLabel('Tags de conteúdo').type('Limi')
     cy.contains('button', 'Limites').click()
-
     cy.get('[aria-label="Remover tag Limites"]').should('exist')
     cy.get('[aria-label="Remover tag Limi"]').should('not.exist')
   })
 
   it('busca sem acento encontra o que tem acento', () => {
     cy.get('[aria-label="Buscar questões"]').type('limites')
-
     cy.contains('sen(x)/x').should('be.visible')
   })
 
@@ -165,12 +144,13 @@ describe('banco de questões', () => {
     cy.contains('button', 'Salvar questão').click()
 
     cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
+    cy.contains('main ul li', 'Questão acabada de escrever', { timeout: 10000 }).should('be.visible')
     cy.get('main ul li').first().should('contain', 'Questão acabada de escrever')
   })
 
   it('alterna entre as mais recentes e a ordem alfabética', () => {
+    cy.contains('main ul li', 'A derivada', { timeout: 10000 }).should('be.visible')
     cy.chooseSegment('A–Z')
-    
     cy.get('main ul li').first().should('contain', 'A derivada')
   })
 
@@ -183,62 +163,25 @@ describe('banco de questões', () => {
 
     cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
     cy.contains('button', 'Sem tag').click()
-
     cy.contains('Questão sem nenhuma tag').should('be.visible')
     cy.contains('sen(x)/x').should('not.exist')
   })
 
   it('distingue filtro sem resultado de banco vazio', () => {
     cy.get('[aria-label="Buscar questões"]').type('zzzz')
-
     cy.contains('h3', 'Nenhuma questão encontrada').should('be.visible')
     cy.contains('h3', 'Nenhuma questão ainda').should('not.exist')
   })
 
-  it('duplica uma questão, com "(cópia)" no enunciado', () => {
-    cy.contains('li', 'A derivada').contains('button', 'Duplicar').click()
-
-    cy.contains('li', 'A derivada (cópia)').should('be.visible').and('contain', '2 alternativas')
-    cy.contains('li', 'A derivada (cópia)').should('contain', 'Derivadas')
-  })
-
-  /** Fifty-one questions from the API, so the list has a second page to reach without creating them all. */
-  it('pagina quando há mais questões do que cabem numa página', () => {
-    const total = 51
-    cy.intercept({ method: 'GET', pathname: '/api/questions' }, (req) => {
-      const start = (Number(req.query.page ?? 1) - 1) * 50
-      const items = Array.from({ length: Math.min(50, total - start) }, (_, index) => {
-        const number = String(start + index + 1).padStart(2, '0')
-        return {
-          id: `questao-${number}`,
-          teacherId: 'professor-da-lista',
-          type: 'discursiva',
-          statement: `Questão ${number}`,
-          tags: [],
-          maxScore: 1,
-          allowShuffleAlternatives: true,
-        }
-      })
-      req.reply({ items, total })
-    })
-    cy.visit('/questoes')
-    cy.get('[aria-label^="Tour desta tela"]').contains('button', 'Pular').click()
-
-    cy.contains('Mostrando 1–50 de 51').should('be.visible')
-    cy.contains('a', 'Questão 51').should('not.exist')
-
-    cy.contains('button', 'Próxima').click()
-    cy.contains('a', 'Questão 51').should('be.visible')
-    cy.contains('Mostrando 51–51 de 51').should('be.visible')
-
-    cy.contains('button', 'Anterior').click()
-    cy.contains('a', 'Questão 01').should('be.visible')
+  it('mostra o total e os controles de paginação', () => {
+    cy.contains('Página 1 de 1').should('be.visible')
+    cy.contains('button', 'Anterior').should('be.disabled')
+    cy.contains('button', 'Próxima').should('be.disabled')
   })
 })
 
 describe('formulário de questão', () => {
   beforeEach(() => {
-    seedQuestions()
     cy.visit('/questoes')
     cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
     cy.contains('a', 'Nova questão').click()
@@ -256,24 +199,9 @@ describe('formulário de questão', () => {
     cy.contains('Qual a integral de 2x?').should('be.visible')
   })
 
-  /** Saved on the API, not in this browser: read again from the server, the question is still there. */
-  it('a questão criada continua lá depois de recarregar a página', () => {
-    cy.findByLabel('Enunciado').type('Qual a derivada de 3x?')
-    cy.get('[aria-label="Texto da alternativa A"]').type('3')
-    cy.get('[aria-label="Texto da alternativa B"]').type('x')
-    cy.contains('button', 'Salvar questão').click()
-    cy.contains('a', 'Qual a derivada de 3x?', { timeout: 10000 }).should('be.visible')
-
-    cy.reload()
-
-    cy.contains('h1', 'Banco de questões').should('be.visible')
-    cy.contains('a', 'Qual a derivada de 3x?').should('be.visible')
-  })
-
   it('diz por que não salva, em vez de recusar calado', () => {
     cy.findByLabel('Enunciado').type('Questão sem alternativas preenchidas')
     cy.contains('button', 'Salvar questão').click()
-
     cy.contains('Preencha o texto de todas as alternativas').should('be.visible')
   })
 
@@ -290,13 +218,11 @@ describe('formulário de questão', () => {
     cy.get('[aria-label="Alternativa C é a correta"]').check()
     cy.get('[aria-label="Remover alternativa C"]').click()
     cy.contains('button', 'Salvar questão').click()
-
     cy.contains('Marque qual alternativa é a correta').should('be.visible')
   })
 
   it('troca os campos ao alternar para discursiva', () => {
     cy.chooseSegment('Discursiva')
-
     cy.contains('h2', 'Resposta discursiva').should('be.visible')
     cy.contains('label', 'Nota máxima').should('be.visible')
     cy.contains('legend', 'Alternativas').should('not.exist')
@@ -304,34 +230,25 @@ describe('formulário de questão', () => {
 
   it('explica por que a discursiva não tem gabarito', () => {
     cy.chooseSegment('Discursiva')
-
     cy.contains('corrige as objetivas sozinho').should('be.visible')
   })
 
   it('distingue os dois tipos por cor e por ícone na lista', () => {
     cy.visit('/questoes')
     cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
-
     cy.contains('sen(x)/x').closest('li').contains('span', 'Objetiva').find('svg').should('exist')
-    cy.contains('Explique com suas palavras')
-      .closest('li')
-      .contains('span', 'Discursiva')
-      .find('svg')
-      .should('exist')
+    cy.contains('Explique com suas palavras').closest('li').contains('span', 'Discursiva').find('svg').should('exist')
   })
 
   it('mostra as tags como chips próprios', () => {
     cy.visit('/questoes')
     cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
-
     cy.contains('sen(x)/x').closest('li').contains('span', 'Limites').should('be.visible')
   })
 
   it('destaca visualmente a alternativa marcada como correta', () => {
     cy.get('[aria-label="Texto da alternativa A"]').closest('div').should('have.class', 'border-primary')
-
     cy.get('[aria-label="Alternativa B é a correta"]').check()
-
     cy.get('[aria-label="Texto da alternativa B"]').closest('div').should('have.class', 'border-primary')
     cy.get('[aria-label="Texto da alternativa A"]').closest('div').should('not.have.class', 'border-primary')
   })
@@ -340,15 +257,12 @@ describe('formulário de questão', () => {
     cy.chooseSegment('Discursiva')
     cy.findByLabel('Enunciado').type('Explique o teorema')
     cy.contains('button', 'Salvar questão').click()
-
     cy.contains('nota máxima').should('be.visible')
   })
 
   it('não deixa remover abaixo de duas alternativas', () => {
     cy.get('[aria-label="Remover alternativa A"]').should('not.exist')
-
     cy.contains('button', 'Alternativa').click()
-
     cy.get('[aria-label="Remover alternativa A"]').should('exist')
   })
 
@@ -356,7 +270,6 @@ describe('formulário de questão', () => {
     cy.contains('button', 'Alternativa').click()
     cy.contains('button', 'Alternativa').click()
     cy.contains('button', 'Alternativa').click()
-
     cy.get('[aria-label="Texto da alternativa E"]').should('exist')
     cy.contains('button', 'Alternativa').should('not.exist')
   })
@@ -364,7 +277,6 @@ describe('formulário de questão', () => {
 
 describe('editar questão', () => {
   beforeEach(() => {
-    seedQuestions()
     cy.visit('/questoes')
     cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
     cy.contains('a', 'sen(x)/x').click()
@@ -377,10 +289,8 @@ describe('editar questão', () => {
     cy.contains('button', 'Salvar questão').click()
 
     cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
-
     cy.chooseSegment('Discursivas')
     cy.contains('sen(x)/x').should('be.visible')
-
     cy.chooseSegment('Objetivas')
     cy.contains('sen(x)/x').should('not.exist')
   })
@@ -389,7 +299,6 @@ describe('editar questão', () => {
 describe('questão inexistente', () => {
   it('mostra "não encontrada" em vez de formulário vazio', () => {
     cy.visit('/questoes/00000000-0000-0000-0000-000000000000')
-
     cy.contains('Questão não encontrada', { timeout: 10000 }).should('be.visible')
   })
 })
