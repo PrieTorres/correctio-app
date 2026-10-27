@@ -140,12 +140,44 @@ Cypress.Commands.add('chooseSegment', (text: string) => {
   return cy.contains('label', text).find('input[type="radio"]').should('be.checked')
 })
 
+/**
+ * Prints the versions and sheets of a draft application, through its own
+ * screens. Ends on the application page, which proves the write landed.
+ */
+Cypress.Commands.add('generateApplication', (title: string) => {
+  cy.visit('/aplicacoes')
+  cy.contains('a', title).click()
+  cy.contains('a', 'Gerar').click()
+  cy.contains('button', 'Gerar').click()
+  cy.contains('h1', title, { timeout: 20000 }).should('be.visible')
+})
+
+/**
+ * Reads the first sheet of a generated application. The calculus midterm has
+ * an open-ended question, so its correction stays in progress; the physics
+ * quiz is all multiple choice and is done at once.
+ *
+ * The control is found by its accessible name, not by position, and the
+ * command waits for the read counter to move before returning, so the
+ * next navigation cannot cut the write short.
+ */
+Cypress.Commands.add('readFirstSheetOf', (title: string) => {
+  cy.visit('/aplicacoes')
+  cy.contains('a', title).click()
+  cy.contains('a', 'Corrigir folhas').click()
+  cy.get('[aria-label="Marcar a folha 1 para leitura"]').check()
+  cy.contains('button', 'Ler 1 folhas').click()
+  cy.contains(/\b1 de \d+ lidas/, { timeout: 10000 }).should('be.visible')
+})
+
 declare global {
   namespace Cypress {
     interface Chainable {
       findByLabel(text: string): Chainable<JQuery<HTMLElement>>
       findInDialog(selector: string, text: string): Chainable<JQuery<HTMLElement>>
       chooseSegment(text: string): Chainable<JQuery<HTMLElement>>
+      generateApplication(title: string): Chainable<void>
+      readFirstSheetOf(title: string): Chainable<void>
       signInAsNewTeacher(options?: { withSampleData?: boolean }): Chainable<AuthenticatedUser & { password: string }>
     }
   }
