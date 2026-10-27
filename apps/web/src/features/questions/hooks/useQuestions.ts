@@ -114,7 +114,7 @@ export function useQuestionCount(tags: readonly string[]) {
   const { repositories } = useServices();
 
   return useQuery({
-    queryKey: [...questionKeys.all, 'count', [...tags].sort()] as const,
+    queryKey: [...questionKeys.all, 'count', [...tags].sort((a, b) => a.localeCompare(b, 'pt-BR'))] as const,
     queryFn: async () => {
       const page = await repositories.questions.list({ archived: false, tags: tags.length > 0 ? [...tags] : undefined, pageSize: 1 });
       return page.total;
