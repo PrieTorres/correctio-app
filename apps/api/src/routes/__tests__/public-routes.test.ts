@@ -214,6 +214,62 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('public lookup route (real MySQL
     await expect(lookup(CODE)).resolves.toMatchObject({ answerKey: [{ questionId: 'q-b' }, { questionId: 'q-a' }] })
   })
 
+  it('keeps the score hidden while the correction is still in progress', async () => {
+    await seedCorrection(db, 'student-1')
+    await db.updateTable('corrections').set({ status: 'IN_PROGRESS' }).execute()
+    await release({ answerKeyPublished: true, withStudentIdentification: true, gradesReleased: true })
+
+    const response = await request(app).get(`/public/sheets/${CODE}`)
+
+    expect(response.body).toMatchObject({ status: 'ANSWER_KEY_ONLY' })
+    expect(JSON.stringify(response.body)).not.toContain('7.5')
+  })
+
+  it('answers an archived application as an unknown code, with everything released', async () => {
+    await seedCorrection(db, 'student-1')
+    await release({ answerKeyPublished: true, gradesReleased: true })
+    await db.updateTable('applications').set({ status: 'closed' }).execute()
+
+    await expect(lookup(CODE)).resolves.toEqual(await lookup('NOPE'))
+  })
+
+  /** Regenerating the PDF removes the old sheets, so the old code leads nowhere, like one never printed. */
+  it('answers a sheet of a regenerated PDF exactly as an unknown code', async () => {
+    await release({ answerKeyPublished: true, gradesReleased: true })
+    await db.deleteFrom('answer_sheets').execute()
+
+    const response = await request(app).get(`/public/sheets/${CODE}`)
+    const unknown = await request(app).get('/public/sheets/NOPE')
+
+    expect(response.status).toBe(unknown.status)
+    expect(response.body).toEqual(unknown.body)
+  })
+
+  it('answers only the fields of the lookup, with no internal field of the correction', async () => {
+    await seedCorrection(db, 'student-1')
+    await release({ answerKeyPublished: true, withStudentIdentification: true, gradesReleased: true })
+
+    const response = await request(app).get(`/public/sheets/${CODE}`)
+    const body = response.body as { header: object }
+
+    expect(Object.keys(body).sort()).toEqual(['answerKey', 'header', 'objectiveResults', 'status', 'totalScore'])
+    expect(Object.keys(body.header).sort()).toEqual(['className', 'date', 'examTitle', 'identity', 'subject'])
+    expect(JSON.stringify(response.body)).not.toMatch(/correctedBy|teacherId|notes|imageUrl|reported|sheet-1|correction-1|app-1/)
+  })
+
+  it('never names another student of the class', async () => {
+    await db
+      .insertInto('students')
+      .values({ id: 'student-2', classId: 'class-1', fullName: 'Carlos Souza', registration: '2026002', email: null, userId: null })
+      .execute()
+    await seedCorrection(db, 'student-1')
+    await release({ answerKeyPublished: true, withStudentIdentification: true, gradesReleased: true })
+
+    const response = await request(app).get(`/public/sheets/${CODE}`)
+
+    expect(JSON.stringify(response.body)).not.toContain('Carlos')
+  })
+
   it('never answers the registration of the student', async () => {
     await seedCorrection(db, 'student-1')
     await release({ answerKeyPublished: true, withStudentIdentification: true, gradesReleased: true })

@@ -1,15 +1,16 @@
-import type {
-  AnswerKeyEntry,
-  AnswerSheet,
-  Application,
-  Class,
-  Correction,
-  Exam,
-  ExamVersion,
-  PublicLookup,
-  PublicLookupHeader,
-  Question,
-  Student,
+import {
+  CORRECTION_STATUS,
+  type AnswerKeyEntry,
+  type AnswerSheet,
+  type Application,
+  type Class,
+  type Correction,
+  type Exam,
+  type ExamVersion,
+  type PublicLookup,
+  type PublicLookupHeader,
+  type Question,
+  type Student,
 } from './domain'
 
 /**
@@ -20,11 +21,11 @@ import type {
 export interface LookupSources {
   sheet: Pick<AnswerSheet, 'sheetNumber'> | null
   version: Pick<ExamVersion, 'versionNumber' | 'withStudentIdentification' | 'answerKeyPublished' | 'layout'> | null
-  application: Pick<Application, 'date' | 'gradesReleased'> | null
+  application: Pick<Application, 'date' | 'gradesReleased' | 'status'> | null
   exam: Pick<Exam, 'title'> | null
   group: Pick<Class, 'name' | 'subject'> | null
   student: Pick<Student, 'fullName'> | null
-  correction: Pick<Correction, 'totalScore' | 'objectiveResults'> | null
+  correction: Pick<Correction, 'totalScore' | 'objectiveResults' | 'status'> | null
   bank: readonly Pick<Question, 'id' | 'correctAlternativeId'>[]
 }
 
@@ -39,9 +40,13 @@ export interface LookupSources {
  * score without an answer key is not a state this page can be in, and the type
  * makes it impossible to write.
  *
- * Anything missing — an unknown code, an application since archived — comes
- * back as an invalid code. Telling a stranger which part of the chain is broken
- * tells them something about data they have no claim to.
+ * Anything missing — an unknown code, an application since archived (`closed`)
+ * — comes back as an invalid code. Telling a stranger which part of the chain
+ * is broken tells them something about data they have no claim to.
+ *
+ * The grade shows only for a correction the teacher confirmed (`DONE`): an
+ * `IN_PROGRESS` one still waits for the open-ended scores, so its total is not
+ * final and the sheet stays at the answer key.
  *
  * It lives in the shared package because the web app and the API (#49) answer
  * the same page, and a rule about what a stranger may see must not drift
@@ -53,6 +58,7 @@ export function resolvePublicLookup(sources: LookupSources): PublicLookup {
   if (sheet === null || version === null || application === null || exam === null) {
     return { status: 'INVALID_CODE' };
   }
+  if (application.status === 'closed') return { status: 'INVALID_CODE' };
 
   const header = buildHeader({ sheet, version, application, exam, group, student });
 
@@ -60,7 +66,7 @@ export function resolvePublicLookup(sources: LookupSources): PublicLookup {
 
   const answerKey = buildAnswerKey(version.layout.questionOrder, bank);
 
-  if (!application.gradesReleased || correction === null) {
+  if (!application.gradesReleased || correction === null || correction.status !== CORRECTION_STATUS.DONE) {
     return { status: 'ANSWER_KEY_ONLY', header, answerKey };
   }
 

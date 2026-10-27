@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, renderHook, type RenderHookResult, type RenderResult } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { ComponentType, ReactNode } from 'react';
-import { createTeacherRepositories } from '@/lib/repositories';
+import { createPublicLookupRepository, createTeacherRepositories } from '@/lib/repositories';
 import { createLocalAuthProvider } from '@/lib/auth';
 import { AppServicesContext, type AppServices } from '@/app/services';
 
@@ -19,8 +19,10 @@ function buildWrapper(services: Partial<AppServices>): ComponentType<{ children:
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
 
+  const repositories = services.repositories ?? createTeacherRepositories(TEST_TEACHER_ID);
   const value: AppServices = {
-    repositories: createTeacherRepositories(TEST_TEACHER_ID),
+    repositories,
+    publicLookup: createPublicLookupRepository(repositories),
     auth: createLocalAuthProvider(),
     ...services,
   };

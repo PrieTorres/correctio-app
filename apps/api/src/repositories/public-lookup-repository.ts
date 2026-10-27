@@ -54,11 +54,11 @@ export function createPublicLookupRepository(db: Kysely<Database>): PublicLookup
   const findCorrection = async (answerSheetId: string) => {
     const row = await db
       .selectFrom('corrections')
-      .select(['id', 'studentId', 'totalScore'])
+      .select(['id', 'studentId', 'totalScore', 'status'])
       .where('answerSheetId', '=', answerSheetId)
       .executeTakeFirst()
     if (row === undefined) return { studentId: null, correction: null }
-    return { studentId: row.studentId, correction: { totalScore: row.totalScore, objectiveResults: await findObjectiveResults(row.id) } }
+    return { studentId: row.studentId, correction: { totalScore: row.totalScore, status: row.status, objectiveResults: await findObjectiveResults(row.id) } }
   }
 
   /** A removed student is not named to whoever holds the paper; the page falls back to the sheet number. */
@@ -91,7 +91,7 @@ export function createPublicLookupRepository(db: Kysely<Database>): PublicLookup
           .executeTakeFirst(),
         db
           .selectFrom('applications')
-          .select(['examId', 'classId', 'date', 'gradesReleased'])
+          .select(['examId', 'classId', 'date', 'gradesReleased', 'status'])
           .where('id', '=', sheet.applicationId)
           .executeTakeFirst(),
         findCorrection(sheet.id),
@@ -108,7 +108,7 @@ export function createPublicLookupRepository(db: Kysely<Database>): PublicLookup
       return {
         sheet,
         version,
-        application: { date: application.date.toISOString(), gradesReleased: application.gradesReleased },
+        application: { date: application.date.toISOString(), gradesReleased: application.gradesReleased, status: application.status },
         exam: exam ?? null,
         group: group ?? null,
         student,
