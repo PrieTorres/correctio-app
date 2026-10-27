@@ -54,8 +54,11 @@ jobs:
       - name: Build de produção
         run: npm run build
 
+      # Fails on a high or critical advisory, like npm audit --audit-level=high,
+      # except the ones in scripts/dependency-audit/allowed-advisories.mjs, each
+      # with its reason and the issue that removes it.
       - name: Auditoria de dependências
-        run: npm audit --audit-level=high
+        run: node scripts/audit-dependencies.mjs
 
       - uses: actions/upload-artifact@v4
         with:
