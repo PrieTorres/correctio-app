@@ -20,7 +20,7 @@ export const publicLookupKeys = {
  * signed in here, it waits for the session to be restored: asked earlier, it
  * searched nobody's data and called a real code invalid.
  *
- * TODO(#148): stop waiting for the session once the lookup reads from the API.
+ * Issue #148 removes this wait, once the lookup reads from the API.
  */
 export function usePublicLookup(code: string | undefined) {
   const { publicLookup } = useServices();

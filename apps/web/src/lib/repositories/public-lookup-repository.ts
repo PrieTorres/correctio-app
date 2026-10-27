@@ -75,7 +75,7 @@ export function createHttpPublicLookupRepository(api: ApiClient): PublicLookupRe
  * application writes only once it runs on the API. Until then a sheet printed
  * in this browser would read as an invalid code, so the switch stays here.
  *
- * TODO(#148): remove when applications are generated on the server.
+ * Issue #148 removes this switch, once applications are generated on the server.
  */
 const SHEETS_ON_API = false
 
