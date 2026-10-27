@@ -1,17 +1,26 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2 } from 'lucide-react';
 import { Button, Modal, NumberInput, Tour } from '@/components/ui';
-import { drawQuestions, redrawQuestion } from '@/lib/exams';
+import { useQuestionCount, useQuestionTags } from '@/features/questions';
+import type { DrawResult } from '@/lib/exams';
 import type { Question } from '@/types/domain';
+import { useDrawQuestions } from '../hooks/useExams';
 
 interface AutoFillDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  bank: Question[];
-  /** The bank is still on its way, so there is nothing to draw from yet. */
-  bankPending: boolean;
+  /** The questions already in the exam, which the draw never brings back. */
+  alreadyInExam: readonly string[];
   remainingSlots: number;
   onConfirm: (questions: Question[]) => void;
+}
+
+const NO_REPLACEMENT = 'Não há outra questão do mesmo tipo com esses filtros para colocar no lugar.';
+
+/** The warning for a bank that could not supply everything asked, or nothing when it could. */
+function shortfallNotice(shortfall: DrawResult['shortfall']): string | null {
+  if (shortfall === null) return null;
+  return `O banco não tinha tudo que você pediu: faltaram ${shortfall.multipleChoice} objetivas e ${shortfall.openEnded} discursivas.`;
 }
 
 /**
@@ -21,10 +30,13 @@ interface AutoFillDialogProps {
  * selection is a suggestion, not a decision: swapping one question out is far
  * more common than accepting all of them untouched.
  *
- * Drawing before the bank arrives finds nothing and then blames the bank for
- * being short, which is the one thing that is not true. The screen opens
- * straight into this dialog, so the race is the normal case rather than a
- * corner of it.
+ * It runs on the server (RF16), over the teacher's whole bank, and leaves out
+ * the questions already in the exam, so filling an exam that is half done
+ * brings as many new questions as asked. "Trocar" asks for one of the same
+ * type, leaving out the exam and the preview too.
+ *
+ * Drawing before the count arrives would ask with filters the teacher has not
+ * seen the result of, so the button waits for it, and for a draw under way.
  *
  * Its tour lives inside it, in line: everything the steps point at is in this
  * dialog, and a tour floating over the page would sit behind the overlay.
@@ -32,8 +44,7 @@ interface AutoFillDialogProps {
 export function AutoFillDialog({
   open,
   onOpenChange,
-  bank,
-  bankPending,
+  alreadyInExam,
   remainingSlots,
   onConfirm,
 }: Readonly<AutoFillDialogProps>) {
@@ -44,49 +55,61 @@ export function AutoFillDialog({
   const [preview, setPreview] = useState<Question[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const { data: knownTags = [] } = useQuestionTags();
+  const { data: available, isPending: countPending } = useQuestionCount(tags);
+  const draw = useDrawQuestions();
+
   useEffect(() => {
     if (!open) return;
     setPreview(null);
     setNotice(null);
   }, [open]);
 
-  const knownTags = [...new Set(bank.flatMap((item) => item.tags))].sort((a, b) =>
-    a.localeCompare(b, 'pt-BR'),
-  );
-
-  const available = bank.filter((item) => tags.every((tag) => item.tags.includes(tag)));
+  const showError = (error: Error) => setNotice(error.message);
 
   const generate = () => {
-    const result = drawQuestions(bank, {
-      tags,
-      multipleChoiceCount,
-      openEndedCount: includeOpenEnded ? openEndedCount : 0,
-    });
-
-    setPreview(result.questions.slice(0, remainingSlots));
-    setNotice(
-      result.shortfall === null
-        ? null
-        : `O banco não tinha tudo que você pediu: faltaram ${result.shortfall.multipleChoice} objetivas e ${result.shortfall.openEnded} discursivas.`,
+    draw.mutate(
+      {
+        tags,
+        multipleChoiceCount,
+        openEndedCount: includeOpenEnded ? openEndedCount : 0,
+        excludeIds: [...alreadyInExam],
+      },
+      {
+        onSuccess: (result) => {
+          setPreview(result.questions.slice(0, remainingSlots));
+          setNotice(shortfallNotice(result.shortfall));
+        },
+        onError: showError,
+      },
     );
   };
 
   const swap = (question: Question) => {
     if (preview === null) return;
+    const objective = question.type === 'objetiva';
 
-    const replacement = redrawQuestion(bank, {
-      tags,
-      alreadyChosenIds: preview.map((item) => item.id),
-      replacing: question,
-    });
-
-    if (replacement === null) {
-      setNotice('Não há outra questão do mesmo tipo com esses filtros para colocar no lugar.');
-      return;
-    }
-
-    setPreview(preview.map((item) => (item.id === question.id ? replacement : item)));
+    draw.mutate(
+      {
+        tags,
+        multipleChoiceCount: objective ? 1 : 0,
+        openEndedCount: objective ? 0 : 1,
+        excludeIds: [...alreadyInExam, ...preview.map((item) => item.id)],
+      },
+      {
+        onSuccess: ({ questions: [replacement] }) => {
+          if (replacement === undefined) {
+            setNotice(NO_REPLACEMENT);
+            return;
+          }
+          setPreview((current) => current?.map((item) => (item.id === question.id ? replacement : item)) ?? null);
+        },
+        onError: showError,
+      },
+    );
   };
+
+  const busy = countPending || draw.isPending;
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} title="Gerar prova automaticamente">
@@ -143,12 +166,12 @@ export function AutoFillDialog({
         )}
 
         <p className="text-caption text-ink-subtle" aria-live="polite">
-          {bankPending
+          {countPending
             ? 'Carregando o banco de questões…'
-            : `${available.length} questões disponíveis com estes filtros · cabem ${remainingSlots} nesta prova`}
+            : `${available} questões disponíveis com estes filtros · cabem ${remainingSlots} nesta prova`}
         </p>
 
-        <Button variant="secondary" onClick={generate} disabled={bankPending}>
+        <Button variant="secondary" onClick={generate} disabled={busy}>
           Gerar seleção
         </Button>
 
@@ -174,6 +197,7 @@ export function AutoFillDialog({
                 <IconButton
                   label={`Trocar a questão ${question.statement}`}
                   onClick={() => swap(question)}
+                  disabled={busy}
                 >
                   <RefreshCw size={15} aria-hidden />
                 </IconButton>
@@ -205,7 +229,7 @@ export function AutoFillDialog({
         </div>
       </div>
 
-      <Tour screen="generateExam" ready={!bankPending} inline />
+      <Tour screen="generateExam" ready={!countPending} inline />
     </Modal>
   );
 }
@@ -213,14 +237,16 @@ export function AutoFillDialog({
 function IconButton({
   label,
   onClick,
+  disabled = false,
   children,
-}: Readonly<{ label: string; onClick: () => void; children: React.ReactNode }>) {
+}: Readonly<{ label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }>) {
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="touch-target inline-flex items-center justify-center rounded-[var(--radius-control)] text-ink-muted hover:bg-surface-muted"
+      disabled={disabled}
+      className="touch-target inline-flex items-center justify-center rounded-[var(--radius-control)] text-ink-muted hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
     >
       {children}
     </button>

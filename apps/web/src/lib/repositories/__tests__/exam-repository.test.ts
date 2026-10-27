@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { clearAllCollections } from '@/lib/storage/collection'
 import { createLocalExamRepository } from '../exam-repository'
+import { createLocalQuestionRepository } from '../question-repository'
 
 const input = {
   title: 'Prova 1 — Cálculo',
@@ -107,5 +108,33 @@ describe('exam repository, duplicates', () => {
     await repository.archive(created.id)
 
     await expect(repository.create(input)).rejects.toThrow(/arquivada/i)
+  })
+})
+
+describe('exam repository, the automatic draw', () => {
+  beforeEach(clearAllCollections)
+
+  const essay = { type: 'discursiva' as const, tags: ['Limites'], maxScore: 1, allowShuffleAlternatives: true }
+
+  /** The demo draws over this browser's bank, with the same rules the server applies. */
+  it('draws only active questions of this teacher, with every tag asked, leaving out excludeIds', async () => {
+    const mine = createLocalQuestionRepository('ana')
+    const kept = await mine.create({ ...essay, statement: 'Já está na prova' })
+    const deleted = await mine.create({ ...essay, statement: 'Excluída' })
+    await mine.archive(deleted.id)
+    const untagged = await mine.create({ ...essay, tags: [], statement: 'Sem a tag' })
+    const drawable = await mine.create({ ...essay, statement: 'Pode sair' })
+    await createLocalQuestionRepository('bia').create({ ...essay, statement: 'De outra pessoa' })
+
+    const result = await createLocalExamRepository('ana').draw({
+      tags: ['Limites'],
+      multipleChoiceCount: 0,
+      openEndedCount: 5,
+      excludeIds: [kept.id],
+    })
+
+    expect(result.questions.map((item) => item.id)).toEqual([drawable.id])
+    expect(result.questions.map((item) => item.id)).not.toContain(untagged.id)
+    expect(result.shortfall).toEqual({ multipleChoice: 0, openEnded: 4 })
   })
 })

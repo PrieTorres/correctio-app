@@ -8,6 +8,7 @@ import {
   questionSchema,
   studentSchema,
   type ClassInput,
+  type ExamInput,
   type QuestionInput,
   type StudentInput,
 } from '@/lib/schemas'
@@ -244,8 +245,8 @@ interface PrintingSources {
 }
 
 function printingForDemo({ applications, students, exams, questions }: PrintingSources) {
-  const exam = exams.find((item) => item.id === 'exam-calculus-midterm')
   const application = applications.find((item) => item.status === 'generated')
+  const exam = exams.find((item) => item.id === application?.examId)
   if (exam === undefined || application === undefined) return { versions: [], sheets: [] }
 
   const versions = buildVersions({
@@ -268,11 +269,11 @@ function printingForDemo({ applications, students, exams, questions }: PrintingS
 }
 
 /**
- * The sample classes, students and questions after the API created them,
- * keyed back to the sample ids they stand for.
+ * The sample classes, students, questions and exams after the API created
+ * them, keyed back to the sample ids they stand for.
  *
- * The Cypress suite runs the Firebase build, whose class, student and question
- * screens read the API, so it creates them there first (`signInAsNewTeacher`).
+ * The Cypress suite runs the Firebase build, whose class, student, question and
+ * exam screens read the API, so it creates them there first (`signInAsNewTeacher`).
  * The rest of the sample still lives in `localStorage`, pointing at the ids the
  * API gave, so every spec starts from the same populated screens as before.
  */
@@ -286,6 +287,8 @@ export interface RemoteRoster {
    * The alternatives keep their sample ids, which the API stores as sent.
    */
   questionIds: Readonly<Record<string, string>>
+  /** Sample exam id, such as `exam-calculus-midterm`, to the id the API gave it. */
+  examIds: Readonly<Record<string, string>>
 }
 
 /** One sample question in the shape the API takes it. */
@@ -306,6 +309,32 @@ export function sampleQuestions(): SampleQuestion[] {
       ...(question.alternatives !== undefined && { alternatives: question.alternatives }),
       ...(question.correctAlternativeId !== undefined && { correctAlternativeId: question.correctAlternativeId }),
       ...(question.maxScore !== undefined && { maxScore: question.maxScore }),
+    },
+  }))
+}
+
+/** One sample exam in the shape the API takes it, with the status it has to reach there. */
+export interface SampleExam {
+  sampleId: string
+  input: ExamInput
+  /** The API creates every exam as a draft; `ready` and `closed` are reached afterwards, through their routes. */
+  status: Exam['status']
+}
+
+/**
+ * The sample exams, for the suite to create on the API once the sample
+ * questions exist there, pointing at the ids the API gave those questions.
+ */
+export function sampleExams(questionIds: Readonly<Record<string, string>>): SampleExam[] {
+  return EXAMS.map((exam) => ({
+    sampleId: exam.id,
+    status: exam.status,
+    input: {
+      title: exam.title,
+      description: exam.description,
+      questions: exam.questions.map((entry) => ({ ...entry, questionId: remoteId(questionIds, entry.questionId) })),
+      defaultShuffleQuestions: exam.defaultShuffleQuestions,
+      defaultShuffleAlternatives: exam.defaultShuffleAlternatives,
     },
   }))
 }
@@ -344,15 +373,21 @@ function sampleFor(teacherId: string, remote: RemoteRoster | undefined) {
   const owned = <T extends { teacherId: string }>(items: readonly T[]): T[] => items.map((item) => ({ ...item, teacherId }))
   const classIdOf = (sampleId: string) => (remote === undefined ? sampleId : remoteId(remote.classIds, sampleId))
   const questionIdOf = (sampleId: string) => (remote === undefined ? sampleId : remoteId(remote.questionIds, sampleId))
+  const examIdOf = (sampleId: string) => (remote === undefined ? sampleId : remoteId(remote.examIds, sampleId))
 
   return {
     classes: owned(CLASSES),
     questions: owned(QUESTIONS).map((question) => ({ ...question, id: questionIdOf(question.id) })),
     exams: owned(EXAMS).map((exam) => ({
       ...exam,
+      id: examIdOf(exam.id),
       questions: exam.questions.map((entry) => ({ ...entry, questionId: questionIdOf(entry.questionId) })),
     })),
-    applications: owned(APPLICATIONS).map((item) => ({ ...item, classId: classIdOf(item.classId) })),
+    applications: owned(APPLICATIONS).map((item) => ({
+      ...item,
+      classId: classIdOf(item.classId),
+      examId: examIdOf(item.examId),
+    })),
   }
 }
 
@@ -376,8 +411,8 @@ function signInDemoTeacher(): void {
  * applications carry their owner, and the screens list only the signed-in
  * teacher's; students, versions and sheets hang from those.
  *
- * With a `remote` roster the classes, students and questions already live on
- * the API, so they are not written here, and the exams, applications and
+ * With a `remote` roster the classes, students, questions and exams already
+ * live on the API, so they are not written here, and the applications and
  * sheets point at the ids the API gave them.
  */
 export function writeDemoData(teacherId: string, remote?: RemoteRoster): void {
@@ -387,8 +422,8 @@ export function writeDemoData(teacherId: string, remote?: RemoteRoster): void {
     createCollection('classes', classSchema).writeAll(classes)
     createCollection('students', studentSchema).writeAll(STUDENTS)
     createCollection('questions', questionSchema).writeAll(questions)
+    createCollection('exams', examSchema).writeAll(exams)
   }
-  createCollection('exams', examSchema).writeAll(exams)
   createCollection('applications', applicationSchema).writeAll(applications)
 
   const printing = printingForDemo({ applications, students: remote?.students ?? STUDENTS, exams, questions })

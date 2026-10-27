@@ -6,6 +6,7 @@ import { createLocalPrintingRepository, type PrintingRepository } from './printi
 import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
 import { createHttpStudentRepository, createLocalStudentRepository, type StudentRepository } from './student-repository'
 import { createHttpQuestionRepository } from './http/create-http-question-repository'
+import { createHttpExamRepository } from './http/create-http-exam-repository'
 import type { ApiClient } from './http/api-client'
 
 export * from './types'
@@ -40,9 +41,9 @@ export interface TeacherRepositories {
  * student, rather than widening this one.
  *
  * With an API client, the areas already on the API read and write there:
- * classes and students since #42, questions since #44. Each other entry
- * switches in the issue that wires its screens to the API (#45, #46, #48, #49
- * and #50). Without a client, which is the GitHub Pages demo and the unit
+ * classes and students since #42, questions since #44, exams since #45. Each
+ * other entry switches in the issue that wires its screens to the API (#46,
+ * #48, #49 and #50). Without a client, which is the GitHub Pages demo and the unit
  * tests, every entry stays in this browser.
  */
 export function createTeacherRepositories(teacherId: string, api?: ApiClient): TeacherRepositories {
@@ -50,7 +51,7 @@ export function createTeacherRepositories(teacherId: string, api?: ApiClient): T
     classes: api === undefined ? createLocalClassRepository(teacherId) : createHttpClassRepository(api),
     students: api === undefined ? createLocalStudentRepository() : createHttpStudentRepository(api),
     questions: api === undefined ? createLocalQuestionRepository(teacherId) : createHttpQuestionRepository(api),
-    exams: createLocalExamRepository(teacherId),
+    exams: api === undefined ? createLocalExamRepository(teacherId) : createHttpExamRepository(api),
     applications: createLocalApplicationRepository(teacherId),
     printing: createLocalPrintingRepository(),
     corrections: createLocalCorrectionRepository(),

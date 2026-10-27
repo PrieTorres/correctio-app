@@ -14,6 +14,7 @@ import {
   hasDemoData,
   resetDemoData,
   sampleClasses,
+  sampleExams,
   sampleQuestions,
   seedIfEmpty,
   writeDemoData,
@@ -320,7 +321,8 @@ function rosterFromApi(): RemoteRoster {
     sample.students.map((student) => ({ ...student, id: `api-student-${student.registration}`, classId: `api-${sample.sampleId}` })),
   )
   const questionIds = Object.fromEntries(sampleQuestions().map((sample) => [sample.sampleId, `api-${sample.sampleId}`]))
-  return { classIds, students: remoteStudents, questionIds }
+  const examIds = Object.fromEntries(sampleExams(questionIds).map((sample) => [sample.sampleId, `api-${sample.sampleId}`]))
+  return { classIds, students: remoteStudents, questionIds, examIds }
 }
 
 describe('sampleQuestions', () => {
@@ -339,32 +341,64 @@ describe('sampleQuestions', () => {
   })
 })
 
-describe('writeDemoData with the classes and questions on the API', () => {
+describe('sampleExams', () => {
+  const questionIds = Object.fromEntries(sampleQuestions().map((sample) => [sample.sampleId, `api-${sample.sampleId}`]))
+
+  /** The API gives the exam its id and its owner; the questions have to point at the ids the API gave them. */
+  it('hands every sample exam over in the shape the API takes, pointing at the questions on the API', () => {
+    const samples = sampleExams(questionIds)
+    const entries = samples.flatMap((sample) => sample.input.questions)
+
+    expect(samples.every((sample) => !('id' in sample.input) && !('teacherId' in sample.input) && !('status' in sample.input))).toBe(true)
+    expect(entries.length).toBeGreaterThan(0)
+    expect(entries.every((entry) => entry.questionId.startsWith('api-question-'))).toBe(true)
+  })
+
+  /** The API creates drafts only, so the suite needs to know which ones to mark ready or archive afterwards. */
+  it('says which status each exam has to reach, including a ready and an archived one', () => {
+    const statuses = sampleExams(questionIds).map((sample) => sample.status)
+
+    expect(statuses).toContain('ready')
+    expect(statuses).toContain('closed')
+    expect(statuses).toContain('draft')
+  })
+
+  it('stops when a question is missing from the API ids, instead of pointing at nothing', () => {
+    expect(() => sampleExams({})).toThrow('question-')
+  })
+})
+
+describe('writeDemoData with the classes, questions and exams on the API', () => {
   beforeEach(() => window.localStorage.clear())
 
-  it('writes no class, student or question to this browser, since they live on the API', () => {
+  it('writes no class, student, question or exam to this browser, since they live on the API', () => {
     writeDemoData('teacher-from-the-api', rosterFromApi())
 
     expect(classes()).toEqual([])
     expect(students()).toEqual([])
     expect(questions()).toEqual([])
-    expect(exams().length).toBeGreaterThan(0)
+    expect(exams()).toEqual([])
+    expect(applications().length).toBeGreaterThan(0)
   })
 
-  /** An exam pointing at a sample id would show none of its questions, since the API knows them by its own ids. */
-  it('points every exam and every printed version at the ids the API gave the questions', () => {
+  /** A printed version pointing at a sample id would show none of its questions, since the API knows them by its own ids. */
+  it('points every printed version at the ids the API gave the questions', () => {
     writeDemoData('teacher-from-the-api', rosterFromApi())
 
-    const examQuestionIds = exams().flatMap((exam) => exam.questions.map((entry) => entry.questionId))
     const printedIds = versions().flatMap((version) => version.layout.questionOrder)
-    expect(examQuestionIds.length).toBeGreaterThan(0)
-    expect([...examQuestionIds, ...printedIds].every((id) => id.startsWith('api-question-'))).toBe(true)
+    expect(printedIds.length).toBeGreaterThan(0)
+    expect(printedIds.every((id) => id.startsWith('api-question-'))).toBe(true)
   })
 
-  it('points every application at the id the API gave its class', () => {
+  it('points every application at the ids the API gave its class and its exam', () => {
     writeDemoData('teacher-from-the-api', rosterFromApi())
 
     expect(applications().map((item) => item.classId).sort()).toEqual(['api-class-calculus-1', 'api-class-physics-2'])
+    expect(applications().map((item) => item.examId).sort()).toEqual(['api-exam-calculus-midterm', 'api-exam-physics-quiz'])
+  })
+
+  it('stops when a sample exam is missing from the roster, instead of pointing at nothing', () => {
+    expect(() => writeDemoData('teacher-from-the-api', { ...rosterFromApi(), examIds: {} })).toThrow('exam-')
   })
 
   /** A sheet that names a student the API does not have would show a blank name on every grading screen. */

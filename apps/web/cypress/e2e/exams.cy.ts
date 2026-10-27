@@ -431,3 +431,55 @@ describe('banco maior que uma página', () => {
     cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
   })
 })
+
+/** The access token of the teacher this spec signed up, read the way the app restores its own session. */
+function accessToken(): Cypress.Chainable<string> {
+  return cy.request<{ accessToken: string }>('POST', '/api/auth/refresh').then(({ body }) => body.accessToken)
+}
+
+describe('provas na API', () => {
+  /**
+   * The draw runs on the server and leaves out the exam's questions, so
+   * filling an exam already started never brings one of them back.
+   */
+  it('preenche automaticamente sem repetir questão que já está na prova', () => {
+    cy.visit('/provas')
+    cy.contains('a', 'Nova prova').click()
+    cy.findByLabel('Título').type('Prova começada')
+    addFromBank(LIMITS)
+
+    cy.contains('button', 'Preencher automaticamente').click()
+    cy.contains('questões disponíveis com estes filtros').should('be.visible')
+    cy.findInDialog('button', 'Gerar seleção').click()
+
+    cy.get('[role="dialog"] ul li').should('have.length.greaterThan', 0)
+    cy.get('[role="dialog"] ul').should('not.contain', 'sen(x)/x')
+  })
+
+  /** RF13: deleting a question takes it out of the bank, never out of the exams that already use it. */
+  it('o detalhe mostra o enunciado de uma questão excluída do banco depois', () => {
+    accessToken().then((token) => {
+      cy.request<{ items: { id: string; statement: string }[] }>({
+        url: '/api/questions?pageSize=1000',
+        auth: { bearer: token },
+      }).then(({ body }) => {
+        const limits = body.items.find((item) => item.statement === LIMITS)
+        if (limits === undefined) throw new Error('A questão de exemplo de limites não está no banco.')
+        cy.request({ method: 'DELETE', url: `/api/questions/${limits.id}`, auth: { bearer: token } })
+      })
+    })
+
+    cy.visit('/provas')
+    cy.contains('a', 'Cálculo I — Prova 1').click()
+
+    cy.get('ol li').first().should('contain', 'sen(x)/x')
+    cy.contains('Questão removida do banco').should('not.exist')
+  })
+
+  /** The exam an application was generated from is marked on the server, so the list shows it as applied. */
+  it('mostra como aplicada a prova de exemplo que já tem aplicação', () => {
+    cy.visit('/provas')
+
+    cy.contains('a', 'Cálculo I — Prova 1').parents('li').first().should('contain', 'Aplicada')
+  })
+})

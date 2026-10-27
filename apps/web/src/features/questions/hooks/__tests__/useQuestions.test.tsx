@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { act, waitFor } from '@testing-library/react'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
@@ -9,8 +10,10 @@ import {
   questionKeys,
   useDeleteQuestion,
   useDuplicateQuestion,
-  useQuestionBank,
+  useQuestionCount,
   useQuestionList,
+  useQuestionsByIds,
+  useRememberQuestions,
   useQuestionTags,
   useSaveQuestion,
   type QuestionFilters,
@@ -185,38 +188,78 @@ describe('useDuplicateQuestion', () => {
   })
 })
 
-describe('useQuestionBank', () => {
+describe('useQuestionsByIds', () => {
   beforeEach(clearAllCollections)
 
-  /** An exam looks its questions up in the bank, so one past the first page must still be found. */
-  it('reads every active question, past the first page of the list, and leaves out the deleted ones', async () => {
-    const numbered = (index: number) => String(index).padStart(3, '0')
-    const many: Question[] = Array.from({ length: QUESTION_PAGE_SIZE + 1 }, (_, index) => ({
-      id: `question-${numbered(index)}`,
-      teacherId: TEST_TEACHER_ID,
-      type: 'discursiva',
-      statement: `Questão ${numbered(index)}`,
-      tags: [],
-      maxScore: 1,
-      allowShuffleAlternatives: true,
-    }))
-    const deleted: Question = { ...essay, id: 'question-deleted', teacherId: TEST_TEACHER_ID, deletedAt: '2026-10-21T12:00:00.000Z' }
-    createCollection('questions', questionSchema).writeAll([...many, deleted])
-
-    const { result } = renderHookWithProviders(() => ({ bank: useQuestionBank(), page: useQuestionList(ALL) }))
-    await waitFor(() => expect(result.current.bank.isSuccess && result.current.page.isSuccess).toBe(true))
-
-    expect(result.current.page.data?.items).toHaveLength(QUESTION_PAGE_SIZE)
-    expect(result.current.bank.data?.items).toHaveLength(QUESTION_PAGE_SIZE + 1)
-    expect(result.current.bank.data?.items.map((item) => item.id)).not.toContain('question-deleted')
+  const numbered = (index: number) => String(index).padStart(3, '0')
+  const essayNumbered = (index: number): Question => ({
+    id: `question-${numbered(index)}`,
+    teacherId: TEST_TEACHER_ID,
+    type: 'discursiva',
+    statement: `Questão ${numbered(index)}`,
+    tags: [],
+    maxScore: 1,
+    allowShuffleAlternatives: true,
   })
 
-  it('refreshes after a question is saved', async () => {
-    const { result } = renderHookWithProviders(() => ({ save: useSaveQuestion(), bank: useQuestionBank() }))
-    await waitFor(() => expect(result.current.bank.isSuccess).toBe(true))
+  /** An exam looks its questions up by id, so one past the first page of the bank, or deleted from it, is still found. */
+  it('finds every question asked, past the first page of the bank and deleted ones included', async () => {
+    const many = Array.from({ length: QUESTION_PAGE_SIZE + 1 }, (_, index) => essayNumbered(index))
+    const deleted: Question = { ...essayNumbered(999), statement: 'Questão excluída', deletedAt: '2026-10-21T12:00:00.000Z' }
+    createCollection('questions', questionSchema).writeAll([...many, deleted])
+    const ids = [`question-${numbered(QUESTION_PAGE_SIZE)}`, deleted.id]
 
+    const { result } = renderHookWithProviders(() => useQuestionsByIds(ids))
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    expect(result.current.byId.get(ids[0] ?? '')?.statement).toBe(`Questão ${numbered(QUESTION_PAGE_SIZE)}`)
+    expect(result.current.byId.get(deleted.id)?.statement).toBe('Questão excluída')
+  })
+
+  it('reports a question that does not exist by leaving it out', async () => {
+    const { result } = renderHookWithProviders(() => useQuestionsByIds(['nowhere']))
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    expect(result.current.byId.size).toBe(0)
+  })
+
+  /**
+   * A question picked or drawn on screen shows at once, the way the form adds
+   * it: remembered first, then added to the exam. It is not even in this
+   * browser's storage here, so only the cache can answer.
+   */
+  it('answers from what the screen remembered, before any request', () => {
+    const remembered = essayNumbered(7)
+    const { result } = renderHookWithProviders(() => {
+      const [ids, setIds] = useState<string[]>([])
+      return { remember: useRememberQuestions(), setIds, lookup: useQuestionsByIds(ids) }
+    })
+
+    act(() => {
+      result.current.remember([remembered])
+      result.current.setIds([remembered.id])
+    })
+
+    expect(result.current.lookup.isPending).toBe(false)
+    expect(result.current.lookup.byId.get(remembered.id)).toEqual(remembered)
+  })
+})
+
+describe('useQuestionCount', () => {
+  beforeEach(clearAllCollections)
+
+  it('counts the active questions carrying every tag asked', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      save: useSaveQuestion(),
+      all: useQuestionCount([]),
+      derivatives: useQuestionCount(['Derivadas']),
+      both: useQuestionCount(['Derivadas', 'Limites']),
+    }))
     await act(() => result.current.save.mutateAsync({ input: objective }))
+    await act(() => result.current.save.mutateAsync({ input: essay }))
 
-    await waitFor(() => expect(result.current.bank.data?.items).toHaveLength(1))
+    await waitFor(() => expect(result.current.all.data).toBe(2))
+    await waitFor(() => expect(result.current.derivatives.data).toBe(1))
+    await waitFor(() => expect(result.current.both.data).toBe(0))
   })
 })

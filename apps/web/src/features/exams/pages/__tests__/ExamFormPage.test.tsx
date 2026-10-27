@@ -259,3 +259,33 @@ describe('ExamFormPage, the automatic draw', () => {
     expect(within(dialog).queryByRole('status')).toBeNull()
   })
 })
+
+describe('ExamFormPage, filling an exam already started', () => {
+  beforeEach(async () => {
+    clearAllCollections()
+    await seedBank()
+  })
+
+  /**
+   * The draw used to ignore the exam and the form dropped the repeats in
+   * silence, so filling a started exam brought fewer questions than asked. Now
+   * the exam's questions never come back, and the shortfall says so.
+   */
+  it('never draws a question that is already in the exam', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<ExamFormPage />)
+    await user.click(screen.getByRole('button', { name: /Adicionar do banco/ }))
+    const drawer = await screen.findByRole('dialog')
+    await user.click(await within(drawer).findByRole('checkbox', { name: 'Primeira questão' }))
+    await user.click(within(drawer).getByRole('button', { name: /Adicionar selecionadas/ }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    await user.click(screen.getByRole('button', { name: /Preencher automaticamente/ }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText(/questões disponíveis/)
+    await user.click(within(dialog).getByRole('button', { name: /Gerar seleção/ }))
+
+    expect(await within(dialog).findByRole('status')).toHaveTextContent('faltaram 5 objetivas e 0 discursivas')
+    expect(within(dialog).queryByText('Primeira questão')).toBeNull()
+  })
+})
