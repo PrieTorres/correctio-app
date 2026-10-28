@@ -7,6 +7,7 @@ import { StorageError } from '@/lib/storage/errors'
 import { compareByLocale, createId } from '@/lib/utils'
 import type { ApiClient } from './http/api-client'
 import { parseEntity, parsePage } from './http/create-http-repository'
+import { LARGEST_PAGE, readEveryPage } from './http/read-every-page'
 
 export interface ImportResult {
   created: number
@@ -110,12 +111,8 @@ export function createLocalStudentRepository(): StudentRepository {
   }
 }
 
-/**
- * The largest page the API serves (`MAX_PAGE_SIZE` in
- * `apps/api/src/lib/pagination.ts`). A class fits in one request; a list
- * longer than that takes more requests rather than losing students.
- */
-export const STUDENTS_PER_PAGE = 1000
+/** A class fits in one request; a longer one takes more requests rather than losing students. */
+export const STUDENTS_PER_PAGE = LARGEST_PAGE
 
 const importResultSchema = z.object({
   created: z.number().int().nonnegative(),
@@ -135,18 +132,8 @@ export function createHttpStudentRepository(api: ApiClient): StudentRepository {
     parsePage(studentSchema, await api.request('GET', studentsPath(classId), { query: { page, pageSize: STUDENTS_PER_PAGE } }))
 
   return {
-    /**
-     * The first page says how many students there are; any further page is
-     * asked for at once. Paging stays on the server, and the screens still
-     * receive the whole class, as the local version gives it.
-     */
-    async listByClass(classId) {
-      const first = await readPage(classId, 1)
-      const pageCount = Math.ceil(first.total / STUDENTS_PER_PAGE)
-      const pagesLeft = Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => index + 2)
-      const rest = await Promise.all(pagesLeft.map((page) => readPage(classId, page)))
-      return [first, ...rest].flatMap((page) => page.items)
-    },
+    /** Paging stays on the server, and the screens still receive the whole class, as the local version gives it. */
+    listByClass: (classId) => readEveryPage((page) => readPage(classId, page)),
 
     async add(classId, input) {
       return parseEntity(studentSchema, await api.request('POST', studentsPath(classId), { body: input }))

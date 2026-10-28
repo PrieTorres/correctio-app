@@ -65,7 +65,7 @@ interface Sources {
 
 /** The rule of the domain, which the screen also shows, asked again by the repository under lock. */
 const regenerationBlocker: GenerationBlocker = ({ application, corrections }) => {
-  const verdict = canRegenerate(application, corrections)
+  const verdict = canRegenerate(application, corrections.length)
   return verdict.allowed ? undefined : verdict.reason
 }
 

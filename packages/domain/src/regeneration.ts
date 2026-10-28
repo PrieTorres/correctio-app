@@ -1,4 +1,4 @@
-import type { Application, Correction } from './domain'
+import type { Application } from './domain'
 
 export type RegenerationVerdict =
   | { allowed: true }
@@ -33,13 +33,17 @@ function correctedReason(count: number): string {
  *
  * Nothing else blocks it. Reprinting before anyone has been corrected is a
  * normal thing to want: a version got lost, the class grew, the date moved.
+ *
+ * It takes how many corrections exist, confirmed or not, which is what the
+ * API counts under lock and what `ApplicationProgress.corrections` tells the
+ * screens, so P13 and P14 explain the refusal before anyone asks the server.
  */
 export function canRegenerate(
   application: Pick<Application, 'status' | 'gradesReleased'>,
-  corrections: readonly Pick<Correction, 'id'>[],
+  correctionCount: number,
 ): RegenerationVerdict {
   if (application.status === 'closed') return { allowed: false, reason: ARCHIVED }
-  if (corrections.length > 0) return { allowed: false, reason: correctedReason(corrections.length) }
+  if (correctionCount > 0) return { allowed: false, reason: correctedReason(correctionCount) }
   if (application.gradesReleased) return { allowed: false, reason: GRADES_RELEASED }
   return { allowed: true }
 }

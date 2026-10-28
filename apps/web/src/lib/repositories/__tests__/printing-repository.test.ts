@@ -66,14 +66,6 @@ describe('printing repository', () => {
     expect((await repository.listVersions('app-2')).map((item) => item.id)).toEqual(['b'])
   })
 
-  it('finds a version by the code printed in its QR', async () => {
-    const repository = createLocalPrintingRepository()
-    await repository.replaceForApplication('app-1', [version('a', 'app-1', 1)], [])
-
-    expect((await repository.findVersionByPublicCode('PUBA'))?.id).toBe('a')
-    expect(await repository.findVersionByPublicCode('nope')).toBeNull()
-  })
-
   it('finds a sheet by its own code, which the public lookup resolves', async () => {
     const repository = createLocalPrintingRepository()
     await repository.replaceForApplication('app-1', [version('a', 'app-1', 1)], [sheet('s1', 'app-1', 'a', 1)])
@@ -86,20 +78,47 @@ describe('printing repository', () => {
     const repository = createLocalPrintingRepository()
     await repository.replaceForApplication('app-1', [version('a', 'app-1', 1)], [])
 
-    await repository.publishAnswerKey('a', true)
+    await repository.publishAnswerKey('app-1', 'a', true)
     const published = (await repository.listVersions('app-1'))[0]
     expect(published?.answerKeyPublished).toBe(true)
     expect(published?.answerKeyPublishedAt).toBeDefined()
 
-    await repository.publishAnswerKey('a', false)
+    await repository.publishAnswerKey('app-1', 'a', false)
     const withdrawn = (await repository.listVersions('app-1'))[0]
     expect(withdrawn?.answerKeyPublished).toBe(false)
     expect(withdrawn?.answerKeyPublishedAt).toBeUndefined()
   })
 
-  it('says so when asked to publish a version that is not there', async () => {
+  it('says so when asked to publish a version that is not there, or that belongs to another application', async () => {
     const repository = createLocalPrintingRepository()
+    await repository.replaceForApplication('app-2', [version('b', 'app-2', 1)], [])
 
-    await expect(repository.publishAnswerKey('nope', true)).rejects.toThrow(/não encontrada/i)
+    await expect(repository.publishAnswerKey('app-1', 'nope', true)).rejects.toThrow(/não encontrada/i)
+    await expect(repository.publishAnswerKey('app-1', 'b', true)).rejects.toThrow(/não encontrada/i)
+  })
+
+  it('publishes every answer key of one application at once, keeping when each was first published', async () => {
+    const repository = createLocalPrintingRepository()
+    const earlier = { ...version('a', 'app-1', 1), answerKeyPublished: true, answerKeyPublishedAt: '2026-10-01T12:00:00.000Z' }
+    await repository.replaceForApplication('app-1', [earlier, version('b', 'app-1', 2)], [])
+    await repository.replaceForApplication('app-2', [version('c', 'app-2', 1)], [])
+
+    await repository.publishAll('app-1')
+
+    const [first, second] = await repository.listVersions('app-1')
+    expect(first?.answerKeyPublishedAt).toBe('2026-10-01T12:00:00.000Z')
+    expect([first?.answerKeyPublished, second?.answerKeyPublished]).toEqual([true, true])
+    expect(second?.answerKeyPublishedAt).toBeDefined()
+    expect((await repository.listVersions('app-2'))[0]?.answerKeyPublished).toBe(false)
+  })
+
+  it('keeps the moment of the first publication when one key is published again', async () => {
+    const repository = createLocalPrintingRepository()
+    const earlier = { ...version('a', 'app-1', 1), answerKeyPublished: true, answerKeyPublishedAt: '2026-10-01T12:00:00.000Z' }
+    await repository.replaceForApplication('app-1', [earlier], [])
+
+    await repository.publishAnswerKey('app-1', 'a', true)
+
+    expect((await repository.listVersions('app-1'))[0]?.answerKeyPublishedAt).toBe('2026-10-01T12:00:00.000Z')
   })
 })

@@ -9,7 +9,6 @@ import type { AnswerSheet, ExamVersion } from '@/types/domain';
 import {
   useApplication,
   useApplicationPrinting,
-  useCorrectionsOfApplication,
   usePublishAnswerKey,
   useReleaseGrades,
 } from '../hooks/useApplications';
@@ -20,7 +19,6 @@ export function ApplicationDetailPage() {
   const { data: application, isPending, isError } = useApplication(id);
   const { data: exam } = useExam(application?.examId);
   const { data: printing } = useApplicationPrinting(id);
-  const { data: corrections = [] } = useCorrectionsOfApplication(id);
   const { data: students = [] } = useStudents(application?.classId);
   const publishAnswerKey = usePublishAnswerKey();
   const releaseGrades = useReleaseGrades();
@@ -79,6 +77,7 @@ export function ApplicationDetailPage() {
                       pending={publishAnswerKey.isPending}
                       onTogglePublish={() =>
                         publishAnswerKey.mutate({
+                          applicationId: application.id,
                           versionId: version.id,
                           published: !version.answerKeyPublished,
                         })
@@ -109,7 +108,7 @@ export function ApplicationDetailPage() {
           <Card className="flex flex-col gap-3 p-6">
             <h2 className="text-title text-primary">Correção</h2>
             <p className="text-body text-ink-muted" aria-live="polite">
-              {corrections.length} de {sheets.length} folhas corrigidas
+              {application.progress.correctedSheets} de {application.progress.sheets} folhas corrigidas
             </p>
             <Button variant="secondary" className="self-start" data-tour="grading">
               <Link to={buildPath(ROUTES.grading, { id: application.id })}>Corrigir folhas</Link>

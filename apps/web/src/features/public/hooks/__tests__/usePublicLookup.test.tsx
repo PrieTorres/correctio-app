@@ -15,16 +15,14 @@ import { usePublicLookup } from '../usePublicLookup'
 const repositories = () => createTeacherRepositories(TEST_TEACHER_ID)
 
 const GENERATE = {
-  versionCount: 1,
-  shuffleQuestions: false,
-  shuffleAlternatives: false,
+  versions: [{ shuffleQuestions: false, shuffleAlternatives: false }],
   withStudentIdentification: true,
 }
 
 async function printedSheet() {
   const seeded = await seedApplicationChain()
   const { result } = renderHookWithProviders(() => useGenerateApplication())
-  await act(() => result.current.mutateAsync({ id: seeded.applicationId, options: GENERATE }))
+  await act(() => result.current.mutateAsync({ id: seeded.applicationId, request: GENERATE }))
 
   const sheets = await repositories().printing.listSheets(seeded.applicationId)
   const versions = await repositories().printing.listVersions(seeded.applicationId)
@@ -66,9 +64,9 @@ describe('usePublicLookup', () => {
   })
 
   it('shows the answer key once it is published, and still no grade', async () => {
-    const { sheet, versionId } = await printedSheet()
+    const { seeded, sheet, versionId } = await printedSheet()
     const { result: publish } = renderHookWithProviders(() => usePublishAnswerKey())
-    await act(() => publish.current.mutateAsync({ versionId, published: true }))
+    await act(() => publish.current.mutateAsync({ applicationId: seeded.applicationId, versionId, published: true }))
 
     const { result } = renderHookWithProviders(() => usePublicLookup(sheet.code))
 
@@ -101,7 +99,7 @@ describe('usePublicLookup', () => {
       publish: usePublishAnswerKey(),
       release: useReleaseGrades(),
     }))
-    await act(() => actions.current.publish.mutateAsync({ versionId, published: true }))
+    await act(() => actions.current.publish.mutateAsync({ applicationId: seeded.applicationId, versionId, published: true }))
     await act(() => actions.current.release.mutateAsync({ id: seeded.applicationId, released: true }))
 
     const { result } = renderHookWithProviders(() => usePublicLookup(sheet.code))
@@ -117,7 +115,7 @@ describe('usePublicLookup', () => {
       publish: usePublishAnswerKey(),
       release: useReleaseGrades(),
     }))
-    await act(() => actions.current.publish.mutateAsync({ versionId, published: true }))
+    await act(() => actions.current.publish.mutateAsync({ applicationId: seeded.applicationId, versionId, published: true }))
     await act(() => actions.current.release.mutateAsync({ id: seeded.applicationId, released: true }))
 
     const { result } = renderHookWithProviders(() => usePublicLookup(sheet.code))

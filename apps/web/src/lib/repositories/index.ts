@@ -7,7 +7,7 @@ import { createLocalQuestionRepository, type QuestionRepository } from './questi
 import { createHttpStudentRepository, createLocalStudentRepository, type StudentRepository } from './student-repository'
 import { createHttpQuestionRepository } from './http/create-http-question-repository'
 import { createHttpExamRepository } from './http/create-http-exam-repository'
-import type { ApiClient } from './http/api-client'
+import type { ApiClient, FileClient } from './http/api-client'
 
 export * from './types'
 export type {
@@ -46,14 +46,21 @@ export interface TeacherRepositories {
  * #48, #49 and #50). Without a client, which is the GitHub Pages demo and the unit
  * tests, every entry stays in this browser.
  */
-export function createTeacherRepositories(teacherId: string, api?: ApiClient): TeacherRepositories {
+export function createTeacherRepositories(teacherId: string, api?: ApiClient & FileClient): TeacherRepositories {
+  const classes = api === undefined ? createLocalClassRepository(teacherId) : createHttpClassRepository(api)
+  const students = api === undefined ? createLocalStudentRepository() : createHttpStudentRepository(api)
+  const questions = api === undefined ? createLocalQuestionRepository(teacherId) : createHttpQuestionRepository(api)
+  const exams = api === undefined ? createLocalExamRepository(teacherId) : createHttpExamRepository(api)
+  const printing = createLocalPrintingRepository()
+  const corrections = createLocalCorrectionRepository()
+
   return {
-    classes: api === undefined ? createLocalClassRepository(teacherId) : createHttpClassRepository(api),
-    students: api === undefined ? createLocalStudentRepository() : createHttpStudentRepository(api),
-    questions: api === undefined ? createLocalQuestionRepository(teacherId) : createHttpQuestionRepository(api),
-    exams: api === undefined ? createLocalExamRepository(teacherId) : createHttpExamRepository(api),
-    applications: createLocalApplicationRepository(teacherId),
-    printing: createLocalPrintingRepository(),
-    corrections: createLocalCorrectionRepository(),
+    classes,
+    students,
+    questions,
+    exams,
+    applications: createLocalApplicationRepository(teacherId, { exams, classes, questions, students, printing, corrections }),
+    printing,
+    corrections,
   }
 }

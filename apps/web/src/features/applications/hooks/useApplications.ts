@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
-import { buildAnswerSheets, buildVersions } from '@/lib/applications';
-import type { ApplicationInput, VersionShuffle } from '@/lib/schemas';
+import type { ApplicationInput, GenerationRequest } from '@/lib/schemas';
+import { saveFile } from '@/lib/utils';
 
 export const applicationKeys = {
   all: ['applications'] as const satisfies QueryKey,
@@ -20,6 +20,7 @@ export function useApplicationList(archived: boolean, search: string) {
   });
 }
 
+/** One application with its overview: the exam, the class and how far it has gone. */
 export function useApplication(id: string | undefined) {
   const { repositories } = useServices();
 
@@ -42,25 +43,6 @@ export function useApplicationPrinting(id: string | undefined) {
         repositories.printing.listSheets(id ?? ''),
       ]);
       return { versions, sheets };
-    },
-    enabled: id !== undefined,
-  });
-}
-
-/**
- * The corrections already made from this application printing.
- *
- * Read here for one question only: whether printing again would leave a
- * correction pointing at a layout that no longer exists.
- */
-export function useCorrectionsOfApplication(id: string | undefined) {
-  const { repositories } = useServices();
-
-  return useQuery({
-    queryKey: [...applicationKeys.printing(id ?? ''), 'corrections'] as const,
-    queryFn: async () => {
-      const sheets = await repositories.printing.listSheets(id ?? '');
-      return repositories.corrections.listByAnswerSheets(sheets.map((sheet) => sheet.id));
     },
     enabled: id !== undefined,
   });
@@ -95,62 +77,23 @@ export function useArchiveApplication() {
   });
 }
 
-export interface GenerateOptions {
-  versionCount: number;
-  shuffleQuestions: boolean;
-  shuffleAlternatives: boolean;
-  withStudentIdentification: boolean;
-}
-
 /**
- * The shuffle of every version, which RF22 lets differ per version. P13 still
- * offers one pair of switches for the whole application, so each version gets
- * the same until the screen asks version by version (#46).
- */
-function sameShuffleForEvery({ versionCount, shuffleQuestions, shuffleAlternatives }: GenerateOptions): VersionShuffle[] {
-  return Array.from({ length: versionCount }, () => ({ shuffleQuestions, shuffleAlternatives }));
-}
-
-/**
- * Produces the paper for an application: the versions and one sheet per student.
+ * Produces the paper for an application: the versions and one sheet per
+ * student, and the PDF where there is a server to draw it.
  *
- * Generating is where the exam stops being editable content and becomes a
- * printed artefact, so the exam is marked `ready` and the application
- * `generated`. Regenerating replaces both entirely — see the repository for why
- * keeping the old ones beside the new would make a sheet unreadable.
+ * The screen sends only what P13 asks (RF22): how each version shuffles and
+ * whether the sheets carry the name. Generating is where the exam stops being
+ * editable content and becomes a printed artefact, so the exam turns `ready`
+ * and the application `generated`, and regenerating replaces everything that
+ * was printed before.
  */
 export function useGenerateApplication() {
   const { repositories } = useServices();
   const invalidate = useInvalidateApplications();
 
   return useMutation({
-    mutationFn: async ({ id, options }: { id: string; options: GenerateOptions }) => {
-      const application = await repositories.applications.getById(id);
-      if (application === null) throw new Error('Aplicação não encontrada');
-
-      const exam = await repositories.exams.getById(application.examId);
-      if (exam === null) throw new Error('Prova não encontrada');
-
-      const [bank, students] = await Promise.all([
-        repositories.questions.list({ pageSize: 1000 }),
-        repositories.students.listByClass(application.classId),
-      ]);
-
-      const versions = buildVersions({
-        applicationId: id,
-        exam,
-        questions: bank.items,
-        versions: sameShuffleForEvery(options),
-        withStudentIdentification: options.withStudentIdentification,
-      });
-      const sheets = buildAnswerSheets(id, versions, students, options.withStudentIdentification);
-
-      await repositories.printing.replaceForApplication(id, versions, sheets);
-      await repositories.applications.markGenerated(id);
-      await repositories.exams.markReady(exam.id);
-
-      return { versions, sheets };
-    },
+    mutationFn: ({ id, request }: { id: string; request: GenerationRequest }) =>
+      repositories.applications.generate(id, request),
     onSuccess: invalidate,
   });
 }
@@ -160,8 +103,26 @@ export function usePublishAnswerKey() {
   const invalidate = useInvalidateApplications();
 
   return useMutation({
-    mutationFn: ({ versionId, published }: { versionId: string; published: boolean }) =>
-      repositories.printing.publishAnswerKey(versionId, published),
+    mutationFn: ({
+      applicationId,
+      versionId,
+      published,
+    }: {
+      applicationId: string;
+      versionId: string;
+      published: boolean;
+    }) => repositories.printing.publishAnswerKey(applicationId, versionId, published),
+    onSuccess: invalidate,
+  });
+}
+
+/** "Publicar todos": every version at once, so a failure never leaves half of them published. */
+export function usePublishAllAnswerKeys() {
+  const { repositories } = useServices();
+  const invalidate = useInvalidateApplications();
+
+  return useMutation({
+    mutationFn: (applicationId: string) => repositories.printing.publishAll(applicationId),
     onSuccess: invalidate,
   });
 }
@@ -186,6 +147,18 @@ export function useReleaseGrades() {
     onSuccess: (application) => {
       queryClient.setQueryData(applicationKeys.detail(application.id), application);
       return invalidate();
+    },
+  });
+}
+
+/** Saves the PDF of the application, which comes from the API with the teacher's token. */
+export function useDownloadApplicationPdf() {
+  const { repositories } = useServices();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { blob, filename } = await repositories.applications.downloadPdf(id);
+      saveFile(blob, filename);
     },
   });
 }

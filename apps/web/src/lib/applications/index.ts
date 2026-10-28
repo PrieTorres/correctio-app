@@ -6,5 +6,5 @@
  */
 export { paginate } from '@correctio/domain/applications'
 export type { PageBlock, PaginationResult } from '@correctio/domain/applications'
-export { buildAnswerSheets, buildVersions, canRegenerate } from '@correctio/domain'
+export { buildAnswerSheets, buildVersions, canRegenerate, correctionProgressOf } from '@correctio/domain'
 export type { RegenerationVerdict, VersionCriteria } from '@correctio/domain'

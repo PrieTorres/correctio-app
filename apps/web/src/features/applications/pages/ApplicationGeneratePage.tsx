@@ -5,23 +5,12 @@ import { Button, Card, NumberInput, PageHeader, QueryBoundary, Tour } from '@/co
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
 import { useExam } from '@/features/exams';
+import { MAX_VERSIONS } from '@/lib/schemas';
 import {
   useApplication,
   useApplicationPrinting,
-  useCorrectionsOfApplication,
   useGenerateApplication,
 } from '../hooks/useApplications';
-
-const MAX_VERSIONS = 6;
-
-/**
- * The steps walk through generating, so they wait until the screen knows it
- * can: that takes the corrections as well as the application, and a refused
- * screen already explains itself in its alert.
- */
-function canWalkThrough(verdict: { allowed: boolean }, correctionsPending: boolean): boolean {
-  return verdict.allowed && !correctionsPending;
-}
 
 export function ApplicationGeneratePage() {
   const { id } = useParams<{ id: string }>();
@@ -30,7 +19,6 @@ export function ApplicationGeneratePage() {
   const { data: application, isPending, isError } = useApplication(id);
   const { data: exam } = useExam(application?.examId);
   const { data: printing } = useApplicationPrinting(id);
-  const { data: corrections = [], isPending: correctionsPending } = useCorrectionsOfApplication(id);
   const generate = useGenerateApplication();
 
   const [versionCount, setVersionCount] = useState(2);
@@ -50,20 +38,16 @@ export function ApplicationGeneratePage() {
   const verdict =
     application === null || application === undefined
       ? { allowed: false as const, reason: 'Aplicação não encontrada.' }
-      : canRegenerate(application, corrections);
+      : canRegenerate(application, application.progress.corrections);
 
   const run = () => {
     if (id === undefined) return;
 
+    const shuffle = { shuffleQuestions: questionsShuffled, shuffleAlternatives: alternativesShuffled };
     generate.mutate(
       {
         id,
-        options: {
-          versionCount,
-          shuffleQuestions: questionsShuffled,
-          shuffleAlternatives: alternativesShuffled,
-          withStudentIdentification,
-        },
+        request: { versions: Array.from({ length: versionCount }, () => shuffle), withStudentIdentification },
       },
       { onSuccess: () => void navigate(buildPath(ROUTES.applicationDetail, { id })) },
     );
@@ -189,7 +173,7 @@ export function ApplicationGeneratePage() {
           </p>
         )}
 
-        <Tour screen="applicationPdf" ready={canWalkThrough(verdict, correctionsPending)} />
+        <Tour screen="applicationPdf" ready={verdict.allowed} />
       </div>
     </QueryBoundary>
   );

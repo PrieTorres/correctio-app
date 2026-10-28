@@ -17,16 +17,14 @@ import {
 const repositories = () => createTeacherRepositories(TEST_TEACHER_ID)
 
 const GENERATE = {
-  versionCount: 1,
-  shuffleQuestions: false,
-  shuffleAlternatives: false,
+  versions: [{ shuffleQuestions: false, shuffleAlternatives: false }],
   withStudentIdentification: true,
 }
 
 async function seedGenerated() {
   const seeded = await seedApplicationChain()
   const { result } = renderHookWithProviders(() => useGenerateApplication())
-  await act(() => result.current.mutateAsync({ id: seeded.applicationId, options: GENERATE }))
+  await act(() => result.current.mutateAsync({ id: seeded.applicationId, request: GENERATE }))
   return seeded
 }
 
@@ -241,7 +239,7 @@ describe('grading hooks', () => {
     await act(() =>
       generate.current.mutateAsync({
         id: seeded.applicationId,
-        options: { ...GENERATE, withStudentIdentification: false },
+        request: { ...GENERATE, withStudentIdentification: false },
       }),
     )
     const sheets = await repositories().printing.listSheets(seeded.applicationId)

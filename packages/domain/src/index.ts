@@ -7,6 +7,7 @@
  */
 export * from './answer-card'
 export * from './answer-sheet-code'
+export * from './application-progress'
 export * from './applications'
 export * from './build-versions'
 export * from './domain'
