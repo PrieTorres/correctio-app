@@ -12,6 +12,7 @@ import { meRoutes, publicAuthRoutes, signedInAuthRoutes } from './auth-routes'
 import { classRoutes } from './class-routes'
 import { examRoutes } from './exam-routes'
 import { healthRoutes } from './health-routes'
+import { publicRoutes } from './public-routes'
 import { questionRoutes } from './question-routes'
 
 export interface RouteDependencies {
@@ -19,6 +20,8 @@ export interface RouteDependencies {
   db: Kysely<Database>
   fieldCipher: FieldCipher
   fileStorage: FileStorage
+  /** The public tier, per address, for the lookup a student reaches without an account. */
+  publicLimit: RequestHandler
   /** Counts refused tokens per address, ahead of the gate, against guessing. */
   failedAuthLimit: RequestHandler
   requireAuth: RequestHandler
@@ -44,6 +47,7 @@ export function createRouter({
   db,
   fieldCipher,
   fileStorage,
+  publicLimit,
   failedAuthLimit,
   requireAuth,
   teacherLimit,
@@ -55,6 +59,7 @@ export function createRouter({
   const router = Router()
 
   router.use('/health', healthRoutes(healthService))
+  router.use('/public', publicRoutes({ db, publicLimit }))
   if (auth !== undefined) router.use('/auth', publicAuthRoutes(auth.controller, auth.limits))
 
   router.use(failedAuthLimit, requireAuth, teacherLimit)

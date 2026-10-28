@@ -3,7 +3,7 @@ import { useMemo, type ReactNode } from 'react'
 import { currentUserQuery, recheckSession } from '@/features/auth/hooks/useAuth'
 import { DEMO_MODE } from '@/lib/app-mode'
 import { createHttpAuthProvider, createLocalAuthProvider } from '@/lib/auth'
-import { createTeacherRepositories } from '@/lib/repositories'
+import { createPublicLookupRepository, createTeacherRepositories } from '@/lib/repositories'
 import { apiBaseUrl } from '@/lib/repositories/http/api-config'
 import { createApiClient } from '@/lib/repositories/http/api-client'
 import { createAppQueryClient } from './query-client'
@@ -42,7 +42,10 @@ const SIGNED_OUT = ''
 function TeacherServices({ children }: Readonly<{ children: ReactNode }>) {
   const { data: user } = useQuery(currentUserQuery(auth))
   const teacherId = user?.id ?? SIGNED_OUT
-  const services = useMemo(() => ({ auth, repositories: createTeacherRepositories(teacherId, repositoryApi) }), [teacherId])
+  const services = useMemo(() => {
+    const repositories = createTeacherRepositories(teacherId, repositoryApi)
+    return { auth, repositories, publicLookup: createPublicLookupRepository(repositories, repositoryApi) }
+  }, [teacherId])
 
   return <AppServicesContext.Provider value={services}>{children}</AppServicesContext.Provider>
 }

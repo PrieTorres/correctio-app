@@ -4,8 +4,17 @@ import { CheckCircle2, QrCode, XCircle } from 'lucide-react';
 import { Badge, Card, QueryBoundary } from '@/components/ui';
 import { ROUTES } from '@/app/routes';
 import { formatDate } from '@/lib/utils';
+import { StorageError } from '@/lib/storage/errors';
 import type { PublicLookup, PublicLookupHeader } from '@/types/domain';
 import { usePublicLookup } from '../hooks/usePublicLookup';
+
+/**
+ * The wait is told apart from every other failure because the generic message
+ * asks for a reload, and a reload spends more of the limit that ran out.
+ */
+function isRateLimited(error: Error | null): boolean {
+  return error instanceof StorageError && error.code === 'rate-limited';
+}
 
 /**
  * Keeps this page out of search results for as long as it is on screen.
@@ -28,7 +37,7 @@ function useNoIndex(): void {
 
 export function PublicLookupPage() {
   const { code } = useParams<{ code: string }>();
-  const { data, isPending, isError } = usePublicLookup(code);
+  const { data, error, isPending, isError } = usePublicLookup(code);
   useNoIndex();
 
   return (
@@ -38,7 +47,18 @@ export function PublicLookupPage() {
         <span className="text-label text-primary">Correctio</span>
       </header>
 
-      <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Buscando…">
+      <QueryBoundary
+        isPending={isPending}
+        isError={isError && !isRateLimited(error)}
+        pendingLabel="Buscando…"
+      >
+        {isRateLimited(error) && (
+          <Card className="p-6">
+            <p role="alert" className="text-body text-danger">
+              Muitas consultas seguidas. Aguarde um minuto e leia o QR de novo.
+            </p>
+          </Card>
+        )}
         <main className="flex flex-col gap-5">
           {data === undefined ? null : <Result lookup={data} />}
         </main>

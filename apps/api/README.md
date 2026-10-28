@@ -127,7 +127,7 @@ com as mesmas regras das telas, sem cópia.
 | `GET /applications/:id/pdf` | Baixa o PDF consolidado. É o endereço que o `pdfUrl` da aplicação traz |
 | `POST /applications/:id/corrections` | Grava a revisão de uma folha (RF28, RF30). A Spec só lista e edita as correções |
 | `GET /applications/:id/corrections/:correctionId` | Uma correção, para a tela de revisão (P16) |
-| `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49) |
+| `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49). Sem login, com limite de 30 requisições por minuto por IP. Código desconhecido responde `200` com `{ status: "INVALID_CODE" }`, igual a um código que existe mas não leva a nada, para quem tenta adivinhar não distinguir os dois. Responde `X-Robots-Tag: noindex` |
 
 ### Aplicações
 

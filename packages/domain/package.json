@@ -8,6 +8,7 @@
     "./answer-card": "./src/answer-card.ts",
     "./applications": "./src/applications.ts",
     "./domain": "./src/domain.ts",
+    "./public-lookup": "./src/public-lookup.ts",
     "./schemas": "./src/schemas.ts"
   },
   "scripts": {

@@ -3,6 +3,7 @@ import { createHttpClassRepository, createLocalClassRepository, type ClassReposi
 import { createLocalExamRepository, type ExamRepository } from './exam-repository'
 import { createLocalCorrectionRepository, type CorrectionRepository } from './correction-repository'
 import { createLocalPrintingRepository, type PrintingRepository } from './printing-repository'
+import { createPublicLookupRepository, type PublicLookupRepository } from './public-lookup-repository'
 import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
 import { createHttpStudentRepository, createLocalStudentRepository, type StudentRepository } from './student-repository'
 import { createHttpQuestionRepository } from './http/create-http-question-repository'
@@ -12,12 +13,14 @@ import { createHttpPrintingRepository } from './http/create-http-printing-reposi
 import type { ApiClient, FileClient } from './http/api-client'
 
 export * from './types'
+export { createPublicLookupRepository }
 export type {
   ApplicationRepository,
   ClassRepository,
   CorrectionRepository,
   ExamRepository,
   PrintingRepository,
+  PublicLookupRepository,
   QuestionRepository,
   StudentRepository,
 }
