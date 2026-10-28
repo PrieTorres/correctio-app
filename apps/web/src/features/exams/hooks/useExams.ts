@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
-import type { ExamInput } from '@/lib/schemas';
+import type { DrawRequest, ExamInput } from '@/lib/schemas';
+import { useRememberQuestions } from '@/features/questions';
 
 export const examKeys = {
   all: ['exams'] as const satisfies QueryKey,
@@ -80,5 +81,20 @@ export function useDuplicateExam() {
       });
     },
     onSuccess: invalidate,
+  });
+}
+
+/**
+ * The automatic exam drawn on the server (RF16). It is a mutation because each
+ * call is a new draw, never a cached answer; the questions it brings are kept
+ * for the exam screens to show their statements at once.
+ */
+export function useDrawQuestions() {
+  const { repositories } = useServices();
+  const remember = useRememberQuestions();
+
+  return useMutation({
+    mutationFn: (request: DrawRequest) => repositories.exams.draw(request),
+    onSuccess: (result) => remember(result.questions),
   });
 }

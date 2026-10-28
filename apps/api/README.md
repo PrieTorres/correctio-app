@@ -150,8 +150,8 @@ leem a prova e chegam junto com as provas da #45.
 
 ### Provas
 
-`GET` e `POST /exams`, `GET` e `PATCH /exams/:id`, `PATCH /exams/:id/archive` e
-`PATCH /exams/:id/restore`, mais o sorteio `POST /exams/draw`.
+`GET` e `POST /exams`, `GET` e `PATCH /exams/:id`, `PATCH /exams/:id/archive`,
+`PATCH /exams/:id/restore` e `PATCH /exams/:id/ready`, mais o sorteio `POST /exams/draw`.
 
 - **Questões da prova:** cada prova traz `questions`, na ordem, com `order`, `score` e
   `allowShuffleAlternatives`, que as versões herdam na geração (#46). O servidor recusa mais de 20
@@ -160,9 +160,12 @@ leem a prova e chegam junto com as provas da #45.
   precisa continuar salvando.
 - **Título único**, comparado sem acento e sem maiúscula, contando as arquivadas, com as mesmas
   mensagens das telas.
-- **Status é do servidor:** nasce `draft`, vira `ready` quando a primeira aplicação é gerada (o
-  serviço tem `markReady` para a #46, sem rota), arquivar grava `closed` e restaurar volta para
-  `draft`, nunca para `ready`. O `PATCH` mescla e ignora `status`, `id` e `teacherId`.
+- **Status é do servidor:** nasce `draft` e vira `ready` quando a primeira aplicação é gerada.
+  - Enquanto a geração ainda roda no navegador, a tela chama `PATCH /exams/:id/ready`, sem corpo.
+    A rota só passa `draft` para `ready` e não mexe em prova arquivada. Quando a geração for para o
+    servidor (#46), o serviço chama o mesmo `markReady` por dentro.
+  - Arquivar grava `closed`, e restaurar volta para `draft`, nunca para `ready`.
+  - O `PATCH` mescla e ignora `status`, `id` e `teacherId`.
 - **Sorteio (RF16):** `POST /exams/draw` recebe `{ tags, multipleChoiceCount, openEndedCount,
   excludeIds }` e responde `{ questions, shortfall }`. Sorteia entre as questões ativas do
   professor que têm todas as tags pedidas, deixando de fora `excludeIds` (as que já estão na prova

@@ -1,6 +1,7 @@
 import type { Exam } from '@/types/domain'
-import type { ExamInput } from '@/lib/schemas'
-import { examSchema } from '@/lib/schemas'
+import type { DrawRequest, ExamInput } from '@/lib/schemas'
+import { examSchema, questionSchema } from '@/lib/schemas'
+import { drawQuestions, type DrawResult } from '@/lib/exams'
 import { createCollection, simulateLatency } from '@/lib/storage/collection'
 import { StorageError } from '@/lib/storage/errors'
 import { archiveByStatus, createOwnedRepository } from './create-owned-repository'
@@ -12,6 +13,11 @@ import type { OwnedRepository } from './types'
  */
 export interface ExamRepository extends OwnedRepository<Exam, ExamInput> {
   markReady: (id: string) => Promise<void>
+  /**
+   * The automatic exam (RF16): a selection from the teacher's active questions,
+   * leaving out `excludeIds`. Nothing is stored until the teacher saves the exam.
+   */
+  draw: (request: DrawRequest) => Promise<DrawResult>
 }
 
 /**
@@ -51,6 +57,16 @@ export function createLocalExamRepository(teacherId: string): ExamRepository {
       if (exam === undefined) throw new StorageError('Prova não encontrada.', 'not-found')
 
       if (exam.status === 'draft') collection.writeAll(all.with(index, { ...exam, status: 'ready' }))
+    },
+
+    /** The same draw the API runs, over this browser's questions, for the demo and the unit tests. */
+    async draw({ excludeIds, ...criteria }) {
+      await simulateLatency()
+      const excluded = new Set(excludeIds)
+      const bank = createCollection('questions', questionSchema)
+        .readAll()
+        .filter((question) => question.teacherId === teacherId && !excluded.has(question.id))
+      return drawQuestions(bank, criteria)
     },
   }
 }

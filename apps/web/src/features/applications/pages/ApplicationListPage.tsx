@@ -7,7 +7,6 @@ import {
   Badge,
   Button,
   Card,
-  ConfirmDialog,
   EmptyState,
   PageHeader,
   QueryBoundary,
@@ -21,14 +20,16 @@ import { formatDate } from '@/lib/utils';
 import { useClassList } from '@/features/classes';
 import { useExamList } from '@/features/exams';
 import type { Application, ApplicationStatus } from '@/types/domain';
-import { useApplicationList, useArchiveApplication } from '../hooks/useApplications';
-
-type Filter = 'active' | 'archived';
+import { APPLICATION_FILTER, type ApplicationFilter } from '../application-filter';
+import { ArchiveApplicationDialog } from '../components/ArchiveApplicationDialog';
+import { useApplicationFilter } from '../hooks/useApplicationFilter';
+import { useVisibleApplications } from '../hooks/useVisibleApplications';
 
 const FILTERS = [
-  { value: 'active', label: 'Ativas' },
-  { value: 'archived', label: 'Arquivadas' },
-] as const satisfies readonly { value: Filter; label: string }[];
+  { value: APPLICATION_FILTER.ACTIVE, label: 'Ativas' },
+  { value: APPLICATION_FILTER.ARCHIVED, label: 'Arquivadas' },
+  { value: APPLICATION_FILTER.IN_PROGRESS, label: 'Correção em andamento' },
+] as const satisfies readonly { value: ApplicationFilter; label: string }[];
 
 const STATUS: Record<ApplicationStatus, { label: string; tone: 'neutral' | 'success' }> = {
   draft: { label: 'A gerar', tone: 'neutral' },
@@ -37,17 +38,14 @@ const STATUS: Record<ApplicationStatus, { label: string; tone: 'neutral' | 'succ
 };
 
 export function ApplicationListPage() {
-  const [filter, setFilter] = useState<Filter>('active');
+  const [filter, setFilter] = useApplicationFilter();
   const [search, setSearch] = useState('');
   const [pendingArchive, setPendingArchive] = useState<Application | null>(null);
 
-  const showingArchived = filter === 'archived';
-  const { data, isPending, isError } = useApplicationList(showingArchived, search);
+  const { applications, isPending, isError } = useVisibleApplications(filter, search);
   const { data: exams } = useExamList(false, '');
   const { data: classes } = useClassList(false, '');
-  const archiveApplication = useArchiveApplication();
 
-  const applications = data?.items ?? [];
   const examTitle = new Map((exams?.items ?? []).map((item) => [item.id, item.title]));
   const className = new Map((classes?.items ?? []).map((item) => [item.id, item.name]));
 
@@ -86,7 +84,7 @@ export function ApplicationListPage() {
           <Card>
             <EmptyApplicationList
               searching={search.trim() !== ''}
-              showingArchived={showingArchived}
+              filter={filter}
               onClearSearch={() => setSearch('')}
               createButton={newApplicationButton}
             />
@@ -108,23 +106,10 @@ export function ApplicationListPage() {
       </QueryBoundary>
 
       {pendingArchive !== null && (
-        <ConfirmDialog
-          open
-          onOpenChange={(open) => !open && setPendingArchive(null)}
-          title={showingArchived ? 'Restaurar esta aplicação?' : 'Arquivar esta aplicação?'}
-          description={
-            showingArchived
-              ? 'A aplicação volta para a lista e pode ser gerada de novo.'
-              : 'A aplicação sai da lista. As folhas já impressas e as correções continuam como estão, e você pode restaurá-la depois.'
-          }
-          confirmLabel={showingArchived ? 'Restaurar' : 'Arquivar'}
-          pending={archiveApplication.isPending}
-          onConfirm={() =>
-            archiveApplication.mutate(
-              { id: pendingArchive.id, archive: !showingArchived },
-              { onSettled: () => setPendingArchive(null) },
-            )
-          }
+        <ArchiveApplicationDialog
+          application={pendingArchive}
+          restoring={filter === APPLICATION_FILTER.ARCHIVED}
+          onClose={() => setPendingArchive(null)}
         />
       )}
 
@@ -185,12 +170,12 @@ function ApplicationRow({
 
 function EmptyApplicationList({
   searching,
-  showingArchived,
+  filter,
   onClearSearch,
   createButton,
 }: Readonly<{
   searching: boolean;
-  showingArchived: boolean;
+  filter: ApplicationFilter;
   onClearSearch: () => void;
   createButton: ReactNode;
 }>) {
@@ -209,7 +194,17 @@ function EmptyApplicationList({
     );
   }
 
-  if (showingArchived) {
+  if (filter === APPLICATION_FILTER.IN_PROGRESS) {
+    return (
+      <EmptyState
+        illustration={<SearchIllustration />}
+        title="Nenhuma correção em andamento"
+        description="Quando uma folha for lida e ainda esperar a nota de uma questão discursiva, a aplicação aparece aqui."
+      />
+    );
+  }
+
+  if (filter === APPLICATION_FILTER.ARCHIVED) {
     return (
       <EmptyState
         illustration={<ArchiveIllustration />}

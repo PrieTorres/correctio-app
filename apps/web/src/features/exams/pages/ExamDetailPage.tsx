@@ -3,7 +3,7 @@ import { ArrowLeft, Copy, Pencil, Plus } from 'lucide-react';
 import { Badge, Button, Card, PageHeader, QueryBoundary } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { totalScore } from '@/lib/exams';
-import { useQuestionBank } from '@/features/questions';
+import { useQuestionsByIds } from '@/features/questions';
 import { isMultipleChoice, type ExamStatus } from '@/types/domain';
 import { useDuplicateExam, useExam } from '../hooks/useExams';
 
@@ -17,13 +17,11 @@ export function ExamDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: exam, isPending, isError } = useExam(id);
-  const { data: bank } = useQuestionBank();
+  const { byId, isPending: questionsPending } = useQuestionsByIds(exam?.questions.map((entry) => entry.questionId) ?? []);
   const duplicate = useDuplicateExam();
 
-  const byId = new Map((bank?.items ?? []).map((item) => [item.id, item]));
-
   return (
-    <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando prova…">
+    <QueryBoundary isPending={isPending || questionsPending} isError={isError} pendingLabel="Carregando prova…">
       {exam === null || exam === undefined ? (
         <Card className="p-6">
           <p className="text-body text-ink-muted">Prova não encontrada.</p>

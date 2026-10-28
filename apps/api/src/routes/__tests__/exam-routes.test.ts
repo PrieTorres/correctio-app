@@ -223,8 +223,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('exam routes (real MySQL)', () =
     /** RF42, and `ready` is history rather than a state to hand back: a restored exam is a draft. */
     it('archives as closed and restores to draft, even an exam that was ready', async () => {
       const exam = await created()
-      const service = createExamService({ exams: createExamRepository(db), questions: new QuestionRepository(db) })
-      await service.markReady('ana', exam.id)
+      await ana().patch(`/exams/${exam.id}/ready`)
 
       expect((await ana().patch(`/exams/${exam.id}/archive`)).status).toBe(204)
       expect((await ana().get(`/exams/${exam.id}`)).body.status).toBe('closed')
@@ -232,18 +231,28 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('exam routes (real MySQL)', () =
       expect((await ana().get(`/exams/${exam.id}`)).body.status).toBe('draft')
     })
 
-    /** Applying an exam (#46) makes it `ready`; it never brings a closed exam back. */
-    it('marks only a draft as ready', async () => {
+    /** Applying an exam makes it `ready`; it never brings a closed exam back, and asking twice changes nothing. */
+    it('marks only a draft as ready, through the route the screen calls after generating', async () => {
       const draft = await created()
       const closed = await created({ ...FORM, title: 'Arquivada' })
       await ana().patch(`/exams/${closed.id}/archive`)
-      const service = createExamService({ exams: createExamRepository(db), questions: new QuestionRepository(db) })
 
-      await service.markReady('ana', draft.id)
-      await service.markReady('ana', closed.id)
+      expect((await ana().patch(`/exams/${draft.id}/ready`)).status).toBe(204)
+      expect((await ana().patch(`/exams/${draft.id}/ready`)).status).toBe(204)
+      expect((await ana().patch(`/exams/${closed.id}/ready`)).status).toBe(204)
 
       expect((await ana().get(`/exams/${draft.id}`)).body.status).toBe('ready')
       expect((await ana().get(`/exams/${closed.id}`)).body.status).toBe('closed')
+    })
+
+    /** The service is what generation on the server (#46) will call, with the same rule as the route. */
+    it('marks a draft as ready from the service too', async () => {
+      const draft = await created()
+      const service = createExamService({ exams: createExamRepository(db), questions: new QuestionRepository(db) })
+
+      await service.markReady('ana', draft.id)
+
+      expect((await ana().get(`/exams/${draft.id}`)).body.status).toBe('ready')
     })
   })
 
@@ -296,9 +305,10 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('exam routes (real MySQL)', () =
       bia().patch(`/exams/${exam.id}`, { title: 'Minha' }),
       bia().patch(`/exams/${exam.id}/archive`),
       bia().patch(`/exams/${exam.id}/restore`),
+      bia().patch(`/exams/${exam.id}/ready`),
     ])
 
-    expect(responses.map((response) => response.status)).toEqual([404, 404, 404, 404])
+    expect(responses.map((response) => response.status)).toEqual([404, 404, 404, 404, 404])
     expect((await bia().get('/exams')).body.total).toBe(0)
     expect((await ana().get(`/exams/${exam.id}`)).body.title).toBe(FORM.title)
     expect((await request(app).get('/exams')).status).toBe(401)
