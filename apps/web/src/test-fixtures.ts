@@ -27,11 +27,11 @@ export interface SeededApplication {
  * Written through the repositories rather than into storage, so a fixture can
  * never describe a shape the application itself would refuse.
  */
-export async function seedApplicationChain(): Promise<SeededApplication> {
+export async function seedApplicationChain(teacherId: string = TEST_TEACHER_ID): Promise<SeededApplication> {
   await signInForTests()
 
   const { questions, exams, classes, students, applications } = createTeacherRepositories(
-    TEST_TEACHER_ID,
+    teacherId,
   )
 
   const objective = await questions.create({

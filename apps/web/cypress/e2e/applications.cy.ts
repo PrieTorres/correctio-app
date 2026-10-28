@@ -55,6 +55,64 @@ describe('lista de aplicações', () => {
   })
 })
 
+/**
+ * The filter lives in the URL: the panel's "Correções pendentes" card links to
+ * it, and it has to survive a reload.
+ */
+describe('lista de aplicações: correção em andamento', () => {
+  const FILTERED_URL = /^\/aplicacoes\?status=correction-in-progress$/
+
+  it('explica que nada está em andamento quando nenhuma folha foi lida', () => {
+    cy.visit('/aplicacoes')
+    cy.chooseSegment('Correção em andamento')
+
+    cy.contains('Nenhuma correção em andamento').should('be.visible')
+    cy.contains('a', ALREADY_GENERATED).should('not.exist')
+  })
+
+  it('guarda a escolha na URL', () => {
+    cy.visit('/aplicacoes')
+    cy.chooseSegment('Correção em andamento')
+
+    cy.location().should((location) => expect(location.pathname + location.search).to.match(FILTERED_URL))
+  })
+
+  it('lista só a aplicação com folha lida esperando nota', () => {
+    cy.readFirstSheetOf(ALREADY_GENERATED)
+    cy.visit('/aplicacoes')
+    cy.chooseSegment('Correção em andamento')
+
+    cy.contains('a', ALREADY_GENERATED).should('be.visible')
+    cy.contains('a', TO_GENERATE).should('not.exist')
+  })
+
+  it('continua filtrada depois de recarregar a página', () => {
+    cy.readFirstSheetOf(ALREADY_GENERATED)
+    cy.visit('/aplicacoes?status=correction-in-progress')
+
+    cy.contains('label', 'Correção em andamento').find('input[type="radio"]').should('be.checked')
+    cy.contains('a', ALREADY_GENERATED).should('be.visible')
+    cy.reload()
+    cy.contains('label', 'Correção em andamento').find('input[type="radio"]').should('be.checked')
+    cy.contains('a', ALREADY_GENERATED).should('be.visible')
+  })
+
+  it('volta à lista normal ao escolher Ativas', () => {
+    cy.visit('/aplicacoes?status=correction-in-progress')
+    cy.chooseSegment('Ativas')
+
+    cy.contains('a', ALREADY_GENERATED).should('be.visible')
+    cy.contains('a', TO_GENERATE).should('be.visible')
+  })
+
+  it('abre a lista normal quando a URL traz um filtro desconhecido', () => {
+    cy.visit('/aplicacoes?status=nonsense')
+
+    cy.contains('a', ALREADY_GENERATED).should('be.visible')
+    cy.contains('label', 'Ativas').find('input[type="radio"]').should('be.checked')
+  })
+})
+
 describe('criar aplicação', () => {
   beforeEach(() => {
     cy.visit('/aplicacoes')
