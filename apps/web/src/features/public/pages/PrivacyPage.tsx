@@ -81,7 +81,7 @@ export function PrivacyPage() {
         </section>
       </Card>
 
-      <Link to={ROUTES.signIn} className="text-label text-primary underline">
+      <Link to={ROUTES.signIn} className="link-target text-label text-primary underline">
         Voltar para o início
       </Link>
     </div>

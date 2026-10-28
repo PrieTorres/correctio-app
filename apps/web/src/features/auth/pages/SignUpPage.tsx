@@ -79,7 +79,7 @@ export function SignUpPage() {
 
       <div className="mt-6 text-center text-label text-ink-muted">
         Já tem conta?{' '}
-        <Link to={ROUTES.signIn} className="text-primary hover:underline">
+        <Link to={ROUTES.signIn} className="link-target text-primary hover:underline">
           Entrar
         </Link>
       </div>

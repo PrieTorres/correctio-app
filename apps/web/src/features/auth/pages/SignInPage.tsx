@@ -116,13 +116,13 @@ export function SignInPage() {
         </Button>
       )}
 
-      <div className="mt-6 flex flex-col items-center gap-2 text-label">
-        <Link to={ROUTES.passwordReset} className="text-primary hover:underline">
+      <div className="mt-4 flex flex-col items-center text-label">
+        <Link to={ROUTES.passwordReset} className="link-target text-primary hover:underline">
           Esqueci minha senha
         </Link>
-        <span className="text-ink-muted">
+        <span className="flex flex-wrap items-center justify-center gap-x-1 text-ink-muted">
           Ainda não tem conta?{' '}
-          <Link to={ROUTES.signUp} className="text-primary hover:underline">
+          <Link to={ROUTES.signUp} className="link-target text-primary hover:underline">
             Criar conta
           </Link>
         </span>

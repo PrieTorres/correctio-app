@@ -166,6 +166,26 @@ describe('autenticação', () => {
     cy.location('pathname').should('eq', '/entrar')
   })
 
+  /** RNF11: a link is as wide as its words, but the finger needs 44 px of height to land on it. */
+  function expectTouchHeight(label: string): void {
+    cy.contains('a', label)
+      .should('be.visible')
+      .invoke('outerHeight')
+      .should('be.gte', 44)
+  }
+
+  it('dá 44 px de altura aos links das telas de acesso', () => {
+    cy.visit('/entrar')
+    expectTouchHeight('Esqueci minha senha')
+    expectTouchHeight('Criar conta')
+
+    cy.visit('/criar-conta')
+    expectTouchHeight('Entrar')
+
+    cy.visit('/recuperar-senha')
+    expectTouchHeight('Voltar para entrar')
+  })
+
   describe('com o Google', () => {
     it('oferece entrar com o Google', () => {
       cy.visit('/entrar')
