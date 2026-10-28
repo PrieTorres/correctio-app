@@ -19,7 +19,7 @@ import {
   seedIfEmpty,
   writeDemoData,
   type RemoteRoster,
-} from '../index'
+} from '../demo-data'
 
 const classes = () => createCollection('classes', classSchema).readAll()
 const students = () => createCollection('students', studentSchema).readAll()

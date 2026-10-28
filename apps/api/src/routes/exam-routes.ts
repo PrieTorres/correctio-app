@@ -11,7 +11,8 @@ import { createExamService } from '../services/exam-service'
  * nothing: the selection only becomes part of an exam when the teacher saves
  * it. Its path is matched before `/:id`, so `draw` is never read as an id.
  * `ready` takes no body: it only moves a draft to `ready`, and the screen
- * calls it after generating an application.
+ * calls it after generating an application. It goes away with #46, once the
+ * application is generated on the server and the service marks the exam there.
  */
 export function examRoutes(db: Kysely<Database>): Router {
   const exams = createExamController(createExamService({ exams: createExamRepository(db), questions: new QuestionRepository(db) }))

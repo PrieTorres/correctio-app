@@ -16,7 +16,8 @@ const drawResponseSchema = z.object({
  * The HTTP version of the exam repository, backed by `/exams` (#45). The draw
  * runs on the server, over the teacher's whole bank, and `markReady` calls
  * `PATCH /exams/:id/ready` while the application is still generated in the
- * browser (#46 moves that to the server).
+ * browser. `markReady` and its route go away with #46, once the application
+ * is generated on the server.
  */
 export function createHttpExamRepository(api: ApiClient): ExamRepository {
   const base = createHttpOwnedRepository<Exam, ExamInput>({ api, resource: '/exams', schema: examSchema })

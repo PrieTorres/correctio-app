@@ -289,3 +289,90 @@ describe('ExamFormPage, filling an exam already started', () => {
     expect(within(dialog).queryByText('Primeira questão')).toBeNull()
   })
 })
+
+describe('ExamFormPage, the automatic draw rules', () => {
+  beforeEach(async () => {
+    clearAllCollections()
+    await seedBank()
+    await repositories().questions.create({
+      type: 'objetiva',
+      statement: 'Terceira questão',
+      tags: ['Limites'],
+      alternatives: [
+        { id: 'b1', text: 'sim' },
+        { id: 'b2', text: 'não' },
+      ],
+      correctAlternativeId: 'b1',
+      allowShuffleAlternatives: true,
+    })
+  })
+
+  /** Puts "Primeira questão" in the exam and opens the draw asking for one objective, the only other one in the bank. */
+  async function openDrawWithOneObjectiveLeft(user: ReturnType<typeof userEvent.setup>) {
+    renderWithProviders(<ExamFormPage />)
+    await user.click(screen.getByRole('button', { name: /Adicionar do banco/ }))
+    const drawer = await screen.findByRole('dialog')
+    await user.click(await within(drawer).findByRole('checkbox', { name: 'Primeira questão' }))
+    await user.click(within(drawer).getByRole('button', { name: /Adicionar selecionadas/ }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    await user.click(screen.getByRole('button', { name: /Preencher automaticamente/ }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText(/questões disponíveis/)
+    const objectives = within(dialog).getByRole('spinbutton', { name: 'Quantas objetivas' })
+    await user.clear(objectives)
+    await user.type(objectives, '1')
+    return dialog
+  }
+
+  /** "Trocar" leaves out the exam too: with the exam's question excluded, there is nothing left to swap in. */
+  it('never swaps in a question that is already in the exam', async () => {
+    const user = userEvent.setup()
+    const dialog = await openDrawWithOneObjectiveLeft(user)
+    await user.click(within(dialog).getByRole('button', { name: /Gerar seleção/ }))
+    await within(dialog).findByText('Terceira questão')
+
+    await user.click(within(dialog).getByRole('button', { name: 'Trocar a questão Terceira questão' }))
+
+    expect(await within(dialog).findByRole('status')).toHaveTextContent('Não há outra questão do mesmo tipo')
+    expect(within(dialog).queryByText('Primeira questão')).toBeNull()
+    expect(within(dialog).getByText('Terceira questão')).toBeVisible()
+  })
+
+  /** A second click while a draw is on its way would draw twice and keep whichever answer came last. */
+  it('keeps "Gerar seleção" disabled while a draw is on its way', async () => {
+    const user = userEvent.setup()
+    const dialog = await openDrawWithOneObjectiveLeft(user)
+    const generate = within(dialog).getByRole('button', { name: /Gerar seleção/ })
+
+    await user.click(generate)
+
+    expect(generate).toBeDisabled()
+    await within(dialog).findByText('Terceira questão')
+    expect(generate).not.toBeDisabled()
+  })
+})
+
+describe('ExamFormPage, when the bank cannot be counted', () => {
+  beforeEach(async () => {
+    clearAllCollections()
+    await seedBank()
+  })
+
+  /** A failed count used to print "undefined questões" and let the draw go ahead with filters nobody saw the result of. */
+  it('says the count failed instead of printing a number, and does not draw', async () => {
+    const base = repositories()
+    const failingCount = { ...base, questions: { ...base.questions, list: () => Promise.reject(new Error('offline')) } }
+    renderWithProviders(
+      <Routes>
+        <Route path={ROUTES.generateExam} element={<ExamFormPage />} />
+      </Routes>,
+      { path: ROUTES.generateExam, services: { repositories: failingCount } },
+    )
+    const dialog = await screen.findByRole('dialog')
+
+    expect(await within(dialog).findByText(/Não foi possível contar as questões/)).toBeVisible()
+    expect(within(dialog).queryByText(/undefined/)).toBeNull()
+    expect(within(dialog).getByRole('button', { name: /Gerar seleção/ })).toBeDisabled()
+  })
+})

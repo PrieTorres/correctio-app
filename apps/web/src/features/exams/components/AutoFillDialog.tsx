@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2 } from 'lucide-react';
 import { Button, Modal, NumberInput, Tour } from '@/components/ui';
 import { useQuestionCount, useQuestionTags } from '@/features/questions';
+import type { UseQueryResult } from '@tanstack/react-query';
 import type { DrawResult } from '@/lib/exams';
 import type { Question } from '@/types/domain';
 import { useDrawQuestions } from '../hooks/useExams';
@@ -16,6 +17,17 @@ interface AutoFillDialogProps {
 }
 
 const NO_REPLACEMENT = 'Não há outra questão do mesmo tipo com esses filtros para colocar no lugar.';
+
+/**
+ * The counter line: still counting, the count failed, or how many questions
+ * the filters find. A failed count says so instead of printing a number it
+ * does not have, and the draw waits, since its filters were never checked.
+ */
+function availabilityLabel(count: UseQueryResult<number>, remainingSlots: number): string {
+  if (count.isPending) return 'Carregando o banco de questões…';
+  if (count.isError) return 'Não foi possível contar as questões do banco agora. Mude um filtro ou tente de novo em instantes.';
+  return `${count.data} questões disponíveis com estes filtros · cabem ${remainingSlots} nesta prova`;
+}
 
 /** The warning for a bank that could not supply everything asked, or nothing when it could. */
 function shortfallNotice(shortfall: DrawResult['shortfall']): string | null {
@@ -56,7 +68,7 @@ export function AutoFillDialog({
   const [notice, setNotice] = useState<string | null>(null);
 
   const { data: knownTags = [] } = useQuestionTags();
-  const { data: available, isPending: countPending } = useQuestionCount(tags);
+  const count = useQuestionCount(tags);
   const draw = useDrawQuestions();
 
   useEffect(() => {
@@ -109,7 +121,7 @@ export function AutoFillDialog({
     );
   };
 
-  const busy = countPending || draw.isPending;
+  const busy = count.isPending || count.isError || draw.isPending;
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} title="Gerar prova automaticamente">
@@ -166,9 +178,7 @@ export function AutoFillDialog({
         )}
 
         <p className="text-caption text-ink-subtle" aria-live="polite">
-          {countPending
-            ? 'Carregando o banco de questões…'
-            : `${available} questões disponíveis com estes filtros · cabem ${remainingSlots} nesta prova`}
+          {availabilityLabel(count, remainingSlots)}
         </p>
 
         <Button variant="secondary" onClick={generate} disabled={busy}>
@@ -229,7 +239,7 @@ export function AutoFillDialog({
         </div>
       </div>
 
-      <Tour screen="generateExam" ready={!countPending} inline />
+      <Tour screen="generateExam" ready={!count.isPending} inline />
     </Modal>
   );
 }
