@@ -15,6 +15,12 @@ import type { TeacherRepositories } from './index'
  */
 export interface PublicLookupRepository {
   findByCode: (code: string) => Promise<PublicLookup>
+  /**
+   * Whether the lookup reads this browser's data, which belongs to whoever is
+   * signed in here, as the demo does: the page then waits for the session
+   * first. The API needs none, since the code is the whole credential.
+   */
+  readsThisBrowser?: boolean
 }
 
 const UNEXPECTED_RESPONSE = 'O servidor respondeu num formato inesperado. Tente de novo em instantes.'
@@ -26,6 +32,8 @@ const UNEXPECTED_RESPONSE = 'O servidor respondeu num formato inesperado. Tente 
  */
 export function createLocalPublicLookupRepository(repositories: TeacherRepositories): PublicLookupRepository {
   return {
+    readsThisBrowser: true,
+
     async findByCode(code) {
       const sheet = await repositories.printing.findSheetByCode(code)
       if (sheet === null) return { status: 'INVALID_CODE' }
@@ -71,14 +79,10 @@ export function createHttpPublicLookupRepository(api: ApiClient): PublicLookupRe
 }
 
 /**
- * The HTTP version needs the sheets in the database, which the generation of an
- * application writes only once it runs on the API. Until then a sheet printed
- * in this browser would read as an invalid code, so the switch stays here.
- *
- * Issue #148 removes this switch, once applications are generated on the server.
+ * With an API client the lookup reads the server, which generates the sheets
+ * since #46; without one, which is the demo and the unit tests, it reads the
+ * sheets printed in this browser.
  */
-const SHEETS_ON_API = false
-
 export function createPublicLookupRepository(repositories: TeacherRepositories, api?: ApiClient): PublicLookupRepository {
-  return api !== undefined && SHEETS_ON_API ? createHttpPublicLookupRepository(api) : createLocalPublicLookupRepository(repositories)
+  return api === undefined ? createLocalPublicLookupRepository(repositories) : createHttpPublicLookupRepository(api)
 }

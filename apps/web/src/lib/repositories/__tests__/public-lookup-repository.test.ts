@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { clearAllCollections } from '@/lib/storage/collection'
 import { StorageError } from '@/lib/storage/errors'
+import { createTeacherRepositories } from '..'
 import type { ApiClient } from '../http/api-client'
-import { createHttpPublicLookupRepository } from '../public-lookup-repository'
+import { createHttpPublicLookupRepository, createPublicLookupRepository } from '../public-lookup-repository'
 
 const HEADER = {
   examTitle: 'Prova 1',
@@ -69,5 +71,27 @@ describe('createHttpPublicLookupRepository', () => {
     const request = vi.fn().mockRejectedValue(new StorageError('Espere.', 'rate-limited'))
 
     await expect(createHttpPublicLookupRepository({ request }).findByCode('X')).rejects.toMatchObject({ code: 'rate-limited' })
+  })
+})
+
+describe('createPublicLookupRepository', () => {
+  beforeEach(clearAllCollections)
+
+  /** The sheets are generated on the server since #46, so with a client the page reads them there. */
+  it('reads the public route of the API when there is a client, with no session to wait for', async () => {
+    const { api, request } = clientAnswering({ status: 'INVALID_CODE' })
+    const lookup = createPublicLookupRepository(createTeacherRepositories('ana'), api)
+
+    await lookup.findByCode('X')
+
+    expect(request).toHaveBeenCalledWith('GET', '/public/sheets/X')
+    expect(lookup.readsThisBrowser).toBeUndefined()
+  })
+
+  it('reads the sheets printed in this browser without a client, and says so', async () => {
+    const lookup = createPublicLookupRepository(createTeacherRepositories('ana'))
+
+    await expect(lookup.findByCode('X')).resolves.toEqual({ status: 'INVALID_CODE' })
+    expect(lookup.readsThisBrowser).toBe(true)
   })
 })

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, waitFor } from '@testing-library/react'
 import { CORRECTION_STATUS } from '@/types/domain'
 import { StorageError } from '@/lib/storage/errors'
+import { createLocalAuthProvider } from '@/lib/auth'
 import { createTeacherRepositories } from '@/lib/repositories'
 import { clearAllCollections } from '@/lib/storage/collection'
 import { renderHookWithProviders, TEST_TEACHER_ID } from '@/test-utils'
@@ -32,8 +33,37 @@ async function printedSheet() {
   return { seeded, sheet: sheets[0]!, versionId: versions[0]!.id }
 }
 
+/** A session check that never finishes, as on a slow network, to see what the lookup waits for. */
+const restoringForever = { ...createLocalAuthProvider(), restoreSession: () => new Promise<never>(() => {}) }
+
 describe('usePublicLookup', () => {
   beforeEach(clearAllCollections)
+
+  /** A student has no session, and the API needs none: the code is the whole credential. */
+  it('asks the API at once, without waiting for a session', async () => {
+    const findByCode = vi.fn().mockResolvedValue({ status: 'INVALID_CODE' })
+
+    const { result } = renderHookWithProviders(() => usePublicLookup('ABC'), {
+      auth: restoringForever,
+      publicLookup: { findByCode },
+    })
+
+    await waitFor(() => expect(result.current.data?.status).toBe('INVALID_CODE'))
+    expect(findByCode).toHaveBeenCalledWith('ABC')
+  })
+
+  /** In the demo the sheets belong to whoever is signed in here, so asking first would search nobody's. */
+  it('waits for the session before reading this browser', async () => {
+    const findByCode = vi.fn().mockResolvedValue({ status: 'INVALID_CODE' })
+
+    renderHookWithProviders(() => usePublicLookup('ABC'), {
+      auth: restoringForever,
+      publicLookup: { findByCode, readsThisBrowser: true },
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(findByCode).not.toHaveBeenCalled()
+  })
 
   it('reports an invalid code for something nobody printed', async () => {
     const { result } = renderHookWithProviders(() => usePublicLookup('NAOEXISTE'))
