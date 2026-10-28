@@ -6,6 +6,7 @@ import { renderHookWithProviders, TEST_TEACHER_ID } from '@/test-utils'
 import {
   applicationKeys,
   useApplication,
+  useApplicationFilterChoices,
   useApplicationList,
   useApplicationPrinting,
   useArchiveApplication,
@@ -64,7 +65,7 @@ const GENERATE = {
 
 describe('applicationKeys', () => {
   it('separates the active listing from the archived one', () => {
-    expect(applicationKeys.list(true, '')).not.toEqual(applicationKeys.list(false, ''))
+    expect(applicationKeys.list({ archived: true })).not.toEqual(applicationKeys.list({ archived: false }))
   })
 
   it('keeps the printing of one application apart from another', () => {
@@ -75,9 +76,19 @@ describe('applicationKeys', () => {
 describe('application data hooks', () => {
   beforeEach(clearAllCollections)
 
+  /** P11 sends its filters along, and the repository answers the page already filtered. */
+  it('lists only what the filters let through', async () => {
+    const { application } = await seedApplication()
+    await repositories().applications.create({ examId: 'another-exam', classId: application.classId, date: '2026-10-06T12:00:00.000Z' })
+
+    const { result } = renderHookWithProviders(() => useApplicationList({ examId: application.examId }))
+
+    await waitFor(() => expect(result.current.data?.items.map((item) => item.id)).toEqual([application.id]))
+  })
+
   it('lists an application once it is saved', async () => {
     await seedApplication()
-    const { result } = renderHookWithProviders(() => useApplicationList(false, ''))
+    const { result } = renderHookWithProviders(() => useApplicationList())
 
     await waitFor(() => expect(result.current.data?.items).toHaveLength(1))
   })
@@ -85,7 +96,7 @@ describe('application data hooks', () => {
   it('saves an application from the form input', async () => {
     const { result } = renderHookWithProviders(() => ({
       save: useSaveApplication(),
-      list: useApplicationList(false, ''),
+      list: useApplicationList(),
     }))
     await waitFor(() => expect(result.current.list.isSuccess).toBe(true))
 
@@ -116,8 +127,8 @@ describe('application data hooks', () => {
     const { application } = await seedApplication()
     const { result } = renderHookWithProviders(() => ({
       archive: useArchiveApplication(),
-      active: useApplicationList(false, ''),
-      archived: useApplicationList(true, ''),
+      active: useApplicationList(),
+      archived: useApplicationList({ archived: true }),
     }))
     await waitFor(() => expect(result.current.active.data?.items).toHaveLength(1))
 
@@ -131,7 +142,7 @@ describe('application data hooks', () => {
     const { application } = await seedApplication()
     const { result } = renderHookWithProviders(() => ({
       archive: useArchiveApplication(),
-      active: useApplicationList(false, ''),
+      active: useApplicationList(),
     }))
     await act(() => result.current.archive.mutateAsync({ id: application.id, archive: true }))
 
@@ -208,7 +219,7 @@ describe('application data hooks', () => {
     const { application } = await seedApplication()
     const { result } = renderHookWithProviders(() => ({
       release: useReleaseGrades(),
-      list: useApplicationList(false, ''),
+      list: useApplicationList(),
     }))
     await waitFor(() => expect(result.current.list.data?.items).toHaveLength(1))
 
@@ -274,6 +285,35 @@ describe('useSittingChoices', () => {
     await waitFor(() => expect(result.current.data).toBeDefined())
     expect(result.current.data?.exams.map((item) => item.title)).toEqual(['Prova'])
     expect(result.current.data?.classes.map((item) => item.name)).toEqual(['Turma'])
+  })
+})
+
+describe('useApplicationFilterChoices', () => {
+  beforeEach(clearAllCollections)
+
+  /** An application keeps its exam and class when they are archived later, and P11 still filters by them. */
+  it('offers every exam and class, the archived ones included and marked', async () => {
+    await seedApplication()
+    const { exams, classes } = repositories()
+    const archivedExam = await exams.create({
+      title: 'Prova antiga',
+      description: '',
+      questions: [],
+      defaultShuffleQuestions: false,
+      defaultShuffleAlternatives: false,
+    })
+    await exams.archive(archivedExam.id)
+    const archivedClass = await classes.create({ name: 'Turma antiga', subject: 'Matemática', term: '2025/2' })
+    await classes.archive(archivedClass.id)
+
+    const { result } = renderHookWithProviders(() => useApplicationFilterChoices())
+
+    await waitFor(() => expect(result.current.data).toBeDefined())
+    expect(result.current.data?.exams.map((option) => option.label)).toEqual(['Prova', 'Prova antiga (arquivada)'])
+    expect(result.current.data?.classes).toEqual([
+      expect.objectContaining({ label: 'Turma' }),
+      { value: archivedClass.id, label: 'Turma antiga (arquivada)' },
+    ])
   })
 })
 

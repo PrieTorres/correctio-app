@@ -6,7 +6,7 @@ import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
 import { useStudents } from '@/features/classes';
 import type { ApplicationOverview } from '@/types/domain';
-import { APPLICATION_STATUS_LABEL, examTitleOf, sittingOf } from '../application-labels';
+import { APPLICATION_STATUS_LABEL, correctionBlockerOf, examTitleOf, sittingOf } from '../application-labels';
 import { ArchiveApplicationDialog } from '../components/ArchiveApplicationDialog';
 import { EditDateDialog } from '../components/EditDateDialog';
 import { GradesCard } from '../components/GradesCard';
@@ -165,11 +165,12 @@ function ArchivedNotice({ onRestore }: Readonly<{ onRestore: () => void }>) {
 /**
  * How far the correction has gone, counting only the sheets whose correction
  * the teacher confirmed: one still waiting for an open-ended score is not
- * corrected yet.
+ * corrected yet. "Corrigir folhas" is a link, as on the panel and on P11's
+ * menu, and before the paper exists it says why there is nothing to correct.
  */
 function CorrectionCard({ application }: Readonly<{ application: ApplicationOverview }>) {
-  const navigate = useNavigate();
   const { correctedSheets, sheets } = application.progress;
+  const blocker = correctionBlockerOf(application);
 
   return (
     <Card className="flex flex-col gap-3 p-6">
@@ -177,14 +178,18 @@ function CorrectionCard({ application }: Readonly<{ application: ApplicationOver
       <p className="text-body text-ink-muted" aria-live="polite">
         {correctedSheets} de {sheets} folhas corrigidas
       </p>
-      <Button
-        variant="secondary"
-        className="self-start"
-        data-tour="grading"
-        onClick={() => void navigate(buildPath(ROUTES.grading, { id: application.id }))}
-      >
-        Corrigir folhas
-      </Button>
+      {blocker === undefined ? (
+        <Button variant="secondary" className="self-start" data-tour="grading">
+          <Link to={buildPath(ROUTES.grading, { id: application.id })}>Corrigir folhas</Link>
+        </Button>
+      ) : (
+        <>
+          <Button variant="secondary" className="self-start" data-tour="grading" disabled>
+            Corrigir folhas
+          </Button>
+          <p className="text-caption text-ink-subtle">{blocker}</p>
+        </>
+      )}
     </Card>
   );
 }

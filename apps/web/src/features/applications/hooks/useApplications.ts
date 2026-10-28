@@ -1,26 +1,59 @@
-import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
 import { applicationIdsInProgress, loadCorrectionsByApplication } from '@/lib/corrections';
+import type { ApplicationListParams } from '@/lib/repositories/application-repository';
 import { LARGEST_PAGE, readEveryPage } from '@/lib/repositories/read-every-page';
 import type { ApplicationInput, GenerationRequest } from '@/lib/schemas';
 import { saveFile } from '@/lib/utils';
+import { filterOptionsOf } from '../list-filters';
 
 export const applicationKeys = {
   all: ['applications'] as const satisfies QueryKey,
-  list: (archived: boolean, search: string) =>
-    ['applications', 'list', { archived, search }] as const,
+  list: (params: ApplicationListParams) => ['applications', 'list', params] as const,
   inProgress: ['applications', 'in-progress'] as const,
   detail: (id: string) => ['applications', 'detail', id] as const,
   printing: (id: string) => ['applications', 'printing', id] as const,
   choices: ['applications', 'choices'] as const,
+  filterChoices: ['applications', 'filter-choices'] as const,
 };
 
-export function useApplicationList(archived: boolean, search: string) {
+/**
+ * One page of applications, filtered and sorted by the server. The page on
+ * screen stays while the next one loads, so moving through the pages or
+ * changing a filter does not blank the list.
+ */
+export function useApplicationList(params: ApplicationListParams = {}) {
   const { repositories } = useServices();
 
   return useQuery({
-    queryKey: applicationKeys.list(archived, search),
-    queryFn: () => repositories.applications.list({ search, archived: archived }),
+    queryKey: applicationKeys.list(params),
+    queryFn: () => repositories.applications.list(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * Every class and exam of the teacher, archived ones included, for the filters
+ * of P11. A teacher with more than a page of either still finds the one to
+ * filter by.
+ */
+export function useApplicationFilterChoices() {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: applicationKeys.filterChoices,
+    queryFn: async () => {
+      const [activeExams, archivedExams, activeClasses, archivedClasses] = await Promise.all([
+        readEveryPage((page) => repositories.exams.list({ page, pageSize: LARGEST_PAGE })),
+        readEveryPage((page) => repositories.exams.list({ page, pageSize: LARGEST_PAGE, archived: true })),
+        readEveryPage((page) => repositories.classes.list({ page, pageSize: LARGEST_PAGE })),
+        readEveryPage((page) => repositories.classes.list({ page, pageSize: LARGEST_PAGE, archived: true })),
+      ]);
+      return {
+        exams: filterOptionsOf([...activeExams, ...archivedExams], (exam) => exam.title),
+        classes: filterOptionsOf([...activeClasses, ...archivedClasses], (group) => group.name),
+      };
+    },
   });
 }
 

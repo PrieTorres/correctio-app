@@ -1,5 +1,5 @@
 import { Download, FileText } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button, Card, SaveError } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
@@ -15,15 +15,14 @@ import { useDownloadApplicationPdf } from '../hooks/useApplications';
  *
  * Without a server there is no PDF at all: the demo prints versions and sheets
  * in the browser, and says so instead of offering a download that cannot work.
+ *
+ * "Gerar PDF" is a link to P13 carrying where it started, so "Voltar" there
+ * leads back here.
  */
 export function PdfCard({ application }: Readonly<{ application: ApplicationOverview }>) {
-  const navigate = useNavigate();
   const download = useDownloadApplicationPdf();
   const printed = application.progress.versions > 0;
   const verdict = canRegenerate(application, application.progress.corrections);
-
-  const generate = () =>
-    void navigate(buildPath(ROUTES.applicationPdf, { id: application.id }), { state: fromDetailOf(application.id) });
 
   return (
     <Card data-tour="pdf" className="flex flex-col gap-4 p-6">
@@ -46,8 +45,10 @@ export function PdfCard({ application }: Readonly<{ application: ApplicationOver
           </Button>
         )}
         {!printed && verdict.allowed && (
-          <Button variant="primary" icon={<FileText size={18} aria-hidden />} onClick={generate}>
-            Gerar PDF
+          <Button variant="primary" icon={<FileText size={18} aria-hidden />}>
+            <Link to={buildPath(ROUTES.applicationPdf, { id: application.id })} state={fromDetailOf(application.id)}>
+              Gerar PDF
+            </Link>
           </Button>
         )}
       </div>

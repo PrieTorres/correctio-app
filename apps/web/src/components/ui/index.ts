@@ -5,6 +5,7 @@ export { Card } from './Card'
 export { ConfirmDialog } from './ConfirmDialog'
 export { Drawer } from './Drawer'
 export { EmptyState } from './EmptyState'
+export { FilterSelect, type FilterOption } from './FilterSelect'
 export { HelpButton } from './HelpButton'
 export {
   ApplicationsIllustration,

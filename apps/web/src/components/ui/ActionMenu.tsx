@@ -18,11 +18,22 @@ export interface MenuAction {
  * The secondary actions of a screen behind one button, such as the header of
  * P14. Built on Radix, which brings the keyboard of a menu (arrows, `Esc`,
  * typing the first letter) and its ARIA, as the dialogs do with Radix Dialog.
+ *
+ * `accessibleName` tells apart the menus of a list, where every button reads
+ * the same "Ações"; it starts with the visible label, so a voice command that
+ * says what is on screen still finds the button.
  */
-export function ActionMenu({ label, actions }: Readonly<{ label: string; actions: readonly MenuAction[] }>) {
+export function ActionMenu({
+  label,
+  actions,
+  accessibleName,
+}: Readonly<{ label: string; actions: readonly MenuAction[]; accessibleName?: string }>) {
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger className="touch-target inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] border border-primary bg-surface px-4 text-label font-semibold text-primary transition-colors hover:bg-surface-muted">
+      <DropdownMenu.Trigger
+        aria-label={accessibleName}
+        className="touch-target inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] border border-primary bg-surface px-4 text-label font-semibold text-primary transition-colors hover:bg-surface-muted"
+      >
         {label}
         <ChevronDown size={16} aria-hidden />
       </DropdownMenu.Trigger>

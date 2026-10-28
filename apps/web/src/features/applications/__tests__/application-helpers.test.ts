@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { examTitleOf, shuffleOf, sittingOf } from '../application-labels'
+import { answerKeyBadgeOf, correctionBlockerOf, examTitleOf, shuffleOf, sittingOf } from '../application-labels'
 import { fromDetailOf, returnPathFrom } from '../generation-origin'
 import { versionShufflesOf, withChange, withinCount } from '../version-shuffles'
 
@@ -14,6 +14,24 @@ describe('application labels', () => {
   it('says when the exam is gone', () => {
     expect(examTitleOf({ examTitle: 'Cálculo I — P1' })).toBe('Cálculo I — P1')
     expect(examTitleOf({ examTitle: '' })).toBe('Prova removida')
+  })
+
+  /** P11 shows whether the students can see the key; before the paper exists there is nothing to say. */
+  it('says whether the answer keys were published, and how far a partial publication went', () => {
+    expect(answerKeyBadgeOf({ versions: 0, publishedAnswerKeys: 0 })).toBeNull()
+    expect(answerKeyBadgeOf({ versions: 2, publishedAnswerKeys: 0 })).toEqual({ label: 'Gabarito não publicado', tone: 'neutral' })
+    expect(answerKeyBadgeOf({ versions: 3, publishedAnswerKeys: 1 })).toEqual({
+      label: 'Gabarito publicado em 1 de 3 versões',
+      tone: 'warning',
+    })
+    expect(answerKeyBadgeOf({ versions: 2, publishedAnswerKeys: 2 })).toEqual({ label: 'Gabarito publicado', tone: 'success' })
+  })
+
+  it('blocks the correction only while there is no sheet to correct', () => {
+    expect(correctionBlockerOf({ progress: { versions: 0, publishedAnswerKeys: 0, sheets: 0, correctedSheets: 0, corrections: 0 } })).toBe(
+      'Gere o PDF antes de corrigir as folhas.',
+    )
+    expect(correctionBlockerOf({ progress: { versions: 1, publishedAnswerKeys: 0, sheets: 12, correctedSheets: 0, corrections: 0 } })).toBeUndefined()
   })
 
   it('describes what a version did with the order of the exam', () => {

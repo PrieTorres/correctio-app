@@ -1,6 +1,6 @@
 import type { BadgeTone } from '@/components/ui';
 import { formatDate } from '@/lib/utils';
-import type { ApplicationOverview, ApplicationStatus, ExamVersion } from '@/types/domain';
+import type { ApplicationOverview, ApplicationProgress, ApplicationStatus, ExamVersion } from '@/types/domain';
 
 /** How each status reads on screen; `generated` is about the paper, which is what the teacher waits for. */
 export const APPLICATION_STATUS_LABEL: Readonly<Record<ApplicationStatus, { label: string; tone: BadgeTone }>> = {
@@ -22,6 +22,28 @@ export function examTitleOf(application: Pick<ApplicationOverview, 'examTitle'>)
 export function sittingOf(application: Pick<ApplicationOverview, 'className' | 'date'>): string {
   const className = application.className === '' ? 'Turma removida' : application.className;
   return `${className} · ${formatDate(application.date)}`;
+}
+
+/**
+ * Whether the students can see the answer key, as P11 marks each item. Nothing
+ * before the paper exists, and a partial publication says how far it went,
+ * since the versions still hidden are the ones the teacher has to look for.
+ */
+export function answerKeyBadgeOf({
+  versions,
+  publishedAnswerKeys,
+}: Pick<ApplicationProgress, 'versions' | 'publishedAnswerKeys'>): { label: string; tone: BadgeTone } | null {
+  if (versions === 0) return null;
+  if (publishedAnswerKeys === 0) return { label: 'Gabarito não publicado', tone: 'neutral' };
+  if (publishedAnswerKeys < versions) {
+    return { label: `Gabarito publicado em ${publishedAnswerKeys} de ${versions} versões`, tone: 'warning' };
+  }
+  return { label: 'Gabarito publicado', tone: 'success' };
+}
+
+/** Why "Corrigir folhas" cannot start yet: before the paper exists there is no sheet to correct. */
+export function correctionBlockerOf(application: Pick<ApplicationOverview, 'progress'>): string | undefined {
+  return application.progress.sheets === 0 ? 'Gere o PDF antes de corrigir as folhas.' : undefined;
 }
 
 /** What a printed version did with the order of the exam, as P14 lists the versions. */
