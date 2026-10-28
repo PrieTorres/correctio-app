@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
 import type { Application } from '@/types/domain';
+import { countPendingCorrections, loadCorrectionsByApplication } from '@/lib/corrections';
 import { gradableApplications } from '../grading-shortcut';
 
 export const dashboardKeys = {
@@ -20,6 +21,8 @@ export interface DashboardSummary {
   questions: number;
   exams: number;
   applications: number;
+  /** Corrections waiting for an open-ended score (RF48) or for a student (RF31), counted once each. */
+  pendingCorrections: number;
   recent: RecentActivity[];
   /** What "Corrigir folhas" offers: the applications with printed sheets, the most recent first. */
   gradable: RecentActivity[];
@@ -31,6 +34,7 @@ export const EMPTY_SUMMARY: DashboardSummary = {
   questions: 0,
   exams: 0,
   applications: 0,
+  pendingCorrections: 0,
   recent: [],
   gradable: [],
 };
@@ -54,6 +58,9 @@ export function useDashboardSummary() {
         repositories.applications.list({ pageSize: 1000 }),
       ]);
 
+      const correctionsByApplication = await loadCorrectionsByApplication(repositories, applications.items);
+      const pendingCorrections = countPendingCorrections([...correctionsByApplication.values()].flat());
+
       const examTitle = new Map(exams.items.map((exam) => [exam.id, exam.title]));
       const className = new Map(classes.items.map((item) => [item.id, item.name]));
       const toActivity = (application: Application): RecentActivity => ({
@@ -73,6 +80,7 @@ export function useDashboardSummary() {
         questions: questions.total,
         exams: exams.total,
         applications: applications.total,
+        pendingCorrections,
         recent,
         gradable: gradableApplications(applications.items).map(toActivity),
       };

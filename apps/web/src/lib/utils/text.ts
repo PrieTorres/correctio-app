@@ -25,3 +25,8 @@ export function matchesSearch(term: string, ...fields: string[]): boolean {
 export function compareByLocale(a: string, b: string): number {
   return a.localeCompare(b, LOCALE)
 }
+
+/** The first word of a full name, or an empty string when there is no name to greet. */
+export function firstName(fullName: string | undefined): string {
+  return fullName?.trim().split(/\s+/)[0] ?? ''
+}

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
+import { applicationIdsInProgress, loadCorrectionsByApplication } from '@/lib/corrections';
 import { LARGEST_PAGE, readEveryPage } from '@/lib/repositories/read-every-page';
 import type { ApplicationInput, GenerationRequest } from '@/lib/schemas';
 import { saveFile } from '@/lib/utils';
@@ -8,6 +9,7 @@ export const applicationKeys = {
   all: ['applications'] as const satisfies QueryKey,
   list: (archived: boolean, search: string) =>
     ['applications', 'list', { archived, search }] as const,
+  inProgress: ['applications', 'in-progress'] as const,
   detail: (id: string) => ['applications', 'detail', id] as const,
   printing: (id: string) => ['applications', 'printing', id] as const,
   choices: ['applications', 'choices'] as const,
@@ -39,6 +41,25 @@ export function useSittingChoices() {
       ]);
       return { exams, classes };
     },
+  });
+}
+
+/**
+ * The ids of the active applications with a correction still waiting for a
+ * score. Read only while that filter is on screen, since it costs a read of
+ * every sheet and correction.
+ */
+export function useApplicationIdsInProgress(enabled: boolean) {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: applicationKeys.inProgress,
+    queryFn: async () => {
+      const { items } = await repositories.applications.list({ pageSize: 1000 });
+      const byApplication = await loadCorrectionsByApplication(repositories, items);
+      return [...applicationIdsInProgress(byApplication)];
+    },
+    enabled,
   });
 }
 

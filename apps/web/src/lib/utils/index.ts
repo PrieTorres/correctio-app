@@ -1,5 +1,5 @@
 export { cn } from './cn'
 export { createId, createInviteCode } from './id'
-export { compareByLocale, matchesSearch, normalize } from './text'
+export { compareByLocale, firstName, matchesSearch, normalize } from './text'
 export { formatDate, toDateInputValue, fromDateInputValue } from './date'
 export { saveFile } from './save-file'
