@@ -1,4 +1,4 @@
-import type { Page } from '../types'
+import type { Page } from './types'
 
 /**
  * The largest page the API serves (`MAX_PAGE_SIZE` in

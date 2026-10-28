@@ -143,7 +143,7 @@ describe('download', () => {
   }
 
   it('answers the file and the name the API gave it, asking with the token', async () => {
-    const fetchFn = respondWithFile({ 'Content-Disposition': 'attachment; filename="prova-2026-10-05.pdf"' })
+    const fetchFn = respondWithFile({ 'Content-Disposition': 'attachment; filename=prova-2026-10-05.pdf' })
 
     const file = await clientWith(fetchFn).api.download('/applications/a1/pdf')
 
@@ -152,6 +152,12 @@ describe('download', () => {
     const { url, init } = requestOf(fetchFn)
     expect([url, init.method]).toEqual(['/api/applications/a1/pdf', 'GET'])
     expect(new Headers(init.headers).get('Authorization')).toBe('Bearer token-ana')
+  })
+
+  it('reads a quoted name too, as a name with spaces arrives', async () => {
+    const fetchFn = respondWithFile({ 'Content-Disposition': 'attachment; filename="prova de cálculo.pdf"' })
+
+    expect((await clientWith(fetchFn).api.download('/applications/a1/pdf')).filename).toBe('prova de cálculo.pdf')
   })
 
   it('leaves the name out when the response does not give one', async () => {

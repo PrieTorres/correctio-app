@@ -11,10 +11,12 @@ import {
   useArchiveApplication,
   useDownloadApplicationPdf,
   useGenerateApplication,
+  usePrintedPaper,
   usePublishAllAnswerKeys,
   usePublishAnswerKey,
   useReleaseGrades,
   useSaveApplication,
+  useSittingChoices,
 } from '../useApplications'
 
 const repositories = () => createTeacherRepositories(TEST_TEACHER_ID)
@@ -247,6 +249,64 @@ describe('application data hooks', () => {
     await act(() => result.current.publishAll.mutateAsync(application.id))
 
     await waitFor(() => expect(result.current.application.data?.progress.publishedAnswerKeys).toBe(2), { timeout: 8000 })
+  })
+})
+
+describe('useSittingChoices', () => {
+  beforeEach(clearAllCollections)
+
+  it('offers every active exam and class, leaving the archived ones out', async () => {
+    await seedApplication()
+    const { exams, classes } = repositories()
+    const archivedExam = await exams.create({
+      title: 'Prova antiga',
+      description: '',
+      questions: [],
+      defaultShuffleQuestions: false,
+      defaultShuffleAlternatives: false,
+    })
+    await exams.archive(archivedExam.id)
+    const archivedClass = await classes.create({ name: 'Turma antiga', subject: 'Matemática', term: '2025/2' })
+    await classes.archive(archivedClass.id)
+
+    const { result } = renderHookWithProviders(() => useSittingChoices())
+
+    await waitFor(() => expect(result.current.data).toBeDefined())
+    expect(result.current.data?.exams.map((item) => item.title)).toEqual(['Prova'])
+    expect(result.current.data?.classes.map((item) => item.name)).toEqual(['Turma'])
+  })
+})
+
+describe('usePrintedPaper', () => {
+  beforeEach(clearAllCollections)
+
+  it('reads the versions and the sheets of an application once they exist', async () => {
+    const { application } = await seedApplication()
+    const { result } = renderHookWithProviders(() => ({
+      generate: useGenerateApplication(),
+      paper: usePrintedPaper(application.id),
+    }))
+    expect(result.current.paper).toEqual({ versions: [], sheets: [] })
+
+    await act(() => result.current.generate.mutateAsync({ id: application.id, request: GENERATE }))
+
+    await waitFor(() => expect(result.current.paper.versions).toHaveLength(2), { timeout: 8000 })
+    expect(result.current.paper.sheets).toHaveLength(2)
+  })
+
+  /** A draft has nothing printed either, and its cards already say so. */
+  it('reads as nothing printed when the paper cannot be read', async () => {
+    const teacher = createTeacherRepositories(TEST_TEACHER_ID)
+    const failing = () => Promise.reject(new Error('sem conexão'))
+    const { result } = renderHookWithProviders(() => useApplicationPrinting('a1'), {
+      repositories: { ...teacher, printing: { ...teacher.printing, listVersions: failing, listSheets: failing } },
+    })
+    const paper = renderHookWithProviders(() => usePrintedPaper('a1'), {
+      repositories: { ...teacher, printing: { ...teacher.printing, listVersions: failing, listSheets: failing } },
+    })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(paper.result.current).toEqual({ versions: [], sheets: [] })
   })
 })
 

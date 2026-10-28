@@ -213,6 +213,15 @@ describe('application repository', () => {
     expect(released).toMatchObject({ gradesReleased: true, examTitle: 'Cálculo I — P1', className: 'Turma A' })
   })
 
+  it('says what is missing when the application or its exam is not there', async () => {
+    const { applications } = repositoriesOf('ana')
+    const withoutExam = await applications.create(input)
+
+    await expect(applications.generate('nope', { versions: [KEEP_ORDER], withStudentIdentification: true })).rejects.toThrow('Aplicação não encontrada.')
+    await expect(applications.generate(withoutExam.id, { versions: [KEEP_ORDER], withStudentIdentification: true })).rejects.toThrow('Prova não encontrada.')
+    await expect(applications.setGradesReleased('nope', true)).rejects.toThrow('Aplicação não encontrada.')
+  })
+
   it('says the PDF does not exist without a server to draw it', async () => {
     const { application } = await seedSitting()
 

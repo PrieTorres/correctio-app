@@ -3,7 +3,7 @@ import { StorageError } from '@/lib/storage/errors'
 import type { PrintingRepository } from '../printing-repository'
 import type { ApiClient } from './api-client'
 import { parsePage, type ResponseSchema } from './create-http-repository'
-import { LARGEST_PAGE, readEveryPage } from './read-every-page'
+import { LARGEST_PAGE, readEveryPage } from '../read-every-page'
 
 /** Never shown on a screen: the public page reads its own route whenever there is an API. */
 const NO_LOOKUP_BY_CODE = 'A folha pelo código é consultada pela rota pública, não pelo professor.'

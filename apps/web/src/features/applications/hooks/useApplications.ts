@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
+import { LARGEST_PAGE, readEveryPage } from '@/lib/repositories/read-every-page';
 import type { ApplicationInput, GenerationRequest } from '@/lib/schemas';
 import { saveFile } from '@/lib/utils';
 
@@ -9,6 +10,7 @@ export const applicationKeys = {
     ['applications', 'list', { archived, search }] as const,
   detail: (id: string) => ['applications', 'detail', id] as const,
   printing: (id: string) => ['applications', 'printing', id] as const,
+  choices: ['applications', 'choices'] as const,
 };
 
 export function useApplicationList(archived: boolean, search: string) {
@@ -17,6 +19,26 @@ export function useApplicationList(archived: boolean, search: string) {
   return useQuery({
     queryKey: applicationKeys.list(archived, search),
     queryFn: () => repositories.applications.list({ search, archived: archived }),
+  });
+}
+
+/**
+ * Every active exam and class, for the choices of P12. A teacher with more
+ * than a page of either still finds the one to apply: the lists of P8 and P3
+ * page, and a choice limited to their first page would hide the rest.
+ */
+export function useSittingChoices() {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: applicationKeys.choices,
+    queryFn: async () => {
+      const [exams, classes] = await Promise.all([
+        readEveryPage((page) => repositories.exams.list({ page, pageSize: LARGEST_PAGE })),
+        readEveryPage((page) => repositories.classes.list({ page, pageSize: LARGEST_PAGE })),
+      ]);
+      return { exams, classes };
+    },
   });
 }
 
@@ -46,6 +68,19 @@ export function useApplicationPrinting(id: string | undefined) {
     },
     enabled: id !== undefined,
   });
+}
+
+const NO_PAPER = { versions: [], sheets: [] } as const;
+
+/**
+ * The versions and sheets of an application for its detail, as empty lists
+ * when they could not be read: a draft has none either, and the cards of P14
+ * already say that nothing was generated, which beats an error over half of
+ * the screen.
+ */
+export function usePrintedPaper(id: string) {
+  const { data, isError } = useApplicationPrinting(id);
+  return isError || data === undefined ? NO_PAPER : data;
 }
 
 function useInvalidateApplications() {

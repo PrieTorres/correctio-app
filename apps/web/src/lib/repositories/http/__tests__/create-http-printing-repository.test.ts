@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { StorageError } from '@/lib/storage/errors'
 import type { ApiClient, HttpMethod, RequestOptions } from '../api-client'
 import { createHttpPrintingRepository } from '../create-http-printing-repository'
-import { LARGEST_PAGE } from '../read-every-page'
+import { LARGEST_PAGE } from '../../read-every-page'
 
 type Answer = (method: HttpMethod, path: string, options?: RequestOptions) => Promise<unknown>
 

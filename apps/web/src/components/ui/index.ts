@@ -1,3 +1,4 @@
+export { ActionMenu, type MenuAction } from './ActionMenu'
 export { Badge, type BadgeTone } from './Badge'
 export { Button, type ButtonVariant } from './Button'
 export { Card } from './Card'

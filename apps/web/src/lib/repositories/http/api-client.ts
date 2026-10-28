@@ -128,8 +128,11 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-/** `attachment; filename="prova-2026-10-05.pdf"`, as Express writes it for `res.attachment`. */
-const ATTACHMENT_NAME = /filename="([^"]+)"/
+/**
+ * The name in `Content-Disposition`. Express quotes it only when it must, so
+ * `res.attachment('prova-2026-10-05.pdf')` arrives as `filename=prova-2026-10-05.pdf`.
+ */
+const ATTACHMENT_NAME = /filename="?([^";]+)"?/
 
 function filenameOf(response: Response): string | undefined {
   return ATTACHMENT_NAME.exec(response.headers.get('Content-Disposition') ?? '')?.[1]

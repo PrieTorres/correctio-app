@@ -7,7 +7,7 @@ import { StorageError } from '@/lib/storage/errors'
 import { compareByLocale, createId } from '@/lib/utils'
 import type { ApiClient } from './http/api-client'
 import { parseEntity, parsePage } from './http/create-http-repository'
-import { LARGEST_PAGE, readEveryPage } from './http/read-every-page'
+import { LARGEST_PAGE, readEveryPage } from './read-every-page'
 
 export interface ImportResult {
   created: number
