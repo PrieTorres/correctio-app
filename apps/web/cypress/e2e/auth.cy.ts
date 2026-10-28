@@ -166,6 +166,14 @@ describe('autenticação', () => {
     cy.location('pathname').should('eq', '/entrar')
   })
 
+  /** A border that only changes shade is easy to miss by keyboard, so the field gets the 2 px ring buttons and links have. */
+  it('mostra o contorno de foco de 2 px nos campos de texto', () => {
+    cy.visit('/entrar')
+
+    cy.findByLabel('E-mail').focus().should('have.css', 'outline-style', 'solid').and('have.css', 'outline-width', '2px')
+    cy.findByLabel('Senha').focus().should('have.css', 'outline-style', 'solid').and('have.css', 'outline-width', '2px')
+  })
+
   describe('com o Google', () => {
     it('oferece entrar com o Google', () => {
       cy.visit('/entrar')
