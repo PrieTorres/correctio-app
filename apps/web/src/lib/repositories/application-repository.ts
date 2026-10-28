@@ -16,7 +16,7 @@ import { formatDate } from '@/lib/utils'
 import type { ClassRepository } from './class-repository'
 import type { CorrectionRepository } from './correction-repository'
 import { archiveByStatus, createOwnedRepository } from './create-owned-repository'
-import type { ExamRepository } from './exam-repository'
+import type { LocalExamRepository } from './exam-repository'
 import type { LocalPrintingRepository } from './printing-repository'
 import type { QuestionRepository } from './question-repository'
 import type { StudentRepository } from './student-repository'
@@ -59,14 +59,9 @@ export interface ApplicationRepository extends OwnedRepository<ApplicationOvervi
   downloadPdf: (id: string) => Promise<ApplicationPdf>
 }
 
-/**
- * What the browser version reads beyond its own records: the other
- * repositories of the teacher, wherever they live. The exam, the class and the
- * students come from the API once their screens moved there, and the paper and
- * the corrections from this browser.
- */
+/** What the browser version reads beyond its own records: the other repositories of the teacher in this browser. */
 export interface LocalApplicationSources {
-  exams: Pick<ExamRepository, 'getById' | 'markReady'>
+  exams: Pick<LocalExamRepository, 'getById' | 'markReady'>
   classes: Pick<ClassRepository, 'getById'>
   questions: Pick<QuestionRepository, 'list'>
   students: Pick<StudentRepository, 'listByClass'>

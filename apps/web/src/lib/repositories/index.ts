@@ -7,6 +7,8 @@ import { createLocalQuestionRepository, type QuestionRepository } from './questi
 import { createHttpStudentRepository, createLocalStudentRepository, type StudentRepository } from './student-repository'
 import { createHttpQuestionRepository } from './http/create-http-question-repository'
 import { createHttpExamRepository } from './http/create-http-exam-repository'
+import { createHttpApplicationRepository } from './http/create-http-application-repository'
+import { createHttpPrintingRepository } from './http/create-http-printing-repository'
 import type { ApiClient, FileClient } from './http/api-client'
 
 export * from './types'
@@ -40,19 +42,24 @@ export interface TeacherRepositories {
  * teacher's data. A student area would add a sibling factory scoped to a
  * student, rather than widening this one.
  *
- * With an API client, the areas already on the API read and write there:
- * classes and students since #42, questions since #44, exams since #45. Each
- * other entry switches in the issue that wires its screens to the API (#46,
- * #48, #49 and #50). Without a client, which is the GitHub Pages demo and the unit
- * tests, every entry stays in this browser.
+ * With an API client, the areas on the API read and write there: classes and
+ * students since #42, questions since #44, exams since #45, and applications
+ * with their versions and sheets since #46. The corrections switch in the
+ * issue that wires their screens to the API (#48). Without a client, which is
+ * the GitHub Pages demo and the unit tests, every entry stays in this browser.
  */
 export function createTeacherRepositories(teacherId: string, api?: ApiClient & FileClient): TeacherRepositories {
-  const classes = api === undefined ? createLocalClassRepository(teacherId) : createHttpClassRepository(api)
-  const students = api === undefined ? createLocalStudentRepository() : createHttpStudentRepository(api)
-  const questions = api === undefined ? createLocalQuestionRepository(teacherId) : createHttpQuestionRepository(api)
-  const exams = api === undefined ? createLocalExamRepository(teacherId) : createHttpExamRepository(api)
-  const printing = createLocalPrintingRepository()
   const corrections = createLocalCorrectionRepository()
+  return api === undefined ? inThisBrowser(teacherId, corrections) : onTheApi(api, corrections)
+}
+
+/** The demo and the unit tests: the applications are generated here, from the other repositories of this browser. */
+function inThisBrowser(teacherId: string, corrections: CorrectionRepository): TeacherRepositories {
+  const classes = createLocalClassRepository(teacherId)
+  const students = createLocalStudentRepository()
+  const questions = createLocalQuestionRepository(teacherId)
+  const exams = createLocalExamRepository(teacherId)
+  const printing = createLocalPrintingRepository()
 
   return {
     classes,
@@ -61,6 +68,18 @@ export function createTeacherRepositories(teacherId: string, api?: ApiClient & F
     exams,
     applications: createLocalApplicationRepository(teacherId, { exams, classes, questions, students, printing, corrections }),
     printing,
+    corrections,
+  }
+}
+
+function onTheApi(api: ApiClient & FileClient, corrections: CorrectionRepository): TeacherRepositories {
+  return {
+    classes: createHttpClassRepository(api),
+    students: createHttpStudentRepository(api),
+    questions: createHttpQuestionRepository(api),
+    exams: createHttpExamRepository(api),
+    applications: createHttpApplicationRepository(api),
+    printing: createHttpPrintingRepository(api),
     corrections,
   }
 }
