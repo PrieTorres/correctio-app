@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import {
   applicationInputSchema,
   applicationStatusSchema,
+  canReleaseGrades,
   correctionProgressSchema,
   type Application,
   type ApplicationInput,
@@ -17,6 +18,7 @@ import { parseRequest } from '../lib/parse-request'
 import type {
   ApplicationClash,
   ApplicationRepository,
+  ReleaseBlocker,
   Sitting,
   SittingBlocker,
   StoredApplication,
@@ -27,8 +29,6 @@ import type { ExamRepository } from '../repositories/exam-repository'
 const NOT_FOUND = 'Aplicação não encontrada.'
 const NO_PDF = 'O PDF desta aplicação ainda não foi gerado.'
 const PDF_FILE_MISSING = 'O arquivo do PDF não foi encontrado. Gere a prova de novo.'
-const NOTHING_GENERATED = 'Gere a prova antes de liberar as notas.'
-const ANSWER_KEY_PENDING = 'Publique o gabarito de todas as versões antes de liberar as notas.'
 const CLOSED_OUTSIDE_ARCHIVED = 'A situação closed só existe entre as aplicações arquivadas: use archived=true.'
 const ACTIVE_STATUS_IN_ARCHIVED = 'Entre as aplicações arquivadas, a única situação é closed.'
 
@@ -42,7 +42,6 @@ const DUPLICATE = 'Já existe uma aplicação com estes dados.'
 const DUPLICATE_ARCHIVED = 'Já existe uma aplicação arquivada com estes dados. Restaure em vez de criar outra.'
 
 const ARCHIVED_EDIT = 'Esta aplicação está arquivada. Restaure a aplicação antes de editá-la.'
-const ARCHIVED_RELEASE = 'Esta aplicação está arquivada. Restaure a aplicação antes de liberar as notas.'
 const PAPER_BELONGS_TO_SITTING =
   'Esta aplicação já foi gerada, e as folhas impressas são desta prova e desta turma. Para mudar uma delas, crie outra aplicação.'
 
@@ -157,14 +156,18 @@ function editBlocker(movesPaper: boolean): SittingBlocker {
 }
 
 /**
- * What stops the release of grades, if anything. A grade never shows without
- * the answer key (RF46, `docs/Seguranca_e_LGPD.md`, section 3), so every printed
- * version needs its key published, and an application with nothing printed
- * has no key at all.
+ * What stops the release of grades, if anything: the rule of the domain, which
+ * P14 also shows (RF46, `docs/Seguranca_e_LGPD.md`, section 3), asked with the
+ * answer keys the repository reads under lock.
  */
-function releaseBlocker(answerKeysPublished: readonly boolean[]): string | undefined {
-  if (answerKeysPublished.length === 0) return NOTHING_GENERATED
-  return answerKeysPublished.every(Boolean) ? undefined : ANSWER_KEY_PENDING
+function releaseBlocker(application: Pick<Application, 'status'>): ReleaseBlocker {
+  return (answerKeysPublished) => {
+    const verdict = canReleaseGrades(application, {
+      versions: answerKeysPublished.length,
+      publishedAnswerKeys: answerKeysPublished.filter(Boolean).length,
+    })
+    return verdict.allowed ? undefined : verdict.reason
+  }
 }
 
 /**
@@ -281,8 +284,7 @@ export function createApplicationService({ applications, exams, classes, fileSto
       const { released } = parseRequest(gradesReleaseSchema, body)
 
       if (released) {
-        if (current.status === 'closed') throw new ApiError(API_ERROR_CODE.CONFLICT, ARCHIVED_RELEASE)
-        const blocker = await applications.releaseGrades(teacherId, id, releaseBlocker)
+        const blocker = await applications.releaseGrades(teacherId, id, releaseBlocker(current))
         if (blocker !== undefined) throw new ApiError(API_ERROR_CODE.CONFLICT, blocker)
       } else {
         await applications.withdrawGrades(teacherId, id)
