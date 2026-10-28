@@ -54,6 +54,14 @@ describe('consulta pública', () => {
 describe('aviso de privacidade', () => {
   beforeEach(() => cy.visit('/privacidade'))
 
+  it('abre com um resumo em poucas palavras e um caminho de volta no topo', () => {
+    cy.visit('/privacidade')
+
+    cy.contains('h2', 'Em poucas palavras').should('be.visible')
+    cy.contains('só para devolver a sua nota').should('be.visible')
+    cy.contains('h1', 'Aviso de privacidade').prev('a').should('contain', 'Voltar para o início')
+  })
+
   it('diz quais dados são tratados e para quê', () => {
     cy.contains('h2', 'Quais dados são tratados').should('be.visible')
     cy.contains('h2', 'Para quê').should('be.visible')

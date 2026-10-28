@@ -12,7 +12,19 @@ import { ROUTES } from '@/app/routes'
 export function PrivacyPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-4 pb-12">
-      <h1 className="pt-4 text-headline text-primary">Aviso de privacidade</h1>
+      <Link to={ROUTES.signIn} className="inline-flex min-h-11 items-center pt-2 text-label text-primary underline">
+        Voltar para o início
+      </Link>
+
+      <h1 className="text-headline text-primary">Aviso de privacidade</h1>
+
+      <Card className="flex flex-col gap-2 border-primary p-6">
+        <h2 className="text-title text-primary">Em poucas palavras</h2>
+        <p className="text-body text-ink">
+          Guardamos o seu nome, a matrícula e as notas só para devolver a sua nota. Você pode pedir
+          para corrigir ou apagar esses dados. O texto completo está logo abaixo.
+        </p>
+      </Card>
 
       <Card className="flex flex-col gap-4 p-6 text-body text-ink-muted">
         <section className="flex flex-col gap-2">
