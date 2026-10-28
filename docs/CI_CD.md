@@ -22,7 +22,7 @@ O portão de qualidade transforma isso em algo automático, em vez de depender d
 | 4 | **Testes unitários + cobertura** (inclui os testes das regras de lint e do backup, com `node:test`, e os da API contra um MySQL de verdade, que aplicam as migrations num banco vazio) | algum teste falhar ou a cobertura de código novo ficar abaixo de 80% |
 | 5 | **Build de produção** | o build quebrar |
 | 6 | **Testes E2E (Cypress)** | algum fluxo principal falhar |
-| 7 | **Auditoria de dependências** | houver vulnerabilidade alta ou crítica |
+| 7 | **Auditoria de dependências** (`scripts/audit-dependencies.mjs`) | houver vulnerabilidade alta ou crítica fora da lista de exceções |
 | 8 | **SonarCloud** | o portão de qualidade reprovar |
 
 Os passos 2 a 4 rodam em paralelo — não faz sentido esperar o lint para descobrir que um teste quebrou. O E2E depende do build, então vem depois.
@@ -125,6 +125,16 @@ se acumulam entre testes. O demo do GitHub Pages tem um build próprio e um spec
 **O Sonar precisa do histórico completo.** O checkout padrão traz um commit só, e sem histórico o Sonar não consegue identificar o que é código novo — o portão passa a avaliar o repositório inteiro e reprova tudo. Precisa de checkout com histórico completo.
 
 **Cancelar execuções superadas.** Sem isso, cada push em um PR enfileira uma execução nova enquanto a anterior ainda roda. Agrupar por PR e cancelar a anterior deixa o retorno mais rápido.
+
+**Exceção na auditoria só com motivo e prazo.** A auditoria reprova em alerta alto ou crítico, como
+o `npm audit --audit-level=high`, mas aceita os que estão em
+`scripts/dependency-audit/allowed-advisories.mjs`. Cada exceção diz o motivo e a issue que a remove,
+e a lista só diminui. Quando a exceção não encontra mais o alerta, a auditoria avisa que ela pode sair.
+
+Hoje a lista tem uma exceção:
+- o GHSA-mrhx-c7xc-m3w5, do zod, corrigido só no zod 4;
+- o risco é baixo, porque o corpo de toda requisição passa pelo limite de 100 KB antes do zod;
+- a migração está na #164, e a exceção foi aprovada pela PM em 27/10.
 
 **Node fixado em um lugar só.** A versão vem do `.nvmrc` e o CI lê de lá. Duas fontes divergem em algumas semanas, e aí o build passa na máquina de alguém e falha no CI.
 
