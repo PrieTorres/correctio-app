@@ -509,6 +509,30 @@ function readDashboard(): void {
   summaryCard('Aplicações').should('contain', '1')
   cy.contains('h2', 'Atividade recente').should('be.visible')
   cy.get('main').contains('a', EXAM.title).should('be.visible')
+
+  greetsByFirstName()
+  followPendingCorrections()
+}
+
+/** The greeting is the first name of the account created in step 2. */
+function greetsByFirstName(): void {
+  const [first = ''] = TEACHER.fullName.split(' ')
+  cy.contains(`Olá, ${first}!`).should('be.visible')
+}
+
+/**
+ * Every sheet was read in step 10 and only the graded student's was confirmed,
+ * so the rest still wait for the open-ended score. The card leads to the list
+ * of applications already filtered by that, with the filter in the address.
+ */
+function followPendingCorrections(): void {
+  summaryCard('Correções pendentes').should('contain', String(STUDENT_COUNT - 1))
+  summaryCard('Correções pendentes').click()
+
+  cy.contains('h1', 'Aplicações').should('be.visible')
+  cy.location('search').should('eq', '?status=correction-in-progress')
+  cy.contains('label', 'Correção em andamento').find('input[type="radio"]').should('be.checked')
+  cy.get('main').contains('a', EXAM.title).should('be.visible')
 }
 
 describe('jornada completa', () => {
@@ -562,7 +586,7 @@ describe('jornada completa', () => {
     cy.log('**13. Ler o relatório da aplicação**')
     readReport()
 
-    cy.log('**14. Conferir o painel**')
+    cy.log('**14. Conferir o painel: saudação e correções pendentes**')
     readDashboard()
   })
 })

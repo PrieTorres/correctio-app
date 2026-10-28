@@ -2,8 +2,10 @@ import { Link } from 'react-router-dom'
 import { Badge, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration } from '@/components/ui'
 import { buildPath, ROUTES } from '@/app/routes'
 import { formatDate } from '@/lib/utils'
-import { summarise } from '@/lib/reports'
+import { filterReportRows, summarise } from '@/lib/reports'
+import { ReportFiltersBar } from '../components/ReportFiltersBar'
 import { useConsolidatedReport } from '../hooks/useConsolidatedReport'
+import { useReportFilters } from '../hooks/useReportFilters'
 
 /**
  * Every application side by side, so a term can be read at a glance.
@@ -14,8 +16,10 @@ import { useConsolidatedReport } from '../hooks/useConsolidatedReport'
  */
 export function ConsolidatedReportPage() {
   const { data, isPending, isError } = useConsolidatedReport()
+  const { filters, setFilter, clear } = useReportFilters()
 
-  const rows = data ?? []
+  const allRows = data ?? []
+  const rows = filterReportRows(allRows, filters)
 
   return (
     <div className="flex flex-col gap-6">
@@ -25,13 +29,13 @@ export function ConsolidatedReportPage() {
       />
 
       <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Reunindo as aplicações…">
+        {allRows.length > 0 && (
+          <ReportFiltersBar rows={allRows} filters={filters} onChange={setFilter} onClear={clear} />
+        )}
+
         {rows.length === 0 ? (
           <Card>
-            <EmptyState
-              illustration={<SearchIllustration />}
-              title="Nenhuma aplicação corrigida"
-              description="Assim que a primeira folha de qualquer aplicação for corrigida, ela entra nesta comparação."
-            />
+            <EmptyReport filtered={allRows.length > 0} />
           </Card>
         ) : (
           <Card>
@@ -83,5 +87,21 @@ export function ConsolidatedReportPage() {
         )}
       </QueryBoundary>
     </div>
+  )
+}
+
+function EmptyReport({ filtered }: Readonly<{ filtered: boolean }>) {
+  return filtered ? (
+    <EmptyState
+      illustration={<SearchIllustration />}
+      title="Nenhuma aplicação nesse filtro"
+      description="Nenhuma aplicação corrigida bate com os filtros escolhidos. Mude a turma, a disciplina, o período ou as datas, ou limpe os filtros."
+    />
+  ) : (
+    <EmptyState
+      illustration={<SearchIllustration />}
+      title="Nenhuma aplicação corrigida"
+      description="Assim que a primeira folha de qualquer aplicação for corrigida, ela entra nesta comparação."
+    />
   )
 }
