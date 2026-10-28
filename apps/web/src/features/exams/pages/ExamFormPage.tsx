@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,7 +23,7 @@ import { totalScore } from '@/lib/exams';
 import { fieldArrayMessage } from '@/lib/forms';
 import { ROUTES, buildPath } from '@/app/routes';
 import type { ExamQuestion, Question } from '@/types/domain';
-import { useQuestionBank } from '@/features/questions';
+import { useQuestionsByIds, useRememberQuestions } from '@/features/questions';
 import { useExam, useSaveExam } from '../hooks/useExams';
 import { QuestionPickerDrawer } from '../components/QuestionPickerDrawer';
 import { AutoFillDialog } from '../components/AutoFillDialog';
@@ -46,8 +46,7 @@ export function ExamFormPage() {
   const save = useSaveExam();
 
   const { data: existing, isPending, isError } = useExam(id);
-  const { data: bankPage, isPending: bankPending } = useQuestionBank();
-  const bank = useMemo(() => bankPage?.items ?? [], [bankPage]);
+  const remember = useRememberQuestions();
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [autoFillOpen, setAutoFillOpen] = useState(pathname === ROUTES.generateExam);
@@ -64,12 +63,12 @@ export function ExamFormPage() {
 
   const { fields, append, remove, move } = useFieldArray({ control, name: 'questions' });
   const questions = watch('questions');
+  const questionIds = questions.map((item) => item.questionId);
+  const { byId, isPending: questionsPending } = useQuestionsByIds(questionIds);
 
   useEffect(() => {
     if (existing) reset(existing);
   }, [existing, reset]);
-
-  const byId = useMemo(() => new Map(bank.map((item) => [item.id, item])), [bank]);
 
   /**
    * The total is computed while rendering, never held in state. A second copy
@@ -116,7 +115,8 @@ export function ExamFormPage() {
   };
 
   const addFromBank = (picked: Question[]) => {
-    const alreadyIn = new Set(questions.map((item) => item.questionId));
+    remember(picked);
+    const alreadyIn = new Set(questionIds);
     const room = MAX_QUESTIONS - questions.length;
 
     picked
@@ -141,7 +141,7 @@ export function ExamFormPage() {
 
   return (
     <QueryBoundary
-      isPending={id !== undefined && isPending}
+      isPending={id !== undefined && (isPending || questionsPending)}
       isError={isError}
       pendingLabel="Carregando prova…"
     >
@@ -265,7 +265,7 @@ export function ExamFormPage() {
         <QuestionPickerDrawer
           open={pickerOpen}
           onOpenChange={setPickerOpen}
-          alreadyIn={questions.map((item) => item.questionId)}
+          alreadyIn={questionIds}
           remainingSlots={MAX_QUESTIONS - questions.length}
           onConfirm={addFromBank}
         />
@@ -273,13 +273,12 @@ export function ExamFormPage() {
         <AutoFillDialog
           open={autoFillOpen}
           onOpenChange={setAutoFillOpen}
-          bank={bank}
-          bankPending={bankPending}
+          alreadyInExam={questionIds}
           remainingSlots={MAX_QUESTIONS - questions.length}
           onConfirm={addFromBank}
         />
 
-        {!autoFillOpen && <Tour screen="examForm" ready={!bankPending} />}
+        {!autoFillOpen && <Tour screen="examForm" ready={!questionsPending} />}
       </div>
     </QueryBoundary>
   );

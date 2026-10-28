@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { act, waitFor } from '@testing-library/react'
 import { clearAllCollections } from '@/lib/storage/collection'
-import { renderHookWithProviders } from '@/test-utils'
-import { examKeys, useArchiveExam, useDuplicateExam, useExamList, useSaveExam } from '../useExams'
+import { createTeacherRepositories } from '@/lib/repositories'
+import { renderHookWithProviders, TEST_TEACHER_ID } from '@/test-utils'
+import { useQuestionsByIds } from '@/features/questions'
+import { examKeys, useArchiveExam, useDrawQuestions, useDuplicateExam, useExamList, useSaveExam } from '../useExams'
 
 const input = {
   title: 'Prova 1',
@@ -100,5 +102,26 @@ describe('exam data hooks', () => {
     const { result } = renderHookWithProviders(() => useDuplicateExam())
 
     await expect(result.current.mutateAsync('nope')).rejects.toThrow(/não encontrada/i)
+  })
+})
+
+describe('useDrawQuestions', () => {
+  beforeEach(clearAllCollections)
+
+  /** Each call is a new draw; what it brings is kept, so the form shows the statements without asking again. */
+  it('draws from the bank, leaving out excludeIds, and keeps what it drew for the exam screens', async () => {
+    const questions = createTeacherRepositories(TEST_TEACHER_ID).questions
+    const base = { type: 'discursiva' as const, tags: ['Limites'], maxScore: 1, allowShuffleAlternatives: true }
+    const kept = await questions.create({ ...base, statement: 'Fica de fora' })
+    const drawable = await questions.create({ ...base, statement: 'Pode sair' })
+
+    const { result } = renderHookWithProviders(() => ({ draw: useDrawQuestions(), lookup: useQuestionsByIds([drawable.id]) }))
+    const drawn = await act(() =>
+      result.current.draw.mutateAsync({ tags: ['Limites'], multipleChoiceCount: 0, openEndedCount: 2, excludeIds: [kept.id] }),
+    )
+
+    expect(drawn.questions.map((item) => item.id)).toEqual([drawable.id])
+    expect(drawn.shortfall).toEqual({ multipleChoice: 0, openEnded: 1 })
+    await waitFor(() => expect(result.current.lookup.byId.get(drawable.id)?.statement).toBe('Pode sair'))
   })
 })

@@ -1,4 +1,4 @@
-import { sampleClasses, sampleQuestions, writeDemoData, type RemoteRoster } from '@/lib/seed'
+import { sampleClasses, sampleExams, sampleQuestions, writeDemoData, type RemoteRoster } from '@/lib/seed'
 import type { AuthenticatedUser, Class, Student } from '@/types/domain'
 
 /** The password of every teacher the suite signs up; long enough for the 8-character rule. */
@@ -71,14 +71,35 @@ function createSampleQuestions(accessToken: string): Cypress.Chainable<Record<st
 }
 
 /**
+ * Creates the sample exams on the API, pointing at the questions created
+ * there, and answers which id each got. The API creates every exam as a draft,
+ * so the sample that is already applied is marked ready, and the archived one
+ * archived, through their own routes.
+ */
+function createSampleExams(accessToken: string, questionIds: Readonly<Record<string, string>>): Cypress.Chainable<Record<string, string>> {
+  const examIds: Record<string, string> = {}
+  const api = apiAs(accessToken)
+
+  for (const sample of sampleExams(questionIds)) {
+    api<{ id: string }>('POST', '/exams', sample.input).then(({ body: created }) => {
+      examIds[sample.sampleId] = created.id
+      if (sample.status === 'ready') api('PATCH', `/exams/${created.id}/ready`)
+      if (sample.status === 'closed') api('PATCH', `/exams/${created.id}/archive`)
+    })
+  }
+
+  return cy.wrap(null, { log: false }).then(() => examIds)
+}
+
+/**
  * Signs a new teacher up on the API and leaves the browser signed in, the way
  * the app itself would: `cy.request` keeps the refresh cookie the API sets, and
  * the app restores the session from it on the next visit.
  *
  * The sample data is created for this teacher, so every spec starts from the
  * same populated screens the demo shows, owned by a real account: the classes,
- * students and questions on the API, and the rest in `localStorage`, pointing
- * at them.
+ * students, questions and exams on the API, and the rest in `localStorage`,
+ * pointing at them.
  */
 Cypress.Commands.add('signInAsNewTeacher', ({ withSampleData = true }: { withSampleData?: boolean } = {}) => {
   const account = { fullName: 'Professora Ana Ribeiro', email: uniqueEmail(), password: TEST_PASSWORD }
@@ -87,10 +108,12 @@ Cypress.Commands.add('signInAsNewTeacher', ({ withSampleData = true }: { withSam
     if (!withSampleData) return cy.wrap(teacher, { log: false })
 
     return createSampleClasses(body.accessToken).then((roster) =>
-      createSampleQuestions(body.accessToken).then((questionIds) => {
-        writeDemoData(body.user.id, { ...roster, questionIds })
-        return teacher
-      }),
+      createSampleQuestions(body.accessToken).then((questionIds) =>
+        createSampleExams(body.accessToken, questionIds).then((examIds) => {
+          writeDemoData(body.user.id, { ...roster, questionIds, examIds })
+          return teacher
+        }),
+      ),
     )
   })
 })
