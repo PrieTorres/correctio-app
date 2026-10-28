@@ -247,9 +247,22 @@ describe('ExamFormPage, the automatic draw', () => {
     renderGenerateRoute()
     const dialog = await screen.findByRole('dialog')
 
-    await within(dialog).findByText(/questões disponíveis/)
+    await within(dialog).findByText(/com estes filtros/)
 
     expect(within(dialog).getByRole('button', { name: /Gerar seleção/ })).not.toBeDisabled()
+  })
+
+  /** #178: the open-ended ones only count when the teacher asks for them, since otherwise the draw leaves them out. */
+  it('counts only the types the draw will use', async () => {
+    const user = userEvent.setup()
+    renderGenerateRoute()
+    const dialog = await screen.findByRole('dialog')
+
+    expect(await within(dialog).findByText(/^1 objetiva disponível com estes filtros/)).toBeVisible()
+
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Incluir discursivas' }))
+
+    expect(await within(dialog).findByText(/^1 objetiva e 1 discursiva disponíveis com estes filtros/)).toBeVisible()
   })
 
   it('does not blame the bank for being short before it has loaded', async () => {
@@ -282,7 +295,7 @@ describe('ExamFormPage, filling an exam already started', () => {
 
     await user.click(screen.getByRole('button', { name: /Preencher automaticamente/ }))
     const dialog = await screen.findByRole('dialog')
-    await within(dialog).findByText(/questões disponíveis/)
+    await within(dialog).findByText(/com estes filtros/)
     await user.click(within(dialog).getByRole('button', { name: /Gerar seleção/ }))
 
     expect(await within(dialog).findByRole('status')).toHaveTextContent('faltaram 5 objetivas e 0 discursivas')
@@ -318,7 +331,7 @@ describe('ExamFormPage, the automatic draw rules', () => {
 
     await user.click(screen.getByRole('button', { name: /Preencher automaticamente/ }))
     const dialog = await screen.findByRole('dialog')
-    await within(dialog).findByText(/questões disponíveis/)
+    await within(dialog).findByText(/com estes filtros/)
     const objectives = within(dialog).getByRole('spinbutton', { name: 'Quantas objetivas' })
     await user.clear(objectives)
     await user.type(objectives, '1')

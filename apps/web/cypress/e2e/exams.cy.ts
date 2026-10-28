@@ -286,13 +286,13 @@ describe('geração automática', () => {
 
     cy.findInDialog('button', 'Gerar seleção').should('be.disabled')
 
-    cy.contains('questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('disponíveis com estes filtros').should('be.visible')
 
     cy.findInDialog('button', 'Gerar seleção').should('not.be.disabled')
   })
 
   it('só libera usar a seleção depois de gerar', () => {
-    cy.contains('questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Usar esta seleção').should('be.disabled')
 
     cy.findInDialog('button', 'Gerar seleção').click()
@@ -301,14 +301,14 @@ describe('geração automática', () => {
   })
 
   it('avisa quando o banco não tinha tudo que foi pedido, em vez de falhar', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="status"]').should('contain', 'O banco não tinha tudo que você pediu')
   })
 
   it('filtra por tag antes de sortear', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"]').contains('label', 'Álgebra Linear').click()
     cy.findInDialog('button', 'Gerar seleção').click()
 
@@ -325,7 +325,7 @@ describe('geração automática', () => {
    * the label the row had by then and the assertion compared it with itself.
    */
   it('troca uma questão sorteada por outra do mesmo tipo', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('2')
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.get('[role="dialog"] ul li').should('have.length', 2)
@@ -340,8 +340,17 @@ describe('geração automática', () => {
       })
   })
 
+  /** #178: the open-ended ones only count when they are asked for, since otherwise the draw leaves them out. */
+  it('conta só os tipos que vão ser sorteados', () => {
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
+
+    cy.findInDialog('span', 'Incluir discursivas').click()
+
+    cy.contains('4 objetivas e 2 discursivas disponíveis com estes filtros').should('be.visible')
+  })
+
   it('inclui discursivas quando pedido', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('1')
     cy.findInDialog('span', 'Incluir discursivas').click()
     cy.findInDialog('button', 'Gerar seleção').click()
@@ -350,7 +359,7 @@ describe('geração automática', () => {
   })
 
   it('não sorteia discursiva quando não foi pedida', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('4')
     cy.findInDialog('button', 'Gerar seleção').click()
 
@@ -358,7 +367,7 @@ describe('geração automática', () => {
   })
 
   it('diz que não há substituta quando o banco se esgotou', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"]').contains('label', 'Álgebra Linear').click()
     cy.findInDialog('button', 'Gerar seleção').click()
 
@@ -368,7 +377,7 @@ describe('geração automática', () => {
   })
 
   it('remove da prévia sem sortear de novo', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="dialog"] ul li').then((items) => {
@@ -378,7 +387,7 @@ describe('geração automática', () => {
   })
 
   it('leva a prévia para o formulário ao confirmar', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.findInDialog('button', 'Usar esta seleção').click()
 
@@ -428,7 +437,7 @@ describe('banco maior que uma página', () => {
   it('o sorteio enxerga o banco inteiro', () => {
     cy.contains('a', 'Gerar automaticamente').click()
 
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
   })
 })
 
@@ -449,7 +458,7 @@ describe('provas na API', () => {
     addFromBank(LIMITS)
 
     cy.contains('button', 'Preencher automaticamente').click()
-    cy.contains('questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="dialog"] ul li').should('have.length.greaterThan', 0)

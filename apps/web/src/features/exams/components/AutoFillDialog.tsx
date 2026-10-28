@@ -18,15 +18,56 @@ interface AutoFillDialogProps {
 
 const NO_REPLACEMENT = 'Não há outra questão do mesmo tipo com esses filtros para colocar no lugar.';
 
+/** A count with its noun, in the singular for one. */
+function counted(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+/**
+ * How many questions of each type the draw can use. The open-ended ones only
+ * count when the teacher asks for them, since otherwise the draw leaves them
+ * out and the number would promise questions it will not bring (#178).
+ */
+function availableText(objectives: number, openEnded: number | undefined): string {
+  if (openEnded === undefined) {
+    return `${counted(objectives, 'objetiva', 'objetivas')} ${objectives === 1 ? 'disponível' : 'disponíveis'} com estes filtros`;
+  }
+  return `${counted(objectives, 'objetiva', 'objetivas')} e ${counted(openEnded, 'discursiva', 'discursivas')} disponíveis com estes filtros`;
+}
+
+interface Availability {
+  objectives: UseQueryResult<number>;
+  openEnded: UseQueryResult<number>;
+  includeOpenEnded: boolean;
+  remainingSlots: number;
+}
+
+/**
+ * Both counts the counter line needs, and whether either is still on its way
+ * or failed, so the dialog asks one question instead of four.
+ */
+function useAvailability(tags: readonly string[]) {
+  const objectives = useQuestionCount(tags, 'objetiva');
+  const openEnded = useQuestionCount(tags, 'discursiva');
+  return {
+    objectives,
+    openEnded,
+    counting: objectives.isPending || openEnded.isPending,
+    failed: objectives.isError || openEnded.isError,
+  };
+}
+
 /**
  * The counter line: still counting, the count failed, or how many questions
  * the filters find. A failed count says so instead of printing a number it
  * does not have, and the draw waits, since its filters were never checked.
  */
-function availabilityLabel(count: UseQueryResult<number>, remainingSlots: number): string {
-  if (count.isPending) return 'Carregando o banco de questões…';
-  if (count.isError) return 'Não foi possível contar as questões do banco agora. Mude um filtro ou tente de novo em instantes.';
-  return `${count.data} questões disponíveis com estes filtros · cabem ${remainingSlots} nesta prova`;
+function availabilityLabel({ objectives, openEnded, includeOpenEnded, remainingSlots }: Availability): string {
+  if (objectives.isPending || openEnded.isPending) return 'Carregando o banco de questões…';
+  if (objectives.isError || openEnded.isError) {
+    return 'Não foi possível contar as questões do banco agora. Mude um filtro ou tente de novo em instantes.';
+  }
+  return `${availableText(objectives.data, includeOpenEnded ? openEnded.data : undefined)} · cabem ${remainingSlots} nesta prova`;
 }
 
 /** The warning for a bank that could not supply everything asked, or nothing when it could. */
@@ -68,7 +109,7 @@ export function AutoFillDialog({
   const [notice, setNotice] = useState<string | null>(null);
 
   const { data: knownTags = [] } = useQuestionTags();
-  const count = useQuestionCount(tags);
+  const { objectives, openEnded, counting, failed: countFailed } = useAvailability(tags);
   const draw = useDrawQuestions();
 
   useEffect(() => {
@@ -121,7 +162,7 @@ export function AutoFillDialog({
     );
   };
 
-  const busy = count.isPending || count.isError || draw.isPending;
+  const busy = counting || countFailed || draw.isPending;
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} title="Gerar prova automaticamente">
@@ -178,7 +219,7 @@ export function AutoFillDialog({
         )}
 
         <p className="text-caption text-ink-subtle" aria-live="polite">
-          {availabilityLabel(count, remainingSlots)}
+          {availabilityLabel({ objectives, openEnded, includeOpenEnded, remainingSlots })}
         </p>
 
         <Button variant="secondary" onClick={generate} disabled={busy}>
@@ -239,7 +280,7 @@ export function AutoFillDialog({
         </div>
       </div>
 
-      <Tour screen="generateExam" ready={!count.isPending} inline />
+      <Tour screen="generateExam" ready={!counting} inline />
     </Modal>
   );
 }

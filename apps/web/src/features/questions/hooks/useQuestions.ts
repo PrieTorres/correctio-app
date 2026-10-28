@@ -106,17 +106,23 @@ export function useRememberQuestions() {
 }
 
 /**
- * How many active questions carry every tag asked, counted by the server: the
- * `total` of a one-item page, so the automatic exam shows what is available
- * without loading the bank.
+ * How many active questions of one type carry every tag asked, counted by the
+ * server: the `total` of a one-item page, so the automatic exam shows what is
+ * available without loading the bank. Counted per type because the draw asks
+ * for each type apart, and a type it will not draw must not count (#178).
  */
-export function useQuestionCount(tags: readonly string[]) {
+export function useQuestionCount(tags: readonly string[], type: QuestionType) {
   const { repositories } = useServices();
 
   return useQuery({
-    queryKey: [...questionKeys.all, 'count', [...tags].sort((a, b) => a.localeCompare(b, 'pt-BR'))] as const,
+    queryKey: [...questionKeys.all, 'count', type, [...tags].sort((a, b) => a.localeCompare(b, 'pt-BR'))] as const,
     queryFn: async () => {
-      const page = await repositories.questions.list({ archived: false, tags: tags.length > 0 ? [...tags] : undefined, pageSize: 1 });
+      const page = await repositories.questions.list({
+        archived: false,
+        type,
+        tags: tags.length > 0 ? [...tags] : undefined,
+        pageSize: 1,
+      });
       return page.total;
     },
   });
