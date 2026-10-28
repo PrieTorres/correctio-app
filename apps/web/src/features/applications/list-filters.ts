@@ -78,10 +78,10 @@ export interface ApplicationListQuery {
 }
 
 /**
- * The filters go to the server, which pages after filtering. "Correção em
- * andamento" is the exception: the corrections still live in this browser
- * (#48), so that view asks for every match at once and keeps the ones in
- * progress here, paging what is left on this side.
+ * The filters go to the server, which pages after filtering. The corrections
+ * in progress are the exception: they still live in this browser (#48), so
+ * that view asks for every match at once and keeps the ones in progress here,
+ * paging what is left on this side.
  */
 export function listParamsOf({ filter, filters, search, page }: ApplicationListQuery): ApplicationListParams {
   const inProgress = filter === APPLICATION_FILTER.IN_PROGRESS;

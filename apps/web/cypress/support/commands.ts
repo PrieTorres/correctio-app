@@ -176,14 +176,17 @@ Cypress.Commands.add('chooseSegment', (text: string) => {
 
 /**
  * Prints the versions and sheets of a draft application, through its own
- * screens. Ends on the application page, which proves the write landed.
+ * screens. Ends on the application page once it says the sheets are ready,
+ * which proves the server finished: the title alone would not, since the
+ * generation screen names the application too.
  */
 Cypress.Commands.add('generateApplication', (title: string) => {
   cy.visit('/aplicacoes')
   cy.contains('a', title).click()
-  cy.contains('a', 'Gerar').click()
-  cy.contains('button', 'Gerar').click()
-  cy.contains('h1', title, { timeout: 20000 }).should('be.visible')
+  cy.contains('a', 'Gerar PDF').click()
+  cy.contains('h1', `Gerar PDF — ${title}`).should('be.visible')
+  cy.contains('button', 'Gerar PDF').click()
+  cy.contains('folhas prontas para imprimir', { timeout: 20000 }).should('be.visible')
 })
 
 /**

@@ -13,11 +13,14 @@ import { useApplicationIdsInProgress, useApplicationList } from './useApplicatio
  * is left here. The pending flags are read from the second query only while
  * that filter is on, because a disabled query reports itself as pending and
  * would hold every other filter on the loading screen.
+ *
+ * The corrections still live in this browser. Issue #48 moves them to the API,
+ * and then this view asks the server for `correction: 'IN_PROGRESS'` instead,
+ * as the panel card should, and the read of the corrections here goes away.
  */
 export function useVisibleApplications(query: ApplicationListQuery) {
   const inProgress = query.filter === APPLICATION_FILTER.IN_PROGRESS;
   const list = useApplicationList(listParamsOf(query));
-  // TODO(#48): ask the API for `correction: 'IN_PROGRESS'` once the corrections live there, and drop this read.
   const ids = useApplicationIdsInProgress(inProgress);
 
   return {

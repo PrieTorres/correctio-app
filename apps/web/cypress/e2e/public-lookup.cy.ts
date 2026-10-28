@@ -41,7 +41,9 @@ describe('consulta pública', () => {
 
         cy.visit('/aplicacoes')
         cy.contains('a', 'Cálculo I — Prova 1').click()
-        cy.contains('button', 'Publicar gabarito').first().click()
+        cy.contains('button', 'Publicar todos').click()
+        cy.findInDialog('button', 'Publicar todos').click()
+        cy.contains('button', 'Publicar todos').should('not.exist')
         cy.contains('Gabarito publicado').should('be.visible')
 
         cy.visit(`/r/${sheetCode}`)
