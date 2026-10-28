@@ -6,7 +6,7 @@
  * responses, plus the Express request bodies, later.
  */
 import { z } from 'zod';
-import { CORRECTION_SOURCE, CORRECTION_STATUS } from './domain';
+import { CORRECTION_PROGRESS, CORRECTION_SOURCE, CORRECTION_STATUS } from './domain';
 
 const id = z.string().min(1);
 const timestamp = z.string().datetime();
@@ -350,6 +350,25 @@ export const applicationSchema = z.object({
   date: timestamp,
   gradesReleased: z.boolean(),
 });
+
+const count = z.number().int().nonnegative();
+
+export const applicationProgressSchema = z.object({
+  versions: count,
+  publishedAnswerKeys: count,
+  sheets: count,
+  correctedSheets: count,
+  corrections: count,
+});
+
+/** How the API answers an application: the entity, the names the screens show and its progress. */
+export const applicationOverviewSchema = applicationSchema.extend({
+  examTitle: z.string(),
+  className: z.string(),
+  progress: applicationProgressSchema,
+});
+
+export const correctionProgressSchema = z.nativeEnum(CORRECTION_PROGRESS);
 
 /**
  * What the application form submits. The teacher picks an exam, a class and a

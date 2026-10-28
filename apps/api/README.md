@@ -133,11 +133,21 @@ com as mesmas regras das telas, sem cópia.
 `GET` e `POST /applications`, `GET` e `PATCH /applications/:id`, arquivar e restaurar, a geração
 (`POST /applications/:id/generate-pdf`), as versões, as folhas, o gabarito, as notas e o PDF.
 
-- **Lista:** além dos parâmetros de lista, aceita `classId`, `examId` e `status`, da mais recente
-  para a mais antiga. A busca procura o dia, escrito como a tela mostra (`05/10/2026`) ou como
-  ISO (`2026-10-05`), inteiro ou em parte. Cada `status` fica de um lado só do `archived`:
+- **Resumo:** toda resposta que traz uma aplicação (lista, detalhe, criar, editar e liberar as
+  notas) traz também o título da prova (`examTitle`) e o nome da turma (`className`), mesmo que
+  estejam arquivadas, e o `progress`: `versions`, `publishedAnswerKeys`, `sheets`,
+  `correctedSheets` (só as correções concluídas) e `corrections` (todas, que impedem gerar de novo).
+  Tudo sai numa consulta só por página, para a P11 não pedir uma aplicação por vez. É um valor
+  calculado, que o `Modelo_de_Dados.md` não guarda.
+- **Lista:** além dos parâmetros de lista, aceita `classId`, `examId`, `status` e `correction`, da
+  mais recente para a mais antiga. A busca procura o dia, escrito como a tela mostra (`05/10/2026`)
+  ou como ISO (`2026-10-05`), inteiro ou em parte. Cada `status` fica de um lado só do `archived`:
   `closed` só entre as arquivadas, `draft` e `generated` só entre as ativas. Pedir um `status` do
   outro lado responde 400, em vez de uma lista vazia que pareceria "não há nenhuma".
+- **Situação da correção (`correction`):** `NOT_STARTED` é a aplicação sem nenhuma folha corrigida;
+  `IN_PROGRESS`, a que tem correção esperando a nota de uma discursiva (RF48), as mesmas que o
+  painel conta como pendentes; `DONE`, a que tem correções e todas concluídas. A folha de quem
+  faltou nunca é corrigida, então `DONE` não espera todas as folhas.
 - **Criar:** `POST /applications` recebe `{ examId, classId, date }` e a aplicação nasce `draft`,
   com as notas recolhidas. Prova ou turma de outro professor responde 404; arquivada responde 409
   (RF20). A mesma prova, para a mesma turma, no mesmo dia, é a mesma aplicação, contando as

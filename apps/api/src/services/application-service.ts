@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto'
 import {
   applicationInputSchema,
   applicationStatusSchema,
+  correctionProgressSchema,
   type Application,
   type ApplicationInput,
+  type ApplicationOverview,
   type ApplicationStatus,
 } from '@correctio/domain'
 import { z } from 'zod'
@@ -51,6 +53,7 @@ const LIST_FILTERS = {
   classId: z.string().min(1).optional(),
   examId: z.string().min(1).optional(),
   status: applicationStatusSchema.optional(),
+  correction: correctionProgressSchema.optional(),
 }
 
 /**
@@ -76,14 +79,19 @@ export interface ApplicationPdf {
   content: Buffer
 }
 
+/**
+ * Every answer that carries an application carries its overview: the screens
+ * keep one shape per application in their cache, and an answer without the
+ * names and the progress would blank them until the next read.
+ */
 export interface ApplicationService {
-  list: (teacherId: string, query: unknown) => Promise<Page<Application>>
-  get: (teacherId: string, id: string) => Promise<Application>
-  create: (teacherId: string, body: unknown) => Promise<Application>
-  update: (teacherId: string, id: string, body: unknown) => Promise<Application>
+  list: (teacherId: string, query: unknown) => Promise<Page<ApplicationOverview>>
+  get: (teacherId: string, id: string) => Promise<ApplicationOverview>
+  create: (teacherId: string, body: unknown) => Promise<ApplicationOverview>
+  update: (teacherId: string, id: string, body: unknown) => Promise<ApplicationOverview>
   archive: (teacherId: string, id: string) => Promise<void>
   restore: (teacherId: string, id: string) => Promise<void>
-  releaseGrades: (teacherId: string, id: string, body: unknown) => Promise<Application>
+  releaseGrades: (teacherId: string, id: string, body: unknown) => Promise<ApplicationOverview>
   downloadPdf: (teacherId: string, id: string) => Promise<ApplicationPdf>
 }
 
@@ -105,7 +113,7 @@ export function applicationPdfPath(id: string): string {
 }
 
 /** The application as the contract shows it: `pdfUrl` only when there is a PDF to download. */
-function present({ pdfKey, ...application }: StoredApplication): Application {
+function present<Stored extends StoredApplication>({ pdfKey, ...application }: Stored): Omit<Stored, 'pdfKey'> & Pick<Application, 'pdfUrl'> {
   return pdfKey === undefined ? application : { ...application, pdfUrl: applicationPdfPath(application.id) }
 }
 
@@ -188,6 +196,13 @@ export function createApplicationService({ applications, exams, classes, fileSto
     if (next.classId !== current.classId) await requireActiveClass(teacherId, next.classId)
   }
 
+  /** The application of the teacher with its overview, read after a write so the answer says what is stored now. */
+  async function overview(teacherId: string, id: string): Promise<ApplicationOverview> {
+    const found = await applications.findOverview(teacherId, id)
+    if (found === undefined) throw new ApiError(API_ERROR_CODE.NOT_FOUND, NOT_FOUND)
+    return present(found)
+  }
+
   return {
     async list(teacherId, query) {
       const filters = parseListRequest(query, LIST_FILTERS)
@@ -197,7 +212,7 @@ export function createApplicationService({ applications, exams, classes, fileSto
     },
 
     async get(teacherId, id) {
-      return present(await requireApplication(applications, teacherId, id))
+      return overview(teacherId, id)
     },
 
     async create(teacherId, body) {
@@ -215,7 +230,7 @@ export function createApplicationService({ applications, exams, classes, fileSto
       }
       const blocker = await applications.insert(application, newSittingBlocker)
       if (blocker !== undefined) throw new ApiError(API_ERROR_CODE.CONFLICT, blocker)
-      return present(application)
+      return overview(teacherId, application.id)
     },
 
     /** A merge with what is stored (`null` clears a field, which the form then refuses), written column by column. */
@@ -227,14 +242,14 @@ export function createApplicationService({ applications, exams, classes, fileSto
       const input = parseRequest(applicationInputSchema, merged)
       const sitting: Sitting = { ...input, date: canonical(input.date) }
       await requireChangedParts(teacherId, current, sitting)
-      if (sent.length === 0) return present(current)
+      if (sent.length === 0) return overview(teacherId, id)
 
       const changes: Partial<Sitting> = {}
       for (const field of sent) Object.assign(changes, { [field]: sitting[field] })
       const movesPaper = sitting.examId !== current.examId || sitting.classId !== current.classId
       const blocker = await applications.changeSitting(teacherId, id, { sitting, changes }, editBlocker(movesPaper))
       if (blocker !== undefined) throw new ApiError(API_ERROR_CODE.CONFLICT, blocker)
-      return present({ ...current, ...sitting })
+      return overview(teacherId, id)
     },
 
     async archive(teacherId, id) {
@@ -259,7 +274,7 @@ export function createApplicationService({ applications, exams, classes, fileSto
      * at the same moment cannot slip through.
      */
     async releaseGrades(teacherId, id, body) {
-      const current = await requireApplication(applications, teacherId, id)
+      await requireApplication(applications, teacherId, id)
       const { released } = parseRequest(gradesReleaseSchema, body)
 
       if (released) {
@@ -268,7 +283,7 @@ export function createApplicationService({ applications, exams, classes, fileSto
       } else {
         await applications.withdrawGrades(teacherId, id)
       }
-      return present({ ...current, gradesReleased: released })
+      return overview(teacherId, id)
     },
 
     /**
