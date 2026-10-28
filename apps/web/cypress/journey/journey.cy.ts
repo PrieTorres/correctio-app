@@ -305,10 +305,10 @@ function pickFromBank(statements: readonly string[]): void {
 function drawByTag(tag: string, expected: string): void {
   cy.contains('button', 'Preencher automaticamente').click()
   cy.findInDialog('h2', 'Gerar prova automaticamente').should('be.visible')
-  cy.contains('questões disponíveis com estes filtros').should('be.visible')
+  cy.contains('com estes filtros').should('be.visible')
 
   cy.get('[role="dialog"]').contains('label', tag).click()
-  cy.contains('1 questões disponíveis com estes filtros').should('be.visible')
+  cy.contains('1 objetiva disponível com estes filtros').should('be.visible')
   cy.get('[role="dialog"] [aria-label="Quantas objetivas"]').clear().type('1')
   cy.findInDialog('button', 'Gerar seleção').click()
   cy.get('[role="dialog"]').should('contain', expected)

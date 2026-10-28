@@ -4,7 +4,8 @@ import { preserveUnknownFields } from '@/lib/storage/preserve-unknown-fields'
 import type { ListParams, OwnedRepository, Page } from '../types'
 import type { ApiClient, QueryParams } from './api-client'
 
-const UNEXPECTED_RESPONSE = 'O servidor respondeu num formato inesperado. Tente de novo em instantes.'
+/** What the screens show when the API answers in a shape the contract does not describe. */
+export const UNEXPECTED_RESPONSE = 'O servidor respondeu num formato inesperado. Tente de novo em instantes.'
 
 /**
  * How an entity leaves circulation on the API. Most use
