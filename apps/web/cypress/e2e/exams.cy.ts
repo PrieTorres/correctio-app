@@ -286,13 +286,13 @@ describe('geração automática', () => {
 
     cy.findInDialog('button', 'Gerar seleção').should('be.disabled')
 
-    cy.contains('questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('disponíveis com estes filtros').should('be.visible')
 
     cy.findInDialog('button', 'Gerar seleção').should('not.be.disabled')
   })
 
   it('só libera usar a seleção depois de gerar', () => {
-    cy.contains('questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Usar esta seleção').should('be.disabled')
 
     cy.findInDialog('button', 'Gerar seleção').click()
@@ -301,14 +301,14 @@ describe('geração automática', () => {
   })
 
   it('avisa quando o banco não tinha tudo que foi pedido, em vez de falhar', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="status"]').should('contain', 'O banco não tinha tudo que você pediu')
   })
 
   it('filtra por tag antes de sortear', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"]').contains('label', 'Álgebra Linear').click()
     cy.findInDialog('button', 'Gerar seleção').click()
 
@@ -325,7 +325,7 @@ describe('geração automática', () => {
    * the label the row had by then and the assertion compared it with itself.
    */
   it('troca uma questão sorteada por outra do mesmo tipo', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('2')
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.get('[role="dialog"] ul li').should('have.length', 2)
@@ -340,8 +340,17 @@ describe('geração automática', () => {
       })
   })
 
+  /** #178: the open-ended ones only count when they are asked for, since otherwise the draw leaves them out. */
+  it('conta só os tipos que vão ser sorteados', () => {
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
+
+    cy.findInDialog('span', 'Incluir discursivas').click()
+
+    cy.contains('4 objetivas e 2 discursivas disponíveis com estes filtros').should('be.visible')
+  })
+
   it('inclui discursivas quando pedido', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('1')
     cy.findInDialog('span', 'Incluir discursivas').click()
     cy.findInDialog('button', 'Gerar seleção').click()
@@ -350,7 +359,7 @@ describe('geração automática', () => {
   })
 
   it('não sorteia discursiva quando não foi pedida', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"] input[aria-label="Quantas objetivas"]').clear().type('4')
     cy.findInDialog('button', 'Gerar seleção').click()
 
@@ -358,7 +367,7 @@ describe('geração automática', () => {
   })
 
   it('diz que não há substituta quando o banco se esgotou', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.get('[role="dialog"]').contains('label', 'Álgebra Linear').click()
     cy.findInDialog('button', 'Gerar seleção').click()
 
@@ -368,7 +377,7 @@ describe('geração automática', () => {
   })
 
   it('remove da prévia sem sortear de novo', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
 
     cy.get('[role="dialog"] ul li').then((items) => {
@@ -378,7 +387,7 @@ describe('geração automática', () => {
   })
 
   it('leva a prévia para o formulário ao confirmar', () => {
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
     cy.findInDialog('button', 'Gerar seleção').click()
     cy.findInDialog('button', 'Usar esta seleção').click()
 
@@ -428,6 +437,58 @@ describe('banco maior que uma página', () => {
   it('o sorteio enxerga o banco inteiro', () => {
     cy.contains('a', 'Gerar automaticamente').click()
 
-    cy.contains('6 questões disponíveis com estes filtros').should('be.visible')
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
+  })
+})
+
+/** The access token of the teacher this spec signed up, read the way the app restores its own session. */
+function accessToken(): Cypress.Chainable<string> {
+  return cy.request<{ accessToken: string }>('POST', '/api/auth/refresh').then(({ body }) => body.accessToken)
+}
+
+describe('provas na API', () => {
+  /**
+   * The draw runs on the server and leaves out the exam's questions, so
+   * filling an exam already started never brings one of them back.
+   */
+  it('preenche automaticamente sem repetir questão que já está na prova', () => {
+    cy.visit('/provas')
+    cy.contains('a', 'Nova prova').click()
+    cy.findByLabel('Título').type('Prova começada')
+    addFromBank(LIMITS)
+
+    cy.contains('button', 'Preencher automaticamente').click()
+    cy.contains('disponíveis com estes filtros').should('be.visible')
+    cy.findInDialog('button', 'Gerar seleção').click()
+
+    cy.get('[role="dialog"] ul li').should('have.length.greaterThan', 0)
+    cy.get('[role="dialog"] ul').should('not.contain', 'sen(x)/x')
+  })
+
+  /** RF13: deleting a question takes it out of the bank, never out of the exams that already use it. */
+  it('o detalhe mostra o enunciado de uma questão excluída do banco depois', () => {
+    accessToken().then((token) => {
+      cy.request<{ items: { id: string; statement: string }[] }>({
+        url: '/api/questions?pageSize=1000',
+        auth: { bearer: token },
+      }).then(({ body }) => {
+        const limits = body.items.find((item) => item.statement === LIMITS)
+        if (limits === undefined) throw new Error('A questão de exemplo de limites não está no banco.')
+        cy.request({ method: 'DELETE', url: `/api/questions/${limits.id}`, auth: { bearer: token } })
+      })
+    })
+
+    cy.visit('/provas')
+    cy.contains('a', 'Cálculo I — Prova 1').click()
+
+    cy.get('ol li').first().should('contain', 'sen(x)/x')
+    cy.contains('Questão removida do banco').should('not.exist')
+  })
+
+  /** The exam an application was generated from is marked on the server, so the list shows it as applied. */
+  it('mostra como aplicada a prova de exemplo que já tem aplicação', () => {
+    cy.visit('/provas')
+
+    cy.contains('a', 'Cálculo I — Prova 1').parents('li').first().should('contain', 'Aplicada')
   })
 })

@@ -1,7 +1,15 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+  type QueryKey,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 import { useServices } from '@/app/services';
 import type { QuestionInput } from '@/lib/schemas';
-import type { QuestionType } from '@/types/domain';
+import type { Question, QuestionType } from '@/types/domain';
 import type { QuestionSort } from '@/lib/repositories/question-repository';
 
 export type { QuestionSort };
@@ -52,23 +60,71 @@ export function useQuestionList(filters: QuestionFilters) {
   });
 }
 
-/**
- * The page size that reads the whole bank in one request: the API's ceiling
- * (`MAX_PAGE_SIZE`), the same the other whole-list reads ask for.
- */
-export const WHOLE_BANK_PAGE_SIZE = 1000;
+/** The questions of an exam by id, and whether any is still on its way. */
+export interface QuestionLookup {
+  byId: ReadonlyMap<string, Question>;
+  isPending: boolean;
+}
+
+/** Declared once, outside the hook, so the lookup is rebuilt only when an answer changes. */
+function toLookup(results: UseQueryResult<Question | null>[]): QuestionLookup {
+  const byId = new Map<string, Question>();
+  for (const { data } of results) if (data) byId.set(data.id, data);
+  return { byId, isPending: results.some((result) => result.isPending) };
+}
 
 /**
- * Every active question of the teacher, for the exam screens. An exam finds
- * its questions by id and the automatic draw picks from all of them, so a
- * question past the first page of the bank must not read as removed.
+ * The questions of an exam, looked up one by one, deleted ones included: an
+ * exam keeps a question the bank deleted later (RF13), wherever it would fall
+ * in the paged list. An exam has 20 questions at most (RF15), so this never
+ * fans out far, and a question picked or drawn on screen is already in the
+ * cache under the same key (`useRememberQuestions`).
  */
-export function useQuestionBank() {
+export function useQuestionsByIds(ids: readonly string[]): QuestionLookup {
+  const { repositories } = useServices();
+
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: questionKeys.detail(id),
+      queryFn: () => repositories.questions.getById(id),
+    })),
+    combine: toLookup,
+  });
+}
+
+/**
+ * Keeps questions the screen already holds, from the picker or the draw, in
+ * the cache of `useQuestionsByIds`, so a question just added shows its
+ * statement at once instead of waiting for a request that would answer the
+ * same thing.
+ */
+export function useRememberQuestions() {
+  const queryClient = useQueryClient();
+  return (questions: readonly Question[]) => {
+    for (const question of questions) queryClient.setQueryData(questionKeys.detail(question.id), question);
+  };
+}
+
+/**
+ * How many active questions of one type carry every tag asked, counted by the
+ * server: the `total` of a one-item page, so the automatic exam shows what is
+ * available without loading the bank. Counted per type because the draw asks
+ * for each type apart, and a type it will not draw must not count (#178).
+ */
+export function useQuestionCount(tags: readonly string[], type: QuestionType) {
   const { repositories } = useServices();
 
   return useQuery({
-    queryKey: [...questionKeys.all, 'bank'] as const,
-    queryFn: () => repositories.questions.list({ archived: false, pageSize: WHOLE_BANK_PAGE_SIZE }),
+    queryKey: [...questionKeys.all, 'count', type, [...tags].sort((a, b) => a.localeCompare(b, 'pt-BR'))] as const,
+    queryFn: async () => {
+      const page = await repositories.questions.list({
+        archived: false,
+        type,
+        tags: tags.length > 0 ? [...tags] : undefined,
+        pageSize: 1,
+      });
+      return page.total;
+    },
   });
 }
 

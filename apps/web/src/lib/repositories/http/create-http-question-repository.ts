@@ -2,11 +2,9 @@ import { z } from 'zod'
 import { StorageError } from '@/lib/storage/errors'
 import { questionSchema, type QuestionInput } from '@/lib/schemas'
 import type { Question } from '@/types/domain'
-import { createHttpOwnedRepository } from './create-http-repository'
+import { UNEXPECTED_RESPONSE, createHttpOwnedRepository } from './create-http-repository'
 import type { ApiClient } from './api-client'
 import type { QuestionListParams, QuestionRepository } from '../question-repository'
-
-const UNEXPECTED_RESPONSE = 'O servidor respondeu num formato inesperado. Tente de novo em instantes.'
 
 const tagsResponseSchema = z.object({ tags: z.array(z.string()) })
 
