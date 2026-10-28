@@ -58,6 +58,12 @@ export interface PrintingRepository {
   /** Publishes the answer key of the version as of `publishedAt`; publishing never conflicts with released grades. */
   publishAnswerKey: (applicationId: string, versionId: string, publishedAt: Date) => Promise<void>
   /**
+   * Publishes, as of `publishedAt`, every answer key of the application still
+   * unpublished, in one statement: a failure leaves none of them half done,
+   * and a key published before keeps the moment it first became public.
+   */
+  publishAllAnswerKeys: (applicationId: string, publishedAt: Date) => Promise<void>
+  /**
    * Takes the answer key back unless the grades are released, and answers
    * whether it did. Checked and written under the lock of the application row,
    * which `ApplicationRepository.releaseGrades` also takes first, so a release
@@ -155,6 +161,15 @@ export function createPrintingRepository(db: Kysely<Database>): PrintingReposito
 
     async publishAnswerKey(applicationId, versionId, publishedAt) {
       await versionUpdate(db, applicationId, versionId).set({ answerKeyPublished: true, answerKeyPublishedAt: publishedAt }).execute()
+    },
+
+    async publishAllAnswerKeys(applicationId, publishedAt) {
+      await db
+        .updateTable('exam_versions')
+        .set({ answerKeyPublished: true, answerKeyPublishedAt: publishedAt })
+        .where('applicationId', '=', applicationId)
+        .where('answerKeyPublished', '=', false)
+        .execute()
     },
 
     async takeBackAnswerKey(applicationId, versionId) {

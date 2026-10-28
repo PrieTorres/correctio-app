@@ -42,6 +42,7 @@ const DUPLICATE = 'Já existe uma aplicação com estes dados.'
 const DUPLICATE_ARCHIVED = 'Já existe uma aplicação arquivada com estes dados. Restaure em vez de criar outra.'
 
 const ARCHIVED_EDIT = 'Esta aplicação está arquivada. Restaure a aplicação antes de editá-la.'
+const ARCHIVED_RELEASE = 'Esta aplicação está arquivada. Restaure a aplicação antes de liberar as notas.'
 const PAPER_BELONGS_TO_SITTING =
   'Esta aplicação já foi gerada, e as folhas impressas são desta prova e desta turma. Para mudar uma delas, crie outra aplicação.'
 
@@ -269,15 +270,18 @@ export function createApplicationService({ applications, exams, classes, fileSto
     },
 
     /**
-     * Taking grades back is always allowed; releasing them waits for the
-     * answer keys, which the repository checks under lock so a key taken back
-     * at the same moment cannot slip through.
+     * Taking grades back is always allowed, since it only hides them again;
+     * releasing them waits for the answer keys, which the repository checks
+     * under lock so a key taken back at the same moment cannot slip through.
+     * An archived application releases nothing until it is restored, like
+     * every other write that shows students something (#46).
      */
     async releaseGrades(teacherId, id, body) {
-      await requireApplication(applications, teacherId, id)
+      const current = await requireApplication(applications, teacherId, id)
       const { released } = parseRequest(gradesReleaseSchema, body)
 
       if (released) {
+        if (current.status === 'closed') throw new ApiError(API_ERROR_CODE.CONFLICT, ARCHIVED_RELEASE)
         const blocker = await applications.releaseGrades(teacherId, id, releaseBlocker)
         if (blocker !== undefined) throw new ApiError(API_ERROR_CODE.CONFLICT, blocker)
       } else {

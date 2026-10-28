@@ -214,6 +214,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       request(app).get(`/applications/${id}/pdf`),
       request(app).get(`/applications/${id}/versions`),
       request(app).post(`/applications/${id}/versions/${id}/publish-answer-key`),
+      request(app).post(`/applications/${id}/publish-answer-keys`),
       request(app).get(`/applications/${id}/sheets`),
     ])
 
@@ -811,6 +812,23 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       expect((await storedVersion(version)).answerKeyPublished).toBe(false)
     })
 
+    it('refuses publishing in an archived application until it is restored, and still lets a key be taken back', async () => {
+      const id = await insertApplication({ status: 'closed' })
+      const unpublished = await insertVersion(id, 1)
+      const published = await insertVersion(id, 2, { answerKeyPublished: true, answerKeyPublishedAt: day('2026-10-01') })
+
+      const publish = await ana().post(publishPath(id, unpublished), { published: true })
+      const takeBack = await ana().post(publishPath(id, published), { published: false })
+
+      expect([publish.status, publish.body]).toEqual([
+        409,
+        { code: 'conflict', message: 'Esta aplicação está arquivada. Restaure a aplicação antes de publicar o gabarito.' },
+      ])
+      expect(takeBack.status).toBe(204)
+      expect((await storedVersion(unpublished)).answerKeyPublished).toBe(false)
+      expect((await storedVersion(published)).answerKeyPublished).toBe(false)
+    })
+
     it('answers 404 for a version of another application, and to another teacher', async () => {
       const id = await insertApplication({ status: 'generated' })
       const version = await insertVersion(id, 1)
@@ -826,6 +844,56 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       expect(fromBia.body.message).toBe('Aplicação não encontrada.')
       expect((await storedVersion(version)).answerKeyPublished).toBe(false)
       expect((await storedVersion(otherVersion)).answerKeyPublished).toBe(false)
+    })
+  })
+
+  describe('POST /applications/:id/publish-answer-keys', () => {
+    const publishAllPath = (id: string) => `/applications/${id}/publish-answer-keys`
+
+    it('publishes every answer key still unpublished, keeping the moment of the ones published before', async () => {
+      const id = await insertApplication({ status: 'generated' })
+      const earlier = await insertVersion(id, 1, { answerKeyPublished: true, answerKeyPublishedAt: day('2026-10-01') })
+      const later = [await insertVersion(id, 2), await insertVersion(id, 3)]
+      const otherApplication = await insertApplication({ status: 'generated', date: day('2026-10-06') })
+      const otherVersion = await insertVersion(otherApplication, 1)
+      const before = Date.now()
+
+      expect((await ana().post(publishAllPath(id))).status).toBe(204)
+
+      expect(await storedVersion(earlier)).toEqual({ answerKeyPublished: true, answerKeyPublishedAt: day('2026-10-01') })
+      for (const version of later) {
+        const stored = await storedVersion(version)
+        expect(stored.answerKeyPublished).toBe(true)
+        expect(stored.answerKeyPublishedAt?.getTime()).toBeGreaterThanOrEqual(before - 1000)
+      }
+      expect((await storedVersion(otherVersion)).answerKeyPublished).toBe(false)
+      expect((await ana().post(`/applications/${id}/grades-release`, { released: true })).status).toBe(200)
+    })
+
+    it('refuses an application with nothing printed, and an archived one until it is restored', async () => {
+      const draft = await insertApplication()
+      const archived = await insertApplication({ status: 'closed', date: day('2026-10-06') })
+      const version = await insertVersion(archived, 1)
+
+      const nothingPrinted = await ana().post(publishAllPath(draft))
+      const closed = await ana().post(publishAllPath(archived))
+
+      expect([nothingPrinted.status, nothingPrinted.body]).toEqual([409, { code: 'conflict', message: 'Gere a prova antes de publicar o gabarito.' }])
+      expect([closed.status, closed.body]).toEqual([
+        409,
+        { code: 'conflict', message: 'Esta aplicação está arquivada. Restaure a aplicação antes de publicar o gabarito.' },
+      ])
+      expect((await storedVersion(version)).answerKeyPublished).toBe(false)
+    })
+
+    it('answers 404 to another teacher, publishing nothing', async () => {
+      const id = await insertApplication({ status: 'generated' })
+      const version = await insertVersion(id, 1)
+
+      const response = await bia().post(publishAllPath(id))
+
+      expect([response.status, response.body]).toEqual([404, { code: 'not-found', message: 'Aplicação não encontrada.' }])
+      expect((await storedVersion(version)).answerKeyPublished).toBe(false)
     })
   })
 
@@ -875,6 +943,23 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
         progress: { ...NO_PROGRESS, versions: 2, publishedAnswerKeys: 2 },
       })
       expect((await storedApplication(id)).gradesReleased).toBe(true)
+    })
+
+    it('refuses releasing the grades of an archived application until it is restored, and still lets them be taken back', async () => {
+      const id = await insertApplication({ status: 'closed' })
+      await insertVersion(id, 1, { answerKeyPublished: true, answerKeyPublishedAt: day('2026-10-06') })
+
+      const release = await ana().post(releasePath(id), { released: true })
+
+      expect([release.status, release.body]).toEqual([
+        409,
+        { code: 'conflict', message: 'Esta aplicação está arquivada. Restaure a aplicação antes de liberar as notas.' },
+      ])
+      expect((await storedApplication(id)).gradesReleased).toBe(false)
+
+      await db.updateTable('applications').set({ gradesReleased: true }).where('id', '=', id).execute()
+      expect((await ana().post(releasePath(id), { released: false })).status).toBe(200)
+      expect((await storedApplication(id)).gradesReleased).toBe(false)
     })
 
     it('always lets the grades be taken back', async () => {

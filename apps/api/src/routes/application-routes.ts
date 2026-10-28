@@ -96,6 +96,7 @@ export function applicationRoutes(dependencies: ApplicationRouteDependencies): R
 
   router.get('/:id/versions', printing.listVersions)
   router.post('/:id/versions/:versionId/publish-answer-key', printing.publishAnswerKey)
+  router.post('/:id/publish-answer-keys', printing.publishAllAnswerKeys)
   router.get('/:id/sheets', printing.listSheets)
 
   router.get('/:id/corrections', corrections.list)

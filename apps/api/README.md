@@ -122,6 +122,7 @@ com as mesmas regras das telas, sem cópia.
 | `POST /classes/:id/students/:studentId/anonymize` | Anonimização irreversível do aluno (RF38) |
 | `POST /exams/draw` | Geração automática de prova (RF16) |
 | `POST /applications/:id/grades-release` | Libera ou recolhe as notas, com `{ released }`. Responde a aplicação |
+| `POST /applications/:id/publish-answer-keys` | "Publicar todos" da P14: publica o gabarito de todas as versões de uma vez |
 | `GET /applications/:id/sheets` | Folhas impressas, por `sheetNumber`. Faz o papel do `GET /applications/:id/students` da Spec, porque a `AnswerSheet` substituiu o `ExamAssignment` (`docs/Modelo_de_Dados.md`) |
 | `GET /applications/:id/pdf` | Baixa o PDF consolidado. É o endereço que o `pdfUrl` da aplicação traz |
 | `POST /applications/:id/corrections` | Grava a revisão de uma folha (RF28, RF30). A Spec só lista e edita as correções |
@@ -179,6 +180,12 @@ com as mesmas regras das telas, sem cópia.
   recebe `{ published }`. Liberar as notas exige o gabarito de todas as versões publicado, e o
   gabarito não pode ser despublicado com as notas liberadas, porque a nota nunca aparece sem
   ele. Publicar de novo não muda o `answerKeyPublishedAt`.
+- **Publicar todos:** `POST /applications/:id/publish-answer-keys`, sem corpo, publica numa
+  instrução só todas as versões que ainda não estavam publicadas, então uma falha não deixa metade
+  publicada. Aplicação sem nada gerado responde 409. Despublicar continua versão por versão.
+- **Aplicação arquivada:** publicar o gabarito (uma versão ou todas), liberar as notas, gerar e
+  editar respondem 409, pedindo para restaurar antes. Despublicar o gabarito e recolher as notas
+  continuam liberados, porque só escondem.
 - **PDF:** o `pdfUrl` aparece só quando há PDF e traz o endereço da rota de download, relativo à
   raiz da API. O arquivo contém o nome dos alunos quando a aplicação é identificada, então
   não existe link público: o front baixa com o token, como qualquer outra chamada.
