@@ -4,7 +4,10 @@ import { useServices } from '@/app/services';
 export interface ConsolidatedRow {
   applicationId: string;
   examTitle: string;
+  classId: string;
   className: string;
+  subject: string;
+  term: string;
   date: string;
   scores: number[];
 }
@@ -36,8 +39,8 @@ export function useConsolidatedReport() {
       const examTitle = new Map(
         [...exams.items, ...archivedExams.items].map((exam) => [exam.id, exam.title]),
       );
-      const className = new Map(
-        [...classes.items, ...archivedClasses.items].map((item) => [item.id, item.name]),
+      const classById = new Map(
+        [...classes.items, ...archivedClasses.items].map((item) => [item.id, item]),
       );
 
       const rows = await Promise.all(
@@ -47,10 +50,15 @@ export function useConsolidatedReport() {
             sheets.map((sheet) => sheet.id),
           );
 
+          const schoolClass = classById.get(application.classId);
+
           return {
             applicationId: application.id,
             examTitle: examTitle.get(application.examId) ?? 'Prova removida',
-            className: className.get(application.classId) ?? 'Turma removida',
+            classId: application.classId,
+            className: schoolClass?.name ?? 'Turma removida',
+            subject: schoolClass?.subject ?? '',
+            term: schoolClass?.term ?? '',
             date: application.date,
             scores: corrections.map((correction) => correction.totalScore),
           };

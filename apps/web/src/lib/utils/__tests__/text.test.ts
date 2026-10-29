@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compareByLocale, matchesSearch, normalize } from '../text'
+import { compareByLocale, firstName, matchesSearch, normalize } from '../text'
 
 describe('matchesSearch', () => {
   it('matches every record when the term is blank', () => {
@@ -48,5 +48,22 @@ describe('matchesSearch, accents', () => {
 
   it('still refuses a term that is simply not there', () => {
     expect(matchesSearch('física', 'Cálculo I')).toBe(false)
+  })
+})
+
+describe('firstName', () => {
+  it('takes the first word of a full name', () => {
+    expect(firstName('Ana Clara Ribeiro')).toBe('Ana')
+  })
+
+  it('ignores the whitespace around and between the words', () => {
+    expect(firstName('  Ana   Ribeiro ')).toBe('Ana')
+  })
+
+  /** The greeting falls back to "Olá!" on an empty result, so nothing here may throw or invent a name. */
+  it('answers with nothing when there is no name', () => {
+    expect(firstName(undefined)).toBe('')
+    expect(firstName('')).toBe('')
+    expect(firstName('   ')).toBe('')
   })
 })
