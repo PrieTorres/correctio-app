@@ -58,4 +58,28 @@ describe('useConsolidatedReport', () => {
     expect(result.current.data?.[0]?.examTitle).toBe('Prova de teste')
     expect(result.current.data?.[0]?.scores).toHaveLength(1)
   })
+
+  /** What the filters of the consolidated report (P19) match against. */
+  it('carries the class, subject and term of each row', async () => {
+    const seeded = await seedApplicationChain()
+    const { result: generate } = renderHookWithProviders(() => useGenerateApplication())
+    await act(() => generate.current.mutateAsync({ id: seeded.applicationId, options: GENERATE }))
+    const sheets = await createTeacherRepositories(TEST_TEACHER_ID).printing.listSheets(
+      seeded.applicationId,
+    )
+    const { result: read } = renderHookWithProviders(() => useReadSheets())
+    await act(() =>
+      read.current.mutateAsync({ applicationId: seeded.applicationId, sheetIds: [sheets[0]?.id ?? ''] }),
+    )
+
+    const { result } = renderHookWithProviders(() => useConsolidatedReport())
+
+    await waitFor(() => expect(result.current.data).toHaveLength(1), { timeout: 8000 })
+    expect(result.current.data?.[0]).toMatchObject({
+      classId: seeded.classId,
+      className: 'Turma',
+      subject: 'Matemática',
+      term: '2026/2',
+    })
+  })
 })

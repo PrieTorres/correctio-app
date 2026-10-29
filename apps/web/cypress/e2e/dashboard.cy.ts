@@ -45,6 +45,52 @@ describe('painel', () => {
 })
 
 /**
+ * The greeting and the "Correções pendentes" card. The number comes from the
+ * corrections of the teacher signed in, so the tests move it by reading sheets
+ * through the app instead of trusting a fixed figure.
+ */
+describe('painel: saudação e correções pendentes', () => {
+  it('saúda a professora pelo primeiro nome', () => {
+    cy.visit('/painel')
+
+    cy.contains('Olá, Professora!').should('be.visible')
+  })
+
+  it('mostra zero correções pendentes numa conta sem folhas lidas', () => {
+    cy.visit('/painel')
+
+    cy.contains('a', 'Correções pendentes').should('contain', '0')
+  })
+
+  it('conta uma folha lida que ainda espera nota de discursiva', () => {
+    cy.readFirstSheetOf('Cálculo I — Prova 1')
+    cy.get('[aria-label="Navegação principal"]').contains('a', 'Painel').click()
+
+    cy.contains('a', 'Correções pendentes').should('contain', '1')
+  })
+
+  it('leva à lista de aplicações já filtrada por correção em andamento', () => {
+    cy.readFirstSheetOf('Cálculo I — Prova 1')
+    cy.get('[aria-label="Navegação principal"]').contains('a', 'Painel').click()
+    cy.contains('a', 'Correções pendentes').click()
+
+    cy.location().should((location) => expect(location.pathname + location.search).to.match(/^\/aplicacoes\?status=correction-in-progress$/))
+    cy.contains('h1', 'Aplicações').should('be.visible')
+    cy.contains('label', 'Correção em andamento').find('input[type="radio"]').should('be.checked')
+    cy.contains('a', 'Cálculo I — Prova 1').should('be.visible')
+    cy.contains('a', 'Física II — Teste rápido').should('not.exist')
+  })
+
+  it('não conta as folhas de outra professora', () => {
+    cy.readFirstSheetOf('Cálculo I — Prova 1')
+    cy.signInAsNewTeacher()
+    cy.visit('/painel')
+
+    cy.contains('a', 'Correções pendentes').should('contain', '0')
+  })
+})
+
+/**
  * "Corrigir folhas" leads to the upload screen of an application, never to the
  * list of applications. The sample data has one application generated,
  * "Cálculo I — Prova 1", and one still a draft, "Física II — Teste rápido".

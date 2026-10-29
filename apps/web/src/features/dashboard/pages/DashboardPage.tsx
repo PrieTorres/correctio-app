@@ -9,7 +9,9 @@ import {
   Tour,
 } from '@/components/ui'
 import { buildPath, ROUTES } from '@/app/routes'
-import { formatDate } from '@/lib/utils'
+import { useCurrentUser } from '@/features/auth'
+import { applicationListPath, APPLICATION_FILTER } from '@/features/applications/application-filter'
+import { firstName, formatDate } from '@/lib/utils'
 import { GradingShortcut } from '../components/GradingShortcut'
 import { EMPTY_SUMMARY, useDashboardSummary, type DashboardSummary, type RecentActivity } from '../hooks/useDashboard'
 
@@ -33,6 +35,8 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Greeting />
+
       <PageHeader
         help
         title="Painel"
@@ -54,13 +58,30 @@ export function DashboardPage() {
   )
 }
 
+/**
+ * Greets by first name once the account loads, and by nothing but "Olá!" while
+ * it is loading or when the account has no name, so the panel never holds back
+ * for a greeting.
+ */
+function Greeting() {
+  const { data: user } = useCurrentUser()
+  const name = firstName(user?.fullName)
+
+  return <p className="text-title text-primary">{name === '' ? 'Olá!' : `Olá, ${name}!`}</p>
+}
+
 function SummaryCards({ summary }: Readonly<{ summary: DashboardSummary }>) {
   return (
-    <div data-tour="summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div data-tour="summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <SummaryCard label="Turmas" value={summary.classes} to={ROUTES.classes} />
       <SummaryCard label="Questões" value={summary.questions} to={ROUTES.questions} />
       <SummaryCard label="Provas" value={summary.exams} to={ROUTES.exams} />
       <SummaryCard label="Aplicações" value={summary.applications} to={ROUTES.applications} />
+      <SummaryCard
+        label="Correções pendentes"
+        value={summary.pendingCorrections}
+        to={applicationListPath(APPLICATION_FILTER.IN_PROGRESS)}
+      />
     </div>
   )
 }

@@ -10,6 +10,7 @@ import {
   type MarkedAnswer,
 } from '@/lib/grading';
 import { createId } from '@/lib/utils';
+import { dashboardKeys } from '@/features/dashboard/hooks/useDashboard';
 import {
   CORRECTION_SOURCE,
   CORRECTION_STATUS,
@@ -64,6 +65,7 @@ function useInvalidateGrading() {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: gradingKeys.all }),
       queryClient.invalidateQueries({ queryKey: ['applications'] }),
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.summary }),
     ]);
 }
 
