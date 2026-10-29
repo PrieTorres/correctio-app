@@ -21,6 +21,16 @@ function openMenuOf(title: string) {
   return cy.get('[role="menu"]').should('be.visible')
 }
 
+/**
+ * An item of the open menu that stays there blocked, ready for an assertion on
+ * the reason under its label. `match` keeps the item as the subject:
+ * `have.attr` would hand the next assertion the value of `data-disabled`, an
+ * empty string, and the reason would be searched for in it.
+ */
+function blockedMenuItem(label: string) {
+  return cy.contains('[role="menuitem"]', label).should('match', '[data-disabled]')
+}
+
 /** The detail of a seeded application, reached through the list as a teacher would. */
 function openDetailOf(title: string) {
   cy.visit('/aplicacoes')
@@ -166,9 +176,7 @@ describe('lista de aplicações: menu de cada item', () => {
 
   it('bloqueia corrigir antes de gerar, dizendo o motivo', () => {
     openMenuOf(TO_GENERATE)
-      .contains('[role="menuitem"]', 'Corrigir folhas')
-      .should('have.attr', 'data-disabled')
-      .and('contain', 'Gere o PDF antes de corrigir as folhas.')
+    blockedMenuItem('Corrigir folhas').and('contain', 'Gere o PDF antes de corrigir as folhas.')
   })
 
   it('leva a gerar a prova, e cancelar volta para a lista', () => {
@@ -489,9 +497,7 @@ describe('detalhe da aplicação', () => {
     cy.contains('button', 'Recolher notas').should('be.visible')
 
     cy.contains('button', 'Ações').click()
-    cy.contains('[role="menuitem"]', 'Regenerar PDF')
-      .should('have.attr', 'data-disabled')
-      .and('contain', 'Recolha as notas antes de gerar de novo.')
+    blockedMenuItem('Regenerar PDF').and('contain', 'Recolha as notas antes de gerar de novo.')
   })
 
   /** After generating only the date changes (#163): the printed sheets belong to this exam and this class. */
@@ -516,9 +522,7 @@ describe('detalhe da aplicação', () => {
     cy.contains('button', 'Publicar todos').should('not.exist')
     cy.contains('button', 'Liberar notas').should('be.disabled')
     cy.contains('button', 'Ações').click()
-    cy.contains('[role="menuitem"]', 'Editar data')
-      .should('have.attr', 'data-disabled')
-      .and('contain', 'Restaure a aplicação para editar a data.')
+    blockedMenuItem('Editar data').and('contain', 'Restaure a aplicação para editar a data.')
     cy.focused().type('{esc}')
 
     cy.get('main').contains('button', 'Restaurar').click()
