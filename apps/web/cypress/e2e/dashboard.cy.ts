@@ -86,7 +86,7 @@ describe('painel: saudação e correções pendentes', () => {
   })
 
   it('leva à lista de aplicações já filtrada por correção em andamento', () => {
-    cy.readFirstSheetOf('Cálculo I — Prova 1')
+    cy.correctFirstSheetOf('Cálculo I — Prova 1')
     cy.get('[aria-label="Navegação principal"]').contains('a', 'Painel').click()
     cy.contains('a', 'Correções pendentes').click()
 

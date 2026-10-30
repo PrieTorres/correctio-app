@@ -1,4 +1,5 @@
 import { sampleApplications, sampleClasses, sampleExams, sampleQuestions } from '@/lib/seed'
+import { LARGEST_PAGE } from '@/lib/repositories/read-every-page'
 import { TOUR_STEPS } from '@/lib/tour/content'
 import { TOUR_SEEN_KEY } from '@/lib/tour/seen'
 import type { ApplicationInput, ClassInput, ExamInput, GenerationRequest, QuestionInput, StudentInput } from '@/lib/schemas'
@@ -417,11 +418,14 @@ export function photoOf(sheet: AnswerSheet, version: ExamVersion, marks: Record<
   }
 }
 
-/** The printed sheets of an application and their versions, read from the API as the teacher. */
+/** The printed sheets of an application and their versions, read from the API as the teacher, in one page each. */
 export function printedPaperOf(accessToken: string, applicationId: string): Cypress.Chainable<{ sheets: AnswerSheet[]; versions: ExamVersion[] }> {
   const api = apiAs(accessToken)
-  return api<AnswerSheet[]>('GET', `/applications/${applicationId}/sheets`).then(({ body: sheets }) =>
-    api<ExamVersion[]>('GET', `/applications/${applicationId}/versions`).then(({ body: versions }) => ({ sheets, versions })),
+  return api<{ items: AnswerSheet[] }>('GET', `/applications/${applicationId}/sheets?pageSize=${LARGEST_PAGE}`).then(({ body: sheets }) =>
+    api<{ items: ExamVersion[] }>('GET', `/applications/${applicationId}/versions?pageSize=${LARGEST_PAGE}`).then(({ body: versions }) => ({
+      sheets: sheets.items,
+      versions: versions.items,
+    })),
   )
 }
 
