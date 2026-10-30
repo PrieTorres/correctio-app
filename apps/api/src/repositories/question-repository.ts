@@ -9,6 +9,12 @@ import type { Database } from '../models/tables'
 import type { QuestionType } from '@correctio/domain'
 
 /**
+ * The primary key of `question_tags`, on the question and the tag. It compares
+ * the tag under the collation of the column, which ignores case and accents.
+ */
+export const QUESTION_TAG_INDEX = 'question_tags.PRIMARY'
+
+/**
  * The shape of a question as the API exposes it, mirrors `questionSchema`.
  *
  * Optional fields are omitted when they have no value, not sent as `null`: the

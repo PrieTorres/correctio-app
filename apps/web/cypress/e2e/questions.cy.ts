@@ -236,14 +236,17 @@ describe('banco de questões', () => {
   })
 })
 
+/** Opens an empty question form from the bank, the way the teacher reaches it. */
+function openNewQuestionForm() {
+  seedQuestions()
+  cy.visit('/questoes')
+  cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
+  cy.contains('a', 'Nova questão').click()
+  cy.contains('h1', 'Nova questão', { timeout: 10000 }).should('be.visible')
+}
+
 describe('formulário de questão', () => {
-  beforeEach(() => {
-    seedQuestions()
-    cy.visit('/questoes')
-    cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
-    cy.contains('a', 'Nova questão').click()
-    cy.contains('h1', 'Nova questão', { timeout: 10000 }).should('be.visible')
-  })
+  beforeEach(openNewQuestionForm)
 
   it('cria uma objetiva e mostra na lista', () => {
     cy.findByLabel('Enunciado').type('Qual a integral de 2x?')
@@ -359,6 +362,101 @@ describe('formulário de questão', () => {
 
     cy.get('[aria-label="Texto da alternativa E"]').should('exist')
     cy.contains('button', 'Alternativa').should('not.exist')
+  })
+})
+
+/**
+ * One scenario per bug of #184: inputs the database could not store as typed.
+ * Each one failed the save with a 500, or was stored rounded and then broke
+ * the bank; now the form says why on the field, or keeps one tag.
+ */
+describe('questão contra os limites do banco (#184)', () => {
+  beforeEach(openNewQuestionForm)
+
+  /** A max score the form never sends; the field shows why, and the bank keeps loading. */
+  it('recusa nota máxima com mais de 2 casas, e o banco continua carregando (bug 1)', () => {
+    cy.chooseSegment('Discursiva')
+    cy.findByLabel('Enunciado').type('Nota com três casas')
+    cy.findByLabel('Nota máxima').type('0.001')
+    cy.contains('button', 'Salvar questão').click()
+
+    cy.contains('A nota máxima aceita no máximo 2 casas decimais').should('be.visible')
+    cy.contains('h1', 'Nova questão').should('be.visible')
+
+    cy.contains('a', 'Banco de questões').click()
+    cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
+    cy.chooseSegment('Discursivas')
+    cy.contains('Explique com suas palavras').should('be.visible')
+    cy.contains('Nota com três casas').should('not.exist')
+    cy.contains('Não foi possível carregar').should('not.exist')
+  })
+
+  it('trata como uma só as tags que só diferem em maiúscula ou acento (bug 2)', () => {
+    cy.intercept('POST', '/api/questions').as('save')
+    cy.findByLabel('Enunciado').type('Tags que só mudam a caixa')
+    cy.get('[aria-label="Texto da alternativa A"]').type('uma')
+    cy.get('[aria-label="Texto da alternativa B"]').type('outra')
+    cy.findByLabel('Tags de conteúdo').type('Integrais{enter}')
+    cy.findByLabel('Tags de conteúdo').type('integrais{enter}')
+    cy.findByLabel('Tags de conteúdo').type('Função{enter}')
+    cy.findByLabel('Tags de conteúdo').type('Funcao{enter}')
+
+    cy.get('[aria-label="Remover tag Integrais"]').should('exist')
+    cy.get('[aria-label="Remover tag integrais"]').should('not.exist')
+    cy.get('[aria-label="Remover tag Função"]').should('exist')
+    cy.get('[aria-label="Remover tag Funcao"]').should('not.exist')
+    cy.contains('button', 'Salvar questão').click()
+
+    cy.wait('@save').its('response.statusCode').should('eq', 201)
+    cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
+    cy.contains('li', 'Tags que só mudam a caixa').should('contain', 'Integrais').and('contain', 'Função')
+  })
+
+  /** The long tag stays in the input with the reason, so the teacher shortens it instead of retyping. */
+  it('recusa tag com mais de 80 caracteres, dizendo o limite (bug 3)', () => {
+    const long = 'a'.repeat(81)
+    cy.findByLabel('Tags de conteúdo').type(`${long}{enter}`, { delay: 0 })
+
+    cy.contains('Cada tag pode ter no máximo 80 caracteres').should('be.visible')
+    cy.get(`[aria-label="Remover tag ${long}"]`).should('not.exist')
+
+    cy.findByLabel('Tags de conteúdo').type('{backspace}{enter}')
+    cy.get(`[aria-label="Remover tag ${'a'.repeat(80)}"]`).should('exist')
+    cy.contains('Cada tag pode ter no máximo 80 caracteres').should('not.exist')
+
+    cy.findByLabel('Enunciado').type('Tag no limite da coluna')
+    cy.get('[aria-label="Texto da alternativa A"]').type('uma')
+    cy.get('[aria-label="Texto da alternativa B"]').type('outra')
+    cy.contains('button', 'Salvar questão').click()
+
+    cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
+    cy.contains('Tag no limite da coluna').should('be.visible')
+  })
+
+  it('recusa nota máxima acima de 9999,99, dizendo o máximo (bug 4)', () => {
+    cy.chooseSegment('Discursiva')
+    cy.findByLabel('Enunciado').type('Nota acima do teto')
+    cy.findByLabel('Nota máxima').type('10000')
+    cy.contains('button', 'Salvar questão').click()
+
+    cy.contains('A nota máxima pode ser no máximo 9999,99').should('be.visible')
+    cy.contains('h1', 'Nova questão').should('be.visible')
+
+    cy.findByLabel('Nota máxima').clear().type('9999.99')
+    cy.contains('button', 'Salvar questão').click()
+
+    cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
+    cy.contains('Nota acima do teto').should('be.visible')
+  })
+
+  it('recusa enunciado só com espaços, como o vazio (bug 5)', () => {
+    cy.findByLabel('Enunciado').type('     ')
+    cy.get('[aria-label="Texto da alternativa A"]').type('uma')
+    cy.get('[aria-label="Texto da alternativa B"]').type('outra')
+    cy.contains('button', 'Salvar questão').click()
+
+    cy.contains('Informe o enunciado').should('be.visible')
+    cy.contains('h1', 'Nova questão').should('be.visible')
   })
 })
 

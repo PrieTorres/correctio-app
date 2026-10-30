@@ -190,6 +190,21 @@ com as mesmas regras das telas, sem cópia.
   raiz da API. O arquivo contém o nome dos alunos quando a aplicação é identificada, então
   não existe link público: o front baixa com o token, como qualquer outra chamada.
 
+### Questões
+
+`GET` e `POST /questions`, `GET /questions/tags`, `GET` e `PATCH /questions/:id`,
+`DELETE /questions/:id` (soft) e `PATCH /questions/:id/restore`.
+
+- **Validação:** o corpo passa pelo `questionInputSchema` de `@correctio/domain`, o mesmo do
+  formulário, e a recusa responde 400 com a mensagem dele. Os limites são os das colunas, para o
+  banco nunca arredondar nem recusar em silêncio (#184): enunciado só com espaços conta como
+  vazio; tag de até 80 caracteres (`VARCHAR(80)`); nota máxima entre 0,01 e 9999,99, com até
+  2 casas (`DECIMAL(6, 2)`).
+- **Tags iguais:** duas tags que só mudam maiúscula ou acento são a mesma para a chave de
+  `question_tags`, e o corpo que traz as duas responde 400. O schema compara como a colação
+  compara; o raro par que ele deixa passar (como "ß" e "ss") a chave recusa, e a API responde
+  400 também, nunca 500.
+
 ### Provas
 
 `GET` e `POST /exams`, `GET` e `PATCH /exams/:id`, `PATCH /exams/:id/archive` e

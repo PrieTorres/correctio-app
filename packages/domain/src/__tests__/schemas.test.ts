@@ -6,6 +6,8 @@ import {
   correctionProgressSchema,
   examInputSchema,
   generationRequestSchema,
+  MAX_SCORE,
+  MAX_TAG_LENGTH,
   MAX_VERSIONS,
   questionInputSchema,
   questionSchema,
@@ -157,6 +159,71 @@ describe('questionInputSchema', () => {
     const unanswered = { ...submittedMultipleChoice, correctAlternativeId: undefined }
 
     expect(messagesOf(questionInputSchema.safeParse(unanswered))).toContain('Marque qual alternativa é a correta')
+  })
+})
+
+/** Each case of #184: an input the database could not store as typed, which failed the save or the bank. */
+describe('questionInputSchema, against the limits of the database', () => {
+  const openEnded = { type: 'discursiva', statement: 'Explique.', tags: [], allowShuffleAlternatives: true }
+  const withScore = (maxScore: number) => questionInputSchema.safeParse({ ...openEnded, maxScore })
+  const withTags = (tags: string[]) => questionInputSchema.safeParse({ ...submittedMultipleChoice, tags })
+
+  it('refuses a max score with a third decimal, which the column rounded to zero', () => {
+    expect(messagesOf(withScore(0.001))).toEqual(['A nota máxima aceita no máximo 2 casas decimais'])
+    expect(messagesOf(withScore(2.555))).toEqual(['A nota máxima aceita no máximo 2 casas decimais'])
+  })
+
+  it('accepts two decimals, including values binary floating point cannot write exactly', () => {
+    expect(withScore(0.01).success).toBe(true)
+    expect(withScore(0.29).success).toBe(true)
+    expect(withScore(2.5).success).toBe(true)
+  })
+
+  it('refuses a max score above what the column holds, saying the ceiling', () => {
+    expect(messagesOf(withScore(10000))).toEqual(['A nota máxima pode ser no máximo 9999,99'])
+    expect(withScore(MAX_SCORE).success).toBe(true)
+  })
+
+  it('still refuses zero and negative scores with their own message', () => {
+    expect(messagesOf(withScore(0))).toEqual(['A nota máxima precisa ser maior que zero'])
+    expect(messagesOf(withScore(-2))).toEqual(['A nota máxima precisa ser maior que zero'])
+  })
+
+  it('refuses a statement of only spaces, like an empty one', () => {
+    expect(messagesOf(questionInputSchema.safeParse({ ...submittedMultipleChoice, statement: '   \n ' }))).toEqual([
+      'Informe o enunciado',
+    ])
+  })
+
+  it('stores the statement without the spaces around it', () => {
+    const parsed = questionInputSchema.parse({ ...submittedMultipleChoice, statement: '  Quanto é 2 + 2?  ' })
+
+    expect(parsed.statement).toBe('Quanto é 2 + 2?')
+  })
+
+  it('refuses two tags that differ only in case or accents, which the database keeps as one', () => {
+    expect(messagesOf(withTags(['Integrais', 'integrais']))).toEqual([
+      '"Integrais" e "integrais" são a mesma tag: deixe só uma',
+    ])
+    expect(messagesOf(withTags(['Função', 'Funcao']))).toEqual(['"Função" e "Funcao" são a mesma tag: deixe só uma'])
+  })
+
+  it('compares tags after trimming them, as they are stored', () => {
+    expect(messagesOf(withTags(['Limites', ' Limites ']))).toEqual(['"Limites" e "Limites" são a mesma tag: deixe só uma'])
+    expect(questionInputSchema.parse({ ...submittedMultipleChoice, tags: [' Limites '] }).tags).toEqual(['Limites'])
+  })
+
+  it('keeps tags that are really different', () => {
+    expect(withTags(['Integrais', 'Derivadas', 'Integrais duplas']).success).toBe(true)
+  })
+
+  it('refuses a tag longer than its column, and takes one exactly as long', () => {
+    expect(messagesOf(withTags(['a'.repeat(MAX_TAG_LENGTH + 1)]))).toEqual(['Cada tag pode ter no máximo 80 caracteres'])
+    expect(withTags(['a'.repeat(MAX_TAG_LENGTH)]).success).toBe(true)
+  })
+
+  it('refuses a tag of only spaces', () => {
+    expect(messagesOf(withTags(['  ']))).toEqual(['A tag não pode ficar vazia'])
   })
 })
 

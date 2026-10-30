@@ -516,6 +516,10 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 - Trocar tab → alterna campos
 - “Salvar” (válido) → P6
+- Validação, com a mensagem no próprio campo: enunciado só com espaços conta como vazio; tag de
+  até 80 caracteres (a mais longa fica no campo para encurtar); tag que só muda maiúscula ou
+  acento de outra já escolhida vira a mesma; nota máxima entre 0,01 e 9999,99, com até 2 casas
+  decimais (#184)
 
 #### P8. Provas (lista)
 
