@@ -317,3 +317,32 @@ describe('autenticação', () => {
     })
   })
 })
+
+/**
+ * The page shown while the session is restored, before any screen exists: the
+ * brand in the middle of the page and what is happening, never a line of text
+ * in the corner of an empty page. The restore is slowed down, or refused by
+ * the server, so the page stays long enough to be seen.
+ */
+describe('abrindo a sessão', () => {
+  it('mostra a marca e o aviso no meio da tela enquanto a sessão abre', () => {
+    cy.intercept('POST', '/api/auth/refresh', (req) => {
+      req.on('response', (res) => {
+        res.setDelay(1500)
+      })
+    })
+    cy.visit('/painel')
+
+    cy.contains('[role="status"]', 'Abrindo sua sessão…').should('be.visible')
+    cy.contains('p', 'Correctio').should('be.visible')
+    cy.contains('h1', 'Painel', { timeout: 10000 }).should('be.visible')
+  })
+
+  it('diz quando não conseguiu abrir a sessão e oferece tentar de novo', () => {
+    cy.intercept('POST', '/api/auth/refresh', { statusCode: 500, body: { code: 'FAILURE', message: 'Erro inesperado.' } })
+    cy.visit('/painel')
+
+    cy.contains('[role="alert"]', 'Não foi possível abrir sua sessão', { timeout: 20000 }).should('be.visible')
+    cy.contains('button', 'Tentar de novo').should('be.visible')
+  })
+})
