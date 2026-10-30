@@ -17,6 +17,16 @@ export function describeReady(count: number): string {
 }
 
 /**
+ * The heading of the students the preview leaves out because the class already
+ * has their registration, so the count on the button is not a surprise.
+ */
+export function describeAlreadyInClass(count: number): string {
+  return count === 1
+    ? '1 aluno já está na turma e não será importado'
+    : `${count} alunos já estão na turma e não serão importados`
+}
+
+/**
  * What an import did, in the teacher's words. The API skips a registration
  * that is already in the class instead of refusing the list, so the skipped
  * line is the only place the teacher learns that some students did not come in.
