@@ -105,11 +105,7 @@ describe('painel: corrigir folhas', () => {
   })
 
   it('pede para escolher a aplicação quando há mais de uma gerada', () => {
-    cy.visit('/aplicacoes')
-    cy.contains('a', 'Física II — Teste rápido').click()
-    cy.contains('a', 'Gerar').click()
-    cy.contains('button', 'Gerar').click()
-    cy.contains('h1', 'Física II — Teste rápido', { timeout: 10000 }).should('be.visible')
+    cy.generateApplication('Física II — Teste rápido')
 
     cy.get('[aria-label="Navegação principal"]').contains('a', 'Painel').click()
     cy.contains('button', 'Corrigir folhas').click()

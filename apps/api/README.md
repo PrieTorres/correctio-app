@@ -122,36 +122,78 @@ com as mesmas regras das telas, sem cópia.
 | `POST /classes/:id/students/:studentId/anonymize` | Anonimização irreversível do aluno (RF38) |
 | `POST /exams/draw` | Geração automática de prova (RF16) |
 | `POST /applications/:id/grades-release` | Libera ou recolhe as notas, com `{ released }`. Responde a aplicação |
+| `POST /applications/:id/publish-answer-keys` | "Publicar todos" da P14: publica o gabarito de todas as versões de uma vez |
 | `GET /applications/:id/sheets` | Folhas impressas, por `sheetNumber`. Faz o papel do `GET /applications/:id/students` da Spec, porque a `AnswerSheet` substituiu o `ExamAssignment` (`docs/Modelo_de_Dados.md`) |
 | `GET /applications/:id/pdf` | Baixa o PDF consolidado. É o endereço que o `pdfUrl` da aplicação traz |
 | `POST /applications/:id/corrections` | Grava a revisão de uma folha (RF28, RF30). A Spec só lista e edita as correções |
 | `GET /applications/:id/corrections/:correctionId` | Uma correção, para a tela de revisão (P16) |
-| `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49) |
+| `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49). Sem login, com limite de 30 requisições por minuto por IP. Código desconhecido responde `200` com `{ status: "INVALID_CODE" }`, igual a um código que existe mas não leva a nada, para quem tenta adivinhar não distinguir os dois. Responde `X-Robots-Tag: noindex` |
 
 ### Aplicações
 
-As rotas de aplicação trabalham, por enquanto, sobre aplicações que já existem. Criar, editar e
-gerar (`POST /applications`, `PATCH /applications/:id` e `POST /applications/:id/generate-pdf`)
-leem a prova e chegam junto com as provas da #45.
+`GET` e `POST /applications`, `GET` e `PATCH /applications/:id`, arquivar e restaurar, a geração
+(`POST /applications/:id/generate-pdf`), as versões, as folhas, o gabarito, as notas e o PDF.
 
-- **Lista:** além dos parâmetros de lista, aceita `classId`, `examId` e `status`, da mais antiga
-  para a mais recente. A busca procura o dia, escrito como a tela mostra (`05/10/2026`) ou como
-  ISO (`2026-10-05`), inteiro ou em parte.
+- **Resumo:** toda resposta que traz uma aplicação (lista, detalhe, criar, editar e liberar as
+  notas) traz também o título da prova (`examTitle`) e o nome da turma (`className`), mesmo que
+  estejam arquivadas, e o `progress`: `versions`, `publishedAnswerKeys`, `sheets`,
+  `correctedSheets` (só as correções concluídas) e `corrections` (todas, que impedem gerar de novo).
+  Tudo sai numa consulta só por página, para a P11 não pedir uma aplicação por vez. É um valor
+  calculado, que o `Modelo_de_Dados.md` não guarda.
+- **Lista:** além dos parâmetros de lista, aceita `classId`, `examId`, `status` e `correction`, da
+  mais recente para a mais antiga. A busca procura o dia, escrito como a tela mostra (`05/10/2026`)
+  ou como ISO (`2026-10-05`), inteiro ou em parte. Cada `status` fica de um lado só do `archived`:
+  `closed` só entre as arquivadas, `draft` e `generated` só entre as ativas. Pedir um `status` do
+  outro lado responde 400, em vez de uma lista vazia que pareceria "não há nenhuma".
+- **Situação da correção (`correction`):** `NOT_STARTED` é a aplicação sem nenhuma folha corrigida;
+  `IN_PROGRESS`, a que tem correção esperando a nota de uma discursiva (RF48), as mesmas que o
+  painel conta como pendentes; `DONE`, a que tem correções e todas concluídas. A folha de quem
+  faltou nunca é corrigida, então `DONE` não espera todas as folhas.
+- **Criar:** `POST /applications` recebe `{ examId, classId, date }` e a aplicação nasce `draft`,
+  com as notas recolhidas. Prova ou turma de outro professor responde 404; arquivada responde 409
+  (RF20). A mesma prova, para a mesma turma, no mesmo dia, é a mesma aplicação, contando as
+  arquivadas, e responde 409 com as mensagens das telas. A conferência roda com a linha da prova
+  travada, então dois cliques não gravam a mesma aplicação duas vezes.
+- **Editar:** `PATCH /applications/:id` mescla e grava só o que veio. Depois de gerar, só a data
+  muda, porque as folhas impressas são daquela prova e daquela turma. Aplicação arquivada não é
+  editada até ser restaurada. Só o que muda é conferido: uma aplicação cuja prova foi arquivada
+  depois continua mudando de data.
 - **Restaurar** devolve a aplicação arquivada como `draft`, nunca como `generated`; uma que não
   está arquivada fica como está.
+- **Gerar (RF22 a RF24):** `POST /applications/:id/generate-pdf` recebe
+  `{ versions: [{ shuffleQuestions, shuffleAlternatives }], withStudentIdentification }`, de 1 a 6
+  versões, e usa o limite das rotas caras (10 por hora por professor).
+  - Lê a prova pelo serviço de provas, as questões pelo id, inclusive as excluídas do banco depois
+    de entrar na prova, e os alunos da turma que não foram removidos nem anonimizados, em ordem de
+    nome.
+  - Monta as versões, com o `layout`, e uma folha por aluno, com o `code` feito no servidor e o
+    `answerCardVersion` da geometria do cartão. Responde `{ versions, sheets }`.
+  - Desenha e guarda o PDF antes de mexer no banco. Depois, numa transação com a aplicação e as
+    folhas travadas, confere de novo se pode gerar, troca versões e folhas, marca a aplicação como
+    `generated` e aponta o `pdfUrl` para o PDF novo. O PDF anterior é apagado depois do commit, e a
+    prova vira `ready`.
+  - Responde 409 para aplicação arquivada, folha já corrigida (RF24), notas liberadas (as versões
+    novas nascem com o gabarito despublicado), prova sem questão, turma sem aluno ativo e questão
+    maior que uma página, com o número dela na prova.
 - **Versões e folhas** são listas `{ items, total }`, por `versionNumber` e `sheetNumber`.
 - **Gabarito e notas (RF46):** `POST /applications/:id/versions/:versionId/publish-answer-key`
   recebe `{ published }`. Liberar as notas exige o gabarito de todas as versões publicado, e o
   gabarito não pode ser despublicado com as notas liberadas, porque a nota nunca aparece sem
   ele. Publicar de novo não muda o `answerKeyPublishedAt`.
+- **Publicar todos:** `POST /applications/:id/publish-answer-keys`, sem corpo, publica numa
+  instrução só todas as versões que ainda não estavam publicadas, então uma falha não deixa metade
+  publicada. Aplicação sem nada gerado responde 409. Despublicar continua versão por versão.
+- **Aplicação arquivada:** publicar o gabarito (uma versão ou todas), liberar as notas, gerar e
+  editar respondem 409, pedindo para restaurar antes. Despublicar o gabarito e recolher as notas
+  continuam liberados, porque só escondem.
 - **PDF:** o `pdfUrl` aparece só quando há PDF e traz o endereço da rota de download, relativo à
   raiz da API. O arquivo contém o nome dos alunos quando a aplicação é identificada, então
   não existe link público: o front baixa com o token, como qualquer outra chamada.
 
 ### Provas
 
-`GET` e `POST /exams`, `GET` e `PATCH /exams/:id`, `PATCH /exams/:id/archive`,
-`PATCH /exams/:id/restore` e `PATCH /exams/:id/ready`, mais o sorteio `POST /exams/draw`.
+`GET` e `POST /exams`, `GET` e `PATCH /exams/:id`, `PATCH /exams/:id/archive` e
+`PATCH /exams/:id/restore`, mais o sorteio `POST /exams/draw`.
 
 - **Questões da prova:** cada prova traz `questions`, na ordem, com `order`, `score` e
   `allowShuffleAlternatives`, que as versões herdam na geração (#46). O servidor recusa mais de 20
@@ -160,12 +202,10 @@ leem a prova e chegam junto com as provas da #45.
   precisa continuar salvando.
 - **Título único**, comparado sem acento e sem maiúscula, contando as arquivadas, com as mesmas
   mensagens das telas.
-- **Status é do servidor:** nasce `draft` e vira `ready` quando a primeira aplicação é gerada.
-  - Enquanto a geração ainda roda no navegador, a tela chama `PATCH /exams/:id/ready`, sem corpo.
-    A rota só passa `draft` para `ready` e não mexe em prova arquivada. Quando a geração for para o
-    servidor (#46), o serviço chama o mesmo `markReady` por dentro.
-  - Arquivar grava `closed`, e restaurar volta para `draft`, nunca para `ready`.
-  - O `PATCH` mescla e ignora `status`, `id` e `teacherId`.
+- **Status é do servidor:** nasce `draft` e vira `ready` quando a primeira aplicação é gerada:
+  o `POST /applications/:id/generate-pdf` chama o `markReady` do serviço depois do commit, que só
+  passa `draft` para `ready` e não mexe em prova arquivada. Arquivar grava `closed`, e restaurar
+  volta para `draft`, nunca para `ready`. O `PATCH` mescla e ignora `status`, `id` e `teacherId`.
 - **Sorteio (RF16):** `POST /exams/draw` recebe `{ tags, multipleChoiceCount, openEndedCount,
   excludeIds }` e responde `{ questions, shortfall }`. Sorteia entre as questões ativas do
   professor que têm todas as tags pedidas, deixando de fora `excludeIds` (as que já estão na prova
@@ -231,7 +271,10 @@ encaminha `/api/**` para ela, então em produção as rotas respondem em
 - Os PDFs vão para o bucket padrão do Firebase Storage de cada projeto, criado em `us-west1` e
   privado, com as regras do Storage negando todo acesso vindo do navegador (ADR-004). A função
   usa a própria conta de serviço, sem chave salva em lugar nenhum. Enquanto o bucket não existir,
-  a API sobe normalmente e só as rotas de arquivo respondem com erro.
+  a API sobe normalmente e só as rotas de arquivo respondem com erro: 500, com a mensagem "O
+  armazenamento de arquivos do servidor não está disponível.", registrado no log com a causa. O
+  Cloud Storage responde 404 tanto para o bucket que não existe quanto para o arquivo que sumiu,
+  e por isso a API pergunta se o bucket existe antes de tratar o 404 como arquivo perdido.
 - A função também responde no endereço direto do Google, sem passar pelo Hosting, e ali o
   `X-Forwarded-For` pode ser forjado: os limites por endereço valem para quem usa o site, não para
   quem chama a função direto. Os limites por professor não dependem do endereço.

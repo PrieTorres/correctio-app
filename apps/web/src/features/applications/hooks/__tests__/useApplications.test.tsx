@@ -1,18 +1,23 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, waitFor } from '@testing-library/react'
 import { createTeacherRepositories } from '@/lib/repositories'
 import { clearAllCollections } from '@/lib/storage/collection'
 import { renderHookWithProviders, TEST_TEACHER_ID } from '@/test-utils'
 import {
   applicationKeys,
+  useApplication,
+  useApplicationFilterChoices,
   useApplicationList,
   useApplicationPrinting,
   useArchiveApplication,
-  useCorrectionsOfApplication,
+  useDownloadApplicationPdf,
   useGenerateApplication,
+  usePrintedPaper,
+  usePublishAllAnswerKeys,
   usePublishAnswerKey,
   useReleaseGrades,
   useSaveApplication,
+  useSittingChoices,
 } from '../useApplications'
 
 const repositories = () => createTeacherRepositories(TEST_TEACHER_ID)
@@ -51,16 +56,16 @@ async function seedApplication() {
   return { application, exam }
 }
 
+const SHUFFLED = { shuffleQuestions: true, shuffleAlternatives: true }
+
 const GENERATE = {
-  versionCount: 2,
-  shuffleQuestions: true,
-  shuffleAlternatives: true,
+  versions: [SHUFFLED, SHUFFLED],
   withStudentIdentification: true,
 }
 
 describe('applicationKeys', () => {
   it('separates the active listing from the archived one', () => {
-    expect(applicationKeys.list(true, '')).not.toEqual(applicationKeys.list(false, ''))
+    expect(applicationKeys.list({ archived: true })).not.toEqual(applicationKeys.list({ archived: false }))
   })
 
   it('keeps the printing of one application apart from another', () => {
@@ -71,9 +76,19 @@ describe('applicationKeys', () => {
 describe('application data hooks', () => {
   beforeEach(clearAllCollections)
 
+  /** P11 sends its filters along, and the repository answers the page already filtered. */
+  it('lists only what the filters let through', async () => {
+    const { application } = await seedApplication()
+    await repositories().applications.create({ examId: 'another-exam', classId: application.classId, date: '2026-10-06T12:00:00.000Z' })
+
+    const { result } = renderHookWithProviders(() => useApplicationList({ examId: application.examId }))
+
+    await waitFor(() => expect(result.current.data?.items.map((item) => item.id)).toEqual([application.id]))
+  })
+
   it('lists an application once it is saved', async () => {
     await seedApplication()
-    const { result } = renderHookWithProviders(() => useApplicationList(false, ''))
+    const { result } = renderHookWithProviders(() => useApplicationList())
 
     await waitFor(() => expect(result.current.data?.items).toHaveLength(1))
   })
@@ -81,7 +96,7 @@ describe('application data hooks', () => {
   it('saves an application from the form input', async () => {
     const { result } = renderHookWithProviders(() => ({
       save: useSaveApplication(),
-      list: useApplicationList(false, ''),
+      list: useApplicationList(),
     }))
     await waitFor(() => expect(result.current.list.isSuccess).toBe(true))
 
@@ -112,8 +127,8 @@ describe('application data hooks', () => {
     const { application } = await seedApplication()
     const { result } = renderHookWithProviders(() => ({
       archive: useArchiveApplication(),
-      active: useApplicationList(false, ''),
-      archived: useApplicationList(true, ''),
+      active: useApplicationList(),
+      archived: useApplicationList({ archived: true }),
     }))
     await waitFor(() => expect(result.current.active.data?.items).toHaveLength(1))
 
@@ -127,7 +142,7 @@ describe('application data hooks', () => {
     const { application } = await seedApplication()
     const { result } = renderHookWithProviders(() => ({
       archive: useArchiveApplication(),
-      active: useApplicationList(false, ''),
+      active: useApplicationList(),
     }))
     await act(() => result.current.archive.mutateAsync({ id: application.id, archive: true }))
 
@@ -143,7 +158,7 @@ describe('application data hooks', () => {
       printing: useApplicationPrinting(application.id),
     }))
 
-    await act(() => result.current.generate.mutateAsync({ id: application.id, options: GENERATE }))
+    await act(() => result.current.generate.mutateAsync({ id: application.id, request: GENERATE }))
 
     await waitFor(() => expect(result.current.printing.data?.versions).toHaveLength(2), {
       timeout: 8000,
@@ -155,7 +170,7 @@ describe('application data hooks', () => {
     const { result } = renderHookWithProviders(() => useGenerateApplication())
 
     await expect(
-      result.current.mutateAsync({ id: 'nope', options: GENERATE }),
+      result.current.mutateAsync({ id: 'nope', request: GENERATE }),
     ).rejects.toThrow(/não encontrada/i)
   })
 
@@ -169,7 +184,7 @@ describe('application data hooks', () => {
     const { result } = renderHookWithProviders(() => useGenerateApplication())
 
     const generated = await act(() =>
-      result.current.mutateAsync({ id: application.id, options: GENERATE }),
+      result.current.mutateAsync({ id: application.id, request: GENERATE }),
     )
 
     expect(generated.versions).toHaveLength(2)
@@ -184,11 +199,11 @@ describe('application data hooks', () => {
       printing: useApplicationPrinting(application.id),
     }))
     const { versions } = await act(() =>
-      result.current.generate.mutateAsync({ id: application.id, options: GENERATE }),
+      result.current.generate.mutateAsync({ id: application.id, request: GENERATE }),
     )
     const versionId = versions[0]?.id ?? ''
 
-    await act(() => result.current.publish.mutateAsync({ versionId, published: true }))
+    await act(() => result.current.publish.mutateAsync({ applicationId: application.id, versionId, published: true }))
 
     await waitFor(
       () =>
@@ -204,7 +219,7 @@ describe('application data hooks', () => {
     const { application } = await seedApplication()
     const { result } = renderHookWithProviders(() => ({
       release: useReleaseGrades(),
-      list: useApplicationList(false, ''),
+      list: useApplicationList(),
     }))
     await waitFor(() => expect(result.current.list.data?.items).toHaveLength(1))
 
@@ -215,14 +230,158 @@ describe('application data hooks', () => {
     )
   })
 
-  it('reports no corrections for paper nobody has read', async () => {
+  it('reads an application with the exam, the class and what was printed for it', async () => {
     const { application } = await seedApplication()
     const { result } = renderHookWithProviders(() => ({
       generate: useGenerateApplication(),
-      corrections: useCorrectionsOfApplication(application.id),
+      application: useApplication(application.id),
     }))
-    await act(() => result.current.generate.mutateAsync({ id: application.id, options: GENERATE }))
+    await waitFor(() => expect(result.current.application.data?.examTitle).toBe('Prova'))
 
-    await waitFor(() => expect(result.current.corrections.data).toEqual([]), { timeout: 8000 })
+    await act(() => result.current.generate.mutateAsync({ id: application.id, request: GENERATE }))
+
+    await waitFor(() => expect(result.current.application.data?.progress.versions).toBe(2), { timeout: 8000 })
+    expect(result.current.application.data).toMatchObject({
+      status: 'generated',
+      className: 'Turma',
+      progress: { versions: 2, publishedAnswerKeys: 0, sheets: 2, correctedSheets: 0, corrections: 0 },
+    })
+  })
+
+  it('publishes the answer key of every version at once', async () => {
+    const { application } = await seedApplication()
+    const { result } = renderHookWithProviders(() => ({
+      generate: useGenerateApplication(),
+      publishAll: usePublishAllAnswerKeys(),
+      application: useApplication(application.id),
+    }))
+    await act(() => result.current.generate.mutateAsync({ id: application.id, request: GENERATE }))
+
+    await act(() => result.current.publishAll.mutateAsync(application.id))
+
+    await waitFor(() => expect(result.current.application.data?.progress.publishedAnswerKeys).toBe(2), { timeout: 8000 })
+  })
+})
+
+describe('useSittingChoices', () => {
+  beforeEach(clearAllCollections)
+
+  it('offers every active exam and class, leaving the archived ones out', async () => {
+    await seedApplication()
+    const { exams, classes } = repositories()
+    const archivedExam = await exams.create({
+      title: 'Prova antiga',
+      description: '',
+      questions: [],
+      defaultShuffleQuestions: false,
+      defaultShuffleAlternatives: false,
+    })
+    await exams.archive(archivedExam.id)
+    const archivedClass = await classes.create({ name: 'Turma antiga', subject: 'Matemática', term: '2025/2' })
+    await classes.archive(archivedClass.id)
+
+    const { result } = renderHookWithProviders(() => useSittingChoices())
+
+    await waitFor(() => expect(result.current.data).toBeDefined())
+    expect(result.current.data?.exams.map((item) => item.title)).toEqual(['Prova'])
+    expect(result.current.data?.classes.map((item) => item.name)).toEqual(['Turma'])
+  })
+})
+
+describe('useApplicationFilterChoices', () => {
+  beforeEach(clearAllCollections)
+
+  /** An application keeps its exam and class when they are archived later, and P11 still filters by them. */
+  it('offers every exam and class, the archived ones included and marked', async () => {
+    await seedApplication()
+    const { exams, classes } = repositories()
+    const archivedExam = await exams.create({
+      title: 'Prova antiga',
+      description: '',
+      questions: [],
+      defaultShuffleQuestions: false,
+      defaultShuffleAlternatives: false,
+    })
+    await exams.archive(archivedExam.id)
+    const archivedClass = await classes.create({ name: 'Turma antiga', subject: 'Matemática', term: '2025/2' })
+    await classes.archive(archivedClass.id)
+
+    const { result } = renderHookWithProviders(() => useApplicationFilterChoices())
+
+    await waitFor(() => expect(result.current.data).toBeDefined())
+    expect(result.current.data?.exams.map((option) => option.label)).toEqual(['Prova', 'Prova antiga (arquivada)'])
+    expect(result.current.data?.classes).toEqual([
+      expect.objectContaining({ label: 'Turma' }),
+      { value: archivedClass.id, label: 'Turma antiga (arquivada)' },
+    ])
+  })
+})
+
+describe('usePrintedPaper', () => {
+  beforeEach(clearAllCollections)
+
+  it('reads the versions and the sheets of an application once they exist', async () => {
+    const { application } = await seedApplication()
+    const { result } = renderHookWithProviders(() => ({
+      generate: useGenerateApplication(),
+      paper: usePrintedPaper(application.id),
+    }))
+    expect(result.current.paper).toEqual({ versions: [], sheets: [] })
+
+    await act(() => result.current.generate.mutateAsync({ id: application.id, request: GENERATE }))
+
+    await waitFor(() => expect(result.current.paper.versions).toHaveLength(2), { timeout: 8000 })
+    expect(result.current.paper.sheets).toHaveLength(2)
+  })
+
+  /** A draft has nothing printed either, and its cards already say so. */
+  it('reads as nothing printed when the paper cannot be read', async () => {
+    const teacher = createTeacherRepositories(TEST_TEACHER_ID)
+    const failing = () => Promise.reject(new Error('sem conexão'))
+    const { result } = renderHookWithProviders(() => useApplicationPrinting('a1'), {
+      repositories: { ...teacher, printing: { ...teacher.printing, listVersions: failing, listSheets: failing } },
+    })
+    const paper = renderHookWithProviders(() => usePrintedPaper('a1'), {
+      repositories: { ...teacher, printing: { ...teacher.printing, listVersions: failing, listSheets: failing } },
+    })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(paper.result.current).toEqual({ versions: [], sheets: [] })
+  })
+})
+
+describe('useDownloadApplicationPdf', () => {
+  const createObjectURL = vi.fn(() => 'blob:prova')
+
+  /** jsdom has no object URLs, so the test supplies the ones the browser would. */
+  beforeEach(() => {
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('saves the PDF of the application under the name it came with', async () => {
+    const saved: string[] = []
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      saved.push(this.download)
+    })
+    const teacher = createTeacherRepositories(TEST_TEACHER_ID)
+    const downloadPdf = vi.fn(() => Promise.resolve({ blob: new Blob(['%PDF-1.7']), filename: 'prova-2026-10-05.pdf' }))
+    const { result } = renderHookWithProviders(() => useDownloadApplicationPdf(), {
+      repositories: { ...teacher, applications: { ...teacher.applications, downloadPdf } },
+    })
+
+    await act(() => result.current.mutateAsync('a1'))
+
+    expect(downloadPdf).toHaveBeenCalledWith('a1')
+    expect(saved).toEqual(['prova-2026-10-05.pdf'])
+  })
+
+  it('reports what the repository said when there is no PDF to save', async () => {
+    const { result } = renderHookWithProviders(() => useDownloadApplicationPdf())
+
+    await expect(result.current.mutateAsync('a1')).rejects.toThrow('O PDF é montado pelo servidor e não existe nesta demonstração.')
   })
 })

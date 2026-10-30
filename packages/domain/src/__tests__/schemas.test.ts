@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
 import {
+  answerSheetSchema,
+  applicationOverviewSchema,
+  correctionProgressSchema,
   examInputSchema,
+  generationRequestSchema,
+  MAX_VERSIONS,
   questionInputSchema,
   questionSchema,
   resetPasswordSchema,
@@ -173,5 +178,73 @@ describe('examInputSchema', () => {
     expect(messagesOf(examInputSchema.safeParse({ ...exam, questions: questions(21) }))).toEqual([
       'Máximo de 20 questões por prova',
     ])
+  })
+})
+
+describe('generationRequestSchema', () => {
+  const version = { shuffleQuestions: true, shuffleAlternatives: false }
+  const request = (count: number) => ({ versions: Array.from({ length: count }, () => version), withStudentIdentification: true })
+
+  it('accepts from one to six versions, each with its own shuffle', () => {
+    expect(generationRequestSchema.safeParse(request(1)).success).toBe(true)
+    expect(generationRequestSchema.safeParse(request(MAX_VERSIONS)).success).toBe(true)
+  })
+
+  it('refuses no version at all and a seventh one', () => {
+    expect(messagesOf(generationRequestSchema.safeParse(request(0)))).toEqual(['Gere pelo menos uma versão'])
+    expect(messagesOf(generationRequestSchema.safeParse(request(MAX_VERSIONS + 1)))).toEqual(['Máximo de 6 versões por aplicação'])
+  })
+
+  it('asks how each version shuffles and whether the sheets carry the name, in words the screen can show', () => {
+    expect(messagesOf(generationRequestSchema.safeParse({ versions: [{ shuffleQuestions: true }] }))).toEqual([
+      'Informe se a versão embaralha as alternativas',
+      'Informe se as folhas saem com o nome do aluno',
+    ])
+    expect(messagesOf(generationRequestSchema.safeParse({ withStudentIdentification: false }))).toEqual(['Informe as versões a gerar'])
+    expect(messagesOf(generationRequestSchema.safeParse('3 versões'))).toEqual(['Dados inválidos'])
+  })
+})
+
+describe('answerSheetSchema', () => {
+  const sheet = { id: 's1', applicationId: 'a1', examVersionId: 'v1', sheetNumber: 1, code: 'ABCDEFGHJKLMNPQRSTUVWXYZ27' }
+
+  it('keeps the geometry of the answer card the sheet was printed with', () => {
+    expect(answerSheetSchema.parse({ ...sheet, answerCardVersion: 2 }).answerCardVersion).toBe(2)
+  })
+
+  it('reads a sheet stored before the geometry was recorded as one of the first geometry', () => {
+    expect(answerSheetSchema.parse(sheet).answerCardVersion).toBe(1)
+  })
+})
+
+describe('applicationOverviewSchema', () => {
+  const overview = {
+    id: 'a1',
+    examId: 'e1',
+    classId: 'c1',
+    teacherId: 't1',
+    status: 'generated',
+    date: '2026-10-05T12:00:00.000Z',
+    gradesReleased: false,
+    examTitle: 'Cálculo I — P1',
+    className: 'Turma A',
+    progress: { versions: 2, publishedAnswerKeys: 1, sheets: 30, correctedSheets: 12, corrections: 14 },
+  }
+
+  it('reads an application with the names the screens show and its progress', () => {
+    expect(applicationOverviewSchema.parse(overview)).toEqual(overview)
+  })
+
+  it('refuses an application without its progress, or with a count that is not a whole number of things', () => {
+    expect(applicationOverviewSchema.safeParse({ ...overview, progress: undefined }).success).toBe(false)
+    expect(applicationOverviewSchema.safeParse({ ...overview, progress: { ...overview.progress, sheets: -1 } }).success).toBe(false)
+    expect(applicationOverviewSchema.safeParse({ ...overview, progress: { ...overview.progress, corrections: 1.5 } }).success).toBe(false)
+  })
+})
+
+describe('correctionProgressSchema', () => {
+  it('takes the three stages of the correction of an application, written as the contract writes them', () => {
+    expect(['NOT_STARTED', 'IN_PROGRESS', 'DONE'].map((stage) => correctionProgressSchema.safeParse(stage).success)).toEqual([true, true, true])
+    expect(correctionProgressSchema.safeParse('in-progress').success).toBe(false)
   })
 })

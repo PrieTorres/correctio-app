@@ -111,11 +111,18 @@ describe('toStorageError', () => {
     expect(error.message).toBe('Já existe uma turma com estes dados.')
   })
 
-  it('shows the server message of a 429 as a failure', () => {
+  it('keeps the server message of a 429 under its own code', () => {
     const error = toStorageError(429, { code: 'too-many-requests', message: 'Muitas requisições. Espere um minuto.' })
 
-    expect(error.code).toBe('failure')
+    expect(error.code).toBe('rate-limited')
     expect(error.message).toBe('Muitas requisições. Espere um minuto.')
+  })
+
+  it('still tells a 429 without a body to wait', () => {
+    const error = toStorageError(429, undefined)
+
+    expect(error.code).toBe('rate-limited')
+    expect(error.message).toContain('Aguarde')
   })
 
   it('hides a server error behind a generic message', () => {
@@ -131,5 +138,54 @@ describe('toStorageError', () => {
 
   it('asks for the sign-in on a 401 even without a body', () => {
     expect(toStorageError(401, undefined).message).toBe('Faça login para continuar.')
+  })
+})
+
+describe('download', () => {
+  /** What Express sends for `res.attachment(...).send(buffer)`. */
+  function respondWithFile(headers: Record<string, string>) {
+    return vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response('%PDF-1.7', { status: 200, headers: { 'Content-Type': 'application/pdf', ...headers } })),
+    )
+  }
+
+  it('answers the file and the name the API gave it, asking with the token', async () => {
+    const fetchFn = respondWithFile({ 'Content-Disposition': 'attachment; filename=prova-2026-10-05.pdf' })
+
+    const file = await clientWith(fetchFn).api.download('/applications/a1/pdf')
+
+    expect(file.filename).toBe('prova-2026-10-05.pdf')
+    expect(await file.blob.text()).toBe('%PDF-1.7')
+    const { url, init } = requestOf(fetchFn)
+    expect([url, init.method]).toEqual(['/api/applications/a1/pdf', 'GET'])
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer token-ana')
+  })
+
+  it('reads a quoted name too, as a name with spaces arrives', async () => {
+    const fetchFn = respondWithFile({ 'Content-Disposition': 'attachment; filename="prova de cálculo.pdf"' })
+
+    expect((await clientWith(fetchFn).api.download('/applications/a1/pdf')).filename).toBe('prova de cálculo.pdf')
+  })
+
+  it('leaves the name out when the response does not give one', async () => {
+    const file = await clientWith(respondWithFile({})).api.download('/applications/a1/pdf')
+
+    expect(file.filename).toBeUndefined()
+  })
+
+  it('turns a refusal into the error the screens show, with the message of the API', async () => {
+    const fetchFn = respondWith(404, { code: 'not-found', message: 'O PDF desta aplicação ainda não foi gerado.' })
+
+    const error = await failureOf(clientWith(fetchFn).api.download('/applications/a1/pdf'))
+
+    expect([error.code, error.message]).toEqual(['not-found', 'O PDF desta aplicação ainda não foi gerado.'])
+  })
+
+  it('tells the app when the session ended', async () => {
+    const { api, onUnauthorized } = clientWith(respondWith(401, { code: 'unauthorized', message: 'Sessão expirada.' }))
+
+    await failureOf(api.download('/applications/a1/pdf'))
+
+    expect(onUnauthorized).toHaveBeenCalledOnce()
   })
 })

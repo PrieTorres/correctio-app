@@ -6,7 +6,7 @@
  * responses, plus the Express request bodies, later.
  */
 import { z } from 'zod';
-import { CORRECTION_SOURCE, CORRECTION_STATUS } from './domain';
+import { CORRECTION_PROGRESS, CORRECTION_SOURCE, CORRECTION_STATUS } from './domain';
 
 const id = z.string().min(1);
 const timestamp = z.string().datetime();
@@ -351,16 +351,66 @@ export const applicationSchema = z.object({
   gradesReleased: z.boolean(),
 });
 
+const count = z.number().int().nonnegative();
+
+export const applicationProgressSchema = z.object({
+  versions: count,
+  publishedAnswerKeys: count,
+  sheets: count,
+  correctedSheets: count,
+  corrections: count,
+});
+
+/** How the API answers an application: the entity, the names the screens show and its progress. */
+export const applicationOverviewSchema = applicationSchema.extend({
+  examTitle: z.string(),
+  className: z.string(),
+  progress: applicationProgressSchema,
+});
+
+export const correctionProgressSchema = z.nativeEnum(CORRECTION_PROGRESS);
+
 /**
  * What the application form submits. The teacher picks an exam, a class and a
  * date; the status, the PDF and the release of grades belong to what happens
- * afterwards.
+ * afterwards. The API answers with these same messages, so they are written
+ * for the screen.
  */
 export const applicationInputSchema = z.object({
-  examId: id,
-  classId: id,
-  date: timestamp,
+  examId: z.string({ message: 'Escolha a prova' }).min(1, 'Escolha a prova'),
+  classId: z.string({ message: 'Escolha a turma' }).min(1, 'Escolha a turma'),
+  date: z.string({ message: 'Informe a data da aplicação' }).datetime('Informe a data da aplicação'),
 });
+
+/**
+ * The most versions one application prints, the most P13 has always offered.
+ * Here rather than in the screen, so the API refuses what the screen would
+ * never send.
+ */
+export const MAX_VERSIONS = 6;
+
+export const versionShuffleSchema = z.object({
+  shuffleQuestions: z.boolean({ message: 'Informe se a versão embaralha as questões' }),
+  shuffleAlternatives: z.boolean({ message: 'Informe se a versão embaralha as alternativas' }),
+});
+
+/**
+ * What generating an application asks for (RF22): how each version shuffles,
+ * which P13 pre-fills with the preferences of the exam (RF17) and the teacher
+ * may change version by version, and whether the sheets carry the name of the
+ * student, which holds for the whole application. The number of versions is
+ * the length of `versions`.
+ */
+export const generationRequestSchema = z.object(
+  {
+    versions: z
+      .array(versionShuffleSchema, { message: 'Informe as versões a gerar' })
+      .min(1, 'Gere pelo menos uma versão')
+      .max(MAX_VERSIONS, `Máximo de ${MAX_VERSIONS} versões por aplicação`),
+    withStudentIdentification: z.boolean({ message: 'Informe se as folhas saem com o nome do aluno' }),
+  },
+  { message: 'Dados inválidos' },
+);
 
 export const examVersionLayoutSchema = z.object({
   questionOrder: z.array(id),
@@ -388,6 +438,12 @@ export const answerSheetSchema = z.object({
   studentId: id.optional(),
   sheetNumber: z.number().int().positive(),
   code: z.string().length(26),
+  /**
+   * A sheet kept in a browser before this field existed was made for the
+   * first geometry, which is the only one there has been until then, so it
+   * is read as that one instead of being dropped as invalid.
+   */
+  answerCardVersion: z.number().int().positive().default(1),
 });
 
 export const correctionStatusSchema = z.nativeEnum(CORRECTION_STATUS);
@@ -398,6 +454,38 @@ export const objectiveResultSchema = z.object({
   score: z.number().nonnegative(),
   selectedAlternativeId: id.optional(),
 });
+
+const publicLookupHeaderSchema = z.object({
+  examTitle: z.string(),
+  subject: z.string(),
+  className: z.string(),
+  date: z.string(),
+  identity: z.discriminatedUnion('type', [
+    z.object({ type: z.literal('STUDENT'), fullName: z.string() }),
+    z.object({ type: z.literal('SHEET'), sheetNumber: z.number(), versionNumber: z.number() }),
+  ]),
+});
+
+const answerKeySchema = z.array(z.object({ questionId: id, correctAlternativeId: id }));
+
+/**
+ * The answer of the public lookup, one object per state. `z.object` drops any
+ * key it does not declare, which is the right default for the one response
+ * that reaches strangers: a field the server added by mistake never gets to
+ * the screen.
+ */
+export const publicLookupSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('INVALID_CODE') }),
+  z.object({ status: z.literal('NOTHING_RELEASED'), header: publicLookupHeaderSchema }),
+  z.object({ status: z.literal('ANSWER_KEY_ONLY'), header: publicLookupHeaderSchema, answerKey: answerKeySchema }),
+  z.object({
+    status: z.literal('ANSWER_KEY_AND_SCORE'),
+    header: publicLookupHeaderSchema,
+    answerKey: answerKeySchema,
+    totalScore: z.number(),
+    objectiveResults: z.array(objectiveResultSchema),
+  }),
+]);
 
 export const correctionSchema = z.object({
   id,
@@ -443,3 +531,5 @@ export type AuthSession = z.infer<typeof authSessionSchema>;
 export type ExamInput = z.infer<typeof examInputSchema>;
 export type DrawRequest = z.infer<typeof drawRequestSchema>;
 export type ApplicationInput = z.infer<typeof applicationInputSchema>;
+export type VersionShuffle = z.infer<typeof versionShuffleSchema>;
+export type GenerationRequest = z.infer<typeof generationRequestSchema>;

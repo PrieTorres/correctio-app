@@ -39,6 +39,7 @@ export interface AuthComponents {
 }
 
 interface RateLimits {
+  public: RateLimitTier
   failedAuth: RateLimitTier
   read: RateLimitTier
   write: RateLimitTier
@@ -79,6 +80,7 @@ export interface AppDependencies {
 }
 
 const DEFAULT_RATE_LIMITS: RateLimits = {
+  public: RATE_LIMITS.PUBLIC,
   failedAuth: RATE_LIMITS.FAILED_AUTH,
   read: RATE_LIMITS.READ,
   write: RATE_LIMITS.WRITE,
@@ -134,10 +136,13 @@ export function createApp({
       db,
       fieldCipher,
       fileStorage,
+      publicLimit: createRateLimit(limits.public, { key: byClientAddress }),
       failedAuthLimit: createRateLimit(limits.failedAuth, { key: byClientAddress, counts: COUNTED_RESPONSES.UNAUTHORIZED }),
       requireAuth: createRequireAuth(verifyToken),
       teacherLimit: createTeacherRateLimit(limits),
       expensiveLimit: createRateLimit(limits.expensive, { key: byTeacher }),
+      publicAppUrl: env.PUBLIC_APP_URL,
+      logger,
       auth: auth === undefined ? undefined : authRoutesFor(auth, env, limits, signInDelayStepMs),
     }),
   )

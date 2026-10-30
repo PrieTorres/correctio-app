@@ -1,5 +1,6 @@
 import { Router, type RequestHandler } from 'express'
 import type { Kysely } from 'kysely'
+import type { Logger } from 'pino'
 import type { AuthController } from '../controllers/auth-controller'
 import type { FieldCipher } from '../lib/field-encryption'
 import type { FileStorage } from '../lib/file-storage'
@@ -11,6 +12,7 @@ import { meRoutes, publicAuthRoutes, signedInAuthRoutes } from './auth-routes'
 import { classRoutes } from './class-routes'
 import { examRoutes } from './exam-routes'
 import { healthRoutes } from './health-routes'
+import { publicRoutes } from './public-routes'
 import { questionRoutes } from './question-routes'
 
 export interface RouteDependencies {
@@ -18,6 +20,8 @@ export interface RouteDependencies {
   db: Kysely<Database>
   fieldCipher: FieldCipher
   fileStorage: FileStorage
+  /** The public tier, per address, for the lookup a student reaches without an account. */
+  publicLimit: RequestHandler
   /** Counts refused tokens per address, ahead of the gate, against guessing. */
   failedAuthLimit: RequestHandler
   requireAuth: RequestHandler
@@ -25,6 +29,9 @@ export interface RouteDependencies {
   teacherLimit: RequestHandler
   /** The expensive tier, per teacher, which each costly route applies on its own. */
   expensiveLimit: RequestHandler
+  /** The origin of the web app, which the PDF prints in every QR code (`PUBLIC_APP_URL`). */
+  publicAppUrl: string
+  logger: Logger
   /** Absent in tests that exercise only the gate, which then answers every route as before #40. */
   auth?: { controller: AuthController; limits: AuthLimits }
 }
@@ -40,15 +47,19 @@ export function createRouter({
   db,
   fieldCipher,
   fileStorage,
+  publicLimit,
   failedAuthLimit,
   requireAuth,
   teacherLimit,
   expensiveLimit,
+  publicAppUrl,
+  logger,
   auth,
 }: RouteDependencies): Router {
   const router = Router()
 
   router.use('/health', healthRoutes(healthService))
+  router.use('/public', publicRoutes({ db, publicLimit }))
   if (auth !== undefined) router.use('/auth', publicAuthRoutes(auth.controller, auth.limits))
 
   router.use(failedAuthLimit, requireAuth, teacherLimit)
@@ -60,7 +71,7 @@ export function createRouter({
   router.use('/questions', questionRoutes(db))
   router.use('/classes', classRoutes({ db, fieldCipher, expensiveLimit }))
   router.use('/exams', examRoutes(db))
-  router.use('/applications', applicationRoutes({ db, fileStorage }))
+  router.use('/applications', applicationRoutes({ db, fileStorage, expensiveLimit, publicAppUrl, logger }))
 
   return router
 }

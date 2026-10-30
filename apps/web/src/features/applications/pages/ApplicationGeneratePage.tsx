@@ -1,210 +1,255 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, FileText, Loader2 } from 'lucide-react';
-import { Button, Card, NumberInput, PageHeader, QueryBoundary, Tour } from '@/components/ui';
+import { Button, Card, NumberInput, PageHeader, QueryBoundary, SaveError, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
+import { MAX_VERSIONS, type VersionShuffle } from '@/lib/schemas';
 import { useExam } from '@/features/exams';
-import {
-  useApplication,
-  useApplicationPrinting,
-  useCorrectionsOfApplication,
-  useGenerateApplication,
-} from '../hooks/useApplications';
+import type { ApplicationOverview } from '@/types/domain';
+import { examTitleOf, sittingOf } from '../application-labels';
+import { returnPathFrom } from '../generation-origin';
+import { useApplication, useGenerateApplication } from '../hooks/useApplications';
+import { versionShufflesOf, withChange, withinCount, type ShuffleChanges } from '../version-shuffles';
 
-const MAX_VERSIONS = 6;
-
-/**
- * The steps walk through generating, so they wait until the screen knows it
- * can: that takes the corrections as well as the application, and a refused
- * screen already explains itself in its alert.
- */
-function canWalkThrough(verdict: { allowed: boolean }, correctionsPending: boolean): boolean {
-  return verdict.allowed && !correctionsPending;
-}
+/** Two versions by default: neighbours get different papers, which is the reason for versions at all. */
+const DEFAULT_VERSION_COUNT = 2;
 
 export function ApplicationGeneratePage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-
   const { data: application, isPending, isError } = useApplication(id);
-  const { data: exam } = useExam(application?.examId);
-  const { data: printing } = useApplicationPrinting(id);
-  const { data: corrections = [], isPending: correctionsPending } = useCorrectionsOfApplication(id);
-  const generate = useGenerateApplication();
-
-  const [versionCount, setVersionCount] = useState(2);
-  const [shuffleQuestions, setShuffleQuestions] = useState<boolean | null>(null);
-  const [shuffleAlternatives, setShuffleAlternatives] = useState<boolean | null>(null);
-  const [withStudentIdentification, setWithStudentIdentification] = useState(true);
-
-  /**
-   * The shuffle defaults are the exam's until the teacher says otherwise, so
-   * `null` means "not decided here" rather than "off". Copying the exam's value
-   * into state on load would freeze whatever it was at that moment.
-   */
-  const questionsShuffled = shuffleQuestions ?? exam?.defaultShuffleQuestions ?? true;
-  const alternativesShuffled = shuffleAlternatives ?? exam?.defaultShuffleAlternatives ?? true;
-
-  const alreadyPrinted = (printing?.versions.length ?? 0) > 0;
-  const verdict =
-    application === null || application === undefined
-      ? { allowed: false as const, reason: 'Aplicação não encontrada.' }
-      : canRegenerate(application, corrections);
-
-  const run = () => {
-    if (id === undefined) return;
-
-    generate.mutate(
-      {
-        id,
-        options: {
-          versionCount,
-          shuffleQuestions: questionsShuffled,
-          shuffleAlternatives: alternativesShuffled,
-          withStudentIdentification,
-        },
-      },
-      { onSuccess: () => void navigate(buildPath(ROUTES.applicationDetail, { id })) },
-    );
-  };
 
   return (
     <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando aplicação…">
-      <div className="flex flex-col gap-6">
-        <Link
-          to={ROUTES.applications}
-          className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-        >
-          <ArrowLeft size={16} aria-hidden />
-          Aplicações
-        </Link>
+      {application === null || application === undefined ? (
+        <Card className="p-6">
+          <p className="text-body text-ink-muted">Aplicação não encontrada.</p>
+        </Card>
+      ) : (
+        <GenerationForm application={application} />
+      )}
+    </QueryBoundary>
+  );
+}
 
-        <PageHeader help
-          title="Gerar prova"
-          description="Cada versão embaralha de um jeito. Cada aluno recebe uma folha com código próprio, que é o que a consulta de nota vai ler."
-        />
+/**
+ * Generating an application (P13): how many versions, how each one shuffles
+ * (RF22), pre-filled with the preferences of the exam (RF17), and whether the
+ * sheets carry the name of the student, which holds for the whole application.
+ *
+ * The screen says which application it is generating, and goes back where it
+ * came from: the detail of the application when the teacher started there.
+ * When the server refuses, its reason shows here, since it may have seen a
+ * correction this screen had not.
+ */
+function GenerationForm({ application }: Readonly<{ application: ApplicationOverview }>) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const origin: unknown = location.state;
+  const backTo = returnPathFrom(origin);
+  const { data: exam } = useExam(application.examId);
+  const generate = useGenerateApplication();
 
-        {!verdict.allowed && (
-          <Card className="flex items-start gap-3 border-l-4 border-l-danger p-5">
-            <AlertTriangle size={20} aria-hidden className="mt-0.5 shrink-0 text-danger" />
-            <div>
-              <h2 className="text-label text-danger">Não é possível gerar agora</h2>
-              <p role="alert" className="mt-1 text-body text-ink-muted">
-                {verdict.reason}
-              </p>
-            </div>
-          </Card>
-        )}
+  const [versionCount, setVersionCount] = useState(DEFAULT_VERSION_COUNT);
+  const [changes, setChanges] = useState<ShuffleChanges>({});
+  const [withStudentIdentification, setWithStudentIdentification] = useState(true);
 
-        {verdict.allowed && alreadyPrinted && (
-          <Card className="flex items-start gap-3 border-l-4 border-l-accent p-5">
-            <AlertTriangle size={20} aria-hidden className="mt-0.5 shrink-0 text-ink-muted" />
-            <div>
-              <h2 className="text-label text-ink">Esta aplicação já foi gerada</h2>
-              <p role="status" className="mt-1 text-body text-ink-muted">
-                Gerar de novo substitui as {printing?.versions.length} versões e todas as folhas.
-                As folhas já impressas deixam de valer, porque os códigos mudam.
-              </p>
-            </div>
-          </Card>
-        )}
+  const preferences: VersionShuffle = {
+    shuffleQuestions: exam?.defaultShuffleQuestions ?? true,
+    shuffleAlternatives: exam?.defaultShuffleAlternatives ?? true,
+  };
+  const versions = versionShufflesOf(versionCount, preferences, changes);
+  const verdict = canRegenerate(application, application.progress.corrections);
 
-        <Card className="flex flex-col gap-5 p-6">
-          <div data-tour="versions" className="flex items-center justify-between gap-3">
+  const changeCount = (next: number) => {
+    const count = Math.min(Math.max(next, 1), MAX_VERSIONS);
+    setVersionCount(count);
+    setChanges((current) => withinCount(current, count));
+  };
+
+  const run = () =>
+    generate.mutate(
+      { id: application.id, request: { versions, withStudentIdentification } },
+      { onSuccess: () => void navigate(buildPath(ROUTES.applicationDetail, { id: application.id })) },
+    );
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Link to={backTo} className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary">
+        <ArrowLeft size={16} aria-hidden />
+        Voltar
+      </Link>
+
+      <PageHeader
+        help
+        title={`Gerar PDF — ${examTitleOf(application)}`}
+        description={`${sittingOf(application)}. Cada versão embaralha de um jeito, e cada aluno recebe uma folha com código próprio, que é o que a consulta de nota vai ler.`}
+      />
+
+      <GenerationNotice application={application} verdict={verdict} />
+
+      <Card className="flex flex-col gap-5 p-6">
+        <div data-tour="versions" className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-title text-primary">Quantas versões</h2>
-              <p className="mt-1 text-caption text-ink-subtle">
-                Versões diferentes deixam quem senta ao lado com provas diferentes.
-              </p>
+              <p className="mt-1 text-caption text-ink-subtle">Versões diferentes deixam quem senta ao lado com provas diferentes.</p>
             </div>
             <NumberInput
               value={versionCount}
-              onValueChange={(next) => setVersionCount(Math.min(next, MAX_VERSIONS))}
+              onValueChange={changeCount}
               min={1}
               max={MAX_VERSIONS}
               label="Quantas versões"
               className="w-24"
             />
           </div>
-
-          <fieldset className="flex flex-col gap-3 border-t border-line pt-5">
-            <legend className="text-label text-ink-muted">
-              Embaralhamento — herdado desta prova
-            </legend>
-            <Toggle
-              label="Embaralhar as questões"
-              checked={questionsShuffled}
-              onChange={setShuffleQuestions}
-            />
-            <Toggle
-              label="Embaralhar as alternativas"
-              checked={alternativesShuffled}
-              onChange={setShuffleAlternatives}
-            />
-            <p className="text-caption text-ink-subtle">
-              Uma questão marcada como de ordem fixa no banco não é embaralhada, mesmo aqui.
-            </p>
-          </fieldset>
-
-          <fieldset className="flex flex-col gap-3 border-t border-line pt-5">
-            <legend data-tour="identification" className="text-label text-ink-muted">
-              Identificação, para a prova inteira
-            </legend>
-            <Toggle
-              label="Imprimir o nome do aluno em cada folha"
-              checked={withStudentIdentification}
-              onChange={(next) => setWithStudentIdentification(next)}
-            />
-            <p className="text-caption text-ink-subtle">
-              Sem identificação, a folha sai só com o código e o aluno é atribuído na correção.
-            </p>
-          </fieldset>
-        </Card>
-
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button variant="ghost" onClick={() => void navigate(ROUTES.applications)}>
-            Cancelar
-          </Button>
-          <Button
-            variant="primary"
-            data-tour="generate"
-            icon={
-              generate.isPending ? (
-                <Loader2 size={18} aria-hidden className="animate-spin" />
-              ) : (
-                <FileText size={18} aria-hidden />
-              )
-            }
-            disabled={!verdict.allowed || generate.isPending}
-            onClick={run}
-          >
-            {generate.isPending ? 'Gerando…' : alreadyPrinted ? 'Gerar de novo' : 'Gerar'}
-          </Button>
+          <VersionShuffles
+            versions={versions}
+            onChange={(index, change) => setChanges((current) => withChange(current, index, change))}
+          />
         </div>
 
-        {generate.isPending && (
-          <p role="status" className="text-center text-caption text-ink-subtle">
-            A geração roda em segundo plano. Você pode sair desta tela e voltar depois.
+        <fieldset className="flex flex-col gap-3 border-t border-line pt-5">
+          <legend data-tour="identification" className="text-label text-ink-muted">
+            Identificação, para a prova inteira
+          </legend>
+          <Toggle
+            label="Imprimir o nome do aluno em cada folha"
+            checked={withStudentIdentification}
+            onChange={setWithStudentIdentification}
+          />
+          <p className="text-caption text-ink-subtle">
+            Sem identificação, a folha sai só com o código e o aluno é atribuído na correção.
           </p>
-        )}
+        </fieldset>
 
-        <Tour screen="applicationPdf" ready={canWalkThrough(verdict, correctionsPending)} />
+        <p className="border-t border-line pt-5 text-caption text-ink-subtle">
+          Cada questão sai inteira numa página, sem quebrar no meio (RF43). A prova de cada aluno que terminar num
+          número ímpar de páginas ganha uma página em branco no fim, para imprimir frente e verso sem misturar alunos
+          (RF44).
+        </p>
+      </Card>
+
+      <SaveError error={generate.error} />
+
+      <div className="flex flex-wrap justify-end gap-3">
+        <Button variant="ghost" onClick={() => void navigate(backTo)}>
+          Cancelar
+        </Button>
+        <Button
+          variant="primary"
+          data-tour="generate"
+          icon={generate.isPending ? <Loader2 size={18} aria-hidden className="animate-spin" /> : <FileText size={18} aria-hidden />}
+          disabled={!verdict.allowed || generate.isPending}
+          onClick={run}
+        >
+          {generateLabel(generate.isPending, application.progress.versions > 0)}
+        </Button>
       </div>
-    </QueryBoundary>
+
+      {generate.isPending && (
+        <p role="status" className="text-center text-caption text-ink-subtle">
+          A geração roda em segundo plano. Você pode sair desta tela e voltar depois.
+        </p>
+      )}
+
+      <Tour screen="applicationPdf" ready={verdict.allowed} />
+    </div>
+  );
+}
+
+function generateLabel(pending: boolean, alreadyPrinted: boolean): string {
+  if (pending) return 'Gerando…';
+  return alreadyPrinted ? 'Gerar de novo' : 'Gerar PDF';
+}
+
+/**
+ * What stands before generating: the reason it is blocked, or, for an
+ * application already printed, what printing again throws away. Both name the
+ * application, so a teacher with two sittings of one exam knows which one.
+ */
+function GenerationNotice({
+  application,
+  verdict,
+}: Readonly<{ application: ApplicationOverview; verdict: { allowed: boolean; reason?: string } }>) {
+  if (!verdict.allowed) {
+    return (
+      <Card className="flex items-start gap-3 border-l-4 border-l-danger p-5">
+        <AlertTriangle size={20} aria-hidden className="mt-0.5 shrink-0 text-danger" />
+        <div>
+          <h2 className="text-label text-danger">Não é possível gerar agora</h2>
+          <p role="alert" className="mt-1 text-body text-ink-muted">
+            {verdict.reason}
+          </p>
+        </div>
+      </Card>
+    );
+  }
+  if (application.progress.versions === 0) return null;
+
+  return (
+    <Card className="flex items-start gap-3 border-l-4 border-l-accent p-5">
+      <AlertTriangle size={20} aria-hidden className="mt-0.5 shrink-0 text-ink-muted" />
+      <div>
+        <h2 className="text-label text-ink">
+          {examTitleOf(application)}, de {sittingOf(application)}, já foi gerada
+        </h2>
+        <p role="status" className="mt-1 text-body text-ink-muted">
+          Gerar de novo substitui as {application.progress.versions} versões e todas as folhas. As folhas já impressas
+          deixam de valer, porque os códigos mudam.
+        </p>
+      </div>
+    </Card>
+  );
+}
+
+/** One pair of switches per version (RF22), each starting from the preferences of the exam. */
+function VersionShuffles({
+  versions,
+  onChange,
+}: Readonly<{ versions: VersionShuffle[]; onChange: (index: number, change: Partial<VersionShuffle>) => void }>) {
+  return (
+    <ul className="flex flex-col divide-y divide-line rounded-[var(--radius-control)] border border-line">
+      {versions.map((version, index) => (
+        <li key={`version-${index + 1}`} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-label text-ink">Versão {index + 1}</span>
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-5">
+            <Toggle
+              label="Embaralhar questões"
+              accessibleLabel={`Embaralhar questões da versão ${index + 1}`}
+              checked={version.shuffleQuestions}
+              onChange={(checked) => onChange(index, { shuffleQuestions: checked })}
+            />
+            <Toggle
+              label="Embaralhar alternativas"
+              accessibleLabel={`Embaralhar alternativas da versão ${index + 1}`}
+              checked={version.shuffleAlternatives}
+              onChange={(checked) => onChange(index, { shuffleAlternatives: checked })}
+            />
+          </div>
+        </li>
+      ))}
+      <li className="px-4 py-3 text-caption text-ink-subtle">
+        Herdado das preferências da prova. Uma questão marcada como de ordem fixa no banco não tem as alternativas
+        embaralhadas, mesmo aqui.
+      </li>
+    </ul>
   );
 }
 
 function Toggle({
   label,
+  accessibleLabel,
   checked,
   onChange,
-}: Readonly<{ label: string; checked: boolean; onChange: (value: boolean) => void }>) {
+}: Readonly<{ label: string; accessibleLabel?: string; checked: boolean; onChange: (value: boolean) => void }>) {
   return (
-    <label className="flex cursor-pointer items-center gap-3">
+    <label className="flex min-h-11 cursor-pointer items-center gap-3">
       <input
         type="checkbox"
         checked={checked}
+        aria-label={accessibleLabel}
         onChange={(event) => onChange(event.target.checked)}
         className="size-4 accent-[var(--color-primary)]"
       />

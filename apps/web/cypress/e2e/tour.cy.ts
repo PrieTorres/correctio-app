@@ -227,7 +227,10 @@ describe('tour guiado', () => {
 
   /** Six screens had a help button that opened nothing; the detail of an application was one of them. */
   it('reabre pelo ícone de ajuda no detalhe da aplicação', () => {
-    cy.visit('/aplicacoes/application-calculus-midterm')
+    cy.visit('/aplicacoes')
+    tour().contains('button', 'Pular').click()
+    cy.contains('a', 'Cálculo I — Prova 1').click()
+    cy.contains('h2', 'Versões').should('be.visible')
     tour().contains('button', 'Pular').click()
 
     cy.get('button[aria-label="Ver o tour desta tela"]').click()

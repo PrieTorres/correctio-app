@@ -1,4 +1,4 @@
-import { PAGE, STYLE, type TextStyle } from './sheet-pages'
+import { PAGE, STYLE, type Measure, type TextStyle } from './sheet-pages'
 
 /** The three tones of the PDF: text and marks, secondary text, and rules. */
 export const INK = '#000000'
@@ -7,6 +7,11 @@ export const RULE = '#9a9a9a'
 
 export function useStyle(doc: PDFKit.PDFDocument, style: TextStyle, color: string = INK): PDFKit.PDFDocument {
   return doc.font(style.font).fontSize(style.size).fillColor(color)
+}
+
+/** Measures with the fonts the PDF embeds, so what a plan counts is what the page prints. */
+export function measurerFor(doc: PDFKit.PDFDocument): Measure {
+  return (text, style, width) => useStyle(doc, style).heightOfString(text, { width, lineGap: style.lineGap })
 }
 
 /** Where a block of text goes, and the line it must not cross. */

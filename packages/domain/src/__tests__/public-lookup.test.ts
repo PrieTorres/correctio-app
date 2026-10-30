@@ -10,8 +10,8 @@ import {
   type ExamVersion,
   type Question,
   type Student,
-} from '@/types/domain'
-import { resolvePublicLookup, type LookupSources } from '../resolve'
+} from '../domain'
+import { resolvePublicLookup, type LookupSources } from '../public-lookup'
 
 const BANK: Question[] = [
   {
@@ -78,6 +78,7 @@ const SHEET: AnswerSheet = {
   studentId: 'student-1',
   sheetNumber: 3,
   code: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  answerCardVersion: 1,
 }
 
 function version(overrides: Partial<ExamVersion> = {}): ExamVersion {
@@ -197,6 +198,33 @@ describe('resolvePublicLookup', () => {
     )
 
     expect(result.status).toBe('ANSWER_KEY_ONLY')
+  })
+
+  /** An in-progress correction still waits for the open-ended scores, so its total is not final. */
+  it('holds the grade back while the correction is still in progress', () => {
+    const result = resolvePublicLookup(
+      sources({
+        version: version({ answerKeyPublished: true }),
+        application: application({ gradesReleased: true }),
+        correction: { ...CORRECTION, status: CORRECTION_STATUS.IN_PROGRESS },
+      }),
+    )
+
+    expect(result.status).toBe('ANSWER_KEY_ONLY')
+    expect(JSON.stringify(result)).not.toContain('totalScore')
+  })
+
+  /** Same answer as an unknown code, so a stranger cannot tell the two apart. */
+  it('reports an invalid code for an archived application, even with everything released', () => {
+    const result = resolvePublicLookup(
+      sources({
+        version: version({ answerKeyPublished: true }),
+        application: application({ gradesReleased: true, status: 'closed' }),
+      }),
+    )
+
+    expect(result).toEqual({ status: 'INVALID_CODE' })
+    expect(result).toEqual(resolvePublicLookup(sources({ sheet: null })))
   })
 
   it('names the student when the paper was printed with identification', () => {

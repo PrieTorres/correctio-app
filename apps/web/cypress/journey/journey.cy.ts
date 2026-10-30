@@ -103,6 +103,9 @@ const EXAM = {
   description: 'Medidas de tendência central e de dispersão',
 } as const
 
+/** The day the application moves to in step 9, typed as the date control takes it and shown as the screens print it. */
+const APPLICATION_DAY = { typed: '2026-11-30', shown: '30/11/2026' } as const
+
 /** Three objectives worth 2 and the essay worth 4, so the exam closes at 10. */
 const SCORES: readonly (readonly [statement: string, score: number])[] = [
   [MEAN.statement, 2],
@@ -353,43 +356,62 @@ function applyExam(): void {
   cy.findByLabel('Turma').should('contain', SCHOOL_CLASS.name).select(SCHOOL_CLASS.name)
   cy.contains('button', 'Salvar e gerar').click()
 
-  cy.contains('h1', 'Gerar prova').should('be.visible')
+  cy.contains('h1', `Gerar PDF — ${EXAM.title}`).should('be.visible')
 }
 
 /**
- * The PDF of this phase is a fixed sample opened in a new tab. The tab is
- * swapped for the current one so the recording shows the printed format, and
- * going back returns to the application.
+ * The PDF is drawn by the server for this application. The recording shows the
+ * download, and the response proves a PDF came back for it.
  */
-function openPrintSample(): void {
-  cy.window().then((win) => {
-    cy.stub(win, 'open').callsFake((url: string | URL) => win.location.assign(url))
-  })
-  cy.contains('button', 'Ver o modelo impresso').click()
+function downloadPdf(): void {
+  cy.intercept({ method: 'GET', pathname: /^\/api\/applications\/[^/]+\/pdf$/ }).as('pdf')
+  cy.contains('button', 'Baixar PDF').click()
 
-  cy.contains('Exemplo do formato impresso').should('be.visible')
-  cy.go('back')
-  cy.contains('h2', 'Versões').should('be.visible')
+  cy.wait('@pdf').its('response.headers.content-type').should('contain', 'application/pdf')
 }
 
+/**
+ * Two versions, each with its own shuffle (RF22): both start from the
+ * preferences of the exam, and the second keeps the alternatives in order,
+ * which the detail then says version by version.
+ */
 function generateVersions(): void {
-  cy.contains('label', 'Embaralhar as questões').find('input').should('be.checked')
+  cy.get('[aria-label="Embaralhar questões da versão 1"]').should('be.checked')
   cy.get('[aria-label="Quantas versões"]').clear().type('2')
-  cy.contains('button', 'Gerar').click()
+  cy.get('[aria-label="Embaralhar alternativas da versão 2"]').uncheck()
+  cy.contains('button', 'Gerar PDF').click()
 
-  cy.contains('h1', EXAM.title, { timeout: 10000 }).should('be.visible')
-  cy.contains('li', 'Versão 1').should('be.visible')
-  cy.contains('li', 'Versão 2').should('be.visible')
-  cy.contains(`${STUDENT_COUNT} folhas prontas para imprimir.`).should('be.visible')
+  cy.contains(`${STUDENT_COUNT} folhas prontas para imprimir`, { timeout: 20000 }).should('be.visible')
+  cy.contains('h1', EXAM.title).should('be.visible')
+  cy.contains('li', 'Versão 1').should('contain', 'alternativas embaralhadas')
+  cy.contains('li', 'Versão 2').should('contain', 'alternativas na ordem')
   cy.contains('tr', GRADED_STUDENT.fullName).should('be.visible')
 
-  openPrintSample()
+  downloadPdf()
 }
 
-/** Every version is published, whichever one the graded student happened to get. */
-function publishAnswerKeyOf(version: string): void {
-  cy.contains('li', version).contains('button', 'Publicar gabarito').click()
-  cy.contains('li', version).should('contain', 'Gabarito publicado')
+/**
+ * Every version at once, whichever one the graded student happened to get. The
+ * confirmation says what the students start to see before anything changes.
+ */
+function publishAllAnswerKeys(): void {
+  cy.contains('button', 'Publicar todos').click()
+  cy.findInDialog('h2', 'Publicar o gabarito de todas as versões?').should('be.visible')
+  cy.findInDialog('button', 'Publicar todos').click()
+
+  cy.contains('li', 'Versão 1').should('contain', 'Gabarito publicado')
+  cy.contains('li', 'Versão 2').should('contain', 'Gabarito publicado')
+}
+
+/** After printing, the day is the only part of the application that changes (#163). */
+function moveTheDate(): void {
+  cy.contains('button', 'Ações').click()
+  cy.contains('[role="menuitem"]', 'Editar data').click()
+  cy.findInDialog('h2', 'Editar a data').should('be.visible')
+  cy.findByLabel('Data da aplicação').clear().type(APPLICATION_DAY.typed)
+  cy.findInDialog('button', 'Salvar data').click()
+
+  cy.contains(`${SCHOOL_CLASS.name} · ${APPLICATION_DAY.shown}`).should('be.visible')
 }
 
 function reviewSheetOf(fullName: string): void {
@@ -433,20 +455,24 @@ function gradeSheets(): void {
 }
 
 /**
- * The release is confirmed on the list, reached through the app's own link:
- * the write is asynchronous, and the badge there proves it landed before the
- * next stage leaves the app.
+ * The release asks first and says what each student starts to see. It is then
+ * confirmed on the list, reached through the app's own link and narrowed by
+ * the class filter: the write is asynchronous, and the badges there prove it
+ * landed before the next stage leaves the app.
  */
 function releaseGrades(): void {
   cy.get('main').contains('a', 'Aplicação').click()
   cy.contains('h2', 'Notas para os alunos').should('be.visible')
 
-  cy.contains('label', 'Liberar a consulta de nota').find('input').check()
-  cy.contains('label', 'Liberar a consulta de nota').find('input').should('be.checked')
+  cy.contains('button', 'Liberar notas').click()
+  cy.findInDialog('h2', 'Liberar as notas?').should('be.visible')
+  cy.findInDialog('button', 'Liberar notas').click()
+  cy.contains('button', 'Recolher notas').should('be.visible')
 
   cy.get('main').contains('a', 'Aplicações').click()
   skipTour()
-  cy.contains('a', EXAM.title).closest('li').should('contain', 'Notas liberadas')
+  cy.findByLabel('Turma').should('contain', SCHOOL_CLASS.name).select(SCHOOL_CLASS.name)
+  cy.contains('a', EXAM.title).closest('li').should('contain', 'Notas liberadas').and('contain', 'Gabarito publicado')
 }
 
 /**
@@ -454,6 +480,11 @@ function releaseGrades(): void {
  * scanning the code printed on the sheet, from outside the app, and nothing
  * links to it from inside. The release was already confirmed on the list, so
  * nothing is in flight when the page is replaced.
+ *
+ * The page reads the sheet from the API, and the corrections still live in
+ * the browser that graded them, so the server has no grade to show yet: the
+ * student sees the answer key. Issue #48 moves the corrections to the API, and
+ * then this stage checks the grade too.
  */
 function lookUpByQrCode(): void {
   cy.contains('a', EXAM.title).click()
@@ -468,7 +499,6 @@ function lookUpByQrCode(): void {
 
   cy.contains('h1', EXAM.title).should('be.visible')
   cy.contains(GRADED_STUDENT.fullName).should('be.visible')
-  cy.contains('h2', 'Sua nota').should('be.visible')
   cy.contains('h2', 'Gabarito').should('be.visible')
 
   cy.go('back')
@@ -570,9 +600,9 @@ describe('jornada completa', () => {
     cy.log('**8. Gerar as versões e o PDF**')
     generateVersions()
 
-    cy.log('**9. Publicar o gabarito**')
-    publishAnswerKeyOf('Versão 1')
-    publishAnswerKeyOf('Versão 2')
+    cy.log('**9. Publicar o gabarito e mudar a data**')
+    publishAllAnswerKeys()
+    moveTheDate()
 
     cy.log('**10. Corrigir as folhas**')
     gradeSheets()

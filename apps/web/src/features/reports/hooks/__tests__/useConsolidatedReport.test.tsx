@@ -9,9 +9,7 @@ import { useReadSheets } from '@/features/grading/hooks/useGrading'
 import { useConsolidatedReport } from '../useConsolidatedReport'
 
 const GENERATE = {
-  versionCount: 1,
-  shuffleQuestions: false,
-  shuffleAlternatives: false,
+  versions: [{ shuffleQuestions: false, shuffleAlternatives: false }],
   withStudentIdentification: true,
 }
 
@@ -29,7 +27,7 @@ describe('useConsolidatedReport', () => {
   it('leaves out an application that was generated but never corrected', async () => {
     const seeded = await seedApplicationChain()
     const { result: generate } = renderHookWithProviders(() => useGenerateApplication())
-    await act(() => generate.current.mutateAsync({ id: seeded.applicationId, options: GENERATE }))
+    await act(() => generate.current.mutateAsync({ id: seeded.applicationId, request: GENERATE }))
 
     const { result } = renderHookWithProviders(() => useConsolidatedReport())
 
@@ -39,7 +37,7 @@ describe('useConsolidatedReport', () => {
   it('includes an application once a sheet has been corrected', async () => {
     const seeded = await seedApplicationChain()
     const { result: generate } = renderHookWithProviders(() => useGenerateApplication())
-    await act(() => generate.current.mutateAsync({ id: seeded.applicationId, options: GENERATE }))
+    await act(() => generate.current.mutateAsync({ id: seeded.applicationId, request: GENERATE }))
 
     const sheets = await createTeacherRepositories(TEST_TEACHER_ID).printing.listSheets(
       seeded.applicationId,
@@ -63,7 +61,7 @@ describe('useConsolidatedReport', () => {
   it('carries the class, subject and term of each row', async () => {
     const seeded = await seedApplicationChain()
     const { result: generate } = renderHookWithProviders(() => useGenerateApplication())
-    await act(() => generate.current.mutateAsync({ id: seeded.applicationId, options: GENERATE }))
+    await act(() => generate.current.mutateAsync({ id: seeded.applicationId, request: GENERATE }))
     const sheets = await createTeacherRepositories(TEST_TEACHER_ID).printing.listSheets(
       seeded.applicationId,
     )

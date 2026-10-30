@@ -30,12 +30,7 @@ export interface ExamService {
   restore: (teacherId: string, id: string) => Promise<void>
   /** The automatic exam (RF16): a selection from the bank, which nothing stores until the teacher saves the exam. */
   draw: (teacherId: string, body: unknown) => Promise<DrawResult<QuestionRecord>>
-  /**
-   * Records that the exam was applied, and only ever moves a draft to `ready`.
-   * While the application is still generated in the browser, the screen calls
-   * it through `PATCH /exams/:id/ready`; once generation runs on the server
-   * (#46), the service calls it there.
-   */
+  /** Records that the exam was applied: generating an application (#46) calls this, never a route. */
   markReady: (teacherId: string, id: string) => Promise<void>
 }
 

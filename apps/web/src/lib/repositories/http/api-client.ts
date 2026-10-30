@@ -19,6 +19,22 @@ export interface ApiClient {
   request: (method: HttpMethod, path: string, options?: RequestOptions) => Promise<unknown>
 }
 
+/** A file the API served, with the name it gave the file, when the response says it. */
+export interface DownloadedFile {
+  blob: Blob
+  filename?: string
+}
+
+/**
+ * Files rather than JSON, such as the PDF of an application. A download
+ * travels with the same token, since the PDF carries the names of the students
+ * and has no public address. Apart from `ApiClient` because only the
+ * applications download anything.
+ */
+export interface FileClient {
+  download: (path: string) => Promise<DownloadedFile>
+}
+
 export interface ApiClientOptions {
   /** From `apiBaseUrl()`, already without the trailing slash. */
   baseUrl: string
@@ -38,6 +54,7 @@ export interface ApiClientOptions {
 }
 
 const GENERIC_FAILURE = 'Não foi possível falar com o servidor. Tente de novo em instantes.'
+const WAIT_A_MINUTE = 'Muitas consultas seguidas. Aguarde um minuto e tente de novo.'
 const SIGN_IN_REQUIRED = 'Faça login para continuar.'
 
 /** The client errors the API answers in its `{ code, message }` shape, mapped by status. */
@@ -47,7 +64,11 @@ const CLIENT_ERRORS: Readonly<Partial<Record<number, StorageErrorCode>>> = {
   409: 'conflict',
 }
 
-/** 429 carries a message worth showing ("wait a minute"), but nothing to fix: it is a failure. */
+/**
+ * 429 has its own code because the right reaction differs from every other
+ * failure: reloading, which the generic message asks for, only spends more of
+ * the budget that ran out.
+ */
 const TOO_MANY_REQUESTS = 429
 
 interface ErrorBody {
@@ -72,7 +93,7 @@ export function toStorageError(status: number, body: unknown): StorageError {
 
   const clientCode = CLIENT_ERRORS[status]
   if (server !== null && clientCode !== undefined) return new StorageError(server.message, clientCode)
-  if (server !== null && status === TOO_MANY_REQUESTS) return new StorageError(server.message, 'failure')
+  if (status === TOO_MANY_REQUESTS) return new StorageError(server?.message ?? WAIT_A_MINUTE, 'rate-limited')
 
   return new StorageError(GENERIC_FAILURE, 'failure')
 }
@@ -112,32 +133,53 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+/**
+ * The name in `Content-Disposition`. Express quotes it only when it must, so
+ * `res.attachment('prova-2026-10-05.pdf')` arrives as `filename=prova-2026-10-05.pdf`.
+ */
+const ATTACHMENT_NAME = /filename="?([^";]+)"?/
+
+function filenameOf(response: Response): string | undefined {
+  return ATTACHMENT_NAME.exec(response.headers.get('Content-Disposition') ?? '')?.[1]
+}
+
 export function createApiClient({
   baseUrl,
   getToken,
   onUnauthorized,
   fetchFn = (input, init) => fetch(input, init),
-}: ApiClientOptions): ApiClient {
+}: ApiClientOptions): ApiClient & FileClient {
+  async function send(method: HttpMethod, path: string, { query, body }: RequestOptions = {}): Promise<Response> {
+    const headers = await requestHeaders(getToken, body !== undefined)
+    try {
+      return await fetchFn(`${baseUrl}${path}${toQueryString(query)}`, {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+      })
+    } catch (cause) {
+      throw new StorageError(GENERIC_FAILURE, 'failure', { cause })
+    }
+  }
+
+  /** A failed answer becomes the error the screens handle, whatever was asked for: the API answers errors as JSON. */
+  async function refusal(response: Response): Promise<StorageError> {
+    const payload = await readJson(response)
+    if (response.status === 401) onUnauthorized()
+    return toStorageError(response.status, payload)
+  }
+
   return {
-    async request(method, path, { query, body } = {}) {
-      const headers = await requestHeaders(getToken, body !== undefined)
+    async request(method, path, options) {
+      const response = await send(method, path, options)
+      if (!response.ok) throw await refusal(response)
+      return readJson(response)
+    },
 
-      let response: Response
-      try {
-        response = await fetchFn(`${baseUrl}${path}${toQueryString(query)}`, {
-          method,
-          headers,
-          body: body === undefined ? undefined : JSON.stringify(body),
-        })
-      } catch (cause) {
-        throw new StorageError(GENERIC_FAILURE, 'failure', { cause })
-      }
-
-      const payload = await readJson(response)
-      if (response.ok) return payload
-
-      if (response.status === 401) onUnauthorized()
-      throw toStorageError(response.status, payload)
+    async download(path) {
+      const response = await send('GET', path)
+      if (!response.ok) throw await refusal(response)
+      return { blob: await response.blob(), filename: filenameOf(response) }
     },
   }
 }

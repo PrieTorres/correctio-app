@@ -1,5 +1,5 @@
-import { answerCardRows, columnLetter, type AnswerCardRow, type ExamVersion, type Question } from '@correctio/domain'
-import type { PrintedQuestion, PrintedSheet, PrintJob } from './print-job'
+import { answerCardRows, columnLetter, type AnswerCardRow, type ExamVersion } from '@correctio/domain'
+import type { PrintableQuestion, PrintedQuestion, PrintedSheet, PrintJob } from './print-job'
 
 /** The address a QR code carries: the public lookup of `/r/:code` in the web app (`ROUTES.publicLookup`). */
 export function qrPayload(publicAppUrl: string, code: string): string {
@@ -33,7 +33,7 @@ export interface PrintedQuestionContent {
   alternatives?: { letter: string; text: string }[]
 }
 
-function printedAlternatives(question: Question, printedOrder: readonly string[]) {
+function printedAlternatives(question: PrintableQuestion, printedOrder: readonly string[]) {
   const byId = new Map((question.alternatives ?? []).map((alternative) => [alternative.id, alternative.text]))
   return printedOrder.map((alternativeId, index) => {
     const text = byId.get(alternativeId)

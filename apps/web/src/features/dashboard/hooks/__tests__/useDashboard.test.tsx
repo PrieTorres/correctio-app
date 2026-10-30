@@ -20,10 +20,8 @@ async function generateAndRead(
   await act(() =>
     generate.current.mutateAsync({
       id: applicationId,
-      options: {
-        versionCount: 1,
-        shuffleQuestions: false,
-        shuffleAlternatives: false,
+      request: {
+        versions: [{ shuffleQuestions: false, shuffleAlternatives: false }],
         withStudentIdentification: identified,
       },
     }),
@@ -80,8 +78,9 @@ describe('useDashboardSummary', () => {
     const { applications } = createTeacherRepositories(TEST_TEACHER_ID)
     const earlier = await applications.create({ examId, classId, date: '2026-10-01T12:00:00.000Z' })
     const later = await applications.create({ examId, classId, date: '2026-10-12T12:00:00.000Z' })
-    await applications.markGenerated(earlier.id)
-    await applications.markGenerated(later.id)
+    const printing = { versions: [{ shuffleQuestions: false, shuffleAlternatives: false }], withStudentIdentification: true }
+    await applications.generate(earlier.id, printing)
+    await applications.generate(later.id, printing)
 
     const { result } = renderHookWithProviders(() => useDashboardSummary())
 

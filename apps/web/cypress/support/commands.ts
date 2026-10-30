@@ -1,5 +1,5 @@
-import { sampleClasses, sampleExams, sampleQuestions, writeDemoData, type RemoteRoster } from '@/lib/seed'
-import type { AuthenticatedUser, Class, Student } from '@/types/domain'
+import { sampleApplications, sampleClasses, sampleExams, sampleQuestions } from '@/lib/seed'
+import type { AuthenticatedUser, Class } from '@/types/domain'
 
 /** The password of every teacher the suite signs up; long enough for the 8-character rule. */
 export const TEST_PASSWORD = 'senha-de-teste-1'
@@ -25,30 +25,22 @@ function apiAs(accessToken: string) {
  * Creates the sample classes and their students on the API, as the teacher
  * just signed up, and answers which id each sample class got there.
  *
- * The class and student screens read the API, so a sample written only to
- * `localStorage` would be invisible to them, and the sample applications and
- * sheets would point at classes that do not exist. Each test signs up its own
- * teacher, so the import limit of the API, counted per teacher, is never near.
+ * Each test signs up its own teacher, so the import limit of the API, counted
+ * per teacher, is never near.
  */
-function createSampleClasses(accessToken: string): Cypress.Chainable<Pick<RemoteRoster, 'classIds' | 'students'>> {
+function createSampleClasses(accessToken: string): Cypress.Chainable<Record<string, string>> {
   const classIds: Record<string, string> = {}
-  const students: Student[] = []
   const api = apiAs(accessToken)
 
   for (const sample of sampleClasses()) {
     api<Class>('POST', '/classes', sample.input).then(({ body: created }) => {
       classIds[sample.sampleId] = created.id
       if (sample.archived) api('PATCH', `/classes/${created.id}/archive`)
-      if (sample.students.length === 0) return
-
-      api('POST', `/classes/${created.id}/students/import`, { rows: sample.students })
-      api<{ items: Student[] }>('GET', `/classes/${created.id}/students?pageSize=1000`).then(({ body: page }) => {
-        students.push(...page.items)
-      })
+      if (sample.students.length > 0) api('POST', `/classes/${created.id}/students/import`, { rows: sample.students })
     })
   }
 
-  return cy.wrap(null, { log: false }).then(() => ({ classIds, students }))
+  return cy.wrap(null, { log: false }).then(() => classIds)
 }
 
 /**
@@ -73,8 +65,8 @@ function createSampleQuestions(accessToken: string): Cypress.Chainable<Record<st
 /**
  * Creates the sample exams on the API, pointing at the questions created
  * there, and answers which id each got. The API creates every exam as a draft,
- * so the sample that is already applied is marked ready, and the archived one
- * archived, through their own routes.
+ * so the archived one is archived through its route; the one already applied
+ * becomes ready when its application is generated (`createSampleApplications`).
  */
 function createSampleExams(accessToken: string, questionIds: Readonly<Record<string, string>>): Cypress.Chainable<Record<string, string>> {
   const examIds: Record<string, string> = {}
@@ -83,7 +75,6 @@ function createSampleExams(accessToken: string, questionIds: Readonly<Record<str
   for (const sample of sampleExams(questionIds)) {
     api<{ id: string }>('POST', '/exams', sample.input).then(({ body: created }) => {
       examIds[sample.sampleId] = created.id
-      if (sample.status === 'ready') api('PATCH', `/exams/${created.id}/ready`)
       if (sample.status === 'closed') api('PATCH', `/exams/${created.id}/archive`)
     })
   }
@@ -92,14 +83,35 @@ function createSampleExams(accessToken: string, questionIds: Readonly<Record<str
 }
 
 /**
+ * Creates the sample applications on the API, and generates the one the demo
+ * shows printed, so its versions, sheets and PDF come from the server, as any
+ * teacher's do. Generating is also what marks its exam ready.
+ */
+function createSampleApplications(
+  accessToken: string,
+  classIds: Readonly<Record<string, string>>,
+  examIds: Readonly<Record<string, string>>,
+): Cypress.Chainable<null> {
+  const api = apiAs(accessToken)
+
+  for (const sample of sampleApplications(classIds, examIds)) {
+    api<{ id: string }>('POST', '/applications', sample.input).then(({ body: created }) => {
+      if (sample.generation !== undefined) api('POST', `/applications/${created.id}/generate-pdf`, sample.generation)
+    })
+  }
+
+  return cy.wrap(null, { log: false })
+}
+
+/**
  * Signs a new teacher up on the API and leaves the browser signed in, the way
  * the app itself would: `cy.request` keeps the refresh cookie the API sets, and
  * the app restores the session from it on the next visit.
  *
- * The sample data is created for this teacher, so every spec starts from the
- * same populated screens the demo shows, owned by a real account: the classes,
- * students, questions and exams on the API, and the rest in `localStorage`,
- * pointing at them.
+ * The sample data is created on the API for this teacher, so every spec starts
+ * from the same populated screens the demo shows, owned by a real account:
+ * classes, students, questions, exams and applications, one of them already
+ * generated.
  */
 Cypress.Commands.add('signInAsNewTeacher', ({ withSampleData = true }: { withSampleData?: boolean } = {}) => {
   const account = { fullName: 'Professora Ana Ribeiro', email: uniqueEmail(), password: TEST_PASSWORD }
@@ -107,12 +119,11 @@ Cypress.Commands.add('signInAsNewTeacher', ({ withSampleData = true }: { withSam
     const teacher = { ...body.user, password: TEST_PASSWORD }
     if (!withSampleData) return cy.wrap(teacher, { log: false })
 
-    return createSampleClasses(body.accessToken).then((roster) =>
+    return createSampleClasses(body.accessToken).then((classIds) =>
       createSampleQuestions(body.accessToken).then((questionIds) =>
-        createSampleExams(body.accessToken, questionIds).then((examIds) => {
-          writeDemoData(body.user.id, { ...roster, questionIds, examIds })
-          return teacher
-        }),
+        createSampleExams(body.accessToken, questionIds).then((examIds) =>
+          createSampleApplications(body.accessToken, classIds, examIds).then(() => teacher),
+        ),
       ),
     )
   })
@@ -165,14 +176,17 @@ Cypress.Commands.add('chooseSegment', (text: string) => {
 
 /**
  * Prints the versions and sheets of a draft application, through its own
- * screens. Ends on the application page, which proves the write landed.
+ * screens. Ends on the application page once it says the sheets are ready,
+ * which proves the server finished: the title alone would not, since the
+ * generation screen names the application too.
  */
 Cypress.Commands.add('generateApplication', (title: string) => {
   cy.visit('/aplicacoes')
   cy.contains('a', title).click()
-  cy.contains('a', 'Gerar').click()
-  cy.contains('button', 'Gerar').click()
-  cy.contains('h1', title, { timeout: 20000 }).should('be.visible')
+  cy.contains('a', 'Gerar PDF').click()
+  cy.contains('h1', `Gerar PDF — ${title}`).should('be.visible')
+  cy.contains('button', 'Gerar PDF').click()
+  cy.contains('folhas prontas para imprimir', { timeout: 20000 }).should('be.visible')
 })
 
 /**

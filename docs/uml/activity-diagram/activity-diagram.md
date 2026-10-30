@@ -68,8 +68,7 @@ diagrama, com a issue que os implementa ao lado, e viram linha cheia quando essa
 12. O Site envia a confirmação para a API, que grava a correção confirmada no banco.
 13. O Professor publica o gabarito das versões e libera as notas da aplicação, e o Site envia
     a publicação e a liberação para a API.
-14. **Decisão:** o gabarito está publicado? _Previsto na N2 ([#46]): hoje "Liberar notas"
-    funciona mesmo sem o gabarito publicado (tela P14)._
+14. **Decisão:** o gabarito está publicado?
     - **[Sim]** → a API grava a publicação e a liberação no banco.
     - **[Não]** → a API recusa a liberação das notas.
 15. O Aluno escaneia o QR Code da folha, e o Site abre a página pública, sem login, e pede o
@@ -102,7 +101,7 @@ outra que o dado sai do navegador e chega ao banco.
 | ------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Professor** | Único usuário com login                                 | Criar a aplicação; definir versões, embaralhamento e identificação; baixar o PDF, imprimir e aplicar a prova; fotografar as folhas pelo site; inserir a correção manualmente quando a leitura falha (previsto); associar a folha pendente ao aluno; revisar, lançar as discursivas e confirmar a correção; publicar o gabarito; liberar as notas |
 | **Site**      | O front-end em React, aberto no navegador               | Enviar para a API a aplicação, as fotos, a confirmação, a publicação e a liberação; abrir a página pública do QR Code e exibir a resposta da API                                                                                                                                                                                                 |
-| **API**       | O back-end em Express, a única parte que acessa o MySQL | Gerar versões, folhas com QR Code e PDF; ler o QR Code e as marcações; corrigir as objetivas; controlar o status da correção; vincular a correção ao aluno; gravar tudo no banco; decidir o que a página pública mostra; recusar a liberação das notas sem gabarito publicado (previsto)                                                         |
+| **API**       | O back-end em Express, a única parte que acessa o MySQL | Gerar versões, folhas com QR Code e PDF; ler o QR Code e as marcações; corrigir as objetivas; controlar o status da correção; vincular a correção ao aluno; gravar tudo no banco; decidir o que a página pública mostra; recusar a liberação das notas sem gabarito publicado                                                         |
 | **Aluno**     | Não tem conta; é um registro dentro da turma            | Preencher a folha de respostas; escanear o QR Code da folha; consultar o resultado                                                                                                                                                                                                                                                               |
 
 **Por que o banco não é uma raia:** o MySQL não toma decisões nem começa atividades; ele só
@@ -157,9 +156,10 @@ casos, o professor pode salvar sem finalizar e voltar depois, até confirmar a c
 ### Etapa 5 — Publicação e consulta pelo QR Code
 
 Por fim, incluímos a publicação do gabarito, a liberação das notas e os quatro resultados
-possíveis da página do QR Code (PUB1), todos decididos pela API. Dois pontos desta etapa
-ficam tracejados: a recusa da liberação sem o gabarito publicado (P14, [#46]) e a nota só
-depois da confirmação do professor (RNF07 e RF47, [#47]). Esta é a versão final.
+possíveis da página do QR Code (PUB1), todos decididos pela API. Um ponto desta etapa fica
+tracejado: a nota só depois da confirmação do professor (RNF07 e RF47, [#47]). A recusa da
+liberação sem o gabarito publicado (P14) já é linha cheia: a API faz essa conferência desde a
+[#46]. Esta é a versão final.
 
 ![Diagrama de atividades do Correctio, versão final](activity-diagram.png)
 
@@ -176,17 +176,16 @@ O PlantUML não desenha losango tracejado. Por isso, a decisão prevista aparece
 e "previsto" no rótulo, e o caminho que ela cria fica tracejado. Enquanto a issue não mergeia,
 o fluxo passa por esse losango sempre pelo caminho de linha cheia.
 
-Na N1, três pontos eram tracejados. Eles continuam tracejados na N2, porque as issues que os
-implementam ainda estão abertas:
+Na N1, três pontos eram tracejados. O "Gabarito publicado?" virou linha cheia com a [#46]; os
+outros dois continuam tracejados, porque as issues que os implementam ainda estão abertas:
 
 | Ponto tracejado                                                  | Como aparece no diagrama                                                             | Vira linha cheia quando mergear |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------- |
 | "Leitura reconhecida?" e "Inserir a correção manualmente" (RF30) | "Leitura reconhecida? previsto (#48 e #78)" e "Inserir a correção manualmente (#48)" | [#48] e [#78]                   |
 | Nota só depois da confirmação do professor (RNF07 e RF47)        | "Correção confirmada e concluída? previsto (#47)" e "Devolver só o gabarito (#47)"   | [#47]                           |
-| "Gabarito publicado?" antes de liberar as notas (tela P14)       | "Gabarito publicado? previsto (#46)" e "Recusar a liberação das notas (#46)"         | [#46]                           |
 
-A troca para linha cheia é um item do checklist da [#46], da [#47] e da [#48]: quem fechar cada
-uma atualiza o diagrama, como mostra o apêndice.
+A troca para linha cheia é um item do checklist da [#47] e da [#48]: quem fechar cada uma
+atualiza o diagrama, como mostra o apêndice.
 
 ### O que muda da N1 para a N2
 
@@ -212,8 +211,8 @@ Checklist usado para conferir o resultado antes de fechar:
       seguir.
 - [x] O laço "Salvar sem finalizar" volta para a revisão, sem repetir o envio da foto.
 - [x] Quem grava no banco é sempre a API, e o nome da atividade diz isso.
-- [x] Os três pontos previstos (RF30, RNF07 e RF47, P14) estão tracejados, com a issue ao
-      lado, e a legenda diz quando viram linha cheia.
+- [x] Os pontos previstos (RF30, RNF07 e RF47) estão tracejados, com a issue ao lado, e a
+      legenda diz quando viram linha cheia.
 - [x] O fluxo cobre RF26 a RF33, RF46, RF47, RNF07 e as telas P14, P15, P16, P17 e PUB1.
 
 ---
@@ -248,8 +247,8 @@ Notação do PlantUML usada nos arquivos:
 | Atividade           | `:Enviar as fotos para a API;`                                                             |
 | Decisão             | `if (Leitura reconhecida?) then ([Não]) … else ([Sim]) … endif`                            |
 | Laço                | `repeat … backward:Salvar sem finalizar; repeat while (Finalizar?) is ([Não]) not ([Sim])` |
-| Decisão prevista    | `if <<planned>> (Gabarito publicado?\n<i>previsto (#46)</i>) then ([Sim])`                 |
-| Atividade tracejada | `:Recusar a liberação das notas (#46); <<planned>>`                                        |
+| Decisão prevista    | `if <<planned>> (Correção confirmada e concluída?\n<i>previsto (#47)</i>) then ([Sim])`    |
+| Atividade tracejada | `:Devolver só o gabarito (#47); <<planned>>`                                               |
 | Seta tracejada      | `-[dashed]->`, na linha antes e na linha depois da atividade tracejada                     |
 
 Quando a issue de um ponto tracejado mergear, passe o ponto para linha cheia:

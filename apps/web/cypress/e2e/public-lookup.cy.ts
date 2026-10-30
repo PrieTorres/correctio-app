@@ -41,8 +41,55 @@ describe('consulta pública', () => {
 
         cy.visit('/aplicacoes')
         cy.contains('a', 'Cálculo I — Prova 1').click()
-        cy.contains('button', 'Publicar gabarito').first().click()
+        cy.contains('button', 'Publicar todos').click()
+        cy.findInDialog('button', 'Publicar todos').click()
+        cy.contains('button', 'Publicar todos').should('not.exist')
         cy.contains('Gabarito publicado').should('be.visible')
+
+        cy.visit(`/r/${sheetCode}`)
+        cy.contains('h2', 'Gabarito').should('be.visible')
+        cy.contains('Sua nota').should('not.exist')
+      })
+  })
+})
+
+/**
+ * A correction left open still waits for the open-ended score, so its total is
+ * not final: the student sees the answer key and no grade until the teacher
+ * confirms. Everything after the code is read is done through the app's own
+ * links, because a reload would destroy a write still in flight.
+ *
+ * The page reads the sheet from the API, and the corrections still live in the
+ * browser that graded them, so a confirmed grade cannot show here yet; the API
+ * tests cover it with a correction in the database. Issue #48 moves the
+ * corrections to the API, and then this scenario confirms the correction and
+ * checks that the grade appears.
+ */
+describe('consulta pública com correção em andamento', () => {
+  it('mostra só o gabarito enquanto a correção está em andamento', () => {
+    cy.visit('/aplicacoes')
+    cy.contains('a', 'Cálculo I — Prova 1').click()
+
+    cy.get('table tbody tr td:last-child')
+      .first()
+      .invoke('text')
+      .then((code) => {
+        const sheetCode = code.trim()
+
+        cy.contains('button', 'Publicar todos').click()
+        cy.findInDialog('button', 'Publicar todos').click()
+        cy.contains('button', 'Publicar todos').should('not.exist')
+        cy.contains('button', 'Liberar notas').click()
+        cy.findInDialog('button', 'Liberar notas').click()
+        cy.contains('button', 'Recolher notas').should('be.visible')
+
+        cy.contains('a', 'Corrigir folhas').click()
+        cy.get('input[aria-label="Marcar a folha 1 para leitura"]').check()
+        cy.contains('button', 'Ler 1 folhas').click()
+        cy.contains('a', 'Revisar', { timeout: 10000 }).first().click()
+        cy.get('input[aria-label^="Nota da questão"]').first().clear().type('2.5')
+        cy.contains('button', 'Salvar sem finalizar').click()
+        cy.contains('Em andamento', { timeout: 10000 }).should('be.visible')
 
         cy.visit(`/r/${sheetCode}`)
         cy.contains('h2', 'Gabarito').should('be.visible')

@@ -1,12 +1,12 @@
 import { createRequire } from 'node:module'
 import type { ExamVersion } from '@correctio/domain'
 import PDFDocument from 'pdfkit'
-import { drawBlankPage, drawFooter, useStyle } from './draw'
+import { drawBlankPage, drawFooter, measurerFor } from './draw'
 import { drawCover } from './draw-cover'
 import { drawQuestionsPage } from './draw-questions'
 import type { PrintedSheet, PrintJob } from './print-job'
 import { coverContent, sheetQuestions, type CoverContent } from './sheet-content'
-import { FONT, measureQuestion, planSheetPages, type FontName, type Measure, type SheetPage } from './sheet-pages'
+import { FONT, measureQuestion, planSheetPages, type FontName, type SheetPage } from './sheet-pages'
 
 /**
  * DejaVu, embedded in the PDF: the standard PDF fonts have no glyph for the
@@ -22,16 +22,17 @@ const FONT_FILES: Readonly<Record<FontName, string>> = {
 const resolvePackageFile = createRequire(import.meta.url).resolve
 
 /** Margins are zero because every position is placed by hand from the plan. */
-const PAGE_OPTIONS = { size: 'A4', margin: 0 } as const
+export const PAGE_OPTIONS = { size: 'A4', margin: 0 } as const
 
-function createDocument(title: string): PDFKit.PDFDocument {
+/**
+ * A document with the fonts registered and no page yet. The tests that hold a
+ * layout to the page measure with it too, since only the embedded fonts give
+ * the heights the paper will have.
+ */
+export function createDocument(title: string): PDFKit.PDFDocument {
   const doc = new PDFDocument({ ...PAGE_OPTIONS, autoFirstPage: false, info: { Title: title, Author: 'Correctio' } })
   for (const [name, file] of Object.entries(FONT_FILES)) doc.registerFont(name, resolvePackageFile(file))
   return doc
-}
-
-function measurerFor(doc: PDFKit.PDFDocument): Measure {
-  return (text, style, width) => useStyle(doc, style).heightOfString(text, { width, lineGap: style.lineGap })
 }
 
 function collect(doc: PDFKit.PDFDocument): Promise<Buffer> {

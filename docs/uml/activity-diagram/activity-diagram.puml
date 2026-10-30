@@ -69,12 +69,10 @@ repeat while (Finalizar?) is ([Não]) not ([Sim])
 |Site|
 :Enviar a publicação e a liberação para a API;
 |API|
-if <<planned>> (Gabarito publicado?\n<i>previsto (#46)</i>) then ([Sim])
+if (Gabarito publicado?) then ([Sim])
   :Gravar a publicação e a liberação no banco;
 else ([Não])
-  -[dashed]->
-  :Recusar a liberação das notas (#46); <<planned>>
-  -[dashed]->
+  :Recusar a liberação das notas;
 endif
 |Aluno|
 :Escanear o QR Code da folha;

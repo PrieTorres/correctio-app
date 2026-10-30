@@ -60,12 +60,12 @@ describe('ApplicationGeneratePage', () => {
     const application = await seedApplication()
     const user = userEvent.setup()
     renderAt(application.id)
-    await screen.findByRole('heading', { name: 'Gerar prova' })
+    await screen.findByRole('heading', { name: 'Gerar PDF — Prova de teste' })
 
     const count = screen.getByLabelText('Quantas versões')
     await user.clear(count)
     await user.type(count, '2')
-    await user.click(screen.getByRole('button', { name: /^Gerar$/ }))
+    await user.click(screen.getByRole('button', { name: 'Gerar PDF' }))
 
     await waitFor(
       async () => expect(await repositories().printing.listVersions(application.id)).toHaveLength(2),
@@ -78,9 +78,9 @@ describe('ApplicationGeneratePage', () => {
     const application = await seedApplication()
     const user = userEvent.setup()
     renderAt(application.id)
-    await screen.findByRole('heading', { name: 'Gerar prova' })
+    await screen.findByRole('heading', { name: 'Gerar PDF — Prova de teste' })
 
-    await user.click(screen.getByRole('button', { name: /^Gerar$/ }))
+    await user.click(screen.getByRole('button', { name: 'Gerar PDF' }))
 
     await waitFor(
       async () =>
@@ -95,9 +95,9 @@ describe('ApplicationGeneratePage', () => {
     const application = await seedApplication()
     const user = userEvent.setup()
     renderAt(application.id)
-    await screen.findByRole('heading', { name: 'Gerar prova' })
+    await screen.findByRole('heading', { name: 'Gerar PDF — Prova de teste' })
 
-    await user.click(screen.getByRole('button', { name: /^Gerar$/ }))
+    await user.click(screen.getByRole('button', { name: 'Gerar PDF' }))
 
     await waitFor(
       async () =>
@@ -110,21 +110,43 @@ describe('ApplicationGeneratePage', () => {
     expect(exams.items[0]?.status).toBe('ready')
   })
 
-  it('inherits the shuffle preferences from the exam', async () => {
+  it('inherits the shuffle preferences from the exam on every version (RF17)', async () => {
     const application = await seedApplication()
     renderAt(application.id)
-    await screen.findByRole('heading', { name: 'Gerar prova' })
+    await screen.findByRole('heading', { name: 'Gerar PDF — Prova de teste' })
 
-    expect(screen.getByLabelText('Embaralhar as questões')).toBeChecked()
-    expect(screen.getByLabelText('Embaralhar as alternativas')).toBeChecked()
+    for (const version of [1, 2]) {
+      expect(screen.getByLabelText(`Embaralhar questões da versão ${version}`)).toBeChecked()
+      expect(screen.getByLabelText(`Embaralhar alternativas da versão ${version}`)).toBeChecked()
+    }
+  })
+
+  it('records the shuffle of each version as it was switched (RF22)', async () => {
+    const application = await seedApplication()
+    const user = userEvent.setup()
+    renderAt(application.id)
+    await screen.findByRole('heading', { name: 'Gerar PDF — Prova de teste' })
+
+    await user.click(screen.getByLabelText('Embaralhar questões da versão 2'))
+    await user.click(screen.getByRole('button', { name: 'Gerar PDF' }))
+
+    await waitFor(
+      async () => expect(await repositories().printing.listVersions(application.id)).toHaveLength(2),
+      { timeout: 8000 },
+    )
+    const versions = await repositories().printing.listVersions(application.id)
+    expect(versions.map(({ shuffleQuestions, shuffleAlternatives }) => ({ shuffleQuestions, shuffleAlternatives }))).toEqual([
+      { shuffleQuestions: true, shuffleAlternatives: true },
+      { shuffleQuestions: false, shuffleAlternatives: true },
+    ])
   })
 
   it('warns before replacing paper that already exists', async () => {
     const application = await seedApplication()
     const user = userEvent.setup()
     renderAt(application.id)
-    await screen.findByRole('heading', { name: 'Gerar prova' })
-    await user.click(screen.getByRole('button', { name: /^Gerar$/ }))
+    await screen.findByRole('heading', { name: 'Gerar PDF — Prova de teste' })
+    await user.click(screen.getByRole('button', { name: 'Gerar PDF' }))
 
     await waitFor(
       async () =>
@@ -146,8 +168,8 @@ describe('ApplicationGeneratePage', () => {
     const application = await seedApplication()
     const user = userEvent.setup()
     renderAt(application.id)
-    await screen.findByRole('heading', { name: 'Gerar prova' })
-    await user.click(screen.getByRole('button', { name: /^Gerar$/ }))
+    await screen.findByRole('heading', { name: 'Gerar PDF — Prova de teste' })
+    await user.click(screen.getByRole('button', { name: 'Gerar PDF' }))
     await waitFor(
       async () =>
         expect((await repositories().printing.listSheets(application.id)).length).toBeGreaterThan(0),

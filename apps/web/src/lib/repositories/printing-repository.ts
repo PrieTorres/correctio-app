@@ -7,26 +7,38 @@ import { StorageError } from '@/lib/storage/errors'
  * The printed side of an application: its versions and the sheets handed out.
  *
  * Both belong to an application rather than to a teacher, so they do not fit
- * the owned-repository factory. They share a contract because they are always
- * written together — a version with no sheets prints nothing, and a sheet
- * without its version cannot be read back.
+ * the owned-repository factory, and every method names the application. Only
+ * the generation writes them (`ApplicationRepository.generate`); what a
+ * teacher changes afterwards is whether students may see each answer key.
  */
 export interface PrintingRepository {
   listVersions: (applicationId: string) => Promise<ExamVersion[]>
   listSheets: (applicationId: string) => Promise<AnswerSheet[]>
-  findVersionByPublicCode: (publicCode: string) => Promise<ExamVersion | null>
+  /**
+   * The sheet behind a printed code, which only the public lookup of this
+   * browser asks for. On the API that lookup has a route of its own (#49),
+   * which answers what a student may see rather than the sheet.
+   */
   findSheetByCode: (code: string) => Promise<AnswerSheet | null>
-  replaceForApplication: (
-    applicationId: string,
-    versions: ExamVersion[],
-    sheets: AnswerSheet[],
-  ) => Promise<void>
-  publishAnswerKey: (versionId: string, published: boolean) => Promise<void>
+  publishAnswerKey: (applicationId: string, versionId: string, published: boolean) => Promise<void>
+  /** "Publicar todos": every version still unpublished, at once. */
+  publishAll: (applicationId: string) => Promise<void>
 }
 
-export function createLocalPrintingRepository(): PrintingRepository {
+/** The browser version also stores what a generation printed, which the API does on its own. */
+export interface LocalPrintingRepository extends PrintingRepository {
+  replaceForApplication: (applicationId: string, versions: ExamVersion[], sheets: AnswerSheet[]) => Promise<void>
+}
+
+const VERSION_NOT_FOUND = 'Versão não encontrada.'
+
+export function createLocalPrintingRepository(): LocalPrintingRepository {
   const versions = createCollection('exam-versions', examVersionSchema)
   const sheets = createCollection('answer-sheets', answerSheetSchema)
+
+  /** Publishing what is already published keeps the moment it first became public, as on the API. */
+  const published = (version: ExamVersion, at: string): ExamVersion =>
+    version.answerKeyPublished ? version : { ...version, answerKeyPublished: true, answerKeyPublishedAt: at }
 
   return {
     async listVersions(applicationId) {
@@ -43,11 +55,6 @@ export function createLocalPrintingRepository(): PrintingRepository {
         .readAll()
         .filter((item) => item.applicationId === applicationId)
         .toSorted((a, b) => a.sheetNumber - b.sheetNumber)
-    },
-
-    async findVersionByPublicCode(publicCode) {
-      await simulateLatency()
-      return versions.readAll().find((item) => item.publicCode === publicCode) ?? null
     },
 
     async findSheetByCode(code) {
@@ -76,19 +83,24 @@ export function createLocalPrintingRepository(): PrintingRepository {
       ])
     },
 
-    async publishAnswerKey(versionId, published) {
+    async publishAnswerKey(applicationId, versionId, publish) {
       await simulateLatency()
       const all = versions.readAll()
-      const index = all.findIndex((item) => item.id === versionId)
+      const index = all.findIndex((item) => item.id === versionId && item.applicationId === applicationId)
       const version = all[index]
-      if (version === undefined) throw new StorageError('Versão não encontrada.', 'not-found')
+      if (version === undefined) throw new StorageError(VERSION_NOT_FOUND, 'not-found')
 
+      const next = publish
+        ? published(version, new Date().toISOString())
+        : { ...version, answerKeyPublished: false, answerKeyPublishedAt: undefined }
+      versions.writeAll(all.with(index, next))
+    },
+
+    async publishAll(applicationId) {
+      await simulateLatency()
+      const now = new Date().toISOString()
       versions.writeAll(
-        all.with(index, {
-          ...version,
-          answerKeyPublished: published,
-          answerKeyPublishedAt: published ? new Date().toISOString() : undefined,
-        }),
+        versions.readAll().map((item) => (item.applicationId === applicationId ? published(item, now) : item)),
       )
     },
   }

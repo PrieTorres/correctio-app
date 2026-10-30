@@ -7,8 +7,10 @@ import {
   examVersionSchema,
   questionSchema,
   studentSchema,
+  type ApplicationInput,
   type ClassInput,
   type ExamInput,
+  type GenerationRequest,
   type QuestionInput,
   type StudentInput,
 } from '@/lib/schemas'
@@ -18,8 +20,9 @@ import { createLocalAuthProvider, DEMO_TEACHER } from '@/lib/auth'
 
 /**
  * Sample dataset of the GitHub Pages demo (`lib/app-mode.ts`), and of the
- * Cypress suite, which writes it for the teacher each test signs up; there the
- * classes and students are created on the API first (`RemoteRoster`).
+ * Cypress suite, which creates the same sample on the API for the teacher each
+ * test signs up (`sampleClasses`, `sampleQuestions`, `sampleExams` and
+ * `sampleApplications`).
  *
  * `localStorage` is per browser, so anyone opening the demo link sees only
  * what is seeded here, never what the team demonstrated locally. The Firebase
@@ -231,64 +234,37 @@ const APPLICATIONS: Application[] = [
 ]
 
 /**
+ * How the sample application already printed was printed: two versions, each
+ * with the shuffle its exam sets by default, and the student's name on every
+ * sheet. The demo prints it in this browser and the suite asks the API for the
+ * same, so both start from the same paper.
+ */
+function generationFor(exam: Exam): GenerationRequest {
+  const shuffle = { shuffleQuestions: exam.defaultShuffleQuestions, shuffleAlternatives: exam.defaultShuffleAlternatives }
+  return { versions: [shuffle, shuffle], withStudentIdentification: true }
+}
+
+/**
  * The generated application arrives with paper, built by the same functions the
  * screen uses. Writing the versions out by hand would let the demo drift from
  * what generating actually produces, and a sheet whose layout does not match
  * its version is unreadable.
  */
-/** What the sample printing is built from: the sample data, or the copy of it that points at the ids the API gave. */
-interface PrintingSources {
-  applications: readonly Application[]
-  students: readonly Student[]
-  exams: readonly Exam[]
-  questions: readonly Question[]
-}
-
-function printingForDemo({ applications, students, exams, questions }: PrintingSources) {
+function printingForDemo(applications: readonly Application[], exams: readonly Exam[]) {
   const application = applications.find((item) => item.status === 'generated')
   const exam = exams.find((item) => item.id === application?.examId)
   if (exam === undefined || application === undefined) return { versions: [], sheets: [] }
 
-  const versions = buildVersions({
-    applicationId: application.id,
-    exam,
-    bank: questions,
-    versionCount: 2,
-    shuffleQuestions: exam.defaultShuffleQuestions,
-    shuffleAlternatives: exam.defaultShuffleAlternatives,
-    withStudentIdentification: true,
-  })
+  const generation = generationFor(exam)
+  const versions = buildVersions({ applicationId: application.id, exam, questions: QUESTIONS, ...generation })
   const sheets = buildAnswerSheets(
     application.id,
     versions,
-    students.filter((student) => student.classId === application.classId),
-    true,
+    STUDENTS.filter((student) => student.classId === application.classId),
+    generation.withStudentIdentification,
   )
 
   return { versions, sheets }
-}
-
-/**
- * The sample classes, students, questions and exams after the API created
- * them, keyed back to the sample ids they stand for.
- *
- * The Cypress suite runs the Firebase build, whose class, student, question and
- * exam screens read the API, so it creates them there first (`signInAsNewTeacher`).
- * The rest of the sample still lives in `localStorage`, pointing at the ids the
- * API gave, so every spec starts from the same populated screens as before.
- */
-export interface RemoteRoster {
-  /** Sample class id, such as `class-calculus-1`, to the id the API gave that class. */
-  classIds: Readonly<Record<string, string>>
-  /** Every student as the API returned it, with its own id and the API class id. */
-  students: readonly Student[]
-  /**
-   * Sample question id, such as `question-limits`, to the id the API gave it.
-   * The alternatives keep their sample ids, which the API stores as sent.
-   */
-  questionIds: Readonly<Record<string, string>>
-  /** Sample exam id, such as `exam-calculus-midterm`, to the id the API gave it. */
-  examIds: Readonly<Record<string, string>>
 }
 
 /** One sample question in the shape the API takes it. */
@@ -297,7 +273,7 @@ export interface SampleQuestion {
   input: QuestionInput
 }
 
-/** The sample questions, for the suite to create on the API before `writeDemoData`. */
+/** The sample questions, for the suite to create on the API. */
 export function sampleQuestions(): SampleQuestion[] {
   return QUESTIONS.map((question) => ({
     sampleId: question.id,
@@ -317,7 +293,11 @@ export function sampleQuestions(): SampleQuestion[] {
 export interface SampleExam {
   sampleId: string
   input: ExamInput
-  /** The API creates every exam as a draft; `ready` and `closed` are reached afterwards, through their routes. */
+  /**
+   * The API creates every exam as a draft. `closed` is reached through the
+   * archive route, and `ready` only by generating an application of the exam,
+   * which the sample application of the ready exam does (`sampleApplications`).
+   */
   status: Exam['status']
 }
 
@@ -348,7 +328,7 @@ export interface SampleClass {
   students: StudentInput[]
 }
 
-/** The sample classes and their students, for the suite to create on the API before `writeDemoData`. */
+/** The sample classes and their students, for the suite to create on the API. */
 export function sampleClasses(): SampleClass[] {
   return CLASSES.map((item) => ({
     sampleId: item.id,
@@ -361,33 +341,58 @@ export function sampleClasses(): SampleClass[] {
   }))
 }
 
-/** A sample record missing from the roster would leave the rest pointing at nothing, so it stops the seeding instead. */
+/** One sample application in the shape the API takes it. */
+export interface SampleApplication {
+  sampleId: string
+  input: ApplicationInput
+  /**
+   * Present for the application that arrives printed. Generating it on the
+   * API is also what marks its exam `ready`, as it does for any teacher.
+   */
+  generation?: GenerationRequest
+}
+
+/**
+ * The sample applications, for the suite to create on the API once the sample
+ * classes and exams exist there, pointing at the ids the API gave them. The one
+ * the demo shows printed carries the same generation `writeDemoData` prints in
+ * this browser.
+ */
+export function sampleApplications(
+  classIds: Readonly<Record<string, string>>,
+  examIds: Readonly<Record<string, string>>,
+): SampleApplication[] {
+  return APPLICATIONS.map((application) => {
+    const exam = EXAMS.find((item) => item.id === application.examId)
+    const printed = application.status === 'generated' && exam !== undefined
+    return {
+      sampleId: application.id,
+      input: {
+        examId: remoteId(examIds, application.examId),
+        classId: remoteId(classIds, application.classId),
+        date: application.date,
+      },
+      ...(printed && { generation: generationFor(exam) }),
+    }
+  })
+}
+
+/** A sample record missing from the ids the API gave would leave the rest pointing at nothing, so it stops the seeding instead. */
 function remoteId(ids: Readonly<Record<string, string>>, sampleId: string): string {
   const id = ids[sampleId]
   if (id === undefined) throw new Error(`The sample record ${sampleId} was not created on the API.`)
   return id
 }
 
-/** The sample, owned by `teacherId` and pointing at the ids the API gave when there is a `remote` roster. */
-function sampleFor(teacherId: string, remote: RemoteRoster | undefined) {
+/** The sample, owned by `teacherId`. */
+function sampleFor(teacherId: string) {
   const owned = <T extends { teacherId: string }>(items: readonly T[]): T[] => items.map((item) => ({ ...item, teacherId }))
-  const classIdOf = (sampleId: string) => (remote === undefined ? sampleId : remoteId(remote.classIds, sampleId))
-  const questionIdOf = (sampleId: string) => (remote === undefined ? sampleId : remoteId(remote.questionIds, sampleId))
-  const examIdOf = (sampleId: string) => (remote === undefined ? sampleId : remoteId(remote.examIds, sampleId))
 
   return {
     classes: owned(CLASSES),
-    questions: owned(QUESTIONS).map((question) => ({ ...question, id: questionIdOf(question.id) })),
-    exams: owned(EXAMS).map((exam) => ({
-      ...exam,
-      id: examIdOf(exam.id),
-      questions: exam.questions.map((entry) => ({ ...entry, questionId: questionIdOf(entry.questionId) })),
-    })),
-    applications: owned(APPLICATIONS).map((item) => ({
-      ...item,
-      classId: classIdOf(item.classId),
-      examId: examIdOf(item.examId),
-    })),
+    questions: owned(QUESTIONS),
+    exams: owned(EXAMS),
+    applications: owned(APPLICATIONS),
   }
 }
 
@@ -407,26 +412,20 @@ function signInDemoTeacher(): void {
 }
 
 /**
- * Writes the sample data as owned by `teacherId`. Classes, questions, exams and
- * applications carry their owner, and the screens list only the signed-in
- * teacher's; students, versions and sheets hang from those.
- *
- * With a `remote` roster the classes, students, questions and exams already
- * live on the API, so they are not written here, and the applications and
- * sheets point at the ids the API gave them.
+ * Writes the sample data to this browser, as owned by `teacherId`. Classes,
+ * questions, exams and applications carry their owner, and the screens list
+ * only the signed-in teacher's; students, versions and sheets hang from those.
  */
-export function writeDemoData(teacherId: string, remote?: RemoteRoster): void {
-  const { classes, questions, exams, applications } = sampleFor(teacherId, remote)
+export function writeDemoData(teacherId: string): void {
+  const { classes, questions, exams, applications } = sampleFor(teacherId)
 
-  if (remote === undefined) {
-    createCollection('classes', classSchema).writeAll(classes)
-    createCollection('students', studentSchema).writeAll(STUDENTS)
-    createCollection('questions', questionSchema).writeAll(questions)
-    createCollection('exams', examSchema).writeAll(exams)
-  }
+  createCollection('classes', classSchema).writeAll(classes)
+  createCollection('students', studentSchema).writeAll(STUDENTS)
+  createCollection('questions', questionSchema).writeAll(questions)
+  createCollection('exams', examSchema).writeAll(exams)
   createCollection('applications', applicationSchema).writeAll(applications)
 
-  const printing = printingForDemo({ applications, students: remote?.students ?? STUDENTS, exams, questions })
+  const printing = printingForDemo(applications, exams)
   createCollection('exam-versions', examVersionSchema).writeAll(printing.versions)
   createCollection('answer-sheets', answerSheetSchema).writeAll(printing.sheets)
 }

@@ -206,6 +206,53 @@ export interface Application {
   gradesReleased: boolean;
 }
 
+/**
+ * How far an application has gone, counted where the versions, the sheets and
+ * the corrections live. The list (P11) and the detail (P14) show it for every
+ * application at once, and counting it in the browser would take one request
+ * per application.
+ */
+export interface ApplicationProgress {
+  /** The versions printed. */
+  versions: number;
+  /** The versions whose answer key a student may already see. */
+  publishedAnswerKeys: number;
+  /** One per student who got a paper. */
+  sheets: number;
+  /** The sheets whose correction the teacher confirmed (`DONE`); one still waiting for a score is not corrected yet. */
+  correctedSheets: number;
+  /** Every correction, confirmed or not: any of them keeps the paper from being printed again (RF24). */
+  corrections: number;
+}
+
+/**
+ * An application as the screens read it: the entity of the Spec, plus the
+ * names they show and its progress. The names are read even when the exam or
+ * the class was archived later, since the application still happened.
+ * Computed on every read and never stored, so `Application` stays the entity.
+ */
+export interface ApplicationOverview extends Application {
+  examTitle: string;
+  className: string;
+  progress: ApplicationProgress;
+}
+
+/**
+ * Where the correction of an application stands, as P11 filters it. The
+ * three stages split every application: none of its sheets read yet; at least
+ * one correction still waiting for an open-ended score (RF48), the same
+ * corrections the panel counts as pending; or corrections that are all
+ * confirmed. A class with absent students never corrects every sheet, so
+ * `DONE` does not ask for that.
+ */
+export const CORRECTION_PROGRESS = Object.freeze({
+  NOT_STARTED: 'NOT_STARTED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  DONE: 'DONE',
+} as const);
+
+export type CorrectionProgress = (typeof CORRECTION_PROGRESS)[keyof typeof CORRECTION_PROGRESS];
+
 export interface AlternativeOrder {
   questionId: Id;
   /** Alternative ids in the order and letters actually printed. */
@@ -243,7 +290,7 @@ export interface ExamVersion {
  * whether or not the exam identifies students.
  *
  * `sheetNumber` and `code` must never be conflated. The former is short and
- * human-readable for sorting paper; the latter is the opaque 128-bit token
+ * human-readable for sorting paper; the latter is the opaque 130-bit token
  * behind the QR code and the only key to the public lookup.
  */
 export interface AnswerSheet {
@@ -253,6 +300,12 @@ export interface AnswerSheet {
   studentId?: Id;
   sheetNumber: number;
   code: string;
+  /**
+   * Group addition: the geometry of the answer card this sheet was printed
+   * with (`ANSWER_CARD.version`), so the reading of its photo looks for the
+   * marks where this paper has them, even after the card changes.
+   */
+  answerCardVersion: number;
 }
 
 export interface ObjectiveResult {

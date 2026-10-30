@@ -1,5 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, waitFor } from '@testing-library/react'
+import { CORRECTION_STATUS } from '@/types/domain'
+import { StorageError } from '@/lib/storage/errors'
+import { createLocalAuthProvider } from '@/lib/auth'
 import { createTeacherRepositories } from '@/lib/repositories'
 import { clearAllCollections } from '@/lib/storage/collection'
 import { renderHookWithProviders, TEST_TEACHER_ID } from '@/test-utils'
@@ -15,16 +18,14 @@ import { usePublicLookup } from '../usePublicLookup'
 const repositories = () => createTeacherRepositories(TEST_TEACHER_ID)
 
 const GENERATE = {
-  versionCount: 1,
-  shuffleQuestions: false,
-  shuffleAlternatives: false,
+  versions: [{ shuffleQuestions: false, shuffleAlternatives: false }],
   withStudentIdentification: true,
 }
 
 async function printedSheet() {
   const seeded = await seedApplicationChain()
   const { result } = renderHookWithProviders(() => useGenerateApplication())
-  await act(() => result.current.mutateAsync({ id: seeded.applicationId, options: GENERATE }))
+  await act(() => result.current.mutateAsync({ id: seeded.applicationId, request: GENERATE }))
 
   const sheets = await repositories().printing.listSheets(seeded.applicationId)
   const versions = await repositories().printing.listVersions(seeded.applicationId)
@@ -32,8 +33,37 @@ async function printedSheet() {
   return { seeded, sheet: sheets[0]!, versionId: versions[0]!.id }
 }
 
+/** A session check that never finishes, as on a slow network, to see what the lookup waits for. */
+const restoringForever = { ...createLocalAuthProvider(), restoreSession: () => new Promise<never>(() => {}) }
+
 describe('usePublicLookup', () => {
   beforeEach(clearAllCollections)
+
+  /** A student has no session, and the API needs none: the code is the whole credential. */
+  it('asks the API at once, without waiting for a session', async () => {
+    const findByCode = vi.fn().mockResolvedValue({ status: 'INVALID_CODE' })
+
+    const { result } = renderHookWithProviders(() => usePublicLookup('ABC'), {
+      auth: restoringForever,
+      publicLookup: { findByCode },
+    })
+
+    await waitFor(() => expect(result.current.data?.status).toBe('INVALID_CODE'))
+    expect(findByCode).toHaveBeenCalledWith('ABC')
+  })
+
+  /** In the demo the sheets belong to whoever is signed in here, so asking first would search nobody's. */
+  it('waits for the session before reading this browser', async () => {
+    const findByCode = vi.fn().mockResolvedValue({ status: 'INVALID_CODE' })
+
+    renderHookWithProviders(() => usePublicLookup('ABC'), {
+      auth: restoringForever,
+      publicLookup: { findByCode, readsThisBrowser: true },
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(findByCode).not.toHaveBeenCalled()
+  })
 
   it('reports an invalid code for something nobody printed', async () => {
     const { result } = renderHookWithProviders(() => usePublicLookup('NAOEXISTE'))
@@ -66,9 +96,9 @@ describe('usePublicLookup', () => {
   })
 
   it('shows the answer key once it is published, and still no grade', async () => {
-    const { sheet, versionId } = await printedSheet()
+    const { seeded, sheet, versionId } = await printedSheet()
     const { result: publish } = renderHookWithProviders(() => usePublishAnswerKey())
-    await act(() => publish.current.mutateAsync({ versionId, published: true }))
+    await act(() => publish.current.mutateAsync({ applicationId: seeded.applicationId, versionId, published: true }))
 
     const { result } = renderHookWithProviders(() => usePublicLookup(sheet.code))
 
@@ -90,7 +120,7 @@ describe('usePublicLookup', () => {
     })
   })
 
-  it('shows the grade once both levels are released and the sheet is corrected', async () => {
+  async function releasedAndRead() {
     const { seeded, sheet, versionId } = await printedSheet()
     const { result: read } = renderHookWithProviders(() => useReadSheets())
     await act(() =>
@@ -101,8 +131,29 @@ describe('usePublicLookup', () => {
       publish: usePublishAnswerKey(),
       release: useReleaseGrades(),
     }))
-    await act(() => actions.current.publish.mutateAsync({ versionId, published: true }))
+    await act(() => actions.current.publish.mutateAsync({ applicationId: seeded.applicationId, versionId, published: true }))
     await act(() => actions.current.release.mutateAsync({ id: seeded.applicationId, released: true }))
+
+    return sheet
+  }
+
+  /** The seeded exam has an open-ended question, so reading the sheet leaves the correction open. */
+  it('withholds the grade while the correction is still in progress', async () => {
+    const sheet = await releasedAndRead()
+    const correction = await repositories().corrections.findByAnswerSheet(sheet.id)
+    expect(correction?.status).toBe(CORRECTION_STATUS.IN_PROGRESS)
+
+    const { result } = renderHookWithProviders(() => usePublicLookup(sheet.code))
+
+    await waitFor(() => expect(result.current.data?.status).toBe('ANSWER_KEY_ONLY'), {
+      timeout: 8000,
+    })
+  })
+
+  it('shows the grade once both levels are released and the teacher confirmed the correction', async () => {
+    const sheet = await releasedAndRead()
+    const correction = await repositories().corrections.findByAnswerSheet(sheet.id)
+    await repositories().corrections.save({ ...correction!, status: CORRECTION_STATUS.DONE })
 
     const { result } = renderHookWithProviders(() => usePublicLookup(sheet.code))
 
@@ -117,7 +168,7 @@ describe('usePublicLookup', () => {
       publish: usePublishAnswerKey(),
       release: useReleaseGrades(),
     }))
-    await act(() => actions.current.publish.mutateAsync({ versionId, published: true }))
+    await act(() => actions.current.publish.mutateAsync({ applicationId: seeded.applicationId, versionId, published: true }))
     await act(() => actions.current.release.mutateAsync({ id: seeded.applicationId, released: true }))
 
     const { result } = renderHookWithProviders(() => usePublicLookup(sheet.code))
@@ -125,5 +176,23 @@ describe('usePublicLookup', () => {
     await waitFor(() => expect(result.current.data?.status).toBe('ANSWER_KEY_ONLY'), {
       timeout: 8000,
     })
+  })
+})
+
+describe('usePublicLookup through the public repository', () => {
+  it('asks only the public repository, never the teacher ones', async () => {
+    const findByCode = vi.fn().mockResolvedValue({ status: 'INVALID_CODE' })
+    const { result } = renderHookWithProviders(() => usePublicLookup('ABC'), { publicLookup: { findByCode } })
+
+    await waitFor(() => expect(result.current.data?.status).toBe('INVALID_CODE'), { timeout: 8000 })
+    expect(findByCode).toHaveBeenCalledExactlyOnceWith('ABC')
+  })
+
+  it('does not retry a refusal', async () => {
+    const findByCode = vi.fn().mockRejectedValue(new StorageError('Espere.', 'rate-limited'))
+    const { result } = renderHookWithProviders(() => usePublicLookup('ABC'), { publicLookup: { findByCode } })
+
+    await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 8000 })
+    expect(findByCode).toHaveBeenCalledTimes(1)
   })
 })

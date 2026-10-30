@@ -1,24 +1,79 @@
-import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
-import { buildAnswerSheets, buildVersions } from '@/lib/applications';
 import { applicationIdsInProgress, loadCorrectionsByApplication } from '@/lib/corrections';
-import type { ApplicationInput } from '@/lib/schemas';
+import type { ApplicationListParams } from '@/lib/repositories/application-repository';
+import { LARGEST_PAGE, readEveryPage } from '@/lib/repositories/read-every-page';
+import type { ApplicationInput, GenerationRequest } from '@/lib/schemas';
+import { saveFile } from '@/lib/utils';
+import { filterOptionsOf } from '../list-filters';
 
 export const applicationKeys = {
   all: ['applications'] as const satisfies QueryKey,
-  list: (archived: boolean, search: string) =>
-    ['applications', 'list', { archived, search }] as const,
+  list: (params: ApplicationListParams) => ['applications', 'list', params] as const,
   inProgress: ['applications', 'in-progress'] as const,
   detail: (id: string) => ['applications', 'detail', id] as const,
   printing: (id: string) => ['applications', 'printing', id] as const,
+  choices: ['applications', 'choices'] as const,
+  filterChoices: ['applications', 'filter-choices'] as const,
 };
 
-export function useApplicationList(archived: boolean, search: string) {
+/**
+ * One page of applications, filtered and sorted by the server. The page on
+ * screen stays while the next one loads, so moving through the pages or
+ * changing a filter does not blank the list.
+ */
+export function useApplicationList(params: ApplicationListParams = {}) {
   const { repositories } = useServices();
 
   return useQuery({
-    queryKey: applicationKeys.list(archived, search),
-    queryFn: () => repositories.applications.list({ search, archived: archived }),
+    queryKey: applicationKeys.list(params),
+    queryFn: () => repositories.applications.list(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * Every class and exam of the teacher, archived ones included, for the filters
+ * of P11. A teacher with more than a page of either still finds the one to
+ * filter by.
+ */
+export function useApplicationFilterChoices() {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: applicationKeys.filterChoices,
+    queryFn: async () => {
+      const [activeExams, archivedExams, activeClasses, archivedClasses] = await Promise.all([
+        readEveryPage((page) => repositories.exams.list({ page, pageSize: LARGEST_PAGE })),
+        readEveryPage((page) => repositories.exams.list({ page, pageSize: LARGEST_PAGE, archived: true })),
+        readEveryPage((page) => repositories.classes.list({ page, pageSize: LARGEST_PAGE })),
+        readEveryPage((page) => repositories.classes.list({ page, pageSize: LARGEST_PAGE, archived: true })),
+      ]);
+      return {
+        exams: filterOptionsOf([...activeExams, ...archivedExams], (exam) => exam.title),
+        classes: filterOptionsOf([...activeClasses, ...archivedClasses], (group) => group.name),
+      };
+    },
+  });
+}
+
+/**
+ * Every active exam and class, for the choices of P12. A teacher with more
+ * than a page of either still finds the one to apply: the lists of P8 and P3
+ * page, and a choice limited to their first page would hide the rest.
+ */
+export function useSittingChoices() {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: applicationKeys.choices,
+    queryFn: async () => {
+      const [exams, classes] = await Promise.all([
+        readEveryPage((page) => repositories.exams.list({ page, pageSize: LARGEST_PAGE })),
+        readEveryPage((page) => repositories.classes.list({ page, pageSize: LARGEST_PAGE })),
+      ]);
+      return { exams, classes };
+    },
   });
 }
 
@@ -41,6 +96,7 @@ export function useApplicationIdsInProgress(enabled: boolean) {
   });
 }
 
+/** One application with its overview: the exam, the class and how far it has gone. */
 export function useApplication(id: string | undefined) {
   const { repositories } = useServices();
 
@@ -68,23 +124,17 @@ export function useApplicationPrinting(id: string | undefined) {
   });
 }
 
-/**
- * The corrections already made from this application printing.
- *
- * Read here for one question only: whether printing again would leave a
- * correction pointing at a layout that no longer exists.
- */
-export function useCorrectionsOfApplication(id: string | undefined) {
-  const { repositories } = useServices();
+const NO_PAPER = { versions: [], sheets: [] } as const;
 
-  return useQuery({
-    queryKey: [...applicationKeys.printing(id ?? ''), 'corrections'] as const,
-    queryFn: async () => {
-      const sheets = await repositories.printing.listSheets(id ?? '');
-      return repositories.corrections.listByAnswerSheets(sheets.map((sheet) => sheet.id));
-    },
-    enabled: id !== undefined,
-  });
+/**
+ * The versions and sheets of an application for its detail, as empty lists
+ * when they could not be read: a draft has none either, and the cards of P14
+ * already say that nothing was generated, which beats an error over half of
+ * the screen.
+ */
+export function usePrintedPaper(id: string) {
+  const { data, isError } = useApplicationPrinting(id);
+  return isError || data === undefined ? NO_PAPER : data;
 }
 
 function useInvalidateApplications() {
@@ -116,52 +166,23 @@ export function useArchiveApplication() {
   });
 }
 
-export interface GenerateOptions {
-  versionCount: number;
-  shuffleQuestions: boolean;
-  shuffleAlternatives: boolean;
-  withStudentIdentification: boolean;
-}
-
 /**
- * Produces the paper for an application: the versions and one sheet per student.
+ * Produces the paper for an application: the versions and one sheet per
+ * student, and the PDF where there is a server to draw it.
  *
- * Generating is where the exam stops being editable content and becomes a
- * printed artefact, so the exam is marked `ready` and the application
- * `generated`. Regenerating replaces both entirely — see the repository for why
- * keeping the old ones beside the new would make a sheet unreadable.
+ * The screen sends only what P13 asks (RF22): how each version shuffles and
+ * whether the sheets carry the name. Generating is where the exam stops being
+ * editable content and becomes a printed artefact, so the exam turns `ready`
+ * and the application `generated`, and regenerating replaces everything that
+ * was printed before.
  */
 export function useGenerateApplication() {
   const { repositories } = useServices();
   const invalidate = useInvalidateApplications();
 
   return useMutation({
-    mutationFn: async ({ id, options }: { id: string; options: GenerateOptions }) => {
-      const application = await repositories.applications.getById(id);
-      if (application === null) throw new Error('Aplicação não encontrada');
-
-      const exam = await repositories.exams.getById(application.examId);
-      if (exam === null) throw new Error('Prova não encontrada');
-
-      const [bank, students] = await Promise.all([
-        repositories.questions.list({ pageSize: 1000 }),
-        repositories.students.listByClass(application.classId),
-      ]);
-
-      const versions = buildVersions({
-        applicationId: id,
-        exam,
-        bank: bank.items,
-        ...options,
-      });
-      const sheets = buildAnswerSheets(id, versions, students, options.withStudentIdentification);
-
-      await repositories.printing.replaceForApplication(id, versions, sheets);
-      await repositories.applications.markGenerated(id);
-      await repositories.exams.markReady(exam.id);
-
-      return { versions, sheets };
-    },
+    mutationFn: ({ id, request }: { id: string; request: GenerationRequest }) =>
+      repositories.applications.generate(id, request),
     onSuccess: invalidate,
   });
 }
@@ -171,8 +192,26 @@ export function usePublishAnswerKey() {
   const invalidate = useInvalidateApplications();
 
   return useMutation({
-    mutationFn: ({ versionId, published }: { versionId: string; published: boolean }) =>
-      repositories.printing.publishAnswerKey(versionId, published),
+    mutationFn: ({
+      applicationId,
+      versionId,
+      published,
+    }: {
+      applicationId: string;
+      versionId: string;
+      published: boolean;
+    }) => repositories.printing.publishAnswerKey(applicationId, versionId, published),
+    onSuccess: invalidate,
+  });
+}
+
+/** "Publicar todos": every version at once, so a failure never leaves half of them published. */
+export function usePublishAllAnswerKeys() {
+  const { repositories } = useServices();
+  const invalidate = useInvalidateApplications();
+
+  return useMutation({
+    mutationFn: (applicationId: string) => repositories.printing.publishAll(applicationId),
     onSuccess: invalidate,
   });
 }
@@ -197,6 +236,18 @@ export function useReleaseGrades() {
     onSuccess: (application) => {
       queryClient.setQueryData(applicationKeys.detail(application.id), application);
       return invalidate();
+    },
+  });
+}
+
+/** Saves the PDF of the application, which comes from the API with the teacher's token. */
+export function useDownloadApplicationPdf() {
+  const { repositories } = useServices();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { blob, filename } = await repositories.applications.downloadPdf(id);
+      saveFile(blob, filename);
     },
   });
 }

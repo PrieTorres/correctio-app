@@ -1,258 +1,195 @@
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, FileText, RefreshCw } from 'lucide-react';
-import { Badge, Button, Card, PageHeader, QueryBoundary, Tour } from '@/components/ui';
+import { useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Archive, ArrowLeft } from 'lucide-react';
+import { ActionMenu, Badge, Button, Card, PageHeader, QueryBoundary, Tour, type MenuAction } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
-import { formatDate } from '@/lib/utils';
+import { canRegenerate } from '@/lib/applications';
 import { useStudents } from '@/features/classes';
-import { useExam } from '@/features/exams';
-import type { AnswerSheet, ExamVersion } from '@/types/domain';
-import {
-  useApplication,
-  useApplicationPrinting,
-  useCorrectionsOfApplication,
-  usePublishAnswerKey,
-  useReleaseGrades,
-} from '../hooks/useApplications';
+import type { ApplicationOverview } from '@/types/domain';
+import { APPLICATION_STATUS_LABEL, correctionBlockerOf, examTitleOf, sittingOf } from '../application-labels';
+import { ArchiveApplicationDialog } from '../components/ArchiveApplicationDialog';
+import { EditDateDialog } from '../components/EditDateDialog';
+import { GradesCard } from '../components/GradesCard';
+import { PdfCard } from '../components/PdfCard';
+import { SheetsCard } from '../components/SheetsCard';
+import { VersionsCard } from '../components/VersionsCard';
+import { fromDetailOf } from '../generation-origin';
+import { useApplication, usePrintedPaper } from '../hooks/useApplications';
+
+/** The dialogs P14 opens from its menu and from the notice of an archived application. */
+type DetailDialog = 'edit-date' | 'archive' | 'restore';
 
 export function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
-
   const { data: application, isPending, isError } = useApplication(id);
-  const { data: exam } = useExam(application?.examId);
-  const { data: printing } = useApplicationPrinting(id);
-  const { data: corrections = [] } = useCorrectionsOfApplication(id);
-  const { data: students = [] } = useStudents(application?.classId);
-  const publishAnswerKey = usePublishAnswerKey();
-  const releaseGrades = useReleaseGrades();
-
-  const versions = printing?.versions ?? [];
-  const sheets = printing?.sheets ?? [];
-  const studentName = new Map(students.map((student) => [student.id, student.fullName]));
 
   return (
     <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando aplicação…">
-      {application === null || application === undefined ? (
-        <Card className="p-6">
-          <p className="text-body text-ink-muted">Aplicação não encontrada.</p>
-          <Link to={ROUTES.applications} className="mt-3 inline-block text-label text-primary underline">
-            Voltar para aplicações
-          </Link>
-        </Card>
-      ) : (
-        <div className="flex flex-col gap-6">
-          <Link
-            to={ROUTES.applications}
-            className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-          >
-            <ArrowLeft size={16} aria-hidden />
-            Aplicações
-          </Link>
-
-          <PageHeader help
-            title={exam?.title ?? 'Prova removida'}
-            description={`Aplicada em ${formatDate(application.date)}`}
-            actions={
-              <Button icon={<RefreshCw size={18} aria-hidden />}>
-                <Link to={buildPath(ROUTES.applicationPdf, { id: application.id })}>
-                  {versions.length > 0 ? 'Gerar de novo' : 'Gerar'}
-                </Link>
-              </Button>
-            }
-          />
-
-          <PdfCard hasPaper={versions.length > 0} sheetCount={sheets.length} />
-
-          <Card data-tour="versions">
-            <div className="border-b border-line px-5 py-4">
-              <h2 className="text-title text-primary">Versões</h2>
-            </div>
-            {versions.length === 0 ? (
-              <p className="px-5 py-6 text-body text-ink-muted">
-                Nada foi gerado ainda. As versões aparecem aqui depois de gerar.
-              </p>
-            ) : (
-              <ul className="divide-y divide-line">
-                {versions.map((version) => (
-                  <li key={version.id}>
-                    <VersionRow
-                      version={version}
-                      pending={publishAnswerKey.isPending}
-                      onTogglePublish={() =>
-                        publishAnswerKey.mutate({
-                          versionId: version.id,
-                          published: !version.answerKeyPublished,
-                        })
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <Card>
-            <div className="border-b border-line px-5 py-4">
-              <h2 className="text-title text-primary">Folhas</h2>
-              <p className="mt-1 text-caption text-ink-subtle">
-                Uma por aluno, com o código que a consulta pública de nota resolve.
-              </p>
-            </div>
-            {sheets.length === 0 ? (
-              <p className="px-5 py-6 text-body text-ink-muted">
-                Nenhuma folha ainda.
-              </p>
-            ) : (
-              <SheetTable sheets={sheets} versions={versions} studentName={studentName} />
-            )}
-          </Card>
-
-          <Card className="flex flex-col gap-3 p-6">
-            <h2 className="text-title text-primary">Correção</h2>
-            <p className="text-body text-ink-muted" aria-live="polite">
-              {corrections.length} de {sheets.length} folhas corrigidas
-            </p>
-            <Button variant="secondary" className="self-start" data-tour="grading">
-              <Link to={buildPath(ROUTES.grading, { id: application.id })}>Corrigir folhas</Link>
-            </Button>
-          </Card>
-
-          <Card className="flex flex-col gap-3 p-6">
-            <h2 className="text-title text-primary">Notas para os alunos</h2>
-            <label data-tour="release" className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                checked={application.gradesReleased}
-                disabled={releaseGrades.isPending}
-                onChange={(event) =>
-                  releaseGrades.mutate({ id: application.id, released: event.target.checked })
-                }
-                className="size-4 accent-[var(--color-primary)]"
-              />
-              <span className="text-body text-ink">Liberar a consulta de nota por QR Code</span>
-            </label>
-            <p className="text-caption text-ink-subtle">
-              Enquanto estiver desligado, quem ler o QR vê que a nota ainda não foi liberada. É
-              opcional: nem toda turma usa.
-            </p>
-          </Card>
-
-          <Tour screen="applicationDetail" ready={versions.length > 0} />
-        </div>
-      )}
+      {application === null || application === undefined ? <NotFound /> : <ApplicationDetail application={application} />}
     </QueryBoundary>
   );
 }
 
-/**
- * The PDF is a fixed sample in this phase.
- *
- * Rendering a real one is server work and belongs to the next phase; what has
- * to exist now are the sheets and their codes, because the public lookup reads
- * them. Saying so on the screen beats a download that quietly produces the
- * wrong paper.
- */
-function PdfCard({ hasPaper, sheetCount }: Readonly<{ hasPaper: boolean; sheetCount: number }>) {
+function NotFound() {
   return (
-    <Card data-tour="pdf" className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-start gap-3">
-        <FileText size={22} aria-hidden className="mt-0.5 shrink-0 text-primary" />
-        <div>
-          <h2 className="text-title text-primary">PDF para impressão</h2>
-          <p className="mt-1 text-body text-ink-muted">
-            {hasPaper
-              ? `${sheetCount} folhas prontas para imprimir.`
-              : 'Gere a aplicação para produzir o PDF.'}
-          </p>
-          <p className="mt-1 text-caption text-ink-subtle">
-            Nesta fase o botão abre um modelo do formato impresso, para imprimir pelo navegador.
-            A montagem do arquivo pelo servidor, com a paginação que não quebra questão, entra
-            na próxima fase.
-          </p>
-        </div>
-      </div>
-      <Button
-        icon={<Download size={18} aria-hidden />}
-        disabled={!hasPaper}
-        onClick={() => window.open(`${import.meta.env.BASE_URL}exemplos/prova-exemplo.html`, '_blank')}
+    <Card className="p-6">
+      <p className="text-body text-ink-muted">Aplicação não encontrada.</p>
+      <Link to={ROUTES.applications} className="mt-3 inline-block text-label text-primary underline">
+        Voltar para aplicações
+      </Link>
+    </Card>
+  );
+}
+
+/**
+ * The detail of an application (P14). The header says which exam, which class
+ * and which day, and keeps the actions that change the application itself in
+ * its menu; the cards below follow what the teacher does next: the paper, the
+ * answer keys, the sheets, the correction and the grades.
+ *
+ * The versions and the sheets read as empty when they fail to load, since a
+ * draft has none either, and the cards already say "nothing was generated".
+ */
+function ApplicationDetail({ application }: Readonly<{ application: ApplicationOverview }>) {
+  const { versions, sheets } = usePrintedPaper(application.id);
+  const { data: students = [] } = useStudents(application.classId);
+  const [dialog, setDialog] = useState<DetailDialog | null>(null);
+  const studentName = new Map(students.map((student) => [student.id, student.fullName]));
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Link
+        to={ROUTES.applications}
+        className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
       >
-        Ver o modelo impresso
+        <ArrowLeft size={16} aria-hidden />
+        Aplicações
+      </Link>
+
+      <div className="flex flex-col gap-3">
+        <PageHeader
+          help
+          title={examTitleOf(application)}
+          description={sittingOf(application)}
+          actions={<ApplicationMenu application={application} onOpen={setDialog} />}
+        />
+        <StatusBadges application={application} />
+      </div>
+
+      {application.status === 'closed' && <ArchivedNotice onRestore={() => setDialog('restore')} />}
+
+      <PdfCard application={application} />
+      <VersionsCard application={application} versions={versions} />
+      <SheetsCard sheets={sheets} versions={versions} studentName={studentName} />
+      <CorrectionCard application={application} />
+      <GradesCard application={application} />
+
+      {dialog !== null && <DetailDialogs application={application} dialog={dialog} onClose={() => setDialog(null)} />}
+
+      <Tour screen="applicationDetail" ready={versions.length > 0} />
+    </div>
+  );
+}
+
+function StatusBadges({ application }: Readonly<{ application: ApplicationOverview }>) {
+  const status = APPLICATION_STATUS_LABEL[application.status];
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Badge tone={status.tone}>{status.label}</Badge>
+      {application.gradesReleased && <Badge tone="info">Notas liberadas</Badge>}
+    </div>
+  );
+}
+
+function DetailDialogs({
+  application,
+  dialog,
+  onClose,
+}: Readonly<{ application: ApplicationOverview; dialog: DetailDialog; onClose: () => void }>) {
+  if (dialog === 'edit-date') return <EditDateDialog application={application} onClose={onClose} />;
+  return <ArchiveApplicationDialog application={application} restoring={dialog === 'restore'} onClose={onClose} />;
+}
+
+/**
+ * What changes the application itself. "Regenerar PDF" stays in the menu when
+ * it is blocked, with the reason under it, so the teacher learns why here
+ * rather than after opening P13.
+ */
+function ApplicationMenu({
+  application,
+  onOpen,
+}: Readonly<{ application: ApplicationOverview; onOpen: (dialog: DetailDialog) => void }>) {
+  const navigate = useNavigate();
+  const archived = application.status === 'closed';
+  const regeneration = canRegenerate(application, application.progress.corrections);
+
+  const actions: MenuAction[] = [
+    {
+      label: 'Editar data',
+      onSelect: () => onOpen('edit-date'),
+      disabledReason: archived ? 'Restaure a aplicação para editar a data.' : undefined,
+    },
+    {
+      label: application.progress.versions > 0 ? 'Regenerar PDF' : 'Gerar PDF',
+      onSelect: () =>
+        void navigate(buildPath(ROUTES.applicationPdf, { id: application.id }), { state: fromDetailOf(application.id) }),
+      disabledReason: regeneration.allowed ? undefined : regeneration.reason,
+    },
+    archived
+      ? { label: 'Restaurar', onSelect: () => onOpen('restore') }
+      : { label: 'Arquivar', onSelect: () => onOpen('archive') },
+  ];
+
+  return <ActionMenu label="Ações" actions={actions} />;
+}
+
+/** Why the buttons that show students something are off, and the way back. */
+function ArchivedNotice({ onRestore }: Readonly<{ onRestore: () => void }>) {
+  return (
+    <Card className="flex flex-col gap-3 border-l-4 border-l-accent p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <Archive size={20} aria-hidden className="mt-0.5 shrink-0 text-ink-muted" />
+        <p className="text-body text-ink-muted">
+          Esta aplicação está arquivada. Para gerar, editar, publicar o gabarito ou liberar as notas, restaure-a.
+          Despublicar o gabarito e recolher as notas continuam disponíveis.
+        </p>
+      </div>
+      <Button variant="secondary" className="shrink-0" onClick={onRestore}>
+        Restaurar
       </Button>
     </Card>
   );
 }
 
-function VersionRow({
-  version,
-  pending,
-  onTogglePublish,
-}: Readonly<{ version: ExamVersion; pending: boolean; onTogglePublish: () => void }>) {
-  return (
-    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-label text-ink">Versão {version.versionNumber}</span>
-          {version.answerKeyPublished && <Badge tone="success">Gabarito publicado</Badge>}
-          {!version.withStudentIdentification && <Badge>Sem identificação</Badge>}
-        </div>
-        <p className="mt-1 text-caption text-ink-subtle">
-          {version.layout.questionOrder.length} questões · código {version.publicCode.slice(0, 8)}
-        </p>
-      </div>
-      <Button variant="ghost" disabled={pending} onClick={onTogglePublish}>
-        {version.answerKeyPublished ? 'Despublicar gabarito' : 'Publicar gabarito'}
-      </Button>
-    </div>
-  );
-}
-
-function SheetTable({
-  sheets,
-  versions,
-  studentName,
-}: Readonly<{
-  sheets: AnswerSheet[];
-  versions: ExamVersion[];
-  studentName: Map<string, string>;
-}>) {
-  const versionNumber = new Map(versions.map((version) => [version.id, version.versionNumber]));
+/**
+ * How far the correction has gone, counting only the sheets whose correction
+ * the teacher confirmed: one still waiting for an open-ended score is not
+ * corrected yet. "Corrigir folhas" is a link, as on the panel and on P11's
+ * menu, and before the paper exists it says why there is nothing to correct.
+ */
+function CorrectionCard({ application }: Readonly<{ application: ApplicationOverview }>) {
+  const { correctedSheets, sheets } = application.progress;
+  const blocker = correctionBlockerOf(application);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-body">
-        <caption className="sr-only">Folhas geradas para esta aplicação</caption>
-        <thead className="text-label text-ink-muted">
-          <tr className="border-b border-line">
-            <th scope="col" className="px-5 py-3 text-left">
-              Nº
-            </th>
-            <th scope="col" className="px-5 py-3 text-left">
-              Aluno
-            </th>
-            <th scope="col" className="px-5 py-3 text-left">
-              Versão
-            </th>
-            <th scope="col" className="px-5 py-3 text-left">
-              Código
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {sheets.map((sheet) => (
-            <tr key={sheet.id}>
-              <td className="px-5 py-3 text-ink-subtle">{sheet.sheetNumber}</td>
-              <td className="px-5 py-3 text-ink">
-                {sheet.studentId === undefined
-                  ? 'Sem identificação'
-                  : (studentName.get(sheet.studentId) ?? 'Aluno removido')}
-              </td>
-              <td className="px-5 py-3 text-ink-muted">
-                {versionNumber.get(sheet.examVersionId) ?? '—'}
-              </td>
-              <td className="px-5 py-3 font-mono text-caption text-ink-subtle">{sheet.code}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Card className="flex flex-col gap-3 p-6">
+      <h2 className="text-title text-primary">Correção</h2>
+      <p className="text-body text-ink-muted" aria-live="polite">
+        {correctedSheets} de {sheets} folhas corrigidas
+      </p>
+      {blocker === undefined ? (
+        <Button variant="secondary" className="self-start" data-tour="grading">
+          <Link to={buildPath(ROUTES.grading, { id: application.id })}>Corrigir folhas</Link>
+        </Button>
+      ) : (
+        <>
+          <Button variant="secondary" className="self-start" data-tour="grading" disabled>
+            Corrigir folhas
+          </Button>
+          <p className="text-caption text-ink-subtle">{blocker}</p>
+        </>
+      )}
+    </Card>
   );
 }
