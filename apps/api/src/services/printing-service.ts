@@ -13,8 +13,8 @@ const ARCHIVED_PUBLISH = 'Esta aplicação está arquivada. Restaure a aplicaç�
 const NOTHING_TO_PUBLISH = 'Gere a prova antes de publicar o gabarito.'
 
 const answerKeySchema = z.object(
-  { published: z.boolean({ message: 'Informe se o gabarito fica publicado.' }) },
-  { message: 'Dados inválidos.' },
+  { published: z.boolean({ error: 'Informe se o gabarito fica publicado.' }) },
+  { error: 'Dados inválidos.' },
 )
 
 /** The ids of the request path: the application, then one of its versions. */

@@ -19,7 +19,7 @@ import {
   signUpSchema,
 } from '../schemas'
 
-function messagesOf(result: z.SafeParseReturnType<unknown, unknown>): string[] {
+function messagesOf(result: z.ZodSafeParseResult<unknown>): string[] {
   return result.success ? [] : result.error.issues.map((issue) => issue.message)
 }
 
@@ -220,6 +220,12 @@ describe('questionInputSchema, against the limits of the database', () => {
   it('still refuses zero and negative scores with their own message', () => {
     expect(messagesOf(withScore(0))).toEqual(['A nota máxima precisa ser maior que zero'])
     expect(messagesOf(withScore(-2))).toEqual(['A nota máxima precisa ser maior que zero'])
+  })
+
+  /** A number field turns `1e400` into `Infinity`, which Zod 4 would refuse in English. */
+  it('refuses an infinite score with the message of the limit it goes past', () => {
+    expect(messagesOf(withScore(Number.POSITIVE_INFINITY))).toEqual(['A nota máxima pode ser no máximo 9999,99'])
+    expect(messagesOf(withScore(Number.NEGATIVE_INFINITY))).toEqual(['A nota máxima precisa ser maior que zero'])
   })
 
   it('refuses a statement of only spaces, like an empty one', () => {

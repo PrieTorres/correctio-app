@@ -44,7 +44,7 @@ function withoutNulls(raw: unknown): unknown {
  * field with a default, such as `AnswerSheet.answerCardVersion`, may be missing
  * from what arrives but is always there afterwards.
  */
-export type ResponseSchema<TEntity> = z.ZodType<TEntity, z.ZodTypeDef, unknown>
+export type ResponseSchema<TEntity> = z.ZodType<TEntity, unknown>
 
 /**
  * Validates one record from the API with the same schema that guards the local

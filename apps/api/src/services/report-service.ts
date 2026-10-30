@@ -23,9 +23,9 @@ const INVALID_FORMAT = 'Formato de exportação inválido. Use xlsx, csv ou pdf.
 const INVALID_FILTERS = 'Filtros do relatório inválidos.'
 
 /** Every refusal of a field names the mistake in the words of the screen, instead of Zod's English. */
-const saying = (message: string) => ({ errorMap: () => ({ message }) })
+const saying = (message: string) => ({ error: message })
 
-const formatQuerySchema = z.object({ format: z.nativeEnum(REPORT_FORMAT, saying(INVALID_FORMAT)).optional() })
+const formatQuerySchema = z.object({ format: z.enum(REPORT_FORMAT, saying(INVALID_FORMAT)).optional() })
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 

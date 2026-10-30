@@ -131,10 +131,8 @@ o `npm audit --audit-level=high`, mas aceita os que estão em
 `scripts/dependency-audit/allowed-advisories.mjs`. Cada exceção diz o motivo e a issue que a remove,
 e a lista só diminui. Quando a exceção não encontra mais o alerta, a auditoria avisa que ela pode sair.
 
-Hoje a lista tem uma exceção:
-- o GHSA-mrhx-c7xc-m3w5, do zod, corrigido só no zod 4;
-- o risco é baixo, porque o corpo de toda requisição passa pelo limite de 100 KB antes do zod;
-- a migração está na #164, e a exceção foi aprovada pela PM em 27/10.
+Hoje a lista está vazia. A última exceção, o GHSA-mrhx-c7xc-m3w5 do zod, saiu com a migração para
+o zod 4 (#164), que corrige o alerta.
 
 **Node fixado em um lugar só.** A versão vem do `.nvmrc` e o CI lê de lá. Duas fontes divergem em algumas semanas, e aí o build passa na máquina de alguém e falha no CI.
 

@@ -15,7 +15,7 @@ import {
   studentSchema,
 } from '@correctio/domain'
 import { sql, type Kysely } from 'kysely'
-import type { AnyZodObject, ZodEffects, ZodTypeAny } from 'zod'
+import type { ZodObject } from 'zod'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { Database } from '../../models/tables'
 import { createDatabase } from '../connection'
@@ -31,9 +31,9 @@ if (serverUrl === undefined && process.env.CI !== undefined) {
   throw new Error('DATABASE_TEST_URL is required in CI')
 }
 
-function fieldsOf(schema: ZodTypeAny): string[] {
-  const object = 'innerType' in schema ? (schema as ZodEffects<AnyZodObject>).innerType() : (schema as AnyZodObject)
-  return Object.keys(object.shape as Record<string, unknown>)
+/** A refinement keeps an object schema an object, so `questionSchema` exposes its shape like the others. */
+function fieldsOf(schema: ZodObject): string[] {
+  return Object.keys(schema.shape)
 }
 
 function without(fields: string[], ...childTables: string[]): string[] {

@@ -69,8 +69,8 @@ function refuseStatusOutsideItsList({ archived, status }: { archived: boolean; s
 }
 
 const gradesReleaseSchema = z.object(
-  { released: z.boolean({ message: 'Informe se as notas ficam liberadas.' }) },
-  { message: 'Dados inválidos.' },
+  { released: z.boolean({ error: 'Informe se as notas ficam liberadas.' }) },
+  { error: 'Dados inválidos.' },
 )
 
 /** The PDF of an application, ready to be sent as a download. */

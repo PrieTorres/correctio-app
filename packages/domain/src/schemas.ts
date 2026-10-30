@@ -10,7 +10,7 @@ import { collationKey } from './collation';
 import { CORRECTION_PROGRESS, CORRECTION_SOURCE, CORRECTION_STATUS, SHEET_READING } from './domain';
 
 const id = z.string().min(1);
-const timestamp = z.string().datetime();
+const timestamp = z.iso.datetime();
 
 export const userRoleSchema = z.enum(['professor', 'estudante']);
 
@@ -18,7 +18,7 @@ export const authenticatedUserSchema = z.object({
   id,
   role: userRoleSchema,
   fullName: z.string().min(1).max(160),
-  email: z.string().email(),
+  email: z.email(),
   createdAt: timestamp,
   anonymizedAt: timestamp.optional(),
 });
@@ -31,7 +31,12 @@ export const authenticatedUserSchema = z.object({
  */
 const MAX_EMAIL_LENGTH = 254;
 
-const email = z.string().trim().email('Informe um e-mail válido').max(MAX_EMAIL_LENGTH);
+/**
+ * Trimmed first and checked afterwards. `z.email()` runs its format check
+ * before any `.trim()` chained to it, so an address pasted with a stray space
+ * would be refused instead of saved without the space.
+ */
+const email = z.string().trim().pipe(z.email('Informe um e-mail válido').max(MAX_EMAIL_LENGTH));
 
 /**
  * At least 8 characters (RF01 and the specification, Feature 1). The ceiling
@@ -64,7 +69,7 @@ function passwordsMatch(data: { password: string; confirmPassword: string }): bo
   return data.password === data.confirmPassword;
 }
 
-const PASSWORDS_DIFFER = { message: 'As senhas não coincidem', path: ['confirmPassword'] };
+const PASSWORDS_DIFFER = { error: 'As senhas não coincidem', path: ['confirmPassword'] };
 
 export const signUpSchema = signUpRequestSchema
   .extend({ confirmPassword })
@@ -121,17 +126,18 @@ export const classInputSchema = classSchema.pick({ name: true, subject: true, te
  * string that a blank field submits reached the address check and came back as
  * "E-mail inválido" — on the one field the form calls optional. Here an empty
  * field means absent, said once instead of at every call site.
+ *
+ * `.optional()` comes last because the outermost wrapper decides whether the
+ * key is optional in the inferred type: after a transform, `email` would turn
+ * into a required key that may hold `undefined`.
  */
 const optionalEmail = z
   .union([
     z.literal(''),
-    z
-      .string()
-      .email('E-mail inválido')
-      .max(MAX_EMAIL_LENGTH, `O e-mail pode ter no máximo ${MAX_EMAIL_LENGTH} caracteres`),
+    z.email('E-mail inválido').max(MAX_EMAIL_LENGTH, `O e-mail pode ter no máximo ${MAX_EMAIL_LENGTH} caracteres`),
   ])
-  .optional()
-  .transform((value) => (value === '' ? undefined : value));
+  .transform((value) => (value === '' ? undefined : value))
+  .optional();
 
 /**
  * The limits of a student's name and registration, with the message the
@@ -204,7 +210,7 @@ export const questionSchema = z
     if (question.type === 'objetiva') {
       if (question.alternatives === undefined || question.correctAlternativeId === undefined) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'Questão objetiva exige alternativas e uma alternativa correta',
         });
         return;
@@ -212,7 +218,7 @@ export const questionSchema = z
       const known = question.alternatives.some((item) => item.id === question.correctAlternativeId);
       if (!known) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['correctAlternativeId'],
           message: 'A alternativa correta precisa ser uma das alternativas da questão',
         });
@@ -222,7 +228,7 @@ export const questionSchema = z
 
     if (question.maxScore === undefined) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['maxScore'],
         message: 'Questão discursiva exige nota máxima',
       });
@@ -249,10 +255,24 @@ function hasAtMostTwoDecimals(value: number): boolean {
   return Math.abs(cents - Math.round(cents)) < 1e-6;
 }
 
+const MAX_SCORE_NOT_POSITIVE = 'A nota máxima precisa ser maior que zero';
+const MAX_SCORE_ABOVE_CEILING = 'A nota máxima pode ser no máximo 9999,99';
+
+/**
+ * Zod 4 refuses an infinite number as a wrong type, in English, before any
+ * limit runs. The number field still produces one (`Number('1e400')`), so it
+ * gets the message of the limit it went past, as it did on Zod 3.
+ */
+function infiniteMaxScoreMessage(issue: { input?: unknown }): string | undefined {
+  if (issue.input === Number.POSITIVE_INFINITY) return MAX_SCORE_ABOVE_CEILING;
+  if (issue.input === Number.NEGATIVE_INFINITY) return MAX_SCORE_NOT_POSITIVE;
+  return undefined;
+}
+
 const questionMaxScore = z
-  .number()
-  .positive('A nota máxima precisa ser maior que zero')
-  .max(MAX_SCORE, 'A nota máxima pode ser no máximo 9999,99')
+  .number({ error: infiniteMaxScoreMessage })
+  .positive(MAX_SCORE_NOT_POSITIVE)
+  .max(MAX_SCORE, MAX_SCORE_ABOVE_CEILING)
   .refine(hasAtMostTwoDecimals, 'A nota máxima aceita no máximo 2 casas decimais');
 
 /**
@@ -275,7 +295,7 @@ function refuseRepeatedTags(tags: readonly string[], ctx: z.RefinementCtx): void
   for (const tag of tags) {
     const earlier = firstSpelling.get(collationKey(tag));
     if (earlier !== undefined) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `"${earlier}" e "${tag}" são a mesma tag: deixe só uma` });
+      ctx.addIssue({ code: 'custom', message: `"${earlier}" e "${tag}" são a mesma tag: deixe só uma` });
       return;
     }
     firstSpelling.set(collationKey(tag), tag);
@@ -303,7 +323,7 @@ export const questionInputSchema = z
     if (question.type === 'discursiva') {
       if (question.maxScore === undefined) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['maxScore'],
           message: 'Informe a nota máxima da questão discursiva',
         })
@@ -314,28 +334,28 @@ export const questionInputSchema = z
     const alternatives = question.alternatives ?? []
     if (alternatives.length < 2) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['alternatives'],
         message: 'Uma questão objetiva precisa de ao menos 2 alternativas',
       })
     }
     if (alternatives.length > 5) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['alternatives'],
         message: 'Máximo de 5 alternativas',
       })
     }
     if (alternatives.some((item) => item.text.trim() === '')) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['alternatives'],
         message: 'Preencha o texto de todas as alternativas',
       })
     }
     if (!alternatives.some((item) => item.id === question.correctAlternativeId)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['correctAlternativeId'],
         message: 'Marque qual alternativa é a correta',
       })
@@ -393,7 +413,7 @@ export const drawRequestSchema = z
     excludeIds: z.array(id).max(MAX_EXAM_QUESTIONS * 2).default([]),
   })
   .refine((request) => request.multipleChoiceCount + request.openEndedCount <= MAX_EXAM_QUESTIONS, {
-    message: TOO_MANY_QUESTIONS,
+    error: TOO_MANY_QUESTIONS,
     path: ['multipleChoiceCount'],
   });
 
@@ -427,7 +447,7 @@ export const applicationOverviewSchema = applicationSchema.extend({
   progress: applicationProgressSchema,
 });
 
-export const correctionProgressSchema = z.nativeEnum(CORRECTION_PROGRESS);
+export const correctionProgressSchema = z.enum(CORRECTION_PROGRESS);
 
 /**
  * What the application form submits. The teacher picks an exam, a class and a
@@ -436,9 +456,9 @@ export const correctionProgressSchema = z.nativeEnum(CORRECTION_PROGRESS);
  * for the screen.
  */
 export const applicationInputSchema = z.object({
-  examId: z.string({ message: 'Escolha a prova' }).min(1, 'Escolha a prova'),
-  classId: z.string({ message: 'Escolha a turma' }).min(1, 'Escolha a turma'),
-  date: z.string({ message: 'Informe a data da aplicação' }).datetime('Informe a data da aplicação'),
+  examId: z.string({ error: 'Escolha a prova' }).min(1, 'Escolha a prova'),
+  classId: z.string({ error: 'Escolha a turma' }).min(1, 'Escolha a turma'),
+  date: z.iso.datetime({ error: 'Informe a data da aplicação' }),
 });
 
 /**
@@ -449,8 +469,8 @@ export const applicationInputSchema = z.object({
 export const MAX_VERSIONS = 6;
 
 export const versionShuffleSchema = z.object({
-  shuffleQuestions: z.boolean({ message: 'Informe se a versão embaralha as questões' }),
-  shuffleAlternatives: z.boolean({ message: 'Informe se a versão embaralha as alternativas' }),
+  shuffleQuestions: z.boolean({ error: 'Informe se a versão embaralha as questões' }),
+  shuffleAlternatives: z.boolean({ error: 'Informe se a versão embaralha as alternativas' }),
 });
 
 /**
@@ -463,12 +483,12 @@ export const versionShuffleSchema = z.object({
 export const generationRequestSchema = z.object(
   {
     versions: z
-      .array(versionShuffleSchema, { message: 'Informe as versões a gerar' })
+      .array(versionShuffleSchema, { error: 'Informe as versões a gerar' })
       .min(1, 'Gere pelo menos uma versão')
       .max(MAX_VERSIONS, `Máximo de ${MAX_VERSIONS} versões por aplicação`),
-    withStudentIdentification: z.boolean({ message: 'Informe se as folhas saem com o nome do aluno' }),
+    withStudentIdentification: z.boolean({ error: 'Informe se as folhas saem com o nome do aluno' }),
   },
-  { message: 'Dados inválidos' },
+  { error: 'Dados inválidos' },
 );
 
 export const examVersionLayoutSchema = z.object({
@@ -505,7 +525,7 @@ export const answerSheetSchema = z.object({
   answerCardVersion: z.number().int().positive().default(1),
 });
 
-export const correctionStatusSchema = z.nativeEnum(CORRECTION_STATUS);
+export const correctionStatusSchema = z.enum(CORRECTION_STATUS);
 
 export const objectiveResultSchema = z.object({
   questionId: id,
@@ -572,7 +592,7 @@ export const correctionSchema = z.object({
   syncStatus: z.enum(['pending', 'synced', 'error']).default('synced'),
   status: correctionStatusSchema,
   answerSheetId: id,
-  source: z.nativeEnum(CORRECTION_SOURCE),
+  source: z.enum(CORRECTION_SOURCE),
   imageUrl: z.string().optional(),
 });
 
