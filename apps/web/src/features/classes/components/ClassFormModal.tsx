@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -42,9 +42,18 @@ export function ClassFormModal({
     formState: { errors },
   } = useForm<ClassInput>({ resolver: zodResolver(classInputSchema), defaultValues: EMPTY })
 
-  /** Reopening starts clean: the refusal of the last attempt belongs to that attempt. */
+  /**
+   * Reopening starts clean: the refusal of the last attempt belongs to that
+   * attempt. Only the opening resets, never a new copy of the class while the
+   * modal is open: the save itself refetches the class, and resetting then
+   * cancelled the save's own callback, so the modal never closed, and a
+   * refetch while typing would have erased what was typed.
+   */
+  const wasOpen = useRef(false)
   useEffect(() => {
-    if (!open) return
+    const opening = open && !wasOpen.current
+    wasOpen.current = open
+    if (!opening) return
     reset(
       editing === null
         ? EMPTY

@@ -115,11 +115,11 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 
 ### 📅 Evolução ao longo do semestre
 
-| | Entrega | Prazo |
-|---|---|---|
-| **N1** | Telas navegáveis com dados simulados, hospedadas | 11/09/2026 |
-| **N2** | Mesmas telas ligadas ao MySQL, sem nenhum dado simulado | 23/10/2026 |
-| **N3** | Escopo completo, validações e casos de borda, apresentação ao cliente | 27/11/2026 |
+| | Entrega | Prazo | Situação |
+|---|---|---|---|
+| **N1** | Telas navegáveis com dados simulados, hospedadas | 11/09/2026 | ✅ Entregue na versão 1.0.0 |
+| **N2** | Mesmas telas ligadas ao MySQL, sem nenhum dado simulado | 23/10/2026 | ✅ Concluída na versão 2.0.0 ([#189](https://github.com/PrieTorres/correctio-app/pull/189)) |
+| **N3** | Escopo completo, validações e casos de borda, apresentação ao cliente | 27/11/2026 | A fazer |
 
 ---
 
@@ -502,7 +502,7 @@ conferência dele no PR desta seção antes do merge.
 - Provas e sorteio no servidor, e as telas de provas na API: [#136](https://github.com/PrieTorres/correctio-app/pull/136), [#157](https://github.com/PrieTorres/correctio-app/pull/157).
 - ADRs: [#120](https://github.com/PrieTorres/correctio-app/pull/120). Backup diário com teste de restauração: [#152](https://github.com/PrieTorres/correctio-app/pull/152). Regras de complexidade e de comentários: [#90](https://github.com/PrieTorres/correctio-app/pull/90). Vídeo da jornada em todo PR: [#92](https://github.com/PrieTorres/correctio-app/pull/92).
 - Correções de segurança das dependências e do SonarCloud: [#89](https://github.com/PrieTorres/correctio-app/pull/89), [#118](https://github.com/PrieTorres/correctio-app/pull/118), [#140](https://github.com/PrieTorres/correctio-app/pull/140), [#150](https://github.com/PrieTorres/correctio-app/pull/150), [#166](https://github.com/PrieTorres/correctio-app/pull/166), [#186](https://github.com/PrieTorres/correctio-app/pull/186).
-- Conclusão da N2 (envio e leitura da foto na API, telas de correção, retirada do dado simulado, relatórios na API, ajustes de UX e de revisão): branch `feat/complete-n2`.
+- Conclusão da N2 (envio e leitura da foto na API, telas de correção, retirada do dado simulado, relatórios na API e exportação, zod 4, ajustes de UX e de revisão): [#189](https://github.com/PrieTorres/correctio-app/pull/189).
 - Releases: [#116](https://github.com/PrieTorres/correctio-app/pull/116), [#122](https://github.com/PrieTorres/correctio-app/pull/122), [#128](https://github.com/PrieTorres/correctio-app/pull/128), [#134](https://github.com/PrieTorres/correctio-app/pull/134), [#183](https://github.com/PrieTorres/correctio-app/pull/183), [#187](https://github.com/PrieTorres/correctio-app/pull/187). Revisão de código de [#30](https://github.com/PrieTorres/correctio-app/pull/30), [#95](https://github.com/PrieTorres/correctio-app/pull/95), [#97](https://github.com/PrieTorres/correctio-app/pull/97), [#102](https://github.com/PrieTorres/correctio-app/pull/102), [#103](https://github.com/PrieTorres/correctio-app/pull/103), [#108](https://github.com/PrieTorres/correctio-app/pull/108), [#111](https://github.com/PrieTorres/correctio-app/pull/111), [#121](https://github.com/PrieTorres/correctio-app/pull/121), [#124](https://github.com/PrieTorres/correctio-app/pull/124), [#148](https://github.com/PrieTorres/correctio-app/pull/148), [#155](https://github.com/PrieTorres/correctio-app/pull/155), [#156](https://github.com/PrieTorres/correctio-app/pull/156), [#158](https://github.com/PrieTorres/correctio-app/pull/158).
 
 ### Heloísa Fogaça

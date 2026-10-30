@@ -102,7 +102,7 @@ O motivo é específico deste projeto e é o **único ponto verdadeiramente irre
 
 Três restrições que definem o que a N1 pode fazer:
 
-**Cerca de 5 MB, e síncrono — não cabe foto de folha de resposta.** Uma foto de celular convertida para texto ocupa de 3 a 7 MB: estoura a cota em **uma única imagem**. Na N1, as telas de correção usam um conjunto fixo de imagens de demonstração e a leitura é simulada com atraso artificial. Upload real fica para a N2.
+**Cerca de 5 MB, e síncrono — não cabe foto de folha de resposta.** Uma foto de celular convertida para texto ocupa de 3 a 7 MB: estoura a cota em **uma única imagem**. Na N1, as telas de correção usavam um conjunto fixo de imagens de demonstração e a leitura era simulada. Desde a N2 a foto vai para a API, que a guarda no Storage e a lê numa worker thread ([ADR-007](adr/ADR-007-sheet-reading-on-api-worker.md)); o demo do Pages lê a foto no próprio navegador e a guarda só na memória, sem `localStorage`.
 
 **É por navegador.** O cliente e a professora abrindo o link veem os dados semeados, não o que a equipe demonstrou. Por isso é obrigatório um conjunto de dados de demonstração realista — turmas, alunos, questões, provas, aplicações e correções já preenchidas — carregado no primeiro acesso, mais um botão "Restaurar dados de demonstração". Sem isso, quem abrir o link vê 25 telas vazias.
 

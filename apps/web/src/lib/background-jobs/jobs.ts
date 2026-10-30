@@ -107,13 +107,19 @@ export function useIsJobRunning(type: BackgroundJobType): boolean {
   return useIsMutating({ mutationKey: backgroundJobKeys.ofType(type) }) > 0
 }
 
-/** Removes the job of a notice the teacher closed, and with it the file it held. */
+/**
+ * Removes the job of a notice the teacher closed, and with it the file it held.
+ * `findAll`, not `find`: `find` matches the key exactly by default, and every
+ * job's key is longer than the prefix they share, so it found nothing and the
+ * notice never closed.
+ */
 export function useDismissBackgroundJob(): (id: string) => void {
   const queryClient = useQueryClient()
   return (id) => {
     const cache = queryClient.getMutationCache()
-    const mutation = cache.find({ mutationKey: backgroundJobKeys.all, predicate: (item) => String(item.mutationId) === id })
-    if (mutation !== undefined) cache.remove(mutation)
+    for (const mutation of cache.findAll({ mutationKey: backgroundJobKeys.all, predicate: (item) => String(item.mutationId) === id })) {
+      cache.remove(mutation)
+    }
   }
 }
 
