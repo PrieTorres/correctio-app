@@ -24,6 +24,11 @@ const resolvePackageFile = createRequire(import.meta.url).resolve
 /** Margins are zero because every position is placed by hand from the plan. */
 export const PAGE_OPTIONS = { size: 'A4', margin: 0 } as const
 
+/** Registers the embedded fonts under the names of `FONT`, for every PDF the API draws: the exam and the reports (#82). */
+export function registerFonts(doc: PDFKit.PDFDocument): void {
+  for (const [name, file] of Object.entries(FONT_FILES)) doc.registerFont(name, resolvePackageFile(file))
+}
+
 /**
  * A document with the fonts registered and no page yet. The tests that hold a
  * layout to the page measure with it too, since only the embedded fonts give
@@ -31,11 +36,12 @@ export const PAGE_OPTIONS = { size: 'A4', margin: 0 } as const
  */
 export function createDocument(title: string): PDFKit.PDFDocument {
   const doc = new PDFDocument({ ...PAGE_OPTIONS, autoFirstPage: false, info: { Title: title, Author: 'Correctio' } })
-  for (const [name, file] of Object.entries(FONT_FILES)) doc.registerFont(name, resolvePackageFile(file))
+  registerFonts(doc)
   return doc
 }
 
-function collect(doc: PDFKit.PDFDocument): Promise<Buffer> {
+/** The bytes of a document once `end()` is called; listen before drawing, or the first chunks are lost. */
+export function collect(doc: PDFKit.PDFDocument): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
     doc.on('data', (chunk: Buffer) => chunks.push(chunk))

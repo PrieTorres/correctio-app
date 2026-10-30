@@ -5,7 +5,7 @@ import { createLocalCorrectionRepository, type CorrectionRepository } from './co
 import { createLocalPrintingRepository, type PrintingRepository } from './printing-repository'
 import { createPublicLookupRepository, type PublicLookupRepository } from './public-lookup-repository'
 import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
-import { createLocalReportRepository, type CorrectionsByApplication, type ReportRepository } from './report-repository'
+import { createLocalReportRepository, type CorrectionsByApplication, type ReportFile, type ReportRepository } from './report-repository'
 import { createHttpStudentRepository, createLocalStudentRepository, type StudentRepository } from './student-repository'
 import { createHttpQuestionRepository } from './http/create-http-question-repository'
 import { createHttpExamRepository } from './http/create-http-exam-repository'
@@ -24,6 +24,7 @@ export type {
   PrintingRepository,
   PublicLookupRepository,
   QuestionRepository,
+  ReportFile,
   ReportRepository,
   StudentRepository,
 }

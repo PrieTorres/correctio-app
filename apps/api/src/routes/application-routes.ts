@@ -26,12 +26,13 @@ import { createExamService } from '../services/exam-service'
 import { createGenerationService } from '../services/generation-service'
 import { createPrintingService } from '../services/printing-service'
 import { createSheetImageService } from '../services/sheet-image-service'
+import { onlyWhenExporting } from './report-routes'
 
 export interface ApplicationRouteDependencies {
   db: Kysely<Database>
   /** Where the PDF of each application is kept (`docs/adr/ADR-004`). */
   fileStorage: FileStorage
-  /** The expensive tier, per teacher, for generating the PDF (`docs/Seguranca_e_LGPD.md`, section 4). */
+  /** The expensive tier, per teacher, for generating the PDF and exporting the report (`docs/Seguranca_e_LGPD.md`, section 4). */
   expensiveLimit: RequestHandler
   /** The origin of the web app, printed in the QR code of every sheet (`PUBLIC_APP_URL`). */
   publicAppUrl: string
@@ -123,7 +124,7 @@ export function applicationRoutes(dependencies: ApplicationRouteDependencies): R
   router.post('/:id/versions/:versionId/publish-answer-key', printing.publishAnswerKey)
   router.post('/:id/publish-answer-keys', printing.publishAllAnswerKeys)
   router.get('/:id/sheets', printing.listSheets)
-  router.get('/:id/report', dependencies.reports.applicationReport)
+  router.get('/:id/report', onlyWhenExporting(expensiveLimit), dependencies.reports.applicationReport)
 
   router.post('/:id/sheet-images', photoBody, sheetImages.upload)
   router.get('/:id/sheet-images/:imageId', sheetImages.image)

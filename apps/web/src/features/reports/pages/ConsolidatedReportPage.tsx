@@ -3,8 +3,10 @@ import { Badge, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration 
 import { buildPath, ROUTES } from '@/app/routes'
 import { formatDate } from '@/lib/utils'
 import { filterReportRows, type ConsolidatedReportRow } from '@/lib/reports'
+import { ExportButtons } from '../components/ExportButtons'
 import { ReportFiltersBar } from '../components/ReportFiltersBar'
 import { useConsolidatedReport } from '../hooks/useConsolidatedReport'
+import { REPORT_KIND } from '../hooks/useExportReport'
 import { useReportFilters } from '../hooks/useReportFilters'
 
 /**
@@ -14,7 +16,8 @@ import { useReportFilters } from '../hooks/useReportFilters'
  * as the per-application report: a teacher looking here is comparing, not
  * investigating, and a second place that calculates the same numbers
  * differently is a second place to be wrong. Only the filters run here, on
- * the rows that arrived.
+ * the rows that arrived, and the export sends them along, so the file holds
+ * the rows on screen.
  */
 export function ConsolidatedReportPage() {
   const { data, isPending, isError } = useConsolidatedReport()
@@ -28,6 +31,7 @@ export function ConsolidatedReportPage() {
       <PageHeader
         title="Relatório consolidado"
         description="As aplicações do semestre lado a lado, da mais recente para a mais antiga."
+        actions={<ExportButtons report={{ kind: REPORT_KIND.CONSOLIDATED, filters }} disabled={rows.length === 0} />}
       />
 
       <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Reunindo as aplicações…">

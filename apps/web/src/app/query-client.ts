@@ -20,13 +20,21 @@ export function shouldRetry(failureCount: number, error: unknown): boolean {
   return !(error instanceof StorageError) || error.code === 'failure'
 }
 
+function markCountsStale(queryClient: QueryClient): Promise<unknown> {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: dashboardKeys.summary }),
+    queryClient.invalidateQueries({ queryKey: reportKeys.all }),
+  ])
+}
+
 /**
  * The cache of everything the API returns. It lives in memory only, never in
  * `localStorage`, so the next person on the same browser finds nothing.
  *
  * The dashboard and the reports count what every other screen writes, so any
  * successful write marks them stale instead of each mutation having to
- * remember them.
+ * remember them. A job that only reads, such as exporting a report, says so
+ * (`READS_ONLY`) and leaves them as they are.
  */
 export function createAppQueryClient(): QueryClient {
   const queryClient: QueryClient = new QueryClient({
@@ -34,11 +42,8 @@ export function createAppQueryClient(): QueryClient {
       queries: { staleTime: STALE_TIME_MS, retry: shouldRetry, refetchOnWindowFocus: false },
     },
     mutationCache: new MutationCache({
-      onSuccess: () =>
-        Promise.all([
-          queryClient.invalidateQueries({ queryKey: dashboardKeys.summary }),
-          queryClient.invalidateQueries({ queryKey: reportKeys.all }),
-        ]),
+      onSuccess: (_data, _variables, _context, mutation) =>
+        mutation.meta?.readsOnly === true ? undefined : markCountsStale(queryClient),
     }),
   })
   return queryClient

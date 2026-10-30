@@ -12,6 +12,8 @@ import {
   type DashboardActivity,
   type DashboardSummary,
   type Question,
+  type ReportFilters,
+  type ReportFormat,
 } from '@correctio/domain'
 import { StorageError } from '@/lib/storage/errors'
 import type { ApplicationRepository } from './application-repository'
@@ -31,6 +33,16 @@ export interface ReportRepository {
   dashboard: () => Promise<DashboardSummary>
   application: (applicationId: string) => Promise<ApplicationReport>
   consolidated: () => Promise<ConsolidatedReportRow[]>
+  /** The file of P18 in Excel, CSV or PDF (RF36), drawn by the server from the numbers the screen shows. */
+  exportApplication: (applicationId: string, format: ReportFormat) => Promise<ReportFile>
+  /** The file of P19, with only the rows the filters on screen let through. */
+  exportConsolidated: (format: ReportFormat, filters: ReportFilters) => Promise<ReportFile>
+}
+
+/** An exported report, with the name the server gave it. */
+export interface ReportFile {
+  blob: Blob
+  filename: string
 }
 
 /** Every correction of one application, which is how the corrections are read once they live on the API (#48). */
@@ -50,6 +62,9 @@ export interface LocalReportSources {
 }
 
 const NOT_FOUND = 'Aplicação não encontrada.'
+
+/** The demo has no server, and the files are drawn there, as the PDF of an application is. */
+const NO_EXPORT_IN_THE_BROWSER = 'A exportação é feita pelo servidor e não existe nesta demonstração.'
 
 function toActivity(application: ApplicationOverview): DashboardActivity {
   return { id: application.id, title: application.examTitle, detail: application.className, date: application.date }
@@ -137,5 +152,8 @@ export function createLocalReportRepository(sources: LocalReportSources): Report
       const rows = await Promise.all((await activeApplications()).map(consolidatedRowFor))
       return consolidatedRows(rows.filter((row) => row !== null))
     },
+
+    exportApplication: () => Promise.reject(new StorageError(NO_EXPORT_IN_THE_BROWSER, 'not-found')),
+    exportConsolidated: () => Promise.reject(new StorageError(NO_EXPORT_IN_THE_BROWSER, 'not-found')),
   }
 }

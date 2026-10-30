@@ -75,7 +75,7 @@ export function createRouter({
   }
   const reports = createReports(db)
   router.use('/dashboard', dashboardRoutes(reports))
-  router.use('/reports', reportRoutes(reports))
+  router.use('/reports', reportRoutes(reports, expensiveLimit))
   router.use('/questions', questionRoutes(db))
   router.use('/classes', classRoutes({ db, fieldCipher, expensiveLimit }))
   router.use('/exams', examRoutes(db))

@@ -21,6 +21,14 @@ import { accuracyByTag, accuracyOf, distribute, summarise, type Distribution, ty
  * calculate the same number are two places to be wrong.
  */
 
+/**
+ * The formats a report is exported in (RF36), written as the Spec writes
+ * `?format=csv|xlsx|pdf`, which is why they are lower case.
+ */
+export const REPORT_FORMAT = Object.freeze({ XLSX: 'xlsx', CSV: 'csv', PDF: 'pdf' } as const)
+
+export type ReportFormat = (typeof REPORT_FORMAT)[keyof typeof REPORT_FORMAT]
+
 /** How many applications "Atividade recente" lists on the panel (P1). */
 export const RECENT_ACTIVITY_LIMIT = 5
 

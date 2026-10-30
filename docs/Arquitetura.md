@@ -168,6 +168,8 @@ Gerar PDF, ler folhas, importar e exportar não devolvem o resultado — devolve
 
 No front isso é um padrão único e reutilizável: iniciar job → registrar o id → acompanhar o estado → avisar. Nenhuma tela implementa isso do seu jeito, e nenhuma mostra spinner bloqueante.
 
+O padrão está em `apps/web/src/lib/background-jobs` (#82): cada job é uma mutation do TanStack Query sob a chave `background-job`, com o tipo do `BackgroundJob` (`EXPORT`, `GENERATE_PDF`, `READ_SHEETS`, `IMPORT`). O cache guarda o job depois que a tela que o iniciou sai, e o aviso do layout (`BackgroundJobsNotice`) lê todos de lá: mostra "em andamento" no clique, oferece o arquivo quando fica pronto, em qualquer tela, e some quando o professor fecha ou quando a sessão termina. A exportação de relatórios é o primeiro uso; gerar PDF e importar usam os mesmos hooks (`useBackgroundJob`, `useBackgroundJobs`).
+
 A leitura de imagem é intensiva em CPU e **não pode** rodar na thread principal do servidor — travaria a API inteira. É o mesmo motivo, visto do outro lado.
 
 ### Nada é apagado de verdade (RF42)

@@ -16,6 +16,7 @@ import { ROUTES } from '@/app/routes';
 import { DEMO_MODE } from '@/lib/app-mode';
 import { requestTour } from '@/lib/tour';
 import { useCurrentUser, useSignOut } from '@/features/auth';
+import { BackgroundJobsNotice } from '@/components/BackgroundJobsNotice';
 
 /**
  * Only the Pages build has sample data to load or clear. Loaded on demand, so
@@ -156,6 +157,7 @@ export function AppLayout() {
 
       <main id="main" className="p-4 md:ml-64 md:p-8">
         <div className="mx-auto max-w-[1280px]">
+          <BackgroundJobsNotice />
           <Outlet />
         </div>
       </main>
