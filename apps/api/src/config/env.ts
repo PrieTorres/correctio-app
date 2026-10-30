@@ -19,11 +19,15 @@ const origin = z
   .url()
   .refine((value) => new URL(value).origin === value, 'Use only scheme and host, without a path or trailing slash')
 
-/** An empty line in `.env` means "not set", not an empty value. */
+/**
+ * An empty line in `.env` means "not set", not an empty value. `.optional()`
+ * comes last so the variable stays an optional key of `Env`: the outermost
+ * wrapper decides that, and a transform would make it a required one.
+ */
 const optionalText = z
   .string()
+  .transform((value) => (value.trim() === '' ? undefined : value))
   .optional()
-  .transform((value) => (value === undefined || value.trim() === '' ? undefined : value))
 
 /** At least 32 random bytes in base64: a shorter HS256 secret can be brute-forced from one token. */
 const signingSecret = optionalText.refine(
