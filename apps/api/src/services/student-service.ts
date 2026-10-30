@@ -35,11 +35,11 @@ const NO_ROWS = 'Envie ao menos um aluno para importar'
 const importSchema = z.object(
   {
     rows: z
-      .array(z.unknown(), { required_error: NO_ROWS, invalid_type_error: NO_ROWS })
+      .array(z.unknown(), { error: NO_ROWS })
       .min(1, NO_ROWS)
       .max(MAX_IMPORT_ROWS, `Importe no máximo ${MAX_IMPORT_ROWS} alunos por vez`),
   },
-  { invalid_type_error: NO_ROWS },
+  { error: NO_ROWS },
 )
 
 export interface ImportResult {
@@ -157,7 +157,7 @@ export function createStudentService({ classes, students }: StudentServiceDepend
   return {
     async list(teacherId, classId, query) {
       await requireClass(teacherId, classId)
-      return students.list(classId, parseListRequest(query, { includeRemoved: booleanParam.default('false') }))
+      return students.list(classId, parseListRequest(query, { includeRemoved: booleanParam.default(false) }))
     },
 
     async add(teacherId, classId, body) {

@@ -16,7 +16,6 @@ export const DATABASE_TLS = Object.freeze({ VERIFY: 'verify', LOCAL: 'local' } a
  * every request from the published site would be refused.
  */
 const origin = z
-  .string()
   .url()
   .refine((value) => new URL(value).origin === value, 'Use only scheme and host, without a path or trailing slash')
 
@@ -73,7 +72,7 @@ const envSchema = z
     GOOGLE_CLIENT_SECRET: optionalText,
     /** The app password of the project's Gmail, which sends the password reset e-mail. */
     GMAIL_APP_PASSWORD: optionalText,
-    MAIL_FROM: z.string().email().default('correctioapp@gmail.com'),
+    MAIL_FROM: z.email().default('correctioapp@gmail.com'),
     FILE_STORAGE: z.enum([FILE_STORAGE.LOCAL, FILE_STORAGE.FIREBASE]).default(FILE_STORAGE.LOCAL),
     /** The folder of `local`, relative to where the API starts; git ignores it. */
     FILE_STORAGE_DIR: z.string().min(1).default('.files'),
@@ -82,29 +81,29 @@ const envSchema = z
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'test' && env.DATABASE_URL === undefined) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['DATABASE_URL'], message: 'Required outside tests' })
+      ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'Required outside tests' })
     }
     if ((env.GOOGLE_CLIENT_ID === undefined) !== (env.GOOGLE_CLIENT_SECRET === undefined)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['GOOGLE_CLIENT_ID'], message: 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET together' })
+      ctx.addIssue({ code: 'custom', path: ['GOOGLE_CLIENT_ID'], message: 'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET together' })
     }
     if (env.NODE_ENV !== 'production') return
 
     if (env.DATABASE_TLS !== DATABASE_TLS.VERIFY || env.DATABASE_CA_CERT === undefined) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['DATABASE_TLS'],
         message: 'Production must verify the database certificate: set DATABASE_TLS=verify and DATABASE_CA_CERT',
       })
     }
     if (env.JWT_SECRET === undefined) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['JWT_SECRET'], message: 'Required in production' })
+      ctx.addIssue({ code: 'custom', path: ['JWT_SECRET'], message: 'Required in production' })
     }
     if (env.DATA_ENCRYPTION_KEY === undefined) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['DATA_ENCRYPTION_KEY'], message: 'Required in production' })
+      ctx.addIssue({ code: 'custom', path: ['DATA_ENCRYPTION_KEY'], message: 'Required in production' })
     }
     if (env.FILE_STORAGE !== FILE_STORAGE.FIREBASE) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['FILE_STORAGE'],
         message: 'Production keeps files in Cloud Storage: the disk of a function is lost on every restart',
       })

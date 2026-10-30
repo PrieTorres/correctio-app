@@ -19,7 +19,7 @@ import {
   signUpSchema,
 } from '../schemas'
 
-function messagesOf(result: z.SafeParseReturnType<unknown, unknown>): string[] {
+function messagesOf(result: z.ZodSafeParseResult<unknown>): string[] {
   return result.success ? [] : result.error.issues.map((issue) => issue.message)
 }
 

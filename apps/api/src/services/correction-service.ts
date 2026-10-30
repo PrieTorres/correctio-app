@@ -43,7 +43,7 @@ const scoreAboveMaximum = (maximum: number) => `Uma nota de discursiva passa do 
 const MAX_ENTRIES = 100
 
 const answerSchema = z.object({ questionId: z.string().min(1), selectedAlternativeId: z.string().min(1).optional() })
-const discursiveScoreSchema = z.object({ questionId: z.string().min(1), score: z.number().finite().nonnegative() })
+const discursiveScoreSchema = z.object({ questionId: z.string().min(1), score: z.number().nonnegative() })
 
 /**
  * What the teacher decided on the review screen (P16), and nothing else. The
@@ -62,21 +62,21 @@ const reviewShape = {
 
 const createSchema = z.object(
   {
-    answerSheetId: z.string({ message: 'Informe a folha.' }).min(1, 'Informe a folha.'),
+    answerSheetId: z.string({ error: 'Informe a folha.' }).min(1, 'Informe a folha.'),
     answers: reviewShape.answers.default([]),
     discursiveScores: reviewShape.discursiveScores.default([]),
     notes: reviewShape.notes.optional(),
     studentId: reviewShape.studentId.optional(),
     reportedStudentName: reviewShape.reportedStudentName.optional(),
     reportedStudentRegistration: reviewShape.reportedStudentRegistration.optional(),
-    finalize: z.boolean({ message: 'Informe se a correção fica finalizada.' }),
+    finalize: z.boolean({ error: 'Informe se a correção fica finalizada.' }),
     /** The photo the review was made from (#47); left out for a correction typed without one (RF30). */
     imageId: z.string().min(1).max(64).optional(),
     /** Sent by an app migrating onto this API, and kept; the site leaves both out. */
     clientCorrectionId: z.string().min(1).max(64).optional(),
     syncStatus: reviewShape.syncStatus.optional(),
   },
-  { message: 'Dados inválidos.' },
+  { error: 'Dados inválidos.' },
 )
 
 const updateSchema = z.object(
@@ -90,7 +90,7 @@ const updateSchema = z.object(
     finalize: z.boolean().optional(),
     syncStatus: reviewShape.syncStatus.optional(),
   },
-  { message: 'Dados inválidos.' },
+  { error: 'Dados inválidos.' },
 )
 
 /** The filters of P15 and P17. */
