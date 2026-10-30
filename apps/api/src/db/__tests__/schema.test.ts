@@ -42,13 +42,15 @@ function without(fields: string[], ...childTables: string[]): string[] {
 
 /**
  * Every field of the contract, read from the same schemas the web app and the
- * API validate with. A list stored as a child table is checked in that table.
+ * API validate with. A list stored as a child table is checked in that table,
+ * and `Class.studentCount`, counted from the students whenever the classes are
+ * listed (#146), has no column at all.
  */
 const CONTRACT: Readonly<Record<string, string[]>> = {
   users: [...fieldsOf(authenticatedUserSchema), 'passwordHash'],
   refresh_tokens: ['id', 'userId', 'tokenHash', 'deviceInfo', 'issuedAt', 'expiresAt', 'revokedAt'],
   auth_codes: ['id', 'userId', 'purpose', 'codeHash', 'expiresAt', 'usedAt', 'createdAt'],
-  classes: fieldsOf(classSchema),
+  classes: without(fieldsOf(classSchema), 'studentCount'),
   students: fieldsOf(studentSchema),
   class_enrollments: fieldsOf(classEnrollmentSchema),
   questions: without(fieldsOf(questionSchema), 'alternatives', 'tags'),

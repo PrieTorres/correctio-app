@@ -38,6 +38,12 @@ describe('classKeys', () => {
     expect(classKeys.detail('1')[0]).toBe(classKeys.all[0])
     expect(classKeys.students('1')[0]).toBe(classKeys.all[0])
   })
+
+  /** Invalidating `lists` has to reach every page of every filter, and nothing else. */
+  it('groups every listing, and only the listings, under `lists`', () => {
+    expect(classKeys.list(true, 'a', 3).slice(0, classKeys.lists.length)).toEqual([...classKeys.lists])
+    expect(classKeys.students('1').slice(0, classKeys.lists.length)).not.toEqual([...classKeys.lists])
+  })
 })
 
 describe('class data hooks', () => {
@@ -222,6 +228,31 @@ describe('student data hooks', () => {
 
     await waitFor(() => expect(result.current.other.isSuccess).toBe(true))
     expect(result.current.other.data).toEqual([])
+  })
+
+  /** #146: the cards of P3 count the students, so adding or removing one refreshes them at once. */
+  it('keeps the count of the class list in step with its students', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      save: useSaveClass(),
+      list: useClassList(false, ''),
+    }))
+    const created = await act(() => result.current.save.mutateAsync({ input }))
+    await waitFor(() => expect(result.current.list.data?.items[0]?.studentCount).toBe(0))
+
+    const students = renderHookWithProviders(() => ({
+      add: useAddStudent(created.id),
+      act: useStudentAction(created.id),
+      list: useClassList(false, ''),
+    }))
+    const added = await act(() => students.result.current.add.mutateAsync(student))
+    await waitFor(() => expect(students.result.current.list.data?.items[0]?.studentCount).toBe(1))
+
+    await act(() => students.result.current.act.mutateAsync({ id: added.id, action: 'anonymize' }))
+    await waitFor(() => expect(students.result.current.list.isFetching).toBe(false))
+    expect(students.result.current.list.data?.items[0]?.studentCount).toBe(1)
+
+    await act(() => students.result.current.act.mutateAsync({ id: added.id, action: 'remove' }))
+    await waitFor(() => expect(students.result.current.list.data?.items[0]?.studentCount).toBe(0))
   })
 
   it('anonymizes a student without removing the record', async () => {

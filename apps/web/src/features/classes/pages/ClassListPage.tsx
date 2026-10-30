@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Archive, Plus, RotateCcw } from 'lucide-react';
+import { Archive, Plus, RotateCcw, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import {
   ArchiveIllustration,
@@ -20,6 +20,7 @@ import {
   useDebouncedValue,
 } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
+import { studentCount } from '@/lib/import';
 import type { Class } from '@/types/domain';
 import { CLASS_PAGE_SIZE, useArchiveClass, useClassList } from '../hooks/useClasses';
 import { ArchiveClassDialog } from '../components/ArchiveClassDialog';
@@ -240,6 +241,9 @@ function EmptyClassList({
  * One class of P3. Its buttons repeat on every card, so each one's accessible
  * name starts with the visible word and then names the class: a screen
  * reader's list of buttons otherwise reads "Editar, Editar, Editar…" (#145).
+ *
+ * The number of students comes with the list (#146), so a class still empty
+ * shows it without being opened.
  */
 function ClassCard({
   item,
@@ -267,6 +271,12 @@ function ClassCard({
         </div>
         <p className="text-body text-ink-muted">{item.subject}</p>
         <p className="text-caption text-ink-subtle">{item.term}</p>
+        {item.studentCount !== undefined && (
+          <p className="mt-2 flex items-center gap-1.5 text-caption text-ink-muted">
+            <Users size={14} aria-hidden />
+            {studentCount(item.studentCount)}
+          </p>
+        )}
       </div>
 
       <div className="above-card-link mt-5 flex gap-2">

@@ -173,6 +173,7 @@ function createAccount(): void {
   cy.contains('h3', 'Nada aconteceu ainda').should('be.visible')
 }
 
+/** Saving a new class opens it (#146), ready for its first student. */
 function createClass(): void {
   openFromMenu('Turmas')
   cy.contains('h3', 'Nenhuma turma ainda').should('be.visible')
@@ -184,8 +185,6 @@ function createClass(): void {
   cy.findInDialog('button', 'Salvar').click()
   cy.get('[role="dialog"]').should('not.exist')
 
-  skipTour()
-  cy.contains('a', SCHOOL_CLASS.name).click()
   cy.contains('h1', SCHOOL_CLASS.name).should('be.visible')
 }
 
@@ -226,6 +225,18 @@ function findStudent(): void {
   cy.contains('li', 'Elisa Prado Nunes').should('be.visible')
 }
 
+/**
+ * Back on the list, the card of the class says how many students it has
+ * without opening it (#146). It is the first visit to the list with a class on
+ * it, so its tour opens.
+ */
+function countOnTheList(): void {
+  cy.get('main').contains('a', 'Turmas').click()
+  skipTour()
+
+  cy.contains('li', SCHOOL_CLASS.name).should('contain', `${STUDENT_COUNT} alunos`)
+}
+
 function addStudents(): void {
   cy.contains('h3', 'Nenhum aluno ainda').should('be.visible')
 
@@ -237,6 +248,7 @@ function addStudents(): void {
   cy.contains('h2', `Alunos (${STUDENT_COUNT})`).should('be.visible')
   cy.contains('li', 'Elisa Prado Nunes').should('be.visible')
   findStudent()
+  countOnTheList()
 }
 
 /** Enter commits each tag, which is how a teacher types them one after another. */
@@ -593,10 +605,10 @@ describe('jornada completa', () => {
     cy.log('**2. Criar a conta**')
     createAccount()
 
-    cy.log('**3. Criar a turma**')
+    cy.log('**3. Criar a turma, que abre pronta para os alunos**')
     createClass()
 
-    cy.log('**4. Cadastrar os alunos, um a um e pela planilha, e buscar um deles**')
+    cy.log('**4. Cadastrar os alunos, um a um e pela planilha, buscar um deles e ver quantos são na lista**')
     addStudents()
 
     cy.log('**5. Escrever as questões**')

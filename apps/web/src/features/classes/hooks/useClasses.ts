@@ -11,6 +11,7 @@ import type { ClassInput, StudentInput } from '@/lib/schemas';
  */
 export const classKeys = {
   all: ['classes'] as const satisfies QueryKey,
+  lists: ['classes', 'list'] as const satisfies QueryKey,
   list: (archived: boolean, search: string, page = 1) => ['classes', 'list', { archived, search, page }] as const,
   detail: (id: string) => ['classes', 'detail', id] as const,
   students: (classId: string) => ['classes', classId, 'students'] as const,
@@ -60,10 +61,18 @@ function useInvalidateClasses() {
   return () => queryClient.invalidateQueries({ queryKey: classKeys.all });
 }
 
-/** Every change to a class's students refreshes that class's list, and nothing else. */
+/**
+ * Every change to a class's students refreshes that class's students and the
+ * lists of classes, whose cards count the students (#146); without the second,
+ * P3 would show the old number until the cache expired.
+ */
 function useInvalidateStudents(classId: string) {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: classKeys.students(classId) });
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: classKeys.students(classId) }),
+      queryClient.invalidateQueries({ queryKey: classKeys.lists }),
+    ]);
 }
 
 export function useSaveClass() {

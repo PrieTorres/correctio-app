@@ -3,6 +3,8 @@ import type { z } from 'zod'
 import {
   answerSheetSchema,
   applicationOverviewSchema,
+  classInputSchema,
+  classSchema,
   correctionProgressSchema,
   examInputSchema,
   generationRequestSchema,
@@ -44,6 +46,37 @@ const submittedMultipleChoice = {
   correctAlternativeId: 'a',
   allowShuffleAlternatives: true,
 } as const
+
+/** #146: the list of classes carries how many students each one has; the other answers leave it out. */
+describe('classSchema', () => {
+  const stored = {
+    id: 'c1',
+    teacherId: 't1',
+    name: 'Cálculo I',
+    subject: 'Matemática',
+    term: '2026/2',
+    status: 'active',
+    inviteCode: 'ABCDEFGH',
+  }
+
+  it('takes a class with or without the student count', () => {
+    expect(classSchema.safeParse(stored).success).toBe(true)
+    expect(classSchema.safeParse({ ...stored, studentCount: 0 }).success).toBe(true)
+  })
+
+  it('refuses a count that is not a whole number of students', () => {
+    expect(classSchema.safeParse({ ...stored, studentCount: -1 }).success).toBe(false)
+    expect(classSchema.safeParse({ ...stored, studentCount: 1.5 }).success).toBe(false)
+  })
+
+  it('leaves the count out of the form, since the server computes it', () => {
+    expect(classInputSchema.parse({ name: 'Cálculo I', subject: 'Matemática', term: '2026/2', studentCount: 9 })).toEqual({
+      name: 'Cálculo I',
+      subject: 'Matemática',
+      term: '2026/2',
+    })
+  })
+})
 
 describe('signUpSchema', () => {
   const account = { fullName: 'Ana Lima', email: 'ana@exemplo.edu.br', password: 'segredo1' }

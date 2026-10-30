@@ -68,6 +68,13 @@ export interface Class {
   term: string;
   status: ClassStatus;
   inviteCode: string;
+  /**
+   * Added by the group (#146): how many students the class has, counted the way
+   * P5 counts them, anonymized students in and removed ones out. Computed for
+   * the list of classes (P3), one query per page, and never stored, so the
+   * other answers leave it out.
+   */
+  studentCount?: number;
 }
 
 export type EnrollmentStatus = 'active' | 'removed';
