@@ -3,6 +3,7 @@ import { LARGEST_PAGE } from '@/lib/repositories/read-every-page'
 import { APPLICATION_FILTER } from '../application-filter'
 import {
   APPLICATION_PAGE_SIZE,
+  classApplicationsPath,
   effectiveFilters,
   filterOptionsOf,
   hasApplicationListFilters,
@@ -121,5 +122,15 @@ describe('filterOptionsOf', () => {
       { value: 'c1', label: 'Cálculo I (arquivada)' },
       { value: 'c2', label: 'Física II' },
     ])
+  })
+})
+
+describe('classApplicationsPath', () => {
+  /** P5 sends the teacher to P11 already narrowed to the class, by the same parameter P11 reads back. */
+  it('opens the list filtered by the class, read back as the class filter', () => {
+    const path = classApplicationsPath('class 1')
+
+    expect(path).toBe('/aplicacoes?class=class%201')
+    expect(readApplicationListFilters(new URLSearchParams(path.split('?')[1])).classId).toBe('class 1')
   })
 })

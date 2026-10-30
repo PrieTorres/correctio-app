@@ -503,3 +503,36 @@ describe('turmas: busca e paginação no servidor', () => {
     cy.contains('a', 'Turma 01').should('be.visible')
   })
 })
+
+/**
+ * "Aplicações desta turma" on P5 (#144): what was applied to the class, the
+ * day and where the correction stands, each leading to P14. The sample
+ * applies the calculus midterm to "Cálculo I — Noturno" on 05/10/2026 and
+ * nothing to "Álgebra Linear".
+ */
+describe('aplicações desta turma', () => {
+  const applicationsOfTheClass = () => cy.get('[aria-label="Aplicações desta turma"]')
+
+  it('lista o que foi aplicado à turma, com o dia e a correção, e leva à aplicação', () => {
+    openClass('Cálculo I — Noturno')
+
+    applicationsOfTheClass().contains('li', 'Cálculo I — Prova 1').should('contain', '05/10/2026').and('contain', 'Correção não iniciada')
+    applicationsOfTheClass().contains('a', 'Cálculo I — Prova 1').click()
+    cy.contains('h1', 'Cálculo I — Prova 1').should('be.visible')
+  })
+
+  it('mostra a correção em andamento depois da primeira folha corrigida', () => {
+    cy.correctFirstSheetOf('Cálculo I — Prova 1')
+    cy.get('[aria-label="Navegação principal"]').contains('a', 'Turmas').click()
+    cy.contains('a', 'Cálculo I — Noturno').click()
+
+    applicationsOfTheClass().contains('li', 'Cálculo I — Prova 1').should('contain', 'Correção em andamento')
+  })
+
+  it('diz quando nada foi aplicado à turma', () => {
+    openClass('Álgebra Linear')
+
+    cy.contains('Nenhuma prova aplicada a esta turma ainda').should('be.visible')
+    applicationsOfTheClass().should('not.exist')
+  })
+})

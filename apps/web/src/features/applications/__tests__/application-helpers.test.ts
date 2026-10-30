@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { answerKeyBadgeOf, correctionBlockerOf, examTitleOf, shuffleOf, sittingOf } from '../application-labels'
+import { answerKeyBadgeOf, correctionBadgeOf, correctionBlockerOf, examTitleOf, shuffleOf, sittingOf } from '../application-labels'
 import { fromDetailOf, returnPathFrom } from '../generation-origin'
 import { versionShufflesOf, withChange, withinCount } from '../version-shuffles'
 
 const SHUFFLE_BOTH = { shuffleQuestions: true, shuffleAlternatives: true }
 
 describe('application labels', () => {
+  /** The three stages P11 filters by, as P5 names them on each application of the class (#144). */
+  it('names where the correction stands', () => {
+    expect(correctionBadgeOf({ corrections: 0, correctedSheets: 0 }).label).toBe('Correção não iniciada')
+    expect(correctionBadgeOf({ corrections: 3, correctedSheets: 2 })).toEqual({ label: 'Correção em andamento', tone: 'warning' })
+    expect(correctionBadgeOf({ corrections: 2, correctedSheets: 2 })).toEqual({ label: 'Correção concluída', tone: 'success' })
+  })
+
   it('names the class and the day of a sitting, and says when the class is gone', () => {
     expect(sittingOf({ className: 'Turma A', date: '2026-10-05T12:00:00.000Z' })).toBe('Turma A · 05/10/2026')
     expect(sittingOf({ className: '', date: '2026-10-05T12:00:00.000Z' })).toBe('Turma removida · 05/10/2026')
