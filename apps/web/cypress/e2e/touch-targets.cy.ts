@@ -96,23 +96,20 @@ describe('alvos de toque em 360 px', () => {
     expectTouchHeight(cy.get('[aria-label="Quantas versões"]'))
   })
 
-  it('dá 44 px às caixas de marcar da prova e da leitura das folhas', () => {
+  it('dá 44 px às caixas de marcar da prova', () => {
     cy.visit('/provas/nova')
     expectTouchHeight(cy.contains('label', 'Embaralhar as questões'))
     expectTouchHeight(cy.contains('label', 'Embaralhar as alternativas'))
-
-    openDetailOf(ALREADY_GENERATED)
-    cy.contains('a', 'Corrigir folhas').click()
-    expectTouchHeight(cy.get('[aria-label="Marcar a folha 1 para leitura"]').closest('label'))
   })
 
-  /** The label is the target: a tap beside the 16 px box still ticks it. */
-  it('marca a folha pelo toque ao lado da caixa', () => {
+  /** On a phone the photo is taken through these labels, which are the buttons the teacher taps. */
+  it('dá 44 px aos botões de enviar foto e à escolha da folha', () => {
     openDetailOf(ALREADY_GENERATED)
     cy.contains('a', 'Corrigir folhas').click()
 
-    cy.get('[aria-label="Marcar a folha 1 para leitura"]').closest('label').click('topLeft')
-    cy.get('[aria-label="Marcar a folha 1 para leitura"]').should('be.checked')
+    expectTouchHeight(cy.contains('label', 'Fotografar folha'))
+    expectTouchHeight(cy.contains('label', 'Escolher arquivos'))
+    expectTouchHeight(cy.findByLabel('Escolha a folha'))
   })
 
   it('dá 44 px a "Sair" e ao aviso de privacidade no menu', () => {
@@ -176,8 +173,8 @@ describe('botões repetidos dizem de qual item são', () => {
   })
 
   /**
-   * A sheet printed without the student's name is read like any other and then
-   * waits on P17 for its owner, one "Associar aluno" per sheet.
+   * A sheet printed without the student's name is corrected like any other
+   * and then waits on P17 for its owner, one "Associar aluno" per sheet.
    */
   it('nomeia a folha em "Associar aluno", que também navega pela borda', () => {
     openDetailOf(TO_GENERATE)
@@ -187,9 +184,15 @@ describe('botões repetidos dizem de qual item são', () => {
     cy.contains('10 folhas prontas para imprimir', { timeout: 20000 }).should('be.visible')
 
     cy.contains('a', 'Corrigir folhas').click()
-    cy.get('[aria-label="Marcar a folha 1 para leitura"]').check()
-    cy.contains('button', 'Ler 1 folhas').click()
-    cy.contains(/\b1 de \d+ lidas/, { timeout: 10000 }).should('be.visible')
+    cy.findByLabel('Escolha a folha')
+      .contains('option', 'Folha 1 ·')
+      .invoke('val')
+      .then((sheetId) => {
+        cy.findByLabel('Escolha a folha').select(String(sheetId))
+      })
+    cy.findByLabel('Escolha a folha').parent().contains('button', 'Revisar').click()
+    cy.contains('button', 'Confirmar correção').click()
+    cy.contains(/\b1 de \d+ corrigidas/, { timeout: 10000 }).should('be.visible')
     cy.contains('a', 'Ver correções pendentes').click()
 
     namedAfterItsText('Associar aluno à folha 1', 'Associar aluno').click(LEFT_EDGE.x, LEFT_EDGE.y)

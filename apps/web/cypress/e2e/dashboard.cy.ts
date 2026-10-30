@@ -56,13 +56,13 @@ describe('painel: saudação e correções pendentes', () => {
     cy.contains('Olá, Professora!').should('be.visible')
   })
 
-  it('mostra zero correções pendentes numa conta sem folhas lidas', () => {
+  it('mostra zero correções pendentes numa conta sem correções', () => {
     cy.visit('/painel')
 
     cy.contains('a', 'Correções pendentes').should('contain', '0')
   })
 
-  it('conta uma folha lida que ainda espera nota de discursiva', () => {
+  it('conta uma correção que ainda espera nota de discursiva', () => {
     cy.correctFirstSheetOf('Cálculo I — Prova 1')
     cy.get('[aria-label="Navegação principal"]').contains('a', 'Painel').click()
 
