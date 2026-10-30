@@ -1,42 +1,39 @@
-import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { useMutation, useMutationState, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useServices } from '@/app/services';
-import {
-  clampDiscursiveScore,
-  discursiveQuestionIdsOf,
-  gradeObjectives,
-  readSheet,
-  resolveCorrectionStatus,
-  totalCorrectionScore,
-  type MarkedAnswer,
-} from '@/lib/grading';
-import { createId } from '@/lib/utils';
 import { dashboardKeys } from '@/features/dashboard/hooks/useDashboard';
-import {
-  CORRECTION_SOURCE,
-  CORRECTION_STATUS,
-  type Correction,
-  type DiscursiveScore,
-  type ObjectiveResult,
-} from '@/types/domain';
+import type { ReviewInput } from '@/lib/repositories/correction-repository';
+import { sheetImageUploadSchema } from '@/lib/schemas';
+import type { SheetImageUpload } from '@/lib/schemas';
 
 export const gradingKeys = {
   all: ['grading'] as const satisfies QueryKey,
   ofApplication: (applicationId: string) => ['grading', 'application', applicationId] as const,
-  sheet: (sheetId: string) => ['grading', 'sheet', sheetId] as const,
+  uploads: (applicationId: string) => ['grading', 'uploads', applicationId] as const,
+  readFailures: (applicationId: string) => ['grading', 'read-failures', applicationId] as const,
+  photo: (applicationId: string, imageId: string) => ['grading', 'photo', applicationId, imageId] as const,
+  unassigned: (applicationId: string) => ['grading', 'unassigned', applicationId] as const,
 };
+
+/**
+ * How long a reading stays on the upload screen after its request ends. A
+ * reading is not stored anywhere until the teacher confirms it (PM decision in
+ * #47), so it lives in the cache of the mutation that sent the photo; an hour
+ * covers grading a whole class, back and forth between P15 and P16.
+ */
+const READINGS_KEPT_MS = 60 * 60 * 1000;
 
 /**
  * Everything the grading screens read about one application, in a single query.
  *
- * The sheets, their versions, the exam, the bank and whatever has already been
- * corrected are useless apart: a row in the list needs all five to say whether
- * it is done, by how much, and for whom.
+ * The sheets, their versions, the exam, its questions and whatever has already
+ * been corrected are useless apart: a row in the list needs all of them to say
+ * whether it is done, by how much, and for whom. The questions are read by the
+ * ids the exam printed, deleted ones included, never as a page of the bank
+ * (#48): a question deleted after the exam was applied is still on the paper.
  *
  * "For whom" includes the students removed from the class since: removing
  * keeps the record and the grades (RF09), so the sheets and the report go on
- * naming them instead of "Aluno removido" (#161). The API accepts a removed
- * student as the owner of a sheet printed without a name, so the assignment
- * offers them too.
+ * naming them (#161), and the assignment offers them too.
  */
 export function useGradingOverview(applicationId: string | undefined) {
   const { repositories } = useServices();
@@ -47,24 +44,22 @@ export function useGradingOverview(applicationId: string | undefined) {
       const application = await repositories.applications.getById(applicationId ?? '');
       if (application === null) return null;
 
-      const [versions, sheets, exam, bank, students] = await Promise.all([
+      const [versions, sheets, exam, students, corrections] = await Promise.all([
         repositories.printing.listVersions(application.id),
         repositories.printing.listSheets(application.id),
         repositories.exams.getById(application.examId),
-        repositories.questions.list({ pageSize: 1000 }),
         repositories.students.listWithRemoved(application.classId),
+        repositories.corrections.listByApplication(application.id),
       ]);
+      const found = await Promise.all((exam?.questions ?? []).map((entry) => repositories.questions.getById(entry.questionId)));
 
-      const corrections = await repositories.corrections.listByAnswerSheets(
-        sheets.map((sheet) => sheet.id),
-      );
-
-      return { application, versions, sheets, exam, bank: bank.items, students, corrections };
+      return { application, versions, sheets, exam, bank: found.filter((question) => question !== null), students, corrections };
     },
     enabled: applicationId !== undefined,
   });
 }
 
+/** Whatever a correction changes, the lists, the counts of the applications and the panel change with it. */
 function useInvalidateGrading() {
   const queryClient = useQueryClient();
   return () =>
@@ -75,141 +70,127 @@ function useInvalidateGrading() {
     ]);
 }
 
-export interface ReadSheetsInput {
-  applicationId: string;
-  sheetIds: string[];
+/**
+ * Sends one photo and gets its reading back (#47). Each photo is a mutation of
+ * its own, so the screen stays free while they run (RF41) and every row shows
+ * its own state. The failures come back from the server's log, so the list of
+ * failures is read again when a request ends.
+ */
+export function useUploadSheetPhoto(applicationId: string) {
+  const { repositories } = useServices();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: gradingKeys.uploads(applicationId),
+    mutationFn: (photo: File) => repositories.sheetImages.upload(applicationId, photo),
+    gcTime: READINGS_KEPT_MS,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: gradingKeys.readFailures(applicationId) }),
+  });
+}
+
+/** One photo sent from this screen: still being read, read, or refused. */
+export interface SheetUpload {
+  key: number;
+  fileName: string;
+  state: 'pending' | 'success' | 'error' | 'idle';
+  reading?: SheetImageUpload;
+  error?: string;
 }
 
 /**
- * Reads a batch of photographed sheets and stores what it understood.
- *
- * The reading is simulated — there is no server to do it, and a phone photo in
- * base64 exceeds the storage this phase has. What is real is everything after:
- * the grading, the status, and the fact that nothing is final until the teacher
- * confirms it on the review screen.
+ * The photos sent for the application, from the mutations that sent them, the
+ * most recent first. The cache holds what the mutation got, so the reading is
+ * checked against its schema here instead of being taken on trust.
  */
-/** A sheet read again keeps the correction it already had, so its id and the app's key never change. */
-function identityOf(existing: Correction | null): Pick<Correction, 'id' | 'clientCorrectionId'> {
-  return existing === null ? { id: createId(), clientCorrectionId: createId() } : { id: existing.id, clientCorrectionId: existing.clientCorrectionId };
+export function useSheetUploads(applicationId: string): SheetUpload[] {
+  const uploads = useMutationState({
+    filters: { mutationKey: gradingKeys.uploads(applicationId) },
+    select: ({ state }): SheetUpload => {
+      const reading = sheetImageUploadSchema.safeParse(state.data);
+      return {
+        key: state.submittedAt,
+        fileName: state.variables instanceof File ? state.variables.name : 'Foto',
+        state: state.status,
+        ...(reading.success && { reading: reading.data }),
+        ...(state.error instanceof Error && { error: state.error.message }),
+      };
+    },
+  });
+  return uploads.toReversed();
 }
 
-export function useReadSheets() {
-  const { repositories, auth } = useServices();
+/** The reading of one photo sent from this browser, which fills the review in (P16). */
+export function useUploadedReading(applicationId: string, imageId: string | undefined): SheetImageUpload | undefined {
+  const uploads = useSheetUploads(applicationId);
+  return imageId === undefined ? undefined : uploads.find((upload) => upload.reading?.imageId === imageId)?.reading;
+}
+
+/** The photos whose reading failed, kept by the server, so a failure from yesterday is still on the list (P15). */
+export function useReadFailures(applicationId: string) {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: gradingKeys.readFailures(applicationId),
+    queryFn: () => repositories.sheetImages.readFailures(applicationId),
+  });
+}
+
+/** A photo does not change once sent, so it is read once and kept while the screen needs it. */
+export function useSheetPhoto(applicationId: string, imageId: string | undefined) {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: gradingKeys.photo(applicationId, imageId ?? ''),
+    queryFn: () => repositories.sheetImages.photo(applicationId, imageId ?? ''),
+    enabled: imageId !== undefined,
+    staleTime: Infinity,
+  });
+}
+
+/** The corrections still waiting for their student (P17), filtered by the server. */
+export function useUnassignedCorrections(applicationId: string | undefined) {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: gradingKeys.unassigned(applicationId ?? ''),
+    queryFn: () => repositories.corrections.listByApplication(applicationId ?? '', { assigned: false }),
+    enabled: applicationId !== undefined,
+  });
+}
+
+export interface SaveReviewInput {
+  applicationId: string;
+  /** The correction being edited; left out the first time a sheet is reviewed. */
+  correctionId?: string;
+  review: ReviewInput;
+}
+
+/**
+ * Stores what the teacher reviewed, finished or deliberately left open
+ * (`finalize`). The grade comes back from whoever stores it, never from here.
+ */
+export function useSaveReview() {
+  const { repositories } = useServices();
   const invalidate = useInvalidateGrading();
 
   return useMutation({
-    mutationFn: async ({ applicationId, sheetIds }: ReadSheetsInput) => {
-      const application = await repositories.applications.getById(applicationId);
-      if (application === null) throw new Error('Aplicação não encontrada');
-
-      const exam = await repositories.exams.getById(application.examId);
-      if (exam === null) throw new Error('Prova não encontrada');
-
-      const [versions, sheets, bank] = await Promise.all([
-        repositories.printing.listVersions(applicationId),
-        repositories.printing.listSheets(applicationId),
-        repositories.questions.list({ pageSize: 1000 }),
-      ]);
-
-      /**
-       * Refusing loudly rather than recording an empty author: the stored schema
-       * requires one, so a correction saved without it is written and then
-       * dropped on every read afterwards — a grade that vanishes with nobody
-       * being told.
-       */
-      const teacher = auth.getCurrentUser();
-      if (teacher === null) {
-        throw new Error('Sessão encerrada. Entre novamente para registrar a correção.');
-      }
-
-      const versionById = new Map(versions.map((version) => [version.id, version]));
-      const wanted = new Set(sheetIds);
-      const discursiveIds = discursiveQuestionIdsOf(exam, bank.items);
-
-      const saved: Correction[] = [];
-      for (const sheet of sheets.filter((item) => wanted.has(item.id))) {
-        const version = versionById.get(sheet.examVersionId);
-        if (version === undefined) continue;
-
-        const answers = readSheet(version, bank.items);
-        const graded = gradeObjectives(exam, bank.items, answers);
-        const existing = await repositories.corrections.findByAnswerSheet(sheet.id);
-
-        saved.push(
-          await repositories.corrections.save({
-            ...identityOf(existing),
-            examVersionId: version.id,
-            answerSheetId: sheet.id,
-            ...(sheet.studentId === undefined ? {} : { studentId: sheet.studentId }),
-            status: resolveCorrectionStatus(discursiveIds, []),
-            source: CORRECTION_SOURCE.IMAGE_UPLOAD,
-            objectiveResults: graded.results,
-            discursiveScores: [],
-            totalScore: graded.score,
-            confirmedAt: new Date().toISOString(),
-            correctedBy: teacher.id,
-            isAutomaticallyAssigned: sheet.studentId !== undefined,
-            syncStatus: 'synced',
-          }),
-        );
-      }
-
-      return saved;
+    mutationFn: ({ applicationId, correctionId, review }: SaveReviewInput) => {
+      if (correctionId === undefined) return repositories.corrections.create(applicationId, review);
+      const { answers, discursiveScores, finalize, notes, studentId } = review;
+      return repositories.corrections.update(applicationId, correctionId, { answers, discursiveScores, finalize, notes, studentId });
     },
     onSuccess: invalidate,
   });
 }
 
-export interface ConfirmCorrectionInput {
-  correction: Correction;
-  answers: MarkedAnswer[];
-  discursiveScores: DiscursiveScore[];
-  objectiveResults: ObjectiveResult[];
-  discursiveQuestionIds: string[];
-  /**
-   * False keeps the correction open on purpose, for a teacher who stops in the
-   * middle. What was reviewed is stored either way — leaving the screen is
-   * what used to throw it away.
-   */
-  finalize: boolean;
-}
-
-/** Stores what the teacher reviewed, finished or deliberately left open. */
-export function useConfirmCorrection() {
-  const { repositories } = useServices();
-  const invalidate = useInvalidateGrading();
-
-  return useMutation({
-    mutationFn: ({
-      correction,
-      discursiveScores,
-      objectiveResults,
-      discursiveQuestionIds,
-      finalize,
-    }: ConfirmCorrectionInput) =>
-      repositories.corrections.save({
-        ...correction,
-        objectiveResults,
-        discursiveScores,
-        status: finalize
-          ? resolveCorrectionStatus(discursiveQuestionIds, discursiveScores)
-          : CORRECTION_STATUS.IN_PROGRESS,
-        totalScore: totalCorrectionScore(objectiveResults, discursiveScores),
-        confirmedAt: new Date().toISOString(),
-      }),
-    onSuccess: invalidate,
-  });
-}
-
+/** Names the student of a sheet printed without one (RF31); a conflict comes back when the student already has a sheet. */
 export function useAssignStudent() {
   const { repositories } = useServices();
   const invalidate = useInvalidateGrading();
 
   return useMutation({
-    mutationFn: ({ correctionId, studentId }: { correctionId: string; studentId: string }) =>
-      repositories.corrections.assignStudent(correctionId, studentId),
+    mutationFn: ({ applicationId, correctionId, studentId }: { applicationId: string; correctionId: string; studentId: string }) =>
+      repositories.corrections.update(applicationId, correctionId, { studentId }),
     onSuccess: invalidate,
   });
 }
-
-export { clampDiscursiveScore };

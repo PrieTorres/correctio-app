@@ -108,14 +108,14 @@ Os textos abaixo são a redação final, já dentro do limite de 90 caracteres.
 ### Correção
 
 **Enviar folhas** — 3 passos
-1. `No celular, fotografe as folhas uma a uma. No computador, arraste os arquivos.`
-2. `O sistema lê o QR e as marcações, e já calcula a nota prévia.`
-3. `Nada vira nota sem você confirmar. Revise antes.`
+1. `Fotografe cada folha: o sistema acha a folha pelo QR e lê as marcações.`
+2. `Sem foto boa? Escolha a folha e lance a correção à mão.`
+3. `Nada vira nota sem você confirmar. Abra "Revisar" em cada folha.`
 
 **Revisar e confirmar** — 3 passos
-1. `À esquerda a folha, à direita o que o sistema leu. Compare e ajuste.`
-2. `Clique no seletor para trocar a alternativa lida. A nota recalcula na hora.`
-3. `"Salvar e próxima" mantém o ritmo: confirma esta e já abre a seguinte.`
+1. `À esquerda a foto da folha; compare com o que o sistema leu.`
+2. `Clique na letra para trocar a alternativa lida. A nota recalcula na hora.`
+3. `Lance a nota de cada discursiva: o sistema não corrige essas sozinho.`
 
 **Pendentes de atribuição** — 1 passo
 1. `Provas sem identificação caem aqui até você dizer de quem é cada folha.`

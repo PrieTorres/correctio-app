@@ -26,13 +26,16 @@ export interface DownloadedFile {
 }
 
 /**
- * Files rather than JSON, such as the PDF of an application. A download
- * travels with the same token, since the PDF carries the names of the students
- * and has no public address. Apart from `ApiClient` because only the
- * applications download anything.
+ * Files rather than JSON: the PDF of an application coming down, the photo of
+ * a sheet going up. Both travel with the same token, since they carry the
+ * names and the handwriting of the students and have no public address.
+ * Apart from `ApiClient` because only the applications and the grading move
+ * files.
  */
 export interface FileClient {
   download: (path: string) => Promise<DownloadedFile>
+  /** Posts the file as the request body, with its own type; the answer is JSON, validated by the caller. */
+  upload: (path: string, file: Blob) => Promise<unknown>
 }
 
 export interface ApiClientOptions {
@@ -149,17 +152,21 @@ export function createApiClient({
   onUnauthorized,
   fetchFn = (input, init) => fetch(input, init),
 }: ApiClientOptions): ApiClient & FileClient {
-  async function send(method: HttpMethod, path: string, { query, body }: RequestOptions = {}): Promise<Response> {
-    const headers = await requestHeaders(getToken, body !== undefined)
+  async function fetchOrFail(url: string, init: RequestInit): Promise<Response> {
     try {
-      return await fetchFn(`${baseUrl}${path}${toQueryString(query)}`, {
-        method,
-        headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
-      })
+      return await fetchFn(url, init)
     } catch (cause) {
       throw new StorageError(GENERIC_FAILURE, 'failure', { cause })
     }
+  }
+
+  async function send(method: HttpMethod, path: string, { query, body }: RequestOptions = {}): Promise<Response> {
+    const headers = await requestHeaders(getToken, body !== undefined)
+    return fetchOrFail(`${baseUrl}${path}${toQueryString(query)}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
   }
 
   /** A failed answer becomes the error the screens handle, whatever was asked for: the API answers errors as JSON. */
@@ -180,6 +187,15 @@ export function createApiClient({
       const response = await send('GET', path)
       if (!response.ok) throw await refusal(response)
       return { blob: await response.blob(), filename: filenameOf(response) }
+    },
+
+    /** The type the file declares travels along, but the API decides by the file's own bytes. */
+    async upload(path, file) {
+      const headers = await requestHeaders(getToken, false)
+      headers.set('Content-Type', file.type === '' ? 'application/octet-stream' : file.type)
+      const response = await fetchOrFail(`${baseUrl}${path}`, { method: 'POST', headers, body: file })
+      if (!response.ok) throw await refusal(response)
+      return readJson(response)
     },
   }
 }

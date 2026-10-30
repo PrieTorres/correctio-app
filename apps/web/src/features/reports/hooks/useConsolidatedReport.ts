@@ -45,10 +45,7 @@ export function useConsolidatedReport() {
 
       const rows = await Promise.all(
         applications.items.map(async (application) => {
-          const sheets = await repositories.printing.listSheets(application.id);
-          const corrections = await repositories.corrections.listByAnswerSheets(
-            sheets.map((sheet) => sheet.id),
-          );
+          const corrections = await repositories.corrections.listByApplication(application.id);
 
           const schoolClass = classById.get(application.classId);
 

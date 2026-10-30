@@ -2,6 +2,7 @@ import { createLocalApplicationRepository, type ApplicationRepository } from './
 import { createHttpClassRepository, createLocalClassRepository, type ClassRepository } from './class-repository'
 import { createLocalExamRepository, type ExamRepository } from './exam-repository'
 import { createLocalCorrectionRepository, type CorrectionRepository } from './correction-repository'
+import { createHttpSheetImageRepository, createLocalSheetImageRepository, type SheetImageRepository } from './sheet-image-repository'
 import { createLocalPrintingRepository, type PrintingRepository } from './printing-repository'
 import { createPublicLookupRepository, type PublicLookupRepository } from './public-lookup-repository'
 import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
@@ -10,6 +11,7 @@ import { createHttpQuestionRepository } from './http/create-http-question-reposi
 import { createHttpExamRepository } from './http/create-http-exam-repository'
 import { createHttpApplicationRepository } from './http/create-http-application-repository'
 import { createHttpPrintingRepository } from './http/create-http-printing-repository'
+import { createHttpCorrectionRepository } from './http/create-http-correction-repository'
 import type { ApiClient, FileClient } from './http/api-client'
 
 export * from './types'
@@ -22,6 +24,7 @@ export type {
   PrintingRepository,
   PublicLookupRepository,
   QuestionRepository,
+  SheetImageRepository,
   StudentRepository,
 }
 
@@ -33,6 +36,7 @@ export interface TeacherRepositories {
   applications: ApplicationRepository
   printing: PrintingRepository
   corrections: CorrectionRepository
+  sheetImages: SheetImageRepository
 }
 
 /**
@@ -46,36 +50,57 @@ export interface TeacherRepositories {
  * student, rather than widening this one.
  *
  * With an API client, the areas on the API read and write there: classes and
- * students since #42, questions since #44, exams since #45, and applications
- * with their versions and sheets since #46. The corrections switch in the
- * issue that wires their screens to the API (#48). Without a client, which is
- * the GitHub Pages demo and the unit tests, every entry stays in this browser.
+ * students since #42, questions since #44, exams since #45, applications
+ * with their versions and sheets since #46, and the photos and corrections of
+ * the sheets since #47 and #48. Without a client, which is the GitHub Pages
+ * demo and the unit tests, every entry stays in this browser.
  */
 export function createTeacherRepositories(teacherId: string, api?: ApiClient & FileClient): TeacherRepositories {
-  const corrections = createLocalCorrectionRepository()
-  return api === undefined ? inThisBrowser(teacherId, corrections) : onTheApi(api, corrections)
+  return api === undefined ? inThisBrowser(teacherId) : onTheApi(api)
 }
 
-/** The demo and the unit tests: the applications are generated here, from the other repositories of this browser. */
-function inThisBrowser(teacherId: string, corrections: CorrectionRepository): TeacherRepositories {
+/**
+ * The demo and the unit tests: the applications are generated here, from the
+ * other repositories of this browser. The corrections grade against the
+ * applications, which in turn count the corrections, so the corrections read
+ * the applications only when asked, after both exist.
+ */
+function inThisBrowser(teacherId: string): TeacherRepositories {
   const classes = createLocalClassRepository(teacherId)
   const students = createLocalStudentRepository()
   const questions = createLocalQuestionRepository(teacherId)
   const exams = createLocalExamRepository(teacherId)
   const printing = createLocalPrintingRepository()
 
+  const examOf = async (applicationId: string) => {
+    const application = await applications.getById(applicationId)
+    const exam = application === null ? null : await exams.getById(application.examId)
+    if (exam === null) return null
+    const found = await Promise.all(exam.questions.map((entry) => questions.getById(entry.questionId)))
+    return { exam, questions: found.filter((question) => question !== null) }
+  }
+  const corrections = createLocalCorrectionRepository({ teacherId, sheetsOf: (id) => printing.listSheets(id), examOf })
+  const applications = createLocalApplicationRepository(teacherId, { exams, classes, questions, students, printing, corrections })
+
   return {
     classes,
     students,
     questions,
     exams,
-    applications: createLocalApplicationRepository(teacherId, { exams, classes, questions, students, printing, corrections }),
+    applications,
     printing,
     corrections,
+    sheetImages: createLocalSheetImageRepository({ contextOf: (id) => readingContextOf(printing, id) }),
   }
 }
 
-function onTheApi(api: ApiClient & FileClient, corrections: CorrectionRepository): TeacherRepositories {
+/** The sheets and the layout of each version, which the browser's reader needs (ADR-006). */
+async function readingContextOf(printing: PrintingRepository, applicationId: string) {
+  const [sheets, versions] = await Promise.all([printing.listSheets(applicationId), printing.listVersions(applicationId)])
+  return { sheets, layouts: Object.fromEntries(versions.map((version) => [version.id, version.layout])) }
+}
+
+function onTheApi(api: ApiClient & FileClient): TeacherRepositories {
   return {
     classes: createHttpClassRepository(api),
     students: createHttpStudentRepository(api),
@@ -83,6 +108,7 @@ function onTheApi(api: ApiClient & FileClient, corrections: CorrectionRepository
     exams: createHttpExamRepository(api),
     applications: createHttpApplicationRepository(api),
     printing: createHttpPrintingRepository(api),
-    corrections,
+    corrections: createHttpCorrectionRepository(api),
+    sheetImages: createHttpSheetImageRepository(api),
   }
 }

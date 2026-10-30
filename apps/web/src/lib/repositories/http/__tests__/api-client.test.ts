@@ -189,3 +189,42 @@ describe('download', () => {
     expect(onUnauthorized).toHaveBeenCalledOnce()
   })
 })
+
+describe('upload', () => {
+  const photo = new Blob([Uint8Array.of(0xff, 0xd8, 0xff)], { type: 'image/jpeg' })
+
+  it('posts the file as the body, with its own type and the token, and answers the JSON', async () => {
+    const fetchFn = respondWith(201, { imageId: 'i1', status: 'QR_NOT_RECOGNIZED' })
+
+    const answer = await clientWith(fetchFn).api.upload('/applications/a1/sheet-images', photo)
+
+    expect(answer).toEqual({ imageId: 'i1', status: 'QR_NOT_RECOGNIZED' })
+    const { url, init } = requestOf(fetchFn)
+    expect([url, init.method, init.body]).toEqual(['/api/applications/a1/sheet-images', 'POST', photo])
+    const headers = new Headers(init.headers)
+    expect([headers.get('Content-Type'), headers.get('Authorization')]).toEqual(['image/jpeg', 'Bearer token-ana'])
+  })
+
+  /** A file the browser could not type still goes, and the API decides by its bytes. */
+  it('sends a file without a type as plain bytes', async () => {
+    const fetchFn = respondWith(201, {})
+
+    await clientWith(fetchFn).api.upload('/applications/a1/sheet-images', new Blob([Uint8Array.of(1)]))
+
+    expect(new Headers(requestOf(fetchFn).init.headers).get('Content-Type')).toBe('application/octet-stream')
+  })
+
+  it('turns a refusal into the error the screens show', async () => {
+    const fetchFn = respondWith(400, { code: 'invalid', message: 'Envie a foto em JPG, PNG ou WebP.' })
+
+    const error = await failureOf(clientWith(fetchFn).api.upload('/applications/a1/sheet-images', photo))
+
+    expect([error.code, error.message]).toEqual(['invalid', 'Envie a foto em JPG, PNG ou WebP.'])
+  })
+
+  it('turns a network failure into a generic failure', async () => {
+    const fetchFn = vi.fn<typeof fetch>(() => Promise.reject(new TypeError('Failed to fetch')))
+
+    expect((await failureOf(clientWith(fetchFn).api.upload('/applications/a1/sheet-images', photo))).code).toBe('failure')
+  })
+})

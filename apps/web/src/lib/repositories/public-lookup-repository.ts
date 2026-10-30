@@ -38,10 +38,11 @@ export function createLocalPublicLookupRepository(repositories: TeacherRepositor
       const sheet = await repositories.printing.findSheetByCode(code)
       if (sheet === null) return { status: 'INVALID_CODE' }
 
-      const [versions, correction] = await Promise.all([
+      const [versions, corrections] = await Promise.all([
         repositories.printing.listVersions(sheet.applicationId),
-        repositories.corrections.findByAnswerSheet(sheet.id),
+        repositories.corrections.listByApplication(sheet.applicationId),
       ])
+      const correction = corrections.find((item) => item.answerSheetId === sheet.id) ?? null
       const version = versions.find((item) => item.id === sheet.examVersionId) ?? null
 
       const application = await repositories.applications.getById(sheet.applicationId)

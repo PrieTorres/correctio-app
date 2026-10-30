@@ -66,7 +66,7 @@ export interface LocalApplicationSources {
   questions: Pick<QuestionRepository, 'list'>
   students: Pick<StudentRepository, 'listByClass'>
   printing: LocalPrintingRepository
-  corrections: Pick<CorrectionRepository, 'listByAnswerSheets'>
+  corrections: Pick<CorrectionRepository, 'listByApplication'>
 }
 
 const NOT_FOUND = 'Aplicação não encontrada.'
@@ -121,7 +121,7 @@ export function createLocalApplicationRepository(
 
   async function correctionsOf(applicationId: string) {
     const sheets = await sources.printing.listSheets(applicationId)
-    return { sheets, corrections: await sources.corrections.listByAnswerSheets(sheets.map((sheet) => sheet.id)) }
+    return { sheets, corrections: await sources.corrections.listByApplication(applicationId) }
   }
 
   async function overviewOf(application: Application): Promise<ApplicationOverview> {
