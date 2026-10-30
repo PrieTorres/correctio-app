@@ -63,14 +63,14 @@ describe('painel: saudação e correções pendentes', () => {
   })
 
   it('conta uma folha lida que ainda espera nota de discursiva', () => {
-    cy.readFirstSheetOf('Cálculo I — Prova 1')
+    cy.correctFirstSheetOf('Cálculo I — Prova 1')
     cy.get('[aria-label="Navegação principal"]').contains('a', 'Painel').click()
 
     cy.contains('a', 'Correções pendentes').should('contain', '1')
   })
 
   it('leva à lista de aplicações já filtrada por correção em andamento', () => {
-    cy.readFirstSheetOf('Cálculo I — Prova 1')
+    cy.correctFirstSheetOf('Cálculo I — Prova 1')
     cy.get('[aria-label="Navegação principal"]').contains('a', 'Painel').click()
     cy.contains('a', 'Correções pendentes').click()
 
@@ -82,7 +82,7 @@ describe('painel: saudação e correções pendentes', () => {
   })
 
   it('não conta as folhas de outra professora', () => {
-    cy.readFirstSheetOf('Cálculo I — Prova 1')
+    cy.correctFirstSheetOf('Cálculo I — Prova 1')
     cy.signInAsNewTeacher()
     cy.visit('/painel')
 

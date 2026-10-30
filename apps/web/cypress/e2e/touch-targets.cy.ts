@@ -80,7 +80,7 @@ describe('alvos de toque em 360 px', () => {
   })
 
   it('dá 44 px ao link de voltar da revisão de uma folha', () => {
-    cy.readFirstSheetOf(ALREADY_GENERATED)
+    cy.correctFirstSheetOf(ALREADY_GENERATED)
     cy.contains('a', 'Revisar').click()
 
     expectTouchHeight(backLink('Folhas'))
@@ -169,7 +169,7 @@ describe('botões repetidos dizem de qual item são', () => {
   })
 
   it('nomeia a folha e o aluno em "Revisar"', () => {
-    cy.readFirstSheetOf(ALREADY_GENERATED)
+    cy.correctFirstSheetOf(ALREADY_GENERATED)
 
     cy.get('[aria-label^="Revisar a folha 1, "]').should('have.text', 'Revisar').click()
     cy.contains('h1', 'Folha 1').should('be.visible')

@@ -320,7 +320,7 @@ describe('lista de aplicações: correção em andamento', () => {
   })
 
   it('lista só a aplicação com folha lida esperando nota', () => {
-    cy.readFirstSheetOf(ALREADY_GENERATED)
+    cy.correctFirstSheetOf(ALREADY_GENERATED)
     cy.visit('/aplicacoes')
     cy.chooseSegment('Correção em andamento')
 
@@ -329,7 +329,7 @@ describe('lista de aplicações: correção em andamento', () => {
   })
 
   it('continua filtrada depois de recarregar a página', () => {
-    cy.readFirstSheetOf(ALREADY_GENERATED)
+    cy.correctFirstSheetOf(ALREADY_GENERATED)
     cy.visit('/aplicacoes?status=correction-in-progress')
 
     cy.contains('label', 'Correção em andamento').find('input[type="radio"]').should('be.checked')

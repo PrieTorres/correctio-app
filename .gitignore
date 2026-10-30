@@ -21,6 +21,7 @@ coverage/
 .vitest/
 **/cypress/screenshots/
 **/cypress/videos/
+**/cypress/photos/
 
 # Firebase CLI deploy cache and logs
 .firebase/

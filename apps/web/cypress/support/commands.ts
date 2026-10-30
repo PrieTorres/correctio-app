@@ -2,7 +2,7 @@ import { sampleApplications, sampleClasses, sampleExams, sampleQuestions } from 
 import { TOUR_STEPS } from '@/lib/tour/content'
 import { TOUR_SEEN_KEY } from '@/lib/tour/seen'
 import type { ApplicationInput, ClassInput, ExamInput, GenerationRequest, QuestionInput, StudentInput } from '@/lib/schemas'
-import type { AnswerSheet, AuthenticatedUser, Class, Correction } from '@/types/domain'
+import type { AnswerSheet, AuthenticatedUser, Class, Correction, ExamVersion } from '@/types/domain'
 
 /** The password of every teacher the suite signs up; long enough for the 8-character rule. */
 export const TEST_PASSWORD = 'senha-de-teste-1'
@@ -277,10 +277,10 @@ export interface SheetReview {
 }
 
 /**
- * Records a correction on the API. The grading screens still keep the
- * corrections in the browser until #48 moves them, while the public lookup
- * and the rule that blocks regenerating read the database, so a test that
- * depends on a correction writes it where those read.
+ * Records a correction on the API, for a test that needs one already there
+ * and is about something else: the public lookup, the rule that blocks
+ * regenerating, the report. The grading spec makes its corrections through
+ * the screens.
  */
 Cypress.Commands.add('recordCorrection', (accessToken: string, { applicationId, ...review }: SheetReview) => {
   return apiAs(accessToken)<Correction>('POST', `/applications/${applicationId}/corrections`, review).then(({ body }) => body)
@@ -346,22 +346,81 @@ Cypress.Commands.add('generateApplication', (title: string) => {
   cy.contains('folhas prontas para imprimir', { timeout: 20000 }).should('be.visible')
 })
 
+/** What a photo of a sheet shows: its QR Code, the bubbles of each printed row and the ones filled in, by row. */
+export interface SheetPhoto {
+  qrText: string | null
+  bubbles: number[]
+  marks: Record<number, number[]>
+}
+
 /**
- * Reads the first sheet of a generated application. The calculus midterm has
- * an open-ended question, so its correction stays in progress; the physics
- * quiz is all multiple choice and is done at once.
- *
- * The control is found by its accessible name, not by position, and the
- * command waits for the read counter to move before returning, so the
- * next navigation cannot cut the write short.
+ * The card a sheet prints, photographed with the given marks: the QR Code
+ * carries the sheet's code, and each row has as many bubbles as its question
+ * has alternatives, none for an open-ended one, in the order of the version.
  */
-Cypress.Commands.add('readFirstSheetOf', (title: string) => {
+export function photoOf(sheet: AnswerSheet, version: ExamVersion, marks: Record<number, number[]> = {}): SheetPhoto {
+  const alternatives = new Map(version.layout.alternativeOrder.map((entry) => [entry.questionId, entry.printedOrder.length]))
+  return {
+    qrText: `https://correctio-app.web.app/r/${sheet.code}`,
+    bubbles: version.layout.questionOrder.map((questionId) => alternatives.get(questionId) ?? 0),
+    marks,
+  }
+}
+
+/** The printed sheets of an application and their versions, read from the API as the teacher. */
+export function printedPaperOf(accessToken: string, applicationId: string): Cypress.Chainable<{ sheets: AnswerSheet[]; versions: ExamVersion[] }> {
+  const api = apiAs(accessToken)
+  return api<AnswerSheet[]>('GET', `/applications/${applicationId}/sheets`).then(({ body: sheets }) =>
+    api<ExamVersion[]>('GET', `/applications/${applicationId}/versions`).then(({ body: versions }) => ({ sheets, versions })),
+  )
+}
+
+/**
+ * Draws the photo in Node with the reader's own test kit and yields where it
+ * was saved (`cypress/photos`, ignored by git). The photo is real enough for
+ * the API to read, so a spec that sends it exercises the reading itself.
+ */
+Cypress.Commands.add('photographSheet', (photo: SheetPhoto) => {
+  const path = `cypress/photos/sheet-${Date.now()}-${Cypress._.random(1e6)}.png`
+  return cy.exec(`node --import tsx cypress/support/photograph-sheet.ts ${path} '${JSON.stringify(photo)}'`).then(() => path)
+})
+
+/**
+ * Sends a photo through "Escolher arquivos" on P15, the way a teacher on a
+ * computer does. The field hides behind its label, so the choice is forced.
+ */
+Cypress.Commands.add('sendSheetPhoto', (path: string) => {
+  cy.findByLabel('Escolher arquivos').selectFile(path, { force: true })
+})
+
+/**
+ * Corrects the first sheet of a generated application on the API, marking the
+ * first printed alternative of every multiple-choice question, and opens its
+ * grading screen once the list counts it. The calculus midterm has an
+ * open-ended question with no score yet, so its correction stays in progress;
+ * the physics quiz is all multiple choice and is done at once.
+ *
+ * The screens are reached through the app's links, after the write ended, so
+ * no navigation cuts it short.
+ */
+Cypress.Commands.add('correctFirstSheetOf', (title: string) => {
   cy.visit('/aplicacoes')
   cy.contains('a', title).click()
+  cy.contains('h1', title).should('be.visible')
+  cy.location('pathname').then((pathname) => {
+    const applicationId = pathname.split('/').pop() ?? ''
+    cy.get<SignedInTeacher>('@teacher').then(({ accessToken }) =>
+      printedPaperOf(accessToken, applicationId).then(({ sheets, versions }) => {
+        const sheet = sheets.find((item) => item.sheetNumber === 1)
+        const version = versions.find((item) => item.id === sheet?.examVersionId)
+        if (sheet === undefined || version === undefined) throw new Error(`A aplicação ${title} não tem a folha 1.`)
+        const answers = version.layout.alternativeOrder.map(({ questionId, printedOrder }) => ({ questionId, selectedAlternativeId: printedOrder[0] }))
+        cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers, finalize: true })
+      }),
+    )
+  })
   cy.contains('a', 'Corrigir folhas').click()
-  cy.get('[aria-label="Marcar a folha 1 para leitura"]').check()
-  cy.contains('button', 'Ler 1 folhas').click()
-  cy.contains(/\b1 de \d+ lidas/, { timeout: 10000 }).should('be.visible')
+  cy.contains(/\b1 de \d+ corrigidas/, { timeout: 10000 }).should('be.visible')
 })
 
 /**
@@ -384,7 +443,9 @@ declare global {
       findInDialog(selector: string, text: string): Chainable<JQuery<HTMLElement>>
       chooseSegment(text: string): Chainable<JQuery<HTMLElement>>
       generateApplication(title: string): Chainable<void>
-      readFirstSheetOf(title: string): Chainable<void>
+      correctFirstSheetOf(title: string): Chainable<void>
+      photographSheet(photo: SheetPhoto): Chainable<string>
+      sendSheetPhoto(path: string): Chainable<void>
       signInAsNewTeacher(options?: { withSampleData?: boolean }): Chainable<SignedInTeacher>
       printApplication(accessToken: string, options?: PrintOptions): Chainable<PrintedApplication>
       recordCorrection(accessToken: string, review: SheetReview): Chainable<Correction>

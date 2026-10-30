@@ -1,5 +1,5 @@
 import { slowCypressDown } from 'cypress-slow-down'
-import { uniqueEmail } from '../support/commands'
+import { photoOf, printedPaperOf, uniqueEmail } from '../support/commands'
 
 slowCypressDown(800)
 
@@ -437,44 +437,122 @@ function moveTheDate(): void {
   cy.contains(`${SCHOOL_CLASS.name} · ${APPLICATION_DAY.shown}`).should('be.visible')
 }
 
-function reviewSheetOf(fullName: string): void {
-  cy.contains('li', fullName).contains('a', 'Revisar').click()
+/** The grade the teacher confirmed in step 10, which the student must see in step 12. */
+let confirmedTotal = ''
+
+/**
+ * Draws the photo of a student's sheet with the first alternative of every
+ * multiple-choice question filled in. The sheet is found by the number its
+ * row shows, and read from the API with the token and the application the
+ * screen itself just used, caught from its request for the sheets: the
+ * account was created through the screens, so the test holds no token of its
+ * own.
+ */
+function photographSheetOf(fullName: string): Cypress.Chainable<string> {
+  return cy.wait('@sheets').then(({ request }) => {
+    const accessToken = String(request.headers.authorization).replace(/^Bearer /, '')
+    const applicationId = new URL(request.url).pathname.split('/').at(-2) ?? ''
+
+    return sheetList()
+      .contains('li', fullName)
+      .find('span')
+      .first()
+      .invoke('text')
+      .then((number) =>
+        printedPaperOf(accessToken, applicationId).then(({ sheets, versions }) => {
+          const sheet = sheets.find((item) => `#${item.sheetNumber}` === number.trim())
+          const version = versions.find((item) => item.id === sheet?.examVersionId)
+          if (sheet === undefined || version === undefined) throw new Error(`Folha de ${fullName} não encontrada.`)
+          const marks = Object.fromEntries(
+            version.layout.questionOrder.flatMap((questionId, row) =>
+              version.layout.alternativeOrder.some((entry) => entry.questionId === questionId) ? [[row, [0]]] : [],
+            ),
+          )
+          return cy.photographSheet(photoOf(sheet, version, marks))
+        }),
+      )
+  })
+}
+
+/** "Folhas desta aplicação", apart from the photos sent, which name the same students. */
+function sheetList() {
+  return cy.get('[data-tour="list"]')
+}
+
+/**
+ * The reading fills the review in; the teacher checks the photo, gives the
+ * open-ended question its score and confirms. Only then is there a grade.
+ */
+function reviewReading(): void {
+  cy.contains('li', 'Lido · nota prévia').contains('a', 'Revisar').click()
   cy.contains('h1', 'Folha').should('be.visible')
+  cy.contains('leitura da foto').should('be.visible')
 
   cy.get('[aria-label="Aumentar o zoom"]').click()
-  cy.get('[aria-label="Girar a folha"]').click()
+  cy.get('[aria-label="Girar a foto"]').click()
 
   cy.contains('Valendo 0').should('be.visible')
   cy.get('[aria-label^="Nota da questão"]').clear().type('3.5')
   cy.contains('Valendo 0').should('not.exist')
+  cy.contains('h2', 'Nota')
+    .next()
+    .invoke('text')
+    .then((total) => {
+      confirmedTotal = total
+    })
 
   cy.contains('button', 'Confirmar correção').click()
   cy.contains('h1', 'Enviar folhas de respostas', { timeout: 10000 }).should('be.visible')
-  cy.contains('li', fullName).should('contain', 'Corrigida')
+  sheetList().contains('li', GRADED_STUDENT.fullName).should('contain', 'Corrigida')
 }
 
 /**
- * Reading is simulated in this phase: the demonstration sheets stand in for the
- * photographs, and everything after the reading is real.
+ * RF30: a sheet with no photo is typed by hand. The teacher stops before the
+ * open-ended score and saves without finishing (RF47), which leaves the one
+ * correction the panel counts as pending in step 14.
+ */
+function typeSheetOf(fullName: string): void {
+  cy.findByLabel('Escolha a folha')
+    .contains('option', fullName)
+    .invoke('val')
+    .then((sheetId) => {
+      cy.findByLabel('Escolha a folha').select(String(sheetId))
+    })
+  cy.findByLabel('Escolha a folha').parent().contains('button', 'Revisar').click()
+
+  cy.contains('Correção digitada, sem foto.').should('be.visible')
+  cy.get('[aria-label*=", alternativa A"]').first().click()
+  cy.contains('button', 'Salvar sem finalizar').click()
+
+  cy.contains('h1', 'Enviar folhas de respostas', { timeout: 10000 }).should('be.visible')
+  sheetList().contains('li', fullName).should('contain', 'Em andamento')
+}
+
+/**
+ * The photo of the graded student's sheet goes to the API, which reads the QR
+ * Code and the marks (#47); the reading is only a preview until the teacher
+ * reviews and confirms it (#48). The photo is drawn for the sheet's real code,
+ * so the reading on screen is the API's own.
  *
  * Grading starts from the panel's shortcut, as on a test day. With this the
  * only application generated, it goes straight to the upload screen. The
  * panel's tour is left open, not dismissed, so step 14 can still walk it.
  */
 function gradeSheets(): void {
+  cy.intercept({ method: 'GET', pathname: /^\/api\/applications\/[^/]+\/sheets$/ }).as('sheets')
   openFromMenu('Painel')
   cy.contains('h1', 'Painel').should('be.visible')
   cy.get('main').contains('a', 'Corrigir folhas').click()
   cy.contains('h1', 'Enviar folhas de respostas').should('be.visible')
   skipTour()
+  cy.contains(`0 de ${STUDENT_COUNT} corrigidas`).should('be.visible')
 
-  cy.contains(`0 de ${STUDENT_COUNT} lidas`).should('be.visible')
-  cy.contains('button', 'Selecionar todas as não lidas').click()
-  cy.contains('button', `Ler ${STUDENT_COUNT} folhas`).click()
-  cy.contains(`${STUDENT_COUNT} de ${STUDENT_COUNT} lidas`, { timeout: 10000 }).should('be.visible')
-  cy.contains('li', GRADED_STUDENT.fullName).should('contain', 'Em andamento')
+  photographSheetOf(GRADED_STUDENT.fullName).then((photo) => cy.sendSheetPhoto(photo))
+  cy.contains('li', 'Lido · nota prévia', { timeout: 30000 }).should('contain', GRADED_STUDENT.fullName).and('contain', 'Em andamento')
+  reviewReading()
 
-  reviewSheetOf(GRADED_STUDENT.fullName)
+  typeSheetOf(SECOND_STUDENT.fullName)
+  cy.contains(`2 de ${STUDENT_COUNT} corrigidas`).should('be.visible')
 }
 
 /**
@@ -504,10 +582,8 @@ function releaseGrades(): void {
  * links to it from inside. The release was already confirmed on the list, so
  * nothing is in flight when the page is replaced.
  *
- * The page reads the sheet from the API, and the corrections still live in
- * the browser that graded them, so the server has no grade to show yet: the
- * student sees the answer key. Issue #48 moves the corrections to the API, and
- * then this stage checks the grade too.
+ * The grades were released in step 11, so the student sees the answer key
+ * and the grade the teacher confirmed in step 10, read from the API.
  */
 function lookUpByQrCode(): void {
   cy.contains('a', EXAM.title).click()
@@ -523,6 +599,9 @@ function lookUpByQrCode(): void {
   cy.contains('h1', EXAM.title).should('be.visible')
   cy.contains(GRADED_STUDENT.fullName).should('be.visible')
   cy.contains('h2', 'Gabarito').should('be.visible')
+  cy.contains('h2', 'Sua nota')
+    .next()
+    .should(($total) => expect($total.text()).to.eq(confirmedTotal))
 
   cy.go('back')
   cy.contains('h2', 'Versões').should('be.visible')
@@ -574,12 +653,12 @@ function greetsByFirstName(): void {
 }
 
 /**
- * Every sheet was read in step 10 and only the graded student's was confirmed,
- * so the rest still wait for the open-ended score. The card leads to the list
- * of applications already filtered by that, with the filter in the address.
+ * The sheet typed by hand in step 10 was saved without finishing, so it still
+ * waits for its open-ended score. The card leads to the list of applications
+ * already filtered by that, with the filter in the address.
  */
 function followPendingCorrections(): void {
-  summaryCard('Correções pendentes').should('contain', String(STUDENT_COUNT - 1))
+  summaryCard('Correções pendentes').should('contain', '1')
   summaryCard('Correções pendentes').click()
 
   cy.contains('h1', 'Aplicações').should('be.visible')
@@ -627,7 +706,7 @@ describe('jornada completa', () => {
     publishAllAnswerKeys()
     moveTheDate()
 
-    cy.log('**10. Corrigir as folhas**')
+    cy.log('**10. Corrigir as folhas: uma pela foto, revisada e confirmada, e outra digitada e deixada em andamento**')
     gradeSheets()
 
     cy.log('**11. Liberar as notas**')

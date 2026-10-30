@@ -92,7 +92,7 @@ describe('link com cara de botão', () => {
   })
 
   it('navega pela borda de "Revisar" na lista de folhas', () => {
-    cy.readFirstSheetOf(ALREADY_GENERATED)
+    cy.correctFirstSheetOf(ALREADY_GENERATED)
 
     followFromTheEdge('Revisar', 'Folha 1')
   })

@@ -10,9 +10,9 @@ const CALCULUS = 'Cálculo I — Prova 1'
 const PHYSICS = 'Física II — Teste rápido'
 
 function correctBoth(): void {
-  cy.readFirstSheetOf(CALCULUS)
+  cy.correctFirstSheetOf(CALCULUS)
   cy.generateApplication(PHYSICS)
-  cy.readFirstSheetOf(PHYSICS)
+  cy.correctFirstSheetOf(PHYSICS)
   cy.get('[aria-label="Navegação principal"]').contains('a', 'Relatórios').click()
   cy.contains('h1', 'Relatório consolidado').should('be.visible')
   cy.contains('a', CALCULUS).should('be.visible')
