@@ -35,7 +35,7 @@ Foco move para o passo ativo ao abrir · navegação por `Tab`, `Enter` e `Esc` 
 
 ## 5. Conteúdo por tela
 
-Os textos abaixo são a redação final, já dentro do limite de 90 caracteres.
+Os textos abaixo são os que o sistema mostra, copiados de `apps/web/src/lib/tour/content.ts`, já dentro do limite de 90 caracteres. **O código é a fonte da verdade** (decisão da PM na #177): quem mudar um passo no código atualiza esta lista no mesmo PR, e o teste de `lib/tour/__tests__/content.test.ts` confere que os dois batem.
 
 ### Acesso
 
@@ -45,44 +45,45 @@ Os textos abaixo são a redação final, já dentro do limite de 90 caracteres.
 ### Painel
 
 **Painel** — 4 passos
-1. `Estes cartões resumem seu semestre. Clique em qualquer um para ver a lista.`
-2. `"Correções pendentes" é o que precisa da sua atenção hoje.`
-3. `Os atalhos abrem direto as quatro ações mais comuns.`
-4. `O menu à esquerda segue a ordem do trabalho: turma, questão, prova, aplicação.`
+1. `Clique em um destes cartões para abrir a lista que ele resume.`
+2. `Aqui embaixo ficam as últimas aplicações, para retomar de onde parou.`
+3. `Use os atalhos para as quatro ações mais comuns, sem passar pelo menu.`
+4. `O menu segue a ordem do trabalho: turma, questão, prova, aplicação.`
 
 ### Turmas
 
-**Turmas (lista)** — 2 passos
-1. `Turma é onde ficam seus alunos. Arquive as antigas para limpar a lista.`
-2. `Turma arquivada não some: continua nos relatórios e pode voltar quando quiser.`
+**Turmas (lista)** — 3 passos
+1. `Clique em "Nova turma" para cadastrar a primeira turma do semestre.`
+2. `Abra uma turma pelo nome dela para ver e cadastrar os alunos.`
+3. `Arquivar tira a turma da lista sem apagar nada, e dá para desfazer.`
 
 **Turma — detalhe** — 3 passos
-1. `Cadastre alunos um a um, ou importe a lista inteira de uma planilha.`
-2. `Remover aluno não apaga as notas dele. Anonimizar apaga os dados e mantém a nota.`
-3. `Aqui embaixo aparecem todas as provas já aplicadas nesta turma.`
+1. `Use "Importar alunos" para colar a lista inteira de uma planilha.`
+2. `Cadastre um aluno por vez quando for só uma inclusão.`
+3. `Anonimizar apaga os dados do aluno e mantém a nota nos relatórios.`
 
 ### Banco de questões
 
 **Banco de questões** — 3 passos
-1. `Escreva a questão uma vez. Ela serve para todas as provas, todo semestre.`
-2. `Use tags para separar por conteúdo: é por elas que a prova automática monta.`
-3. `Excluir é reversível — a questão sai da lista, mas segue nas provas que já a usam.`
+1. `Clique em "Nova questão" para escrever uma que servirá a várias provas.`
+2. `Filtre por tag para achar tudo de um conteúdo de uma vez.`
+3. `Troque para "A–Z" quando estiver lendo o banco em vez de procurar.`
 
 **Questão — criar/editar** — 2 passos
-1. `Marque qual alternativa é a correta: é ela que o sistema usa para corrigir.`
+1. `Marque qual alternativa é a correta: é por ela que o sistema corrige.`
 2. `Desligue o embaralhar em questões como "todas as anteriores".`
 
 ### Provas
 
 **Provas (lista)** — 3 passos
-1. `Prova é o conteúdo. Aplicar a uma turma é o passo seguinte.`
-2. `"Gerar automaticamente" monta a prova sozinho a partir das suas tags.`
-3. `Duplicar cria uma cópia editável, sem mexer na original.`
+1. `Clique em "Nova prova" para montar uma escolhendo questões do banco.`
+2. `Use "Gerar automaticamente" para o sistema montar a partir das tags.`
+3. `Duplicar cria uma cópia editável, sem mexer na prova original.`
 
 **Prova — criar/editar** — 3 passos
-1. `Arraste para reordenar. A pontuação de cada questão é livre.`
-2. `A soma não é validada: conferir se fecha em 10,0 é com você.`
-3. `O embaralhamento definido aqui vira o padrão de toda aplicação desta prova.`
+1. `Clique em "Adicionar do banco" para escolher as questões da prova.`
+2. `Arraste pela alça, ou use as setas, para mudar a ordem das questões.`
+3. `A soma não é validada: conferir se fecha em 10,0 é com você.`
 
 **Gerar prova automaticamente** — 2 passos
 1. `Escolha as tags e a quantidade: o sistema sorteia do seu banco.`
@@ -91,19 +92,19 @@ Os textos abaixo são a redação final, já dentro do limite de 90 caracteres.
 ### Aplicações
 
 **Aplicações (lista)** — 2 passos
-1. `Aplicação é a prova entregue a uma turma numa data. A mesma prova rende várias.`
-2. `Acompanhe aqui quantas folhas já foram corrigidas de cada uma.`
+1. `Clique em "Nova aplicação" para levar uma prova a uma turma numa data.`
+2. `Acompanhe aqui quais já foram geradas e quais ainda faltam.`
 
 **Gerar PDF** — 3 passos
-1. `Cada versão embaralha de um jeito. Mais versões, menos chance de cola.`
-2. `"Com identificação" já imprime o nome do aluno em cada folha.`
-3. `Sai um arquivo único com tudo dentro, pronto para imprimir.`
+1. `Escolha quantas versões: mais versões, menos chance de cola.`
+2. `Ligue a identificação para já imprimir o nome do aluno em cada folha.`
+3. `Clique em "Gerar" para produzir as versões e as folhas com código.`
 
 **Aplicação — detalhe** — 4 passos
-1. `Baixe o PDF aqui. Regenerar troca as folhas e invalida os QR já impressos.`
-2. `Publique o gabarito quando quiser que os alunos vejam as respostas certas.`
-3. `"Corrigir provas" é onde você envia as fotos das folhas.`
-4. `Liberar as notas faz cada aluno ver a dele ao escanear o QR da própria folha.`
+1. `Baixe o PDF aqui. Regenerar troca as folhas e invalida os QR impressos.`
+2. `Publique o gabarito quando quiser que os alunos vejam as respostas.`
+3. `Clique em "Corrigir folhas" para enviar as fotos das provas feitas.`
+4. `Liberar as notas faz cada aluno ver a dele ao escanear o próprio QR.`
 
 ### Correção
 
@@ -124,8 +125,8 @@ Os textos abaixo são a redação final, já dentro do limite de 90 caracteres.
 
 **Relatório da aplicação** — 3 passos
 1. `A distribuição mostra se a prova ficou fácil, difícil ou bem calibrada.`
-2. `"Por questão" revela onde a turma errou — e qual alternativa errada atraiu mais.`
-3. `Exporte para levar ao sistema acadêmico ou à coordenação.`
+2. `"Por questão" revela onde a turma errou e qual alternativa atraiu mais.`
+3. `"Por conteúdo" mostra o que vale retomar em aula, da pior para a melhor.`
 
 ### Telas sem tour — e por quê
 
