@@ -48,6 +48,20 @@ describe('grading hooks', () => {
     expect(result.current.data?.students).toHaveLength(2)
   })
 
+  /** The sheets and the report name everyone who sat the exam, a student removed since included (RF09, #161). */
+  it('keeps a student removed from the class after the sheets were printed', async () => {
+    const seeded = await seedGenerated()
+    const [removed] = await repositories().students.listByClass(seeded.classId)
+    await repositories().students.remove(seeded.classId, removed?.id ?? '')
+    const { result } = renderHookWithProviders(() => useGradingOverview(seeded.applicationId))
+
+    await waitFor(() => expect(result.current.data).not.toBeUndefined(), { timeout: 8000 })
+
+    const names = new Map(result.current.data?.students.map((student) => [student.id, student.fullName]))
+    expect(names.get(removed?.id ?? '')).toBe(removed?.fullName)
+    expect(result.current.data?.students).toHaveLength(2)
+  })
+
   it('reports nothing for an application that is not there', async () => {
     const { result } = renderHookWithProviders(() => useGradingOverview('nope'))
 

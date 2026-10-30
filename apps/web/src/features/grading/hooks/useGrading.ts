@@ -31,6 +31,12 @@ export const gradingKeys = {
  * The sheets, their versions, the exam, the bank and whatever has already been
  * corrected are useless apart: a row in the list needs all five to say whether
  * it is done, by how much, and for whom.
+ *
+ * "For whom" includes the students removed from the class since: removing
+ * keeps the record and the grades (RF09), so the sheets and the report go on
+ * naming them instead of "Aluno removido" (#161). The API accepts a removed
+ * student as the owner of a sheet printed without a name, so the assignment
+ * offers them too.
  */
 export function useGradingOverview(applicationId: string | undefined) {
   const { repositories } = useServices();
@@ -46,7 +52,7 @@ export function useGradingOverview(applicationId: string | undefined) {
         repositories.printing.listSheets(application.id),
         repositories.exams.getById(application.examId),
         repositories.questions.list({ pageSize: 1000 }),
-        repositories.students.listByClass(application.classId),
+        repositories.students.listWithRemoved(application.classId),
       ]);
 
       const corrections = await repositories.corrections.listByAnswerSheets(

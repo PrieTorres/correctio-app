@@ -15,7 +15,7 @@ import {
   TextField,
   Tour,
 } from '@/components/ui';
-import { questionInputSchema, type QuestionInput } from '@/lib/schemas';
+import { MAX_SCORE, questionInputSchema, type QuestionInput } from '@/lib/schemas';
 import { createId } from '@/lib/utils';
 import { fieldArrayMessage } from '@/lib/forms';
 import { ROUTES } from '@/app/routes';
@@ -125,7 +125,7 @@ function QuestionFormBody({
     reset,
     setValue,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isSubmitted },
   } = form;
 
   /**
@@ -185,7 +185,11 @@ function QuestionFormBody({
 
           <StatementField register={register} error={errors.statement?.message} />
 
-          <TagField value={tags} onChange={(next) => setValue('tags', next)} />
+          <TagField
+            value={tags}
+            onChange={(next) => setValue('tags', next, { shouldValidate: isSubmitted })}
+            error={fieldArrayMessage(errors.tags)}
+          />
 
           <TypeFields
             type={type}
@@ -307,8 +311,9 @@ function DiscursiveField({
         <TextField
           label="Nota máxima"
           type="number"
-          step="0.1"
-          min="0"
+          step="0.01"
+          min="0.01"
+          max={MAX_SCORE}
           error={error}
           {...register('maxScore', {
             setValueAs: (value: string) => (value === '' ? undefined : Number(value)),

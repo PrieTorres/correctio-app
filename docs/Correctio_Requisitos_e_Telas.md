@@ -516,6 +516,10 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 - Trocar tab → alterna campos
 - “Salvar” (válido) → P6
+- Validação, com a mensagem no próprio campo: enunciado só com espaços conta como vazio; tag de
+  até 80 caracteres (a mais longa fica no campo para encurtar); tag que só muda maiúscula ou
+  acento de outra já escolhida vira a mesma; nota máxima entre 0,01 e 9999,99, com até 2 casas
+  decimais (#184)
 
 #### P8. Provas (lista)
 
@@ -650,7 +654,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Cabeçalho: prova + turma, status, menu (Regenerar PDF, Arquivar)
 - Card “PDF”: “Baixar PDF”, data de geração
 - Tabela “Versões”: nº, embaralhamentos, gabarito publicado?, botão “Publicar gabarito” por linha; botão “Publicar todos”
-- Tabela “Alunos e versões” (se identificada)
+- Tabela “Alunos e versões” (se identificada). O aluno removido da turma depois de gerar continua com o nome (RF09, #161); o anonimizado aparece só como “Aluno anonimizado” (RF38)
 - Card “Correção”: progresso X/N alunos, botões “Corrigir provas” (→ P15) e “Ver relatório” (→ P18), e link “Pendentes de atribuição (N)” (→ P17) quando houver correção sem aluno
 - Controle do que o aluno vê ao escanear o QR, em dois níveis independentes (RF46): “Publicar gabarito” por versão, e “Liberar notas” para a aplicação inteira. Liberar a nota sem o gabarito publicado é bloqueado, com texto explicando o motivo
 

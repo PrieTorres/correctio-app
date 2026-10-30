@@ -6,6 +6,7 @@
  * responses, plus the Express request bodies, later.
  */
 import { z } from 'zod';
+import { collationKey } from './collation';
 import { CORRECTION_PROGRESS, CORRECTION_SOURCE, CORRECTION_STATUS, SHEET_READING } from './domain';
 
 const id = z.string().min(1);
@@ -227,17 +228,73 @@ export const questionSchema = z
   });
 
 /**
+ * The largest score `DECIMAL(6, 2)` holds, the column of every score in the
+ * database. Past it the save failed with a 500 (#184).
+ */
+export const MAX_SCORE = 9999.99;
+
+/** The length of `question_tags.tag`, a `VARCHAR(80)`: a longer tag failed the save with a 500 (#184). */
+export const MAX_TAG_LENGTH = 80;
+
+/**
+ * Whether a score fits the two decimals of its column. MySQL rounds a third
+ * decimal away without an error, so 0.001 was stored as 0, a maximum score
+ * the bank then refused to read back, and the whole list stopped loading
+ * (#184). The tolerance absorbs the binary error of values such as 0.29.
+ */
+function hasAtMostTwoDecimals(value: number): boolean {
+  const cents = value * 100;
+  return Math.abs(cents - Math.round(cents)) < 1e-6;
+}
+
+const questionMaxScore = z
+  .number()
+  .positive('A nota máxima precisa ser maior que zero')
+  .max(MAX_SCORE, 'A nota máxima pode ser no máximo 9999,99')
+  .refine(hasAtMostTwoDecimals, 'A nota máxima aceita no máximo 2 casas decimais');
+
+/**
+ * One tag of a question, trimmed. Shared with the tag field, so it refuses a
+ * long tag with the message the API answers.
+ */
+export const questionTagSchema = z
+  .string()
+  .trim()
+  .min(1, 'A tag não pode ficar vazia')
+  .max(MAX_TAG_LENGTH, `Cada tag pode ter no máximo ${MAX_TAG_LENGTH} caracteres`);
+
+/**
+ * Refuses two tags the database stores as one. `question_tags` keys on the
+ * question and the tag under a collation that ignores case and accents, so
+ * "Integrais" beside "integrais" broke the key and the save with a 500 (#184).
+ */
+function refuseRepeatedTags(tags: readonly string[], ctx: z.RefinementCtx): void {
+  const firstSpelling = new Map<string, string>();
+  for (const tag of tags) {
+    const earlier = firstSpelling.get(collationKey(tag));
+    if (earlier !== undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `"${earlier}" e "${tag}" são a mesma tag: deixe só uma` });
+      return;
+    }
+    firstSpelling.set(collationKey(tag), tag);
+  }
+}
+
+/**
  * What the question form submits. The identity and the soft-delete marker are
  * the repository's business, not the form's.
+ *
+ * Stricter than `questionSchema` on purpose: the limits of the columns are
+ * checked on the way in, and a record already stored keeps being read.
  */
 export const questionInputSchema = z
   .object({
     type: questionTypeSchema,
-    statement: z.string().min(1, 'Informe o enunciado'),
-    tags: z.array(z.string().min(1)),
+    statement: z.string().trim().min(1, 'Informe o enunciado'),
+    tags: z.array(questionTagSchema).superRefine(refuseRepeatedTags),
     alternatives: z.array(z.object({ id, text: z.string() })).optional(),
     correctAlternativeId: id.optional(),
-    maxScore: z.number().positive('A nota máxima precisa ser maior que zero').optional(),
+    maxScore: questionMaxScore.optional(),
     allowShuffleAlternatives: z.boolean(),
   })
   .superRefine((question, ctx) => {

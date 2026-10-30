@@ -132,6 +132,14 @@ com as mesmas regras das telas, sem cópia.
 | `GET /applications/:id/read-failures` | As fotos cuja leitura falhou, do `ActivityLog`, para a P15 listar |
 | `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49). Sem login, com limite de 30 requisições por minuto por IP. Código desconhecido responde `200` com `{ status: "INVALID_CODE" }`, igual a um código que existe mas não leva a nada, para quem tenta adivinhar não distinguir os dois. Responde `X-Robots-Tag: noindex` |
 
+### Alunos
+
+`GET /classes/:id/students` deixa de fora o aluno removido da turma (RF09). Com
+`includeRemoved=true`, lista todos que a turma já teve, cada removido com `removedAt`: é assim que
+as folhas, a correção e o relatório de uma aplicação continuam com o nome dele (#161). O
+anonimizado (RF38) sai só com o nome anonimizado, removido ou não. A consulta pública não usa
+essa lista e continua escondendo o aluno removido.
+
 ### Aplicações
 
 `GET` e `POST /applications`, `GET` e `PATCH /applications/:id`, arquivar e restaurar, a geração
@@ -192,6 +200,21 @@ com as mesmas regras das telas, sem cópia.
 - **PDF:** o `pdfUrl` aparece só quando há PDF e traz o endereço da rota de download, relativo à
   raiz da API. O arquivo contém o nome dos alunos quando a aplicação é identificada, então
   não existe link público: o front baixa com o token, como qualquer outra chamada.
+
+### Questões
+
+`GET` e `POST /questions`, `GET /questions/tags`, `GET` e `PATCH /questions/:id`,
+`DELETE /questions/:id` (soft) e `PATCH /questions/:id/restore`.
+
+- **Validação:** o corpo passa pelo `questionInputSchema` de `@correctio/domain`, o mesmo do
+  formulário, e a recusa responde 400 com a mensagem dele. Os limites são os das colunas, para o
+  banco nunca arredondar nem recusar em silêncio (#184): enunciado só com espaços conta como
+  vazio; tag de até 80 caracteres (`VARCHAR(80)`); nota máxima entre 0,01 e 9999,99, com até
+  2 casas (`DECIMAL(6, 2)`).
+- **Tags iguais:** duas tags que só mudam maiúscula ou acento são a mesma para a chave de
+  `question_tags`, e o corpo que traz as duas responde 400. O schema compara como a colação
+  compara; o raro par que ele deixa passar (como "ß" e "ss") a chave recusa, e a API responde
+  400 também, nunca 500.
 
 ### Provas
 

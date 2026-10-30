@@ -14,6 +14,8 @@ export const classKeys = {
   list: (archived: boolean, search: string, page = 1) => ['classes', 'list', { archived, search, page }] as const,
   detail: (id: string) => ['classes', 'detail', id] as const,
   students: (classId: string) => ['classes', classId, 'students'] as const,
+  /** Under `students`, so removing or anonymizing a student refreshes this list too. */
+  studentsWithRemoved: (classId: string) => ['classes', classId, 'students', 'with-removed'] as const,
 };
 
 /** One page of the list, as the API serves it; the screen pages beyond it. */
@@ -50,6 +52,21 @@ export function useStudents(classId: string | undefined) {
   return useQuery({
     queryKey: classKeys.students(classId ?? ''),
     queryFn: () => repositories.students.listByClass(classId ?? ''),
+    enabled: classId !== undefined,
+  });
+}
+
+/**
+ * Everyone the class has had, the removed students included: what names who
+ * sat an application, which outlives the student's removal (RF09, #161). The
+ * class screen lists only `useStudents`.
+ */
+export function useStudentsWithRemoved(classId: string | undefined) {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: classKeys.studentsWithRemoved(classId ?? ''),
+    queryFn: () => repositories.students.listWithRemoved(classId ?? ''),
     enabled: classId !== undefined,
   });
 }

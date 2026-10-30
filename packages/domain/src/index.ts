@@ -4,13 +4,14 @@
  * rules both sides must apply alike: the pagination of the exam, the geometry
  * of the answer card, the automatic draw of an exam, the generation of the
  * printed versions and sheets, the grading of a sheet, the public lookup of a
- * grade and the comparison of two registrations.
+ * grade and the comparison of text the way the database compares it.
  */
 export * from './answer-card'
 export * from './answer-sheet-code'
 export * from './application-progress'
 export * from './applications'
 export * from './build-versions'
+export * from './collation'
 export * from './domain'
 export * from './draw-questions'
 export * from './grades-release'
