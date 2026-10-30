@@ -144,7 +144,8 @@ describe('turmas', () => {
 })
 
 describe('turmas: importação de alunos', () => {
-  it('importa uma lista colada e mostra o que entrou e o que foi ignorado', () => {
+  /** #144: the preview counts only who will come in, so the button and the result say the same number. */
+  it('importa uma lista colada e deixa de fora, na prévia, a matrícula que já está na turma', () => {
     openClass('Álgebra Linear')
 
     pasteStudentList([
@@ -154,14 +155,16 @@ describe('turmas: importação de alunos', () => {
       'Tiago Prado;2027902',
     ])
 
-    cy.findInDialog('h3', '3 alunos prontos para importar').should('be.visible')
+    cy.findInDialog('h3', '2 alunos prontos para importar').should('be.visible')
+    cy.findInDialog('h3', '1 aluno já está na turma e não será importado').should('be.visible')
+    cy.findInDialog('li', 'Ana Beatriz Moreira (202701)').should('be.visible')
     cy.findInDialog('a', 'Aviso de privacidade').should('be.visible')
-    cy.findInDialog('button', 'Importar 3 alunos').click()
+    cy.findInDialog('button', 'Importar 2 alunos').click()
 
     cy.findInDialog('h3', 'Importação concluída').should('be.visible')
     cy.get('[role="dialog"]')
       .should('contain', '2 alunos entraram na turma.')
-      .and('contain', '1 foi ignorado porque a matrícula já estava na turma.')
+      .and('not.contain', 'foi ignorado')
     cy.findInDialog('button', 'Fechar').click()
 
     cy.get('[role="dialog"]').should('not.exist')
