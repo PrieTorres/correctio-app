@@ -437,6 +437,23 @@ function moveTheDate(): void {
   cy.contains(`${SCHOOL_CLASS.name} · ${APPLICATION_DAY.shown}`).should('be.visible')
 }
 
+/**
+ * The class now lists the application it received (#144), with the day just
+ * moved and the correction not started, and leads back to it.
+ */
+function seeTheApplicationOnTheClass(): void {
+  openFromMenu('Turmas')
+  cy.contains('a', SCHOOL_CLASS.name).click()
+  cy.contains('h1', SCHOOL_CLASS.name).should('be.visible')
+
+  cy.get('[aria-label="Aplicações desta turma"]')
+    .contains('li', EXAM.title)
+    .should('contain', APPLICATION_DAY.shown)
+    .and('contain', 'Correção não iniciada')
+  cy.get('[aria-label="Aplicações desta turma"]').contains('a', EXAM.title).click()
+  cy.contains('h1', EXAM.title).should('be.visible')
+}
+
 /** The grade the teacher confirmed in step 10, which the student must see in step 12. */
 let confirmedTotal = ''
 
@@ -702,9 +719,10 @@ describe('jornada completa', () => {
     cy.log('**8. Gerar as versões e o PDF**')
     generateVersions()
 
-    cy.log('**9. Publicar o gabarito e mudar a data**')
+    cy.log('**9. Publicar o gabarito, mudar a data e ver a aplicação na página da turma**')
     publishAllAnswerKeys()
     moveTheDate()
+    seeTheApplicationOnTheClass()
 
     cy.log('**10. Corrigir as folhas: uma pela foto, revisada e confirmada, e outra digitada e deixada em andamento**')
     gradeSheets()
