@@ -184,6 +184,17 @@ erDiagram
     DATETIME(3) expiresAt
     DATETIME(3) revokedAt "NULL"
   }
+  sheet_images {
+    VARCHAR(36) id PK
+    VARCHAR(36) applicationId FK
+    VARCHAR(36) teacherId FK
+    VARCHAR(255) storageKey
+    VARCHAR(32) contentType
+    INT_UNSIGNED byteSize
+    VARCHAR(24) status
+    VARCHAR(36) answerSheetId "NULL"
+    DATETIME(3) createdAt
+  }
   students {
     VARCHAR(36) id PK
     VARCHAR(36) classId FK
@@ -236,6 +247,8 @@ erDiagram
   questions ||--o{ question_tags : questionId
   users ||..o{ questions : teacherId
   users ||..o{ refresh_tokens : userId
+  applications ||..o{ sheet_images : applicationId
+  users ||..o{ sheet_images : teacherId
   classes ||..o{ students : classId
   users |o..o{ students : userId
 ```

@@ -211,7 +211,7 @@ Cada decisão técnica importante tem um registro próprio em [`docs/adr/`](docs
 
 ## 🗃️ Modelo de dados
 
-O banco MySQL da N2 como as migrations de `apps/api/src/db/migrations` o criam: 19 tabelas, com
+O banco MySQL da N2 como as migrations de `apps/api/src/db/migrations` o criam: 20 tabelas, com
 as colunas, os tipos e as chaves de cada uma. O diagrama é gerado do banco migrado
 (`npm run docs:er-diagram`), não desenhado à mão.
 

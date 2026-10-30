@@ -1,7 +1,7 @@
 # Dicionário de dados
 
 Uma tabela por entidade do banco MySQL, com as colunas **como as migrations as criam**
-(`apps/api/src/db/migrations`, da `0001` à `0003`). O desenho das mesmas tabelas está no
+(`apps/api/src/db/migrations`, da `0001` à `0004`). O desenho das mesmas tabelas está no
 [diagrama entidade-relacionamento](er-diagram.md); o contrato que elas seguem é o
 [Modelo de Dados](../Modelo_de_Dados.md).
 
@@ -48,6 +48,7 @@ que falta ou que sobra (ver [Como gerar de novo](er-diagram.md#como-gerar-de-nov
 | [`correction_objective_results`](#correction_objective_results--correctionobjectiveresults) | `Correction.objectiveResults` | tabela filha | segue a correção |
 | [`correction_discursive_scores`](#correction_discursive_scores--correctiondiscursivescores) | `Correction.discursiveScores` | tabela filha | segue a correção |
 | [`activity_logs`](#activity_logs--activitylog) | `ActivityLog` | **+** grupo | não arquiva: só recebe inserção |
+| [`sheet_images`](#sheet_images--sheetimage) | `SheetImage` | **+** grupo (#47) | não arquiva: só recebe inserção |
 
 As tabelas internas do Kysely (`kysely_migration` e `kysely_migration_lock`), que registram quais
 migrations já rodaram, não fazem parte do modelo e ficam fora daqui e do diagrama.
@@ -394,8 +395,8 @@ guarda o conteúdo de dado pessoal.**
 |---|---|---|---|---|
 | `id` | `VARCHAR(36)` | PK | não | Identificador do evento (UUID). |
 | `teacherId` | `VARCHAR(36)` | FK → `users.id` | sim | Professor envolvido. Vazio em evento do sistema. |
-| `type` | `VARCHAR(64)` | | não | Tipo do evento, em `SCREAMING_SNAKE_CASE`, como `QR_NOT_RECOGNIZED`. |
-| `entity` | `VARCHAR(64)` | | não | Tabela do registro envolvido, como `answer_sheet`. |
+| `type` | `VARCHAR(64)` | | não | Tipo do evento, em `SCREAMING_SNAKE_CASE`, como `SHEET_READ_FAILED` (a leitura de uma foto que falhou, #47). |
+| `entity` | `VARCHAR(64)` | | não | Registro envolvido, como `application`. |
 | `entityId` | `VARCHAR(36)` | | sim | Identificador do registro envolvido. |
 | `details` | `JSON` | | sim | Referência e motivo do evento, sem dado pessoal. Objeto livre. |
 | `createdAt` | `DATETIME(3)` | | não | Quando o evento aconteceu. Padrão: a hora da inserção. |
@@ -403,3 +404,31 @@ guarda o conteúdo de dado pessoal.**
 **Índice:** `idx_activity_logs_teacher_created (teacherId, createdAt)`, os eventos do professor
 em ordem de tempo.<br>
 **Arquivamento:** não arquiva; o log só recebe inserção.
+
+---
+
+### `sheet_images` — SheetImage
+
+**+** Entidade do grupo (#47): uma linha por foto de folha enviada para correção. O arquivo fica
+no Cloud Storage ([ADR-004](../adr/ADR-004-answer-sheet-image-storage.md)), e a linha guarda onde
+ele está e como a leitura terminou. É ela que deixa a foto ser servida só ao professor dono, a
+correção apontar a foto de que foi confirmada (`corrections.imageUrl`) e o limite diário de envios
+ser contado mesmo depois de a API reiniciar ([Seguranca_e_LGPD.md](../Seguranca_e_LGPD.md)).
+
+| Coluna | Tipo | Chave | Nulo | Descrição |
+|---|---|---|---|---|
+| `id` | `VARCHAR(36)` | PK | não | Identificador da foto (UUID), o `imageId` que a API devolve na leitura. |
+| `applicationId` | `VARCHAR(36)` | FK → `applications.id` | não | Aplicação para a qual a foto foi enviada. |
+| `teacherId` | `VARCHAR(36)` | FK → `users.id` | não | Professor que enviou; só ele recebe a foto de volta. |
+| `storageKey` | `VARCHAR(255)` | | não | Caminho do arquivo no Storage: `answer-sheets/<aplicação>/<foto>.<extensão>`. |
+| `contentType` | `VARCHAR(32)` | | não | Tipo do arquivo, conferido pelos primeiros bytes: `image/jpeg`, `image/png` ou `image/webp`. |
+| `byteSize` | `INT UNSIGNED` | | não | Tamanho do arquivo em bytes, até 10 MB. Soma no limite diário. |
+| `status` | `VARCHAR(24)` | | não | Como a leitura terminou: `READ`, `QR_NOT_RECOGNIZED` ou `READ_FAILED` (`SHEET_READING`). |
+| `answerSheetId` | `VARCHAR(36)` | | sim | Folha reconhecida pelo QR Code. Vazio quando o QR não foi lido: o professor escolhe a folha na revisão (RF30). |
+| `createdAt` | `DATETIME(3)` | | não | Quando a foto chegou. Padrão: a hora da inserção. |
+
+**Índices:** `idx_sheet_images_teacher_created (teacherId, createdAt)`, que conta o limite diário
+do professor, e `idx_sheet_images_application (applicationId, createdAt)`, as fotos da aplicação
+em ordem de tempo.<br>
+**Arquivamento:** não arquiva; a linha só recebe inserção, e a leitura não vira nota até o
+professor confirmar a revisão (RF28).
