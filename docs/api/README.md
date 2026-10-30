@@ -46,7 +46,8 @@ O detalhe de cada recurso (regras, códigos de erro e exemplos) está no
 | `GET` | `/auth/google/callback` | Volta do Google e leva ao front com um código de uso único. |
 | `POST` | `/auth/google/exchange` | Troca o código de uso único pela sessão. |
 | `POST` | `/auth/logout-all` | Encerra as sessões de todos os aparelhos (RF04). |
-| `GET` | `/me` | O professor da sessão. |
+| `GET` | `/me` | O professor da sessão e o tipo da conta (P2). |
+| `POST` | `/me/anonymize` | Anonimiza a conta (RF05): troca nome, e-mail e senha, encerra as sessões e mantém turmas, provas e correções. |
 
 ## Turmas e alunos
 
@@ -106,6 +107,7 @@ O detalhe de cada recurso (regras, códigos de erro e exemplos) está no
 | `POST` | `/applications/:id/publish-answer-keys` | Publica o gabarito de todas as versões. |
 | `POST` | `/applications/:id/grades-release` | Libera as notas para a consulta pelo QR Code. |
 | `GET` | `/applications/:id/sheets` | As folhas impressas, uma por aluno ou sem identificação. |
+| `GET` | `/applications/:id/report` | Relatório da aplicação (P18), só com as correções finalizadas; `?format=xlsx`, `csv` ou `pdf` devolve o arquivo (RF36). |
 
 ## Correção
 
@@ -118,3 +120,10 @@ O detalhe de cada recurso (regras, códigos de erro e exemplos) está no
 | `POST` | `/applications/:id/corrections` | Grava a revisão do professor; a nota é calculada pela API (P16, RF28). |
 | `GET` | `/applications/:id/corrections/:correctionId` | Uma correção. |
 | `PATCH` | `/applications/:id/corrections/:correctionId` | Edita a correção ou atribui o aluno de uma folha sem identificação (RF31). |
+
+## Painel e relatórios
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/dashboard` | O painel (P1): contagens, correções pendentes, aplicações recentes e as que já têm folhas para corrigir. |
+| `GET` | `/reports/consolidated` | Relatório consolidado (P19), com os filtros de turma, disciplina, período e datas; `?format=xlsx`, `csv` ou `pdf` devolve o arquivo das linhas filtradas. |

@@ -448,6 +448,7 @@ descrição de cada uma, está em **[docs/api/README.md](docs/api/README.md)**.
 | Provas | `/exams`, `/exams/draw` | CRUD, arquivamento e sorteio por filtros |
 | Aplicações e PDF | `/applications` | Aplicação, geração do PDF, versões, gabaritos e liberação de notas |
 | Correção | `/applications/:id/sheet-images`, `/applications/:id/corrections` | Envio da foto e leitura, revisão, nota calculada no servidor, atribuição |
+| Painel e relatórios | `/dashboard`, `/applications/:id/report`, `/reports/consolidated` | Contagens do painel, relatórios calculados no servidor e exportação em Excel, CSV e PDF |
 
 ---
 
@@ -455,8 +456,9 @@ descrição de cada uma, está em **[docs/api/README.md](docs/api/README.md)**.
 
 | Verificação | Estado |
 |---|---|
-| Testes unitários | Front, domínio e leitor da folha com Vitest, cobertura de linhas acima de 95% |
-| Testes da API | Rotas testadas com Supertest contra um MySQL real, uma base por suíte |
+| Testes unitários | 984 com Vitest: 708 do front, 239 do domínio e 37 do leitor da folha, com cobertura de linhas acima de 95% |
+| Testes da API | 519 com Supertest, contra um MySQL real, uma base por suíte |
+| Testes das ferramentas | 61 com `node:test`: diagrama ER, backup, auditoria de dependências e regras de lint |
 | Testes de ponta a ponta | Cypress contra o build de produção, um spec por área, mais a jornada completa gravada em vídeo |
 | Tipos | `tsc --noEmit` sem erros, em modo estrito |
 | Lint | ESLint sem apontamentos, incluindo as regras próprias do grupo (complexidade, só JSDoc, comentário em inglês) |
@@ -539,7 +541,7 @@ conferência dele no PR desta seção antes do merge.
 - Diagramas de classe e de sequência: [#95](https://github.com/PrieTorres/correctio-app/pull/95), [#102](https://github.com/PrieTorres/correctio-app/pull/102).
 - CRUD do banco de questões na API, com filtros no servidor: [#103](https://github.com/PrieTorres/correctio-app/pull/103). Telas do banco de questões na API: [#108](https://github.com/PrieTorres/correctio-app/pull/108).
 - Revisão de UX do banco de questões e das provas ([#61](https://github.com/PrieTorres/correctio-app/issues/61)), que abriu as melhorias [#105](https://github.com/PrieTorres/correctio-app/issues/105), [#106](https://github.com/PrieTorres/correctio-app/issues/106) e [#107](https://github.com/PrieTorres/correctio-app/issues/107).
-- Testes Cypress do banco de questões e das provas contra a API: [#155](https://github.com/PrieTorres/correctio-app/pull/155).
+- Testes Cypress do banco de questões e das provas contra a API: [#155](https://github.com/PrieTorres/correctio-app/pull/155) (aberto, não entrou na versão 2.0.0).
 
 ### Fabricio da Silva
 
