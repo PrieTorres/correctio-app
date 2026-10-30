@@ -1,4 +1,4 @@
-import { authSessionSchema } from '@/lib/schemas'
+import { authenticatedUserSchema, authSessionSchema } from '@/lib/schemas'
 import { toStorageError } from '@/lib/repositories/http/api-client'
 import { StorageError } from '@/lib/storage/errors'
 import type { AuthenticatedUser } from '@/types/domain'
@@ -15,7 +15,6 @@ const GOOGLE_BINDING_KEY = 'correctio:google-binding'
 
 const GENERIC_FAILURE = 'Não foi possível falar com o servidor. Tente de novo em instantes.'
 const GOOGLE_NOT_FINISHED = 'O login com o Google não foi concluído. Tente de novo.'
-const NOT_YET_AVAILABLE = 'Anonimizar a conta ainda não está disponível. Fale com a coordenação do curso.'
 
 interface Session {
   user: AuthenticatedUser
@@ -74,7 +73,7 @@ export function createHttpAuthProvider({
   let session: Session | null = null
   let refreshing: Promise<AuthenticatedUser | null> | null = null
 
-  async function post(path: string, body?: unknown, token?: string): Promise<unknown> {
+  async function send(method: 'GET' | 'POST', path: string, { body, token }: { body?: unknown; token?: string } = {}): Promise<unknown> {
     const headers = new Headers({ Accept: 'application/json' })
     if (body !== undefined) headers.set('Content-Type', 'application/json')
     if (token !== undefined) headers.set('Authorization', `Bearer ${token}`)
@@ -82,7 +81,7 @@ export function createHttpAuthProvider({
     let response: Response
     try {
       response = await fetchFn(`${baseUrl}${path}`, {
-        method: 'POST',
+        method,
         headers,
         credentials: 'same-origin',
         body: body === undefined ? undefined : JSON.stringify(body),
@@ -94,6 +93,15 @@ export function createHttpAuthProvider({
     const payload = await readJson(response)
     if (!response.ok) throw toStorageError(response.status, payload)
     return payload
+  }
+
+  const post = (path: string, body?: unknown, token?: string) => send('POST', path, { body, token })
+
+  /** The access token of the session, or the 401 a request without one would get anyway. */
+  async function requireToken(): Promise<string> {
+    const token = await getAccessToken()
+    if (token === null) throw toStorageError(401, undefined)
+    return token
   }
 
   function begin(payload: unknown): AuthenticatedUser {
@@ -201,7 +209,22 @@ export function createHttpAuthProvider({
       return begin(await post('/auth/google/exchange', { code, binding }))
     },
 
-    /** `POST /me/anonymize` arrives with #50; until then the button says so instead of pretending. */
-    anonymize: () => Promise.reject(new StorageError(NOT_YET_AVAILABLE, 'failure')),
+    /** `GET /me`: the account as the server has it now, not as it was when the session began. */
+    async loadAccount() {
+      const parsed = authenticatedUserSchema.safeParse(await send('GET', '/me', { token: await requireToken() }))
+      if (!parsed.success) throw new StorageError(GENERIC_FAILURE, 'failure', { cause: parsed.error })
+      return parsed.data
+    },
+
+    /**
+     * `POST /me/anonymize` ends every session on the server. This one ends
+     * only once the server has confirmed, so a failed request leaves the
+     * teacher signed in to try again instead of signed out with the account
+     * untouched.
+     */
+    async anonymize() {
+      await post('/me/anonymize', undefined, await requireToken())
+      session = null
+    },
   }
 }

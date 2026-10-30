@@ -1,3 +1,5 @@
+import { printForTheTeacher } from '../support/commands'
+
 /**
  * Correction: reading the sheets, reviewing what was read, and confirming.
  *
@@ -142,32 +144,57 @@ describe('revisar e confirmar', () => {
   })
 })
 
+/**
+ * The report of one application (P18), calculated on the API (#50). Each test
+ * prints a sitting of its own, with one student and one multiple-choice
+ * question worth the whole grade, and writes the correction there.
+ */
 describe('relatório da aplicação', () => {
+  const reportOf = (applicationId: string) => `/aplicacoes/${applicationId}/relatorio`
+
   it('explica que nada foi corrigido ainda', () => {
-    cy.visit('/aplicacoes')
-    cy.contains('a', APPLICATION).click()
-    cy.url().then((url) => {
-      const id = url.split('/').pop()
-      cy.visit(`/aplicacoes/${id}/relatorio`)
-    })
+    printForTheTeacher().then(({ applicationId }) => cy.visit(reportOf(applicationId)))
 
     cy.contains('h3', 'Nada corrigido ainda').should('be.visible')
+    cy.contains('0 de 1 folhas corrigidas').should('be.visible')
   })
 
   it('calcula as estatísticas depois da primeira correção', () => {
-    openGrading()
-    cy.get('input[aria-label="Marcar a folha 1 para leitura"]').check()
-    cy.contains('button', 'Ler 1 folhas').click()
-    cy.contains('1 de 12 lidas', { timeout: 10000 }).should('be.visible')
-
-    cy.url().then((url) => {
-      const id = url.split('/')[4]
-      cy.visit(`/aplicacoes/${id}/relatorio`)
+    printForTheTeacher().then(({ accessToken, applicationId, sheet, questionId, correctAlternativeId }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [{ questionId, selectedAlternativeId: correctAlternativeId }], finalize: true })
+      cy.visit(reportOf(applicationId))
     })
 
     cy.contains('h1', 'Relatório da aplicação').should('be.visible')
+    cy.contains('1 de 1 folhas corrigidas').should('be.visible')
     cy.contains('Média').should('be.visible')
     cy.contains('h2', 'Distribuição das notas').should('be.visible')
+    cy.contains('tr', 'Rafaela Souza').should('contain', '2026901').and('contain', '10')
+    cy.contains('h2', 'Por questão').should('be.visible')
+    cy.contains('100% de acerto').should('be.visible')
     cy.contains('h2', 'Por conteúdo').should('be.visible')
+    cy.contains('li', 'Geometria').should('contain', '100%')
+  })
+
+  /** RF48: the grade counts once the correction is finished; until then it is named apart, out of every number. */
+  it('conta à parte a correção em andamento, fora das estatísticas', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, sheet }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [], finalize: false })
+      cy.visit(reportOf(applicationId))
+    })
+
+    cy.contains('1 em andamento').should('be.visible')
+    cy.contains('h3', 'Nada corrigido ainda').should('be.visible')
+  })
+
+  /** The API answers 404 for another teacher's application, so the screen has nothing of hers to draw. */
+  it('não abre o relatório de outra professora', () => {
+    printForTheTeacher().then(({ applicationId }) => {
+      cy.signInAsNewTeacher({ withSampleData: false })
+      cy.visit(reportOf(applicationId))
+    })
+
+    cy.get('[role="alert"]').should('contain', 'Não foi possível carregar os dados')
+    cy.contains('Geometria — Prova da consulta').should('not.exist')
   })
 })

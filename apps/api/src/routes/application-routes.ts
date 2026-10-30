@@ -5,6 +5,7 @@ import { createApplicationController } from '../controllers/application-controll
 import { createCorrectionController } from '../controllers/correction-controller'
 import { createGenerationController } from '../controllers/generation-controller'
 import { createPrintingController } from '../controllers/printing-controller'
+import type { ReportController } from '../controllers/report-controller'
 import { createSheetImageController } from '../controllers/sheet-image-controller'
 import type { FileStorage } from '../lib/file-storage'
 import type { PhotoReader } from '../lib/sheet-reading/photo-reader'
@@ -37,6 +38,8 @@ export interface ApplicationRouteDependencies {
   /** Reads the photo of a sheet off the thread that answers requests (ADR-007). */
   readPhoto: PhotoReader
   logger: Logger
+  /** The report of each application (P18), shared with `/dashboard` and `/reports` (#50). */
+  reports: ReportController
 }
 
 interface Repositories {
@@ -65,8 +68,8 @@ function generationController(
 }
 
 /**
- * Applications and what was printed for them (P11 to P14), and the photos
- * and corrections of their sheets (P15 to P17, #47). `ExamAssignment` gets no
+ * Applications and what was printed for them (P11 to P14), the photos
+ * and corrections of their sheets (P15 to P17, #47) and their report (P18, #50). `ExamAssignment` gets no
  * route: the answer sheets took its place, and it stays in the contract only
  * for a student area (`docs/Modelo_de_Dados.md`).
  */
@@ -120,6 +123,7 @@ export function applicationRoutes(dependencies: ApplicationRouteDependencies): R
   router.post('/:id/versions/:versionId/publish-answer-key', printing.publishAnswerKey)
   router.post('/:id/publish-answer-keys', printing.publishAllAnswerKeys)
   router.get('/:id/sheets', printing.listSheets)
+  router.get('/:id/report', dependencies.reports.applicationReport)
 
   router.post('/:id/sheet-images', photoBody, sheetImages.upload)
   router.get('/:id/sheet-images/:imageId', sheetImages.image)

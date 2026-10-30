@@ -1,7 +1,6 @@
 import { Button, FilterSelect, TextField } from '@/components/ui'
 import { compareByLocale } from '@/lib/utils'
-import { hasReportFilters, type ReportFilters } from '@/lib/reports'
-import type { ConsolidatedRow } from '../hooks/useConsolidatedReport'
+import { hasReportFilters, type ConsolidatedReportRow, type ReportFilters } from '@/lib/reports'
 
 interface Option {
   value: string
@@ -12,8 +11,8 @@ interface Option {
  * Only values that exist in the report are offered, taken from its rows: a
  * filter option that leads to an empty table is a filter that looks broken.
  */
-function optionsOf(rows: readonly ConsolidatedRow[]) {
-  const distinct = (pick: (row: ConsolidatedRow) => string): Option[] =>
+function optionsOf(rows: readonly ConsolidatedReportRow[]) {
+  const distinct = (pick: (row: ConsolidatedReportRow) => string): Option[] =>
     [...new Set(rows.map(pick).filter((value) => value !== ''))]
       .toSorted(compareByLocale)
       .map((value) => ({ value, label: value }))
@@ -34,7 +33,7 @@ export function ReportFiltersBar({
   onChange,
   onClear,
 }: Readonly<{
-  rows: readonly ConsolidatedRow[]
+  rows: readonly ConsolidatedReportRow[]
   filters: ReportFilters
   onChange: (key: keyof ReportFilters, value: string) => void
   onClear: () => void

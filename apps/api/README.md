@@ -130,6 +130,7 @@ com as mesmas regras das telas, sem cópia.
 | `POST /applications/:id/sheet-images` | Recebe a foto de uma folha (#47) e devolve a leitura. Ver "Fotos das folhas" |
 | `GET /applications/:id/sheet-images/:imageId` | Entrega a foto, só ao professor da aplicação |
 | `GET /applications/:id/read-failures` | As fotos cuja leitura falhou, do `ActivityLog`, para a P15 listar |
+| `GET /dashboard` | Os números e a atividade recente do painel (P1), numa requisição só (#50). Ver "Painel, perfil e relatórios" |
 | `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49). Sem login, com limite de 30 requisições por minuto por IP. Código desconhecido responde `200` com `{ status: "INVALID_CODE" }`, igual a um código que existe mas não leva a nada, para quem tenta adivinhar não distinguir os dois. Responde `X-Robots-Tag: noindex` |
 
 ### Alunos
@@ -267,6 +268,43 @@ As correções ficam debaixo da aplicação: `GET` e `POST /applications/:id/cor
 - **Origem:** a correção revisada a partir de uma foto manda o `imageId` que o envio devolveu, e
   grava `source: "IMAGE_UPLOAD"` com a chave da foto em `imageUrl` (ADR-004). Sem `imageId`, é
   `MANUAL` (RF30). Foto de outra aplicação responde 404.
+
+### Painel, perfil e relatórios
+
+As três telas de números leem rotas próprias, calculadas no servidor com as funções de
+`@correctio/domain` (`summarise`, `distribute`, `accuracyOf`, `accuracyByTag`, `totalScore` e
+`buildApplicationReport`), as mesmas que a demonstração usa no navegador (#50).
+
+- **`GET /dashboard`** (P1): turmas ativas, questões não excluídas, provas e aplicações não
+  arquivadas, `pendingCorrections`, `recent` e `gradable`. `pendingCorrections` conta, nas
+  aplicações não arquivadas, a correção em andamento (RF48) ou sem aluno (RF31), uma vez cada
+  (#93). `recent` são as 5 aplicações não arquivadas mais recentes pela data, ordenadas no banco,
+  com o título da prova e o nome da turma; `gradable`, as que têm folhas impressas (`generated`),
+  para o "Corrigir folhas".
+- **`GET /applications/:id/report`** (P18): `summary` (corrigidas, média, mediana, desvio padrão,
+  menor e maior), `distribution`, `questions` (acerto e letra da alternativa mais marcada, na
+  ordem da prova), `tags`, `students` (nome, matrícula, versão, total e a nota de cada questão na
+  coluna da questão da prova) e, à parte, `inProgress` e `sheets`.
+- **`GET /reports/consolidated`** (P19): uma linha por aplicação não arquivada que tem ao menos uma
+  correção finalizada, da mais recente para a mais antiga, com `classId`, `subject`, `term` e
+  `date`, que os filtros da tela leem, e o `summary` da linha.
+
+Regras dos três:
+
+- **Só correção `DONE` entra na nota.** A correção em andamento ainda não tem a nota das
+  discursivas (requisitos, seção 5) e aparece só na contagem `inProgress`.
+- **O que foi arquivado depois continua com nome.** Prova, turma e questão são lidas pelo id, sem
+  filtrar `status` nem `deletedAt`: a prova arquivada nomeia a linha, e a tag da questão excluída
+  do banco continua no acerto por conteúdo. O aluno removido da turma continua com o nome (#161).
+- Aplicação de outro professor responde **404**.
+
+`GET /me` responde nome, e-mail e tipo da conta do token (P2). `POST /me/anonymize` (RF05; Spec,
+Feature 1.1) troca o nome por "Professor anonimizado" e o e-mail por
+`anon-<id>@removido.invalid`, troca a senha pelo hash de um segredo que ninguém guarda, preenche
+`anonymizedAt` e revoga todos os `RefreshToken`, como o `logout-all`. Turmas, provas, aplicações e
+correções continuam apontando para o mesmo id. O e-mail antigo fica livre para um cadastro novo, e
+a conta anonimizada não entra mais. O token de acesso já emitido vale até expirar (15 minutos),
+como no `logout-all`.
 
 ### Fotos das folhas
 

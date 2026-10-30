@@ -1,19 +1,21 @@
+import { printForTheTeacher } from '../support/commands'
+
 /**
  * The consolidated report (P19) and its filters.
  *
  * Two applications are corrected so there is something to tell apart: the
  * calculus midterm (a maths class, term 2026/2, on 2026-10-05) and the physics
  * quiz (a physics class, term 2026/2, on 2026-11-12). The sample data has no
- * corrections of its own.
+ * corrections of its own, and the report is calculated on the API (#50), so
+ * the corrections are written there, finished, with every answer right.
  */
 const CALCULUS = 'Cálculo I — Prova 1'
 const PHYSICS = 'Física II — Teste rápido'
 
 function correctBoth(): void {
-  cy.readFirstSheetOf(CALCULUS)
-  cy.generateApplication(PHYSICS)
-  cy.readFirstSheetOf(PHYSICS)
-  cy.get('[aria-label="Navegação principal"]').contains('a', 'Relatórios').click()
+  cy.correctFirstSheetOf(CALCULUS)
+  cy.correctFirstSheetOf(PHYSICS)
+  cy.visit('/relatorios')
   cy.contains('h1', 'Relatório consolidado').should('be.visible')
   cy.contains('a', CALCULUS).should('be.visible')
   cy.contains('a', PHYSICS).should('be.visible')
@@ -25,6 +27,29 @@ describe('relatório consolidado', () => {
 
     cy.contains('Nenhuma aplicação corrigida').should('be.visible')
     cy.get('form[aria-label="Filtros do relatório"]').should('not.exist')
+  })
+
+  /** Requirements, section 5: a correction without every open-ended score has no grade to compare yet. */
+  it('deixa de fora a aplicação que só tem correção em andamento', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, sheet }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [], finalize: false })
+    })
+    cy.visit('/relatorios')
+
+    cy.contains('Nenhuma aplicação corrigida').should('be.visible')
+  })
+
+  /** Every number of a row comes from the server, from the finished corrections, with the full grade here. */
+  it('mostra os números de cada aplicação corrigida e leva ao relatório dela', () => {
+    correctBoth()
+
+    cy.contains('tr', CALCULUS).within(() => {
+      cy.get('td').eq(3).should('have.text', '1')
+    })
+    cy.contains('a', PHYSICS).click()
+
+    cy.contains('h1', 'Relatório da aplicação').should('be.visible')
+    cy.contains(PHYSICS).should('be.visible')
   })
 })
 

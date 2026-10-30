@@ -28,6 +28,19 @@ describe('createTeacherRepositories', () => {
     expect(paths).toEqual(['GET /applications', 'GET /applications/a%201/versions', 'GET /applications/a%201/sheets'])
   })
 
+  /** One request each, calculated on the server (#50), instead of every list read here. */
+  it('reads the panel and the reports from the API when there is a client', async () => {
+    const { api, request } = fakeApi()
+    const { reports } = createTeacherRepositories('ana', api)
+    request.mockResolvedValueOnce({ classes: 0, questions: 0, exams: 0, applications: 0, pendingCorrections: 0, recent: [], gradable: [] })
+    request.mockResolvedValueOnce([])
+
+    await reports.dashboard()
+    await reports.consolidated()
+
+    expect(request.mock.calls.map(([method, path]) => `${method} ${path}`)).toEqual(['GET /dashboard', 'GET /reports/consolidated'])
+  })
+
   /** The corrections move to the API with their own screens (#48); until then they stay in this browser. */
   it('keeps the corrections in this browser even with a client', async () => {
     const { api, request } = fakeApi()

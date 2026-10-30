@@ -5,11 +5,13 @@ import { createLocalCorrectionRepository, type CorrectionRepository } from './co
 import { createLocalPrintingRepository, type PrintingRepository } from './printing-repository'
 import { createPublicLookupRepository, type PublicLookupRepository } from './public-lookup-repository'
 import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
+import { createLocalReportRepository, type CorrectionsByApplication, type ReportRepository } from './report-repository'
 import { createHttpStudentRepository, createLocalStudentRepository, type StudentRepository } from './student-repository'
 import { createHttpQuestionRepository } from './http/create-http-question-repository'
 import { createHttpExamRepository } from './http/create-http-exam-repository'
 import { createHttpApplicationRepository } from './http/create-http-application-repository'
 import { createHttpPrintingRepository } from './http/create-http-printing-repository'
+import { createHttpReportRepository } from './http/create-http-report-repository'
 import type { ApiClient, FileClient } from './http/api-client'
 
 export * from './types'
@@ -22,6 +24,7 @@ export type {
   PrintingRepository,
   PublicLookupRepository,
   QuestionRepository,
+  ReportRepository,
   StudentRepository,
 }
 
@@ -33,6 +36,8 @@ export interface TeacherRepositories {
   applications: ApplicationRepository
   printing: PrintingRepository
   corrections: CorrectionRepository
+  /** The panel and the reports, calculated on the API since #50. */
+  reports: ReportRepository
 }
 
 /**
@@ -46,8 +51,9 @@ export interface TeacherRepositories {
  * student, rather than widening this one.
  *
  * With an API client, the areas on the API read and write there: classes and
- * students since #42, questions since #44, exams since #45, and applications
- * with their versions and sheets since #46. The corrections switch in the
+ * students since #42, questions since #44, exams since #45, applications
+ * with their versions and sheets since #46, and the panel and the reports
+ * since #50. The corrections switch in the
  * issue that wires their screens to the API (#48). Without a client, which is
  * the GitHub Pages demo and the unit tests, every entry stays in this browser.
  */
@@ -63,15 +69,30 @@ function inThisBrowser(teacherId: string, corrections: CorrectionRepository): Te
   const questions = createLocalQuestionRepository(teacherId)
   const exams = createLocalExamRepository(teacherId)
   const printing = createLocalPrintingRepository()
+  const applications = createLocalApplicationRepository(teacherId, { exams, classes, questions, students, printing, corrections })
 
   return {
     classes,
     students,
     questions,
     exams,
-    applications: createLocalApplicationRepository(teacherId, { exams, classes, questions, students, printing, corrections }),
+    applications,
     printing,
     corrections,
+    reports: createLocalReportRepository({ classes, questions, exams, applications, students, printing, corrections: byApplication(corrections, printing) }),
+  }
+}
+
+/**
+ * The corrections of each application, reached through its sheets because the
+ * browser keeps them by sheet. The API lists them under the application.
+ */
+function byApplication(corrections: CorrectionRepository, printing: PrintingRepository): CorrectionsByApplication {
+  return {
+    async listByApplication(applicationId) {
+      const sheets = await printing.listSheets(applicationId)
+      return corrections.listByAnswerSheets(sheets.map((sheet) => sheet.id))
+    },
   }
 }
 
@@ -84,5 +105,6 @@ function onTheApi(api: ApiClient & FileClient, corrections: CorrectionRepository
     applications: createHttpApplicationRepository(api),
     printing: createHttpPrintingRepository(api),
     corrections,
+    reports: createHttpReportRepository(api),
   }
 }

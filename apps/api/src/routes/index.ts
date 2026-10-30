@@ -15,6 +15,7 @@ import { examRoutes } from './exam-routes'
 import { healthRoutes } from './health-routes'
 import { publicRoutes } from './public-routes'
 import { questionRoutes } from './question-routes'
+import { createReports, dashboardRoutes, reportRoutes } from './report-routes'
 
 export interface RouteDependencies {
   healthService: HealthService
@@ -72,10 +73,13 @@ export function createRouter({
     router.use('/auth', signedInAuthRoutes(auth.controller))
     router.use('/me', meRoutes(auth.controller))
   }
+  const reports = createReports(db)
+  router.use('/dashboard', dashboardRoutes(reports))
+  router.use('/reports', reportRoutes(reports))
   router.use('/questions', questionRoutes(db))
   router.use('/classes', classRoutes({ db, fieldCipher, expensiveLimit }))
   router.use('/exams', examRoutes(db))
-  router.use('/applications', applicationRoutes({ db, fileStorage, expensiveLimit, publicAppUrl, readPhoto, logger }))
+  router.use('/applications', applicationRoutes({ db, fileStorage, expensiveLimit, publicAppUrl, readPhoto, logger, reports }))
 
   return router
 }

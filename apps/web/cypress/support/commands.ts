@@ -1,6 +1,6 @@
 import { sampleApplications, sampleClasses, sampleExams, sampleQuestions } from '@/lib/seed'
 import type { ApplicationInput, ClassInput, ExamInput, GenerationRequest, QuestionInput, StudentInput } from '@/lib/schemas'
-import type { AnswerSheet, AuthenticatedUser, Class, Correction } from '@/types/domain'
+import type { AnswerSheet, ApplicationOverview, AuthenticatedUser, Class, Correction, Exam, Question } from '@/types/domain'
 
 /** The password of every teacher the suite signs up; long enough for the 8-character rule. */
 export const TEST_PASSWORD = 'senha-de-teste-1'
@@ -271,6 +271,7 @@ export interface SheetReview {
   applicationId: string
   answerSheetId: string
   answers: { questionId: string; selectedAlternativeId?: string }[]
+  discursiveScores?: { questionId: string; score: number }[]
   finalize: boolean
 }
 
@@ -282,6 +283,54 @@ export interface SheetReview {
  */
 Cypress.Commands.add('recordCorrection', (accessToken: string, { applicationId, ...review }: SheetReview) => {
   return apiAs(accessToken)<Correction>('POST', `/applications/${applicationId}/corrections`, review).then(({ body }) => body)
+})
+
+/** What the review of a sheet sends when every question is right and every open-ended one gets its whole value. */
+type FullMarks = Pick<SheetReview, 'answers'> & Required<Pick<SheetReview, 'discursiveScores'>>
+
+function fullMarksOn(api: Api, examId: string): Cypress.Chainable<FullMarks> {
+  const review: FullMarks = { answers: [], discursiveScores: [] }
+  return api<Exam>('GET', `/exams/${examId}`).then(({ body: exam }) => {
+    for (const { questionId } of exam.questions) {
+      api<Question>('GET', `/questions/${questionId}`).then(({ body: question }) => {
+        if (question.type === 'discursiva') review.discursiveScores.push({ questionId, score: question.maxScore ?? 0 })
+        else review.answers.push({ questionId, selectedAlternativeId: question.correctAlternativeId })
+      })
+    }
+    return cy.wrap(null, { log: false }).then(() => review)
+  })
+}
+
+/** The first sheet of the sample application of `title`, printing it first when it is still a draft. */
+function firstSheetOf(api: Api, title: string): Cypress.Chainable<{ application: ApplicationOverview; sheet: AnswerSheet }> {
+  return api<{ items: ApplicationOverview[] }>('GET', '/applications?pageSize=1000').then(({ body }) => {
+    const application = body.items.find((item) => item.examTitle === title)
+    if (application === undefined) throw new Error(`Nenhuma aplicação da prova "${title}".`)
+    const generation: GenerationRequest = { versions: [{ shuffleQuestions: false, shuffleAlternatives: false }], withStudentIdentification: true }
+    if (application.status === 'draft') api('POST', `/applications/${application.id}/generate-pdf`, generation)
+    return api<{ items: AnswerSheet[] }>('GET', `/applications/${application.id}/sheets`).then(({ body: sheets }) => {
+      const [sheet] = sheets.items
+      if (sheet === undefined) throw new Error(`A aplicação da prova "${title}" não tem folhas.`)
+      return { application, sheet }
+    })
+  })
+}
+
+/**
+ * Corrects the first sheet of a sample application on the API, with every
+ * answer right, as the teacher signed in (`@teacher`). The reports read the
+ * corrections from the database, so the specs about them write there, apart
+ * from wherever the grading screens keep theirs.
+ */
+Cypress.Commands.add('correctFirstSheetOf', (title: string) => {
+  return cy.get<SignedInTeacher>('@teacher').then(({ accessToken }) => {
+    const api = apiAs(accessToken)
+    return firstSheetOf(api, title).then(({ application, sheet }) =>
+      fullMarksOn(api, application.examId).then((review) =>
+        cy.recordCorrection(accessToken, { applicationId: application.id, answerSheetId: sheet.id, ...review, finalize: true }),
+      ),
+    )
+  })
 })
 
 /**
@@ -373,6 +422,7 @@ declare global {
       signInAsNewTeacher(options?: { withSampleData?: boolean }): Chainable<SignedInTeacher>
       printApplication(accessToken: string, options?: PrintOptions): Chainable<PrintedApplication>
       recordCorrection(accessToken: string, review: SheetReview): Chainable<Correction>
+      correctFirstSheetOf(title: string): Chainable<Correction>
     }
   }
 }

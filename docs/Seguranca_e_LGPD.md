@@ -128,7 +128,7 @@ Limite por usuário não protege a conta: 600 professores legítimos na semana d
 |---|---|
 | **Necessidade / minimização** (Art. 6º, III) | Pendente: o e-mail do aluno é coletado sem finalidade no sistema. Ver nota do RF07. |
 | **Transparência** (Art. 6º, VI) | RF39 — aviso de privacidade no cadastro e na importação de alunos, mais página pública de aviso de privacidade. |
-| **Direito de exclusão** (Art. 18, VI) | RF38 — anonimização do aluno. Remover da turma (RF09) **não** cumpre esse direito: preserva os dados. |
+| **Direito de exclusão** (Art. 18, VI) | RF38 — anonimização do aluno. Remover da turma (RF09) **não** cumpre esse direito: preserva os dados. RF05 — anonimização da conta do professor (`POST /me/anonymize`): nome, e-mail e senha substituídos e sessões encerradas, com turmas, provas e notas preservadas. |
 | **Direito de acesso e correção** (Art. 18, I–III) | O aluno não tem login, então exerce pelo professor, que edita ou anonimiza o registro. |
 | **Segurança** (Art. 46) | RNF04 (tráfego), RNF16 (arquivos), RNF18 (API), RNF14 (isolamento). |
 | **Registro das operações** (Art. 37) | RF40 e RNF17 — trilha de auditoria. |
