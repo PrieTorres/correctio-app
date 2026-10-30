@@ -1,4 +1,5 @@
 import type { FilterOption } from '@/components/ui';
+import { ROUTES } from '@/app/routes';
 import { compareByLocale } from '@/lib/utils';
 import type { ApplicationListParams } from '@/lib/repositories/application-repository';
 import { LARGEST_PAGE } from '@/lib/repositories/read-every-page';
@@ -30,6 +31,11 @@ export const APPLICATION_LIST_FILTER_PARAMS: Readonly<Record<keyof ApplicationLi
   examId: 'exam',
   pdf: 'pdf',
 };
+
+/** P11 already filtered by one class, where P5 sends the teacher for the rest of its applications. */
+export function classApplicationsPath(classId: string): string {
+  return `${ROUTES.applications}?${APPLICATION_LIST_FILTER_PARAMS.classId}=${encodeURIComponent(classId)}`;
+}
 
 /** How many applications a page of P11 shows; the API answers the page already filtered and sorted. */
 export const APPLICATION_PAGE_SIZE = 20;

@@ -19,6 +19,7 @@ import { matchesSearch } from '@/lib/utils'
 import type { Class, Student } from '@/types/domain'
 import { useArchiveClass, useClass, useStudentAction, useStudents, type StudentAction } from '../hooks/useClasses'
 import { ArchiveClassDialog } from '../components/ArchiveClassDialog'
+import { ClassApplications } from '../components/ClassApplications'
 import { ClassFormModal } from '../components/ClassFormModal'
 import { StudentFormModal } from '../components/StudentFormModal'
 import { ImportStudentsDialog } from '../components/ImportStudentsDialog'
@@ -160,6 +161,8 @@ function ClassDetail({ schoolClass }: Readonly<{ schoolClass: Class }>) {
           onAction={(action, student) => setDialog({ kind: 'student-action', action, student })}
         />
       </Card>
+
+      <ClassApplications classId={schoolClass.id} />
 
       <ClassDialogs schoolClass={schoolClass} dialog={dialog} onClose={close} />
 

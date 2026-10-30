@@ -1,6 +1,14 @@
 import type { BadgeTone } from '@/components/ui';
+import { correctionProgressOf } from '@/lib/applications';
 import { formatDate } from '@/lib/utils';
-import type { ApplicationOverview, ApplicationProgress, ApplicationStatus, ExamVersion } from '@/types/domain';
+import {
+  CORRECTION_PROGRESS,
+  type ApplicationOverview,
+  type ApplicationProgress,
+  type ApplicationStatus,
+  type CorrectionProgress,
+  type ExamVersion,
+} from '@/types/domain';
 
 /** How each status reads on screen; `generated` is about the paper, which is what the teacher waits for. */
 export const APPLICATION_STATUS_LABEL: Readonly<Record<ApplicationStatus, { label: string; tone: BadgeTone }>> = {
@@ -39,6 +47,20 @@ export function answerKeyBadgeOf({
     return { label: `Gabarito publicado em ${publishedAnswerKeys} de ${versions} versões`, tone: 'warning' };
   }
   return { label: 'Gabarito publicado', tone: 'success' };
+}
+
+const CORRECTION_PROGRESS_LABEL: Readonly<Record<CorrectionProgress, { label: string; tone: BadgeTone }>> = {
+  [CORRECTION_PROGRESS.NOT_STARTED]: { label: 'Correção não iniciada', tone: 'neutral' },
+  [CORRECTION_PROGRESS.IN_PROGRESS]: { label: 'Correção em andamento', tone: 'warning' },
+  [CORRECTION_PROGRESS.DONE]: { label: 'Correção concluída', tone: 'success' },
+};
+
+/** Where the correction stands, in the three stages P11 filters by, for the lists that summarize an application. */
+export function correctionBadgeOf(progress: Pick<ApplicationProgress, 'corrections' | 'correctedSheets'>): {
+  label: string;
+  tone: BadgeTone;
+} {
+  return CORRECTION_PROGRESS_LABEL[correctionProgressOf(progress)];
 }
 
 /** Why "Corrigir folhas" cannot start yet: before the paper exists there is no sheet to correct. */
