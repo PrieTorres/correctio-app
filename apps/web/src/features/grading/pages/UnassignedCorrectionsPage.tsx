@@ -1,6 +1,6 @@
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, UserCheck } from 'lucide-react'
-import { Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration, Tour } from '@/components/ui'
+import { useParams } from 'react-router-dom'
+import { UserCheck } from 'lucide-react'
+import { BackLink, ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration, Tour } from '@/components/ui'
 import { buildPath, ROUTES } from '@/app/routes'
 import { useGradingOverview, useUnassignedCorrections } from '../hooks/useGrading'
 
@@ -28,13 +28,7 @@ export function UnassignedCorrectionsPage() {
       pendingLabel="Carregando pendências…"
     >
       <div className="flex flex-col gap-6">
-        <Link
-          to={buildPath(ROUTES.grading, { id: id ?? '' })}
-          className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-        >
-          <ArrowLeft size={16} aria-hidden />
-          Folhas
-        </Link>
+        <BackLink to={buildPath(ROUTES.grading, { id: id ?? '' })}>Folhas</BackLink>
 
         <PageHeader help
           title="Pendentes de atribuição"
@@ -64,13 +58,12 @@ export function UnassignedCorrectionsPage() {
                         nota {correction.totalScore}
                       </span>
                     </span>
-                    <Link
+                    <ButtonLink
                       to={buildPath(ROUTES.gradingSheet, { id: id ?? '', sheetId: correction.answerSheetId })}
-                      aria-label={`Associar aluno à folha ${sheet?.sheetNumber ?? ''}`}
-                      className="touch-target inline-flex items-center justify-center rounded-[var(--radius-control)] border border-primary bg-surface px-4 text-label font-semibold text-primary hover:bg-surface-muted"
+                      aria-label={`Associar aluno à folha ${sheet?.sheetNumber ?? '—'}`}
                     >
                       Associar aluno
-                    </Link>
+                    </ButtonLink>
                   </li>
                 )
               })}

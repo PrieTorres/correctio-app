@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Copy, Pencil, Plus } from 'lucide-react';
-import { Badge, Button, Card, PageHeader, QueryBoundary } from '@/components/ui';
+import { Copy, Pencil, Plus } from 'lucide-react';
+import { BackLink, Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { totalScore } from '@/lib/exams';
 import { useQuestionsByIds } from '@/features/questions';
@@ -25,19 +25,13 @@ export function ExamDetailPage() {
       {exam === null || exam === undefined ? (
         <Card className="p-6">
           <p className="text-body text-ink-muted">Prova não encontrada.</p>
-          <Link to={ROUTES.exams} className="mt-3 inline-block text-label text-primary underline">
+          <Link to={ROUTES.exams} className="mt-3 link-target text-label text-primary underline">
             Voltar para provas
           </Link>
         </Card>
       ) : (
         <div className="flex flex-col gap-6">
-          <Link
-            to={ROUTES.exams}
-            className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-          >
-            <ArrowLeft size={16} aria-hidden />
-            Provas
-          </Link>
+          <BackLink to={ROUTES.exams}>Provas</BackLink>
 
           <PageHeader
             title={exam.title}
@@ -55,9 +49,9 @@ export function ExamDetailPage() {
                 >
                   Duplicar
                 </Button>
-                <Button icon={<Pencil size={18} aria-hidden />}>
-                  <Link to={buildPath(ROUTES.editExam, { id: exam.id })}>Editar</Link>
-                </Button>
+                <ButtonLink icon={<Pencil size={18} aria-hidden />} to={buildPath(ROUTES.editExam, { id: exam.id })}>
+                  Editar
+                </ButtonLink>
               </>
             }
           />
@@ -119,9 +113,9 @@ export function ExamDetailPage() {
               Aplicar leva a prova a uma turma numa data. A mesma prova rende quantas aplicações
               você quiser, inclusive segunda chamada.
             </p>
-            <Button variant="primary" icon={<Plus size={18} aria-hidden />}>
-              <Link to={ROUTES.newApplication}>Nova aplicação com esta prova</Link>
-            </Button>
+            <ButtonLink variant="primary" icon={<Plus size={18} aria-hidden />} to={ROUTES.newApplication}>
+              Nova aplicação com esta prova
+            </ButtonLink>
           </Card>
         </div>
       )}

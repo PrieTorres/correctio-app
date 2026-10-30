@@ -27,6 +27,8 @@ const CALCULO = { name: 'Cálculo I', subject: 'Matemática', term: '2026/2' }
 
 const teacher = (id: string) => ({ id, role: 'professor' as const, fullName: id, email: `${id}@exemplo.edu.br`, passwordHash: 'x' })
 const namesIn = (response: Response) => (response.body as { items: Class[] }).items.map((item) => item.name)
+const countsIn = (response: Response) =>
+  Object.fromEntries((response.body as { items: Class[] }).items.map((item) => [item.name, item.studentCount]))
 
 describe.runIf(DATABASE_TEST_URL !== undefined)('class routes (real MySQL)', () => {
   let database: TestDatabase
@@ -63,6 +65,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('class routes (real MySQL)', () 
       get: (path: string) => request(app).get(path).set(authorization),
       post: (path: string, body?: object) => request(app).post(path).set(authorization).send(body),
       patch: (path: string, body?: object) => request(app).patch(path).set(authorization).send(body),
+      delete: (path: string) => request(app).delete(path).set(authorization),
     }
   }
   const ana = () => asTeacher('token-ana')
@@ -221,6 +224,35 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('class routes (real MySQL)', () 
 
       expect(response.body.total).toBe(3)
       expect(namesIn(response)).toEqual(['C'])
+    })
+
+    /** #146: the cards of P3 show the same number as "Alunos (N)" on P5, from one grouped query per page. */
+    it('counts the students of each class, anonymized ones in and removed ones out', async () => {
+      const calculo = await create()
+      await create({ ...CALCULO, name: 'Física II' })
+      const added = await Promise.all(
+        ['Ana Lima', 'Bruno Melo', 'Carla Dias'].map((fullName, index) =>
+          ana().post(`/classes/${calculo.id}/students`, { fullName, registration: `20260${index}` }),
+        ),
+      )
+      expect(added.map((response) => response.status)).toEqual([201, 201, 201])
+      const [anonymized, removed] = added.map((response) => (response.body as { id: string }).id)
+
+      expect((await ana().post(`/classes/${calculo.id}/students/${anonymized}/anonymize`)).status).toBe(204)
+      expect((await ana().delete(`/classes/${calculo.id}/students/${removed}`)).status).toBe(204)
+
+      expect(countsIn(await ana().get('/classes'))).toEqual({ 'Cálculo I': 2, 'Física II': 0 })
+    })
+
+    it('counts the archived classes too, and only the students of the teacher', async () => {
+      const archived = await create()
+      await ana().post(`/classes/${archived.id}/students`, { fullName: 'Ana Lima', registration: '202601' })
+      await ana().patch(`/classes/${archived.id}/archive`)
+      const ofBia = await create(CALCULO, 'token-bia')
+      await bia().post(`/classes/${ofBia.id}/students`, { fullName: 'Davi Reis', registration: '202602' })
+
+      expect(countsIn(await ana().get('/classes').query({ archived: 'true' }))).toEqual({ 'Cálculo I': 1 })
+      expect(countsIn(await bia().get('/classes'))).toEqual({ 'Cálculo I': 1 })
     })
 
     it('refuses a page size above 1000 instead of cutting the list', async () => {

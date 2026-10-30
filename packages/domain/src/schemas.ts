@@ -108,6 +108,8 @@ export const classSchema = z.object({
   term: z.string().min(1, 'Informe o período').max(40),
   status: classStatusSchema,
   inviteCode: z.string().min(1),
+  /** Only in the list of classes, which computes it; see `Class.studentCount`. */
+  studentCount: z.number().int().nonnegative().optional(),
 });
 
 export const classInputSchema = classSchema.pick({ name: true, subject: true, term: true });

@@ -5,6 +5,7 @@ import {
   ArchiveIllustration,
   Badge,
   Button,
+  ButtonLink,
   Card,
   ConfirmDialog,
   EmptyState,
@@ -48,9 +49,9 @@ export function ExamListPage() {
   const exams = data?.items ?? [];
 
   const newExamButton = (
-    <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
-      <Link to={ROUTES.newExam}>Nova prova</Link>
-    </Button>
+    <ButtonLink variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create" to={ROUTES.newExam}>
+      Nova prova
+    </ButtonLink>
   );
 
   return (
@@ -61,9 +62,9 @@ export function ExamListPage() {
         description="A prova é o conteúdo. Aplicá-la a uma turma é o passo seguinte, e a mesma prova serve para várias."
         actions={
           <>
-            <Button icon={<Sparkles size={18} aria-hidden />} data-tour="generate">
-              <Link to={ROUTES.generateExam}>Gerar automaticamente</Link>
-            </Button>
+            <ButtonLink icon={<Sparkles size={18} aria-hidden />} data-tour="generate" to={ROUTES.generateExam}>
+              Gerar automaticamente
+            </ButtonLink>
             {newExamButton}
           </>
         }
@@ -140,12 +141,14 @@ export function ExamListPage() {
   );
 }
 
+/** One exam of P8, whose repeated buttons say which exam they act on after the visible word (#145). */
 function ExamRow({
   exam,
   onArchive,
   onDuplicate,
 }: Readonly<{ exam: Exam; onArchive: () => void; onDuplicate: () => void }>) {
   const archived = exam.status === 'closed';
+  const archiveLabel = archived ? 'Restaurar' : 'Arquivar';
 
   return (
     <Card
@@ -173,16 +176,22 @@ function ExamRow({
 
       <div className="above-card-link flex shrink-0 gap-1">
         {!archived && (
-          <Button variant="ghost" icon={<Copy size={16} aria-hidden />} onClick={onDuplicate}>
+          <Button
+            variant="ghost"
+            icon={<Copy size={16} aria-hidden />}
+            aria-label={`Duplicar a prova ${exam.title}`}
+            onClick={onDuplicate}
+          >
             Duplicar
           </Button>
         )}
         <Button
           variant="ghost"
           icon={archived ? <RotateCcw size={16} aria-hidden /> : <Archive size={16} aria-hidden />}
+          aria-label={`${archiveLabel} a prova ${exam.title}`}
           onClick={onArchive}
         >
-          {archived ? 'Restaurar' : 'Arquivar'}
+          {archiveLabel}
         </Button>
       </div>
     </Card>

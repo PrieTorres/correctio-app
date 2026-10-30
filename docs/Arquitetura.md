@@ -157,6 +157,8 @@ Estrutura por funcionalidade, com `index.ts` como interface pública de cada pas
 - **Modelar apenas estados válidos.** O domínio pede união discriminada: questão é objetiva **ou** discursiva (não um campo de tipo com campos opcionais que combinam em estados impossíveis); prova é rascunho, pronta ou arquivada; correção vem de imagem ou de digitação; a página pública tem estados mutuamente exclusivos (código inválido, nota não liberada, gabarito não publicado, liberado) — nunca três booleanos soltos.
 - **Validar dado externo na fronteira**, com a mesma definição de schema dos dois lados.
 - **Acessibilidade não é etapa final.** O RNF11 exige alvos de toque de 44 px e nota mínima em auditoria de acessibilidade; primitives acessíveis entregam gestão de foco e ARIA sem reimplementação.
+- **Um controle de cada vez.** Ação que leva a outra tela com cara de botão é o `ButtonLink` de `components/ui`, que é o próprio link desenhado com as classes do `Button`. Botão com link dentro, ou link com botão dentro, só navegava pelo texto e parava duas vezes no Tab (#141).
+- **44 px resolvidos no componente, não na tela.** O link de voltar é o `BackLink`, a caixa de marcar com texto é o `CheckboxField` e o campo de número é o `NumberInput`, todos de `components/ui` e todos com 44 px de altura. Botão que se repete em cada item de uma lista ("Remover", "Arquivar", "Revisar") tem nome acessível que começa pelo texto visível e depois diz o item, como "Remover Ana Beatriz Moreira da turma" (#145, WCAG 2.5.3).
 
 ---
 

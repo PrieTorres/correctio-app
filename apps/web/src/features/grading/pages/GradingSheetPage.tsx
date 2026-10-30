@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ImageOff, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
-import { Badge, Button, Card, NumberInput, PageHeader, QueryBoundary, SaveError, Tour } from '@/components/ui';
+import { ImageOff, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { BackLink, Badge, Button, Card, NumberInput, PageHeader, QueryBoundary, SaveError, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import {
   clampDiscursiveScore,
@@ -68,7 +68,7 @@ function SheetNotFound({ applicationId }: Readonly<{ applicationId: string }>) {
   return (
     <Card className="p-6">
       <p className="text-body text-ink-muted">Folha não encontrada.</p>
-      <Link to={buildPath(ROUTES.grading, { id: applicationId })} className="mt-3 inline-block text-label text-primary underline">
+      <Link to={buildPath(ROUTES.grading, { id: applicationId })} className="mt-3 link-target text-label text-primary underline">
         Voltar para as folhas
       </Link>
     </Card>
@@ -138,10 +138,7 @@ function SheetReview(sources: Readonly<ReviewSources>) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link to={backToList} className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary">
-        <ArrowLeft size={16} aria-hidden />
-        Folhas
-      </Link>
+      <BackLink to={backToList}>Folhas</BackLink>
 
       <PageHeader
         help

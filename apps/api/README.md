@@ -297,6 +297,10 @@ Spec, a mesma rota matricula por e-mail um aluno que já tem conta, mas aqui o a
 (`docs/Arquitetura.md`, seção 9). Pelo mesmo motivo, as rotas de código de convite da Spec
 (`/classes/:id/invite-code` e `/classes/join-by-code`) não existem.
 
+`GET /classes` traz em cada turma o `studentCount` (#146), contado numa consulta agrupada por
+página: o aluno anonimizado conta, o removido não, como "Alunos (N)" na P5. É o único lugar que
+traz o campo; a turma lida por id, criada ou editada vem sem ele.
+
 Turma arquivada não recebe aluno novo (decisão da PM na #144): `POST /classes/:id/students` e
 `POST /classes/:id/students/import` respondem 409, pedindo para restaurar a turma. Editar, remover
 e anonimizar os alunos que ela já tem continuam liberados. A importação pula a matrícula que já

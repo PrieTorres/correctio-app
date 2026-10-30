@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -16,8 +16,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { ArrowLeft, Plus, Sparkles } from 'lucide-react';
-import { Button, Card, PageHeader, QueryBoundary, SaveError, TextField, Tour } from '@/components/ui';
+import { Plus, Sparkles } from 'lucide-react';
+import { BackLink, Button, Card, CheckboxField, PageHeader, QueryBoundary, SaveError, TextField, Tour } from '@/components/ui';
 import { examInputSchema, type ExamInput } from '@/lib/schemas';
 import { totalScore } from '@/lib/exams';
 import { fieldArrayMessage } from '@/lib/forms';
@@ -146,13 +146,7 @@ export function ExamFormPage() {
       pendingLabel="Carregando prova…"
     >
       <div className="flex flex-col gap-6">
-        <Link
-          to={ROUTES.exams}
-          className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-        >
-          <ArrowLeft size={16} aria-hidden />
-          Provas
-        </Link>
+        <BackLink to={ROUTES.exams}>Provas</BackLink>
 
         <PageHeader help title={id === undefined ? 'Nova prova' : 'Editar prova'} />
 
@@ -171,8 +165,8 @@ export function ExamFormPage() {
             <p className="text-caption text-ink-subtle">
               Cada aplicação herda estes valores e pode alterá-los por versão.
             </p>
-            <Checkbox label="Embaralhar as questões" {...register('defaultShuffleQuestions')} />
-            <Checkbox label="Embaralhar as alternativas" {...register('defaultShuffleAlternatives')} />
+            <CheckboxField label="Embaralhar as questões" {...register('defaultShuffleQuestions')} />
+            <CheckboxField label="Embaralhar as alternativas" {...register('defaultShuffleAlternatives')} />
           </Card>
 
           <Card className="flex flex-col gap-4 p-6">
@@ -290,13 +284,4 @@ function arrayMove<T>(list: readonly T[], from: number, to: number): T[] {
   const [moved] = next.splice(from, 1);
   if (moved !== undefined) next.splice(to, 0, moved);
   return next;
-}
-
-function Checkbox({ label, ...rest }: Readonly<{ label: string }> & Record<string, unknown>) {
-  return (
-    <label className="flex cursor-pointer items-center gap-3">
-      <input type="checkbox" className="size-4 accent-[var(--color-primary)]" {...rest} />
-      <span className="text-body text-ink">{label}</span>
-    </label>
-  );
 }

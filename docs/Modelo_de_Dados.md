@@ -110,10 +110,17 @@ de volta ao endereço de onde partiu (2 minutos). Os valores de `purpose` são d
   term: string
   status: "active" | "archived"
   inviteCode: string           // único, regenerável
+  studentCount?: number        // + só na listagem: alunos da turma, anonimizados sim, removidos não
 }
 ```
 
 > Arquivar é `status: "archived"`, **não** um campo `archivedAt`. A Spec define enum.
+
+`studentCount` é acréscimo do grupo (#146) para o card da P3, que a Spec pede com o número de
+alunos. É calculado a cada listagem, numa consulta agrupada por página, e **não é gravado**: não
+existe coluna para ele, e a turma lida por id, criada ou editada vem sem o campo. Conta como a
+P5 conta em "Alunos (N)": o aluno anonimizado continua na turma, com as notas (RF38), e conta; o
+removido saiu da turma (RF09) e não conta.
 
 ### ClassEnrollment
 
@@ -396,6 +403,8 @@ verdade, que toda tabela tem todos os campos deste documento.
 - **Remoção é sempre soft**, pelo campo de cada entidade. Nenhuma chave estrangeira apaga em
   cascata.
 - **`Student.email` guarda o texto criptografado** (AES-256-GCM), nunca o endereço.
+- **Campo calculado não vira coluna.** `Class.studentCount` é contado dos alunos a cada listagem;
+  o teste de conformidade das tabelas o deixa de fora.
 
 ---
 

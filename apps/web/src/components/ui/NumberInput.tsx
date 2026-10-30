@@ -25,6 +25,9 @@ interface NumberInputProps {
  * Keeping the text being typed here and reporting upwards only what parses
  * lets someone type the number they meant. An empty field reports nothing at
  * all rather than a zero nobody asked for, and is put back on the way out.
+ *
+ * It is 44 px tall however it is padded, like every other control: the number
+ * of versions on P13 was 42 px (#145).
  */
 export function NumberInput({
   value,
@@ -60,7 +63,7 @@ export function NumberInput({
       }}
       aria-label={label}
       className={cn(
-        'rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-body',
+        'min-h-11 rounded-[var(--radius-control)] border border-line bg-surface px-3 py-2 text-body',
         'focus:outline-none focus-visible:border-primary',
         className,
       )}

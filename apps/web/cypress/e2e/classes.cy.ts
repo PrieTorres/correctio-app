@@ -31,16 +31,56 @@ describe('turmas', () => {
     cy.contains('Cálculo I — Noturno').should('be.visible')
   })
 
-  it('cria uma turma e mostra na lista', () => {
+  /** #146: "Salvar" on a new class opens it (P5), ready for its first student, as the spec asks. */
+  it('cria uma turma, abre a turma nova e a mostra na lista sem alunos', () => {
     cy.visit('/turmas')
 
     cy.contains('button', 'Nova turma').click()
     cy.findByLabel('Nome da turma').type('Estatística I')
     cy.findByLabel('Disciplina').type('Matemática')
     cy.findByLabel('Período').type('2026/2')
-    cy.contains('button', 'Salvar').click()
+    cy.findInDialog('button', 'Salvar').click()
 
-    cy.contains('Estatística I').should('be.visible')
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.contains('h1', 'Estatística I').should('be.visible')
+    cy.contains('h3', 'Nenhum aluno ainda').should('be.visible')
+
+    cy.get('main').contains('a', 'Turmas').click()
+    cy.contains('li', 'Estatística I').should('contain', '0 alunos')
+  })
+
+  /** #146: editing from the list also leads to the class, as the spec says for "Salvar ao editar". */
+  it('edita uma turma pela lista e abre a turma', () => {
+    cy.visit('/turmas')
+
+    cy.get('[aria-label="Editar a turma Física II"]').click()
+    cy.findByLabel('Disciplina').clear().type('Física Moderna')
+    cy.findInDialog('button', 'Salvar').click()
+
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.contains('h1', 'Física II').should('be.visible')
+    cy.contains('Física Moderna · 2026/2').should('be.visible')
+  })
+
+  /**
+   * #146: the card counts the students the way "Alunos (N)" does on P5: an
+   * anonymized student still counts, a removed one does not. Back on the list
+   * through the app's own link, the count is already the new one.
+   */
+  it('mostra quantos alunos tem cada turma, e acompanha quem sai', () => {
+    cy.visit('/turmas')
+    cy.contains('li', 'Cálculo I — Noturno').should('contain', '12 alunos')
+
+    cy.contains('a', 'Cálculo I — Noturno').click()
+    cy.get('[aria-label="Anonimizar Ana Beatriz Moreira"]').click()
+    cy.findInDialog('button', 'Anonimizar').click()
+    cy.contains('li', 'Aluno anonimizado').should('be.visible')
+    cy.get('[aria-label="Remover Bruno Carvalho Lima da turma"]').click()
+    cy.findInDialog('button', 'Remover').click()
+    cy.contains('h2', 'Alunos (11)').should('be.visible')
+
+    cy.get('main').contains('a', 'Turmas').click()
+    cy.contains('li', 'Cálculo I — Noturno').should('contain', '11 alunos')
   })
 
   it('arquiva uma turma e a encontra no filtro de arquivadas', () => {
@@ -145,6 +185,10 @@ describe('turmas', () => {
 
 /** #144: the header of P5 says the state of the class and edits or archives it without going back to P3. */
 describe('turmas: detalhe da turma', () => {
+  /**
+   * Saved on P5 itself, the screen stays and adds no step to the history
+   * (#146), so going back still leads to the list it was opened from.
+   */
   it('mostra a situação da turma e edita pelo cabeçalho', () => {
     openClass('Cálculo I — Noturno')
 
@@ -155,6 +199,8 @@ describe('turmas: detalhe da turma', () => {
 
     cy.get('[role="dialog"]').should('not.exist')
     cy.contains('h1', 'Cálculo I — Turma B').should('be.visible')
+    cy.go('back')
+    cy.contains('h1', 'Turmas').should('be.visible')
   })
 
   it('arquiva pelo cabeçalho e volta para a lista de turmas', () => {
@@ -221,7 +267,7 @@ describe('turmas: detalhe da turma', () => {
     cy.findByLabel('Período').type('2026/2')
     cy.findInDialog('button', 'Salvar').click()
     cy.get('[role="dialog"]').should('not.exist')
-    cy.contains('a', 'Estatística I').click()
+    cy.contains('h1', 'Estatística I').should('be.visible')
 
     cy.contains('h3', 'Nenhum aluno ainda').should('be.visible')
     cy.contains('copie a lista da planilha e cole em "Importar alunos"').should('be.visible')

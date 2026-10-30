@@ -28,7 +28,7 @@ export function ClassApplications({ classId }: Readonly<{ classId: string }>) {
           Aplicações desta turma {data !== undefined && <span className="text-body text-ink-subtle">({total})</span>}
         </h2>
         {total > SHOWN && (
-          <Link to={classApplicationsPath(classId)} className="inline-flex min-h-11 items-center text-label text-primary underline">
+          <Link to={classApplicationsPath(classId)} className="link-target text-label text-primary underline">
             Ver todas
           </Link>
         )}
@@ -63,7 +63,7 @@ function ClassApplicationItem({ application }: Readonly<{ application: Applicati
       <div className="min-w-0">
         <Link
           to={buildPath(ROUTES.applicationDetail, { id: application.id })}
-          className="inline-flex min-h-11 items-center text-label text-primary hover:underline"
+          className="link-target text-label text-primary hover:underline"
         >
           {examTitleOf(application)}
         </Link>

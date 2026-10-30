@@ -86,7 +86,7 @@ export function SortableExamQuestion({
       </p>
 
       {question !== undefined && isMultipleChoice(question) && (
-        <label className="flex items-center gap-2 text-caption text-ink-muted">
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-caption text-ink-muted">
           <input
             type="checkbox"
             checked={entry.allowShuffleAlternatives}

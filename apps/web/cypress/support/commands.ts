@@ -1,4 +1,6 @@
 import { sampleApplications, sampleClasses, sampleExams, sampleQuestions } from '@/lib/seed'
+import { TOUR_STEPS } from '@/lib/tour/content'
+import { TOUR_SEEN_KEY } from '@/lib/tour/seen'
 import type { ApplicationInput, ClassInput, ExamInput, GenerationRequest, QuestionInput, StudentInput } from '@/lib/schemas'
 import type { AnswerSheet, AuthenticatedUser, Class, Correction } from '@/types/domain'
 
@@ -362,6 +364,19 @@ Cypress.Commands.add('readFirstSheetOf', (title: string) => {
   cy.contains(/\b1 de \d+ lidas/, { timeout: 10000 }).should('be.visible')
 })
 
+/**
+ * Opens the panel with every screen's tour already marked as seen, for a spec
+ * about something the tour would sit on top of: on a phone it covers the
+ * bottom of the screen, and it takes the focus when it opens. The tour itself
+ * is covered by `tour.cy.ts`.
+ */
+Cypress.Commands.add('visitWithoutTours', () => {
+  cy.visit('/painel', {
+    onBeforeLoad: (win) => win.localStorage.setItem(TOUR_SEEN_KEY, JSON.stringify(Object.keys(TOUR_STEPS))),
+  })
+  cy.contains('h1', 'Painel').should('be.visible')
+})
+
 declare global {
   namespace Cypress {
     interface Chainable {
@@ -373,6 +388,7 @@ declare global {
       signInAsNewTeacher(options?: { withSampleData?: boolean }): Chainable<SignedInTeacher>
       printApplication(accessToken: string, options?: PrintOptions): Chainable<PrintedApplication>
       recordCorrection(accessToken: string, review: SheetReview): Chainable<Correction>
+      visitWithoutTours(): Chainable<void>
     }
   }
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Archive, ArrowLeft } from 'lucide-react';
-import { ActionMenu, Badge, Button, Card, PageHeader, QueryBoundary, Tour, type MenuAction } from '@/components/ui';
+import { Archive } from 'lucide-react';
+import { ActionMenu, BackLink, Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary, Tour, type MenuAction } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
 import { useStudentsWithRemoved } from '@/features/classes';
@@ -35,7 +35,7 @@ function NotFound() {
   return (
     <Card className="p-6">
       <p className="text-body text-ink-muted">Aplicação não encontrada.</p>
-      <Link to={ROUTES.applications} className="mt-3 inline-block text-label text-primary underline">
+      <Link to={ROUTES.applications} className="mt-3 link-target text-label text-primary underline">
         Voltar para aplicações
       </Link>
     </Card>
@@ -62,13 +62,7 @@ function ApplicationDetail({ application }: Readonly<{ application: ApplicationO
 
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        to={ROUTES.applications}
-        className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-      >
-        <ArrowLeft size={16} aria-hidden />
-        Aplicações
-      </Link>
+      <BackLink to={ROUTES.applications}>Aplicações</BackLink>
 
       <div className="flex flex-col gap-3">
         <PageHeader
@@ -166,10 +160,6 @@ function ArchivedNotice({ onRestore }: Readonly<{ onRestore: () => void }>) {
   );
 }
 
-/** A link with the look of the secondary button, for the actions of the correction card. */
-const LINK_BUTTON =
-  'touch-target inline-flex items-center justify-center self-start rounded-[var(--radius-control)] border border-primary bg-surface px-4 text-label font-semibold text-primary hover:bg-surface-muted';
-
 /**
  * How far the correction has gone, counting only the sheets whose correction
  * the teacher confirmed: one still waiting for an open-ended score is not
@@ -190,13 +180,13 @@ function CorrectionCard({ application }: Readonly<{ application: ApplicationOver
       </p>
       {blocker === undefined ? (
         <div className="flex flex-wrap gap-3">
-          <Link to={buildPath(ROUTES.grading, { id: application.id })} className={LINK_BUTTON} data-tour="grading">
+          <ButtonLink variant="secondary" data-tour="grading" to={buildPath(ROUTES.grading, { id: application.id })}>
             Corrigir folhas
-          </Link>
+          </ButtonLink>
           {application.progress.corrections > 0 && (
-            <Link to={buildPath(ROUTES.applicationReport, { id: application.id })} className={LINK_BUTTON}>
+            <ButtonLink variant="secondary" to={buildPath(ROUTES.applicationReport, { id: application.id })}>
               Ver relatório
-            </Link>
+            </ButtonLink>
           )}
         </div>
       ) : (
@@ -218,7 +208,10 @@ function UnassignedLink({ applicationId }: Readonly<{ applicationId: string }>) 
   if (count === 0) return null;
 
   return (
-    <Link to={buildPath(ROUTES.unassignedCorrections, { id: applicationId })} className="text-label text-primary underline">
+    <Link
+      to={buildPath(ROUTES.unassignedCorrections, { id: applicationId })}
+      className="link-target self-start text-label text-primary underline"
+    >
       Pendentes de atribuição ({count})
     </Link>
   );

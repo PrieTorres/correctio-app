@@ -1,7 +1,7 @@
 import { useId, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Camera, CheckCircle2, Clock, FolderOpen, Loader2 } from 'lucide-react';
-import { Badge, Button, Card, PageHeader, QueryBoundary, Tour } from '@/components/ui';
+import { Camera, CheckCircle2, Clock, FolderOpen, Loader2 } from 'lucide-react';
+import { BackLink, Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { discursiveQuestionIdsOf, gradeObjectives } from '@/lib/grading';
 import { formatDate } from '@/lib/utils';
@@ -13,9 +13,6 @@ import { PHOTO_PARAM } from '../review-model';
 type Overview = NonNullable<ReturnType<typeof useGradingOverview>['data']>;
 
 /** A link that looks like the secondary button, for "Revisar" in every list of the screen. */
-const LINK_BUTTON =
-  'touch-target inline-flex items-center justify-center rounded-[var(--radius-control)] border border-primary bg-surface px-4 text-label font-semibold text-primary hover:bg-surface-muted';
-
 /** What a file field looks like when its label is the button: the field stays focusable, and its focus shows on the label. */
 const FILE_BUTTON =
   'touch-target inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 text-label font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary';
@@ -45,10 +42,7 @@ export function GradingUploadPage() {
   return (
     <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando folhas…">
       <div className="flex flex-col gap-6">
-        <Link to={buildPath(ROUTES.applicationDetail, { id })} className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary">
-          <ArrowLeft size={16} aria-hidden />
-          Aplicação
-        </Link>
+        <BackLink to={buildPath(ROUTES.applicationDetail, { id })}>Aplicação</BackLink>
 
         <PageHeader
           help
@@ -79,7 +73,7 @@ function UploadArea({ applicationId, overview }: Readonly<{ applicationId: strin
       <ManualEntryCard applicationId={applicationId} overview={overview} />
       <SheetsCard applicationId={applicationId} overview={overview} />
 
-      <Link to={buildPath(ROUTES.unassignedCorrections, { id: applicationId })} className="text-label text-primary underline">
+      <Link to={buildPath(ROUTES.unassignedCorrections, { id: applicationId })} className="link-target text-label text-primary underline">
         Ver correções pendentes de atribuição
       </Link>
 
@@ -189,9 +183,12 @@ function ReadingOutcome({ applicationId, reading, overview }: Readonly<{ applica
         Folha {sheet?.sheetNumber ?? '—'} · {sheet === undefined ? '' : holderOf(sheet, overview.students, overview.versions)}
       </span>
       {reading.status === 'READ' ? <ReadBadges overview={overview} reading={reading} /> : <Badge tone="danger">Falha na leitura</Badge>}
-      <Link to={reviewPath(applicationId, reading.answerSheetId, reading.imageId)} className={LINK_BUTTON}>
+      <ButtonLink
+        to={reviewPath(applicationId, reading.answerSheetId, reading.imageId)}
+        aria-label={`Revisar a folha ${sheet?.sheetNumber ?? '—'}`}
+      >
         Revisar
-      </Link>
+      </ButtonLink>
     </>
   );
 }
@@ -254,9 +251,12 @@ function FailureOutcome({ applicationId, failure, overview }: Readonly<{ applica
     <>
       <span className="text-body text-ink">Folha {sheet?.sheetNumber ?? '—'}</span>
       <Badge tone="danger">Falha na leitura</Badge>
-      <Link to={reviewPath(applicationId, failure.answerSheetId, failure.imageId)} className={LINK_BUTTON}>
+      <ButtonLink
+        to={reviewPath(applicationId, failure.answerSheetId, failure.imageId)}
+        aria-label={`Revisar a folha ${sheet?.sheetNumber ?? '—'}`}
+      >
         Revisar
-      </Link>
+      </ButtonLink>
     </>
   );
 }
@@ -328,9 +328,12 @@ function SheetsCard({ applicationId, overview }: Readonly<{ applicationId: strin
               <span className="min-w-0 flex-1 truncate text-body text-ink">{holderOf(sheet, overview.students, overview.versions)}</span>
               <CorrectionBadge correction={correction} />
               {correction !== undefined && (
-                <Link to={reviewPath(applicationId, sheet.id)} className={LINK_BUTTON} aria-label={`Revisar a folha ${sheet.sheetNumber}`}>
+                <ButtonLink
+                  to={reviewPath(applicationId, sheet.id)}
+                  aria-label={`Revisar a folha ${sheet.sheetNumber}, ${holderOf(sheet, overview.students, overview.versions)}`}
+                >
                   Revisar
-                </Link>
+                </ButtonLink>
               )}
             </li>
           );

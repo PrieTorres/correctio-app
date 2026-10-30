@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import { buttonClasses, type ButtonVariant } from './button-classes'
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
+export type { ButtonVariant }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
@@ -10,14 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean
 }
 
-/** Only one primary (gold) action per screen keeps the hierarchy readable. */
-const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-on-accent hover:bg-accent-hover',
-  secondary: 'bg-surface text-primary border border-primary hover:bg-surface-muted',
-  ghost: 'bg-transparent text-primary hover:bg-surface-muted',
-  danger: 'bg-danger-surface text-on-danger-surface hover:brightness-95',
-}
-
+/** An action on this screen. One that goes to another screen is a `ButtonLink`, never a link inside this. */
 export function Button({
   variant = 'secondary',
   icon,
@@ -28,17 +21,7 @@ export function Button({
   ...rest
 }: Readonly<ButtonProps>) {
   return (
-    <button
-      type={type}
-      className={cn(
-        'touch-target inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 text-label font-semibold transition-colors',
-        'disabled:cursor-not-allowed disabled:opacity-50',
-        VARIANT_CLASSES[variant],
-        fullWidth && 'w-full',
-        className,
-      )}
-      {...rest}
-    >
+    <button type={type} className={buttonClasses({ variant, fullWidth, className })} {...rest}>
       {icon}
       {children}
     </button>
