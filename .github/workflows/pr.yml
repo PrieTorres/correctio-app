@@ -54,6 +54,10 @@ jobs:
       - name: Build de produção
         run: npm run build
 
+      # The Firebase build must carry nothing of the demo of GitHub Pages (#51).
+      - name: Build sem dado simulado
+        run: node scripts/check-firebase-bundle.mjs apps/web/dist
+
       # Fails on a high or critical advisory, like npm audit --audit-level=high,
       # except the ones in scripts/dependency-audit/allowed-advisories.mjs, each
       # with its reason and the issue that removes it.

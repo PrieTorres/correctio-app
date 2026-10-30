@@ -4,7 +4,12 @@ import { createLocalExamRepository, type ExamRepository } from './exam-repositor
 import { createLocalCorrectionRepository, type CorrectionRepository } from './correction-repository'
 import { createHttpSheetImageRepository, createLocalSheetImageRepository, type SheetImageRepository } from './sheet-image-repository'
 import { createLocalPrintingRepository, type PrintingRepository } from './printing-repository'
-import { createPublicLookupRepository, type PublicLookupRepository } from './public-lookup-repository'
+import {
+  createHttpPublicLookupRepository,
+  createLocalPublicLookupRepository,
+  createPublicLookupRepository,
+  type PublicLookupRepository,
+} from './public-lookup-repository'
 import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
 import { createHttpStudentRepository, createLocalStudentRepository, type StudentRepository } from './student-repository'
 import { createHttpQuestionRepository } from './http/create-http-question-repository'
@@ -15,7 +20,7 @@ import { createHttpCorrectionRepository } from './http/create-http-correction-re
 import type { ApiClient, FileClient } from './http/api-client'
 
 export * from './types'
-export { createPublicLookupRepository }
+export { createHttpPublicLookupRepository, createLocalPublicLookupRepository, createPublicLookupRepository }
 export type {
   ApplicationRepository,
   ClassRepository,
@@ -56,7 +61,7 @@ export interface TeacherRepositories {
  * demo and the unit tests, every entry stays in this browser.
  */
 export function createTeacherRepositories(teacherId: string, api?: ApiClient & FileClient): TeacherRepositories {
-  return api === undefined ? inThisBrowser(teacherId) : onTheApi(api)
+  return api === undefined ? createLocalTeacherRepositories(teacherId) : createHttpTeacherRepositories(api)
 }
 
 /**
@@ -65,7 +70,7 @@ export function createTeacherRepositories(teacherId: string, api?: ApiClient & F
  * applications, which in turn count the corrections, so the corrections read
  * the applications only when asked, after both exist.
  */
-function inThisBrowser(teacherId: string): TeacherRepositories {
+export function createLocalTeacherRepositories(teacherId: string): TeacherRepositories {
   const classes = createLocalClassRepository(teacherId)
   const students = createLocalStudentRepository()
   const questions = createLocalQuestionRepository(teacherId)
@@ -100,7 +105,11 @@ async function readingContextOf(printing: PrintingRepository, applicationId: str
   return { sheets, layouts: Object.fromEntries(versions.map((version) => [version.id, version.layout])) }
 }
 
-function onTheApi(api: ApiClient & FileClient): TeacherRepositories {
+/**
+ * Every area on the API, and nothing of the browser's: what the Firebase build
+ * uses (#51). The teacher comes from the token, so no id is needed here.
+ */
+export function createHttpTeacherRepositories(api: ApiClient & FileClient): TeacherRepositories {
   return {
     classes: createHttpClassRepository(api),
     students: createHttpStudentRepository(api),
