@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { CORRECTION_SOURCE, CORRECTION_STATUS, type AnswerSheet, type CorrectionStatus } from '@/types/domain'
+import { CORRECTION_STATUS, type AnswerSheet, type CorrectionStatus } from '@/types/domain'
 import { clearAllCollections } from '@/lib/storage/collection'
 import { createTeacherRepositories } from '..'
 
@@ -40,22 +40,13 @@ async function seedSitting(teacherId = 'ana') {
   return { application, exam, group }
 }
 
-/** A correction of the sheet with only what the counts read; grading itself is tested with the grading hooks. */
+/** A correction of the sheet with only what the counts read; grading itself is tested with the correction repository. */
 async function correct(sheet: AnswerSheet, status: CorrectionStatus) {
-  await repositoriesOf('ana').corrections.save({
-    id: `correction-${sheet.id}`,
-    examVersionId: sheet.examVersionId,
+  await repositoriesOf('ana').corrections.create(sheet.applicationId, {
     answerSheetId: sheet.id,
-    status,
-    source: CORRECTION_SOURCE.MANUAL,
-    objectiveResults: [],
+    answers: [],
     discursiveScores: [],
-    totalScore: 0,
-    confirmedAt: '2026-10-06T13:00:00.000Z',
-    correctedBy: 'ana',
-    isAutomaticallyAssigned: true,
-    clientCorrectionId: `client-${sheet.id}`,
-    syncStatus: 'synced',
+    finalize: status === CORRECTION_STATUS.DONE,
   })
 }
 

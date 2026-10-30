@@ -1,5 +1,5 @@
 import { ANSWER_CARD } from '@correctio/domain'
-import type { MarkedAnswer } from '@/lib/grading'
+import { answersOf, type MarkedAnswer } from '@/lib/grading'
 import {
   isMultipleChoice,
   type Alternative,
@@ -50,14 +50,6 @@ export function printedQuestionsOf(layout: ExamVersionLayout, bank: readonly Que
     if (!isMultipleChoice(question)) return [{ kind: 'discursive', number, question, maxScore: question.maxScore ?? 0 }]
     return [{ kind: 'objective', number, question, alternatives: printedAlternatives(question, printedOrderOf.get(questionId)) }]
   })
-}
-
-/** The answers a stored correction keeps, as the review edits them. */
-export function answersOf(correction: Pick<Correction, 'objectiveResults'>): MarkedAnswer[] {
-  return correction.objectiveResults.map(({ questionId, selectedAlternativeId }) => ({
-    questionId,
-    ...(selectedAlternativeId !== undefined && { selectedAlternativeId }),
-  }))
 }
 
 /**

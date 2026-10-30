@@ -1,4 +1,5 @@
 import {
+  answersOf,
   clampDiscursiveScore,
   discursiveQuestionIdsOf,
   gradeObjectives,
@@ -92,12 +93,6 @@ function gradeReview({ exam, questions }: { exam: Exam; questions: Question[] },
   const status = review.finalize ? resolveCorrectionStatus(discursiveQuestionIdsOf(exam, questions), discursiveScores) : CORRECTION_STATUS.IN_PROGRESS
   return { objectiveResults: results, discursiveScores, totalScore: totalCorrectionScore(results, discursiveScores), status }
 }
-
-const answersOf = (correction: Correction): MarkedAnswer[] =>
-  correction.objectiveResults.map(({ questionId, selectedAlternativeId }) => ({
-    questionId,
-    ...(selectedAlternativeId !== undefined && { selectedAlternativeId }),
-  }))
 
 /**
  * The demo and the unit tests: corrections in this browser, graded here with

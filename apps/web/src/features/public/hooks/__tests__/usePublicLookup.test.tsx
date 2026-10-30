@@ -6,13 +6,12 @@ import { createLocalAuthProvider } from '@/lib/auth'
 import { createTeacherRepositories } from '@/lib/repositories'
 import { clearAllCollections } from '@/lib/storage/collection'
 import { renderHookWithProviders, TEST_TEACHER_ID } from '@/test-utils'
-import { seedApplicationChain } from '@/test-fixtures'
+import { recordReviews, seedApplicationChain } from '@/test-fixtures'
 import {
   useGenerateApplication,
   usePublishAnswerKey,
   useReleaseGrades,
 } from '@/features/applications/hooks/useApplications'
-import { useReadSheets } from '@/features/grading/hooks/useGrading'
 import { usePublicLookup } from '../usePublicLookup'
 
 const repositories = () => createTeacherRepositories(TEST_TEACHER_ID)
@@ -122,10 +121,7 @@ describe('usePublicLookup', () => {
 
   async function releasedAndRead() {
     const { seeded, sheet, versionId } = await printedSheet()
-    const { result: read } = renderHookWithProviders(() => useReadSheets())
-    await act(() =>
-      read.current.mutateAsync({ applicationId: seeded.applicationId, sheetIds: [sheet.id] }),
-    )
+    const [correction] = await recordReviews(seeded.applicationId, [sheet.id])
 
     const { result: actions } = renderHookWithProviders(() => ({
       publish: usePublishAnswerKey(),
@@ -134,14 +130,13 @@ describe('usePublicLookup', () => {
     await act(() => actions.current.publish.mutateAsync({ applicationId: seeded.applicationId, versionId, published: true }))
     await act(() => actions.current.release.mutateAsync({ id: seeded.applicationId, released: true }))
 
-    return sheet
+    return { seeded, sheet, correction: correction! }
   }
 
-  /** The seeded exam has an open-ended question, so reading the sheet leaves the correction open. */
+  /** The seeded exam has an open-ended question with no score yet, so the correction stays open. */
   it('withholds the grade while the correction is still in progress', async () => {
-    const sheet = await releasedAndRead()
-    const correction = await repositories().corrections.findByAnswerSheet(sheet.id)
-    expect(correction?.status).toBe(CORRECTION_STATUS.IN_PROGRESS)
+    const { sheet, correction } = await releasedAndRead()
+    expect(correction.status).toBe(CORRECTION_STATUS.IN_PROGRESS)
 
     const { result } = renderHookWithProviders(() => usePublicLookup(sheet.code))
 
@@ -151,9 +146,12 @@ describe('usePublicLookup', () => {
   })
 
   it('shows the grade once both levels are released and the teacher confirmed the correction', async () => {
-    const sheet = await releasedAndRead()
-    const correction = await repositories().corrections.findByAnswerSheet(sheet.id)
-    await repositories().corrections.save({ ...correction!, status: CORRECTION_STATUS.DONE })
+    const { seeded, sheet, correction } = await releasedAndRead()
+    const finished = await repositories().corrections.update(seeded.applicationId, correction.id, {
+      discursiveScores: [{ questionId: seeded.discursiveQuestionId, score: 0 }],
+      finalize: true,
+    })
+    expect(finished.status).toBe(CORRECTION_STATUS.DONE)
 
     const { result } = renderHookWithProviders(() => usePublicLookup(sheet.code))
 

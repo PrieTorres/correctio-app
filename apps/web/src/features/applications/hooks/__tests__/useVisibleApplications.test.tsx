@@ -3,8 +3,7 @@ import { act, waitFor } from '@testing-library/react'
 import { createTeacherRepositories } from '@/lib/repositories'
 import { clearAllCollections } from '@/lib/storage/collection'
 import { renderHookWithProviders, TEST_TEACHER_ID } from '@/test-utils'
-import { seedApplicationChain } from '@/test-fixtures'
-import { useReadSheets } from '@/features/grading/hooks/useGrading'
+import { recordReviews, seedApplicationChain } from '@/test-fixtures'
 import { APPLICATION_FILTER, type ApplicationFilter } from '../../application-filter'
 import { NO_APPLICATION_LIST_FILTERS } from '../../list-filters'
 import { useGenerateApplication } from '../useApplications'
@@ -57,8 +56,7 @@ describe('useVisibleApplications', () => {
     const { result: generate } = renderHookWithProviders(() => useGenerateApplication())
     await act(() => generate.current.mutateAsync({ id: applicationId, request: GENERATE }))
     const sheets = await createTeacherRepositories(TEST_TEACHER_ID).printing.listSheets(applicationId)
-    const { result: read } = renderHookWithProviders(() => useReadSheets())
-    await act(() => read.current.mutateAsync({ applicationId, sheetIds: [sheets[0]?.id ?? ''] }))
+    await recordReviews(applicationId, [sheets[0]?.id ?? ''])
 
     const { result } = renderHookWithProviders(() =>
       useVisibleApplications(showing(APPLICATION_FILTER.IN_PROGRESS)),
@@ -76,8 +74,7 @@ describe('useVisibleApplications', () => {
     const { result: generate } = renderHookWithProviders(() => useGenerateApplication())
     await act(() => generate.current.mutateAsync({ id: applicationId, request: GENERATE }))
     const sheets = await createTeacherRepositories(TEST_TEACHER_ID).printing.listSheets(applicationId)
-    const { result: read } = renderHookWithProviders(() => useReadSheets())
-    await act(() => read.current.mutateAsync({ applicationId, sheetIds: [sheets[0]?.id ?? ''] }))
+    await recordReviews(applicationId, [sheets[0]?.id ?? ''])
 
     const inProgressOf = (class_: string) => ({
       ...showing(APPLICATION_FILTER.IN_PROGRESS),
