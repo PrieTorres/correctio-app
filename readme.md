@@ -209,6 +209,30 @@ Cada decisão técnica importante tem um registro próprio em [`docs/adr/`](docs
 
 ---
 
+## 🗃️ Modelo de dados
+
+O banco MySQL da N2 como as migrations de `apps/api/src/db/migrations` o criam: 19 tabelas, com
+as colunas, os tipos e as chaves de cada uma. O diagrama é gerado do banco migrado
+(`npm run docs:er-diagram`), não desenhado à mão.
+
+![Modelo entidade-relacionamento](docs/data-model/er-diagram.png)
+
+| Documento | Conteúdo |
+|---|---|
+| [Diagrama entidade-relacionamento](docs/data-model/er-diagram.md) | A imagem acima, a mesma versão em Mermaid (que o GitHub desenha), a legenda e como gerar de novo |
+| [Dicionário de dados](docs/data-model/data-dictionary.md) | Uma tabela por entidade: coluna, tipo do MySQL, chave, se aceita nulo e descrição, com o que o grupo acrescentou além da Spec |
+| [Modelo_de_Dados.md](docs/Modelo_de_Dados.md) | O contrato que as tabelas seguem, campo a campo |
+
+- As colunas têm o nome exato do campo do contrato (`teacherId`), e os enums, os valores da Spec.
+- As listas de uma entidade viraram tabelas filhas: `question_alternatives`, `question_tags`,
+  `exam_questions`, `correction_objective_results` e `correction_discursive_scores`.
+  `ExamVersion.layout`, a ordem impressa, fica em `JSON`.
+- `class_enrollments` e `exam_assignments` estão no banco sem uso, reservadas para a área do aluno.
+- Nada é apagado em cascata: cada entidade se arquiva pelo próprio campo (`questions.deletedAt`,
+  `classes.status`, `exams.status`, `applications.status`, `students.removedAt`).
+
+---
+
 ## ▶️ 7. Como rodar
 
 **Versões em uso:** Node 22 LTS (22.12 ou mais novo) · React 19 · Vite 6 · TypeScript 5 · Tailwind 4 · Express 5 · Vitest 5 · Cypress 15
@@ -311,6 +335,7 @@ testadas sem renderizar tela nenhuma.
 | Documento | Conteúdo |
 |---|---|
 | [Modelo_de_Dados.md](docs/Modelo_de_Dados.md) | **Normativo:** estrutura obrigatória de cada entidade, conforme a Spec SGP Católica |
+| [docs/data-model/](docs/data-model/) | O banco como as migrations o criam: [diagrama entidade-relacionamento](docs/data-model/er-diagram.md) e [dicionário de dados](docs/data-model/data-dictionary.md) |
 | [Correctio_Requisitos_e_Telas.md](docs/Correctio_Requisitos_e_Telas.md) | **Fonte da verdade:** RFs, RNFs, regras de negócio e especificação das 25 telas |
 | [Principais_Requisitos_Correctio.md](docs/Principais_Requisitos_Correctio.md) | Resumo derivado do documento acima, para consulta rápida |
 | [Arquitetura.md](docs/Arquitetura.md) | Decisões técnicas, camada de repositórios, stack, organização do código |
