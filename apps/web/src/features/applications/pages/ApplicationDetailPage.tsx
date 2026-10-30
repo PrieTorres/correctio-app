@@ -4,7 +4,7 @@ import { Archive, ArrowLeft } from 'lucide-react';
 import { ActionMenu, Badge, Button, Card, PageHeader, QueryBoundary, Tour, type MenuAction } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
-import { useStudents } from '@/features/classes';
+import { useStudentsWithRemoved } from '@/features/classes';
 import type { ApplicationOverview } from '@/types/domain';
 import { APPLICATION_STATUS_LABEL, correctionBlockerOf, examTitleOf, sittingOf } from '../application-labels';
 import { ArchiveApplicationDialog } from '../components/ArchiveApplicationDialog';
@@ -49,10 +49,13 @@ function NotFound() {
  *
  * The versions and the sheets read as empty when they fail to load, since a
  * draft has none either, and the cards already say "nothing was generated".
+ *
+ * The names come from everyone the class has had: a student removed after the
+ * sheets were printed still sat the exam, and RF09 keeps the name (#161).
  */
 function ApplicationDetail({ application }: Readonly<{ application: ApplicationOverview }>) {
   const { versions, sheets } = usePrintedPaper(application.id);
-  const { data: students = [] } = useStudents(application.classId);
+  const { data: students = [] } = useStudentsWithRemoved(application.classId);
   const [dialog, setDialog] = useState<DetailDialog | null>(null);
   const studentName = new Map(students.map((student) => [student.id, student.fullName]));
 

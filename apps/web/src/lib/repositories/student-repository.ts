@@ -6,7 +6,7 @@ import { studentSchema } from '@/lib/schemas'
 import { createCollection, simulateLatency } from '@/lib/storage/collection'
 import { StorageError } from '@/lib/storage/errors'
 import { compareByLocale, createId } from '@/lib/utils'
-import type { ApiClient } from './http/api-client'
+import type { ApiClient, QueryParams } from './http/api-client'
 import { parseEntity, parsePage } from './http/create-http-repository'
 import { LARGEST_PAGE, readEveryPage } from './read-every-page'
 
@@ -24,6 +24,13 @@ export interface ImportResult {
 export interface StudentRepository {
   /** The whole class, in name order: the screens and the answer sheets need every student, never a slice. */
   listByClass: (classId: string) => Promise<Student[]>
+  /**
+   * Everyone the class has had, in name order, the students removed from it
+   * included and marked by `removedAt`. Removing keeps the record and the
+   * grades (RF09), so the sheets and grades of an application go on naming
+   * the student instead of "Aluno removido" (#161).
+   */
+  listWithRemoved: (classId: string) => Promise<Student[]>
   add: (classId: string, input: StudentInput) => Promise<Student>
   importMany: (classId: string, rows: StudentInput[]) => Promise<ImportResult>
   remove: (classId: string, id: string) => Promise<void>
@@ -59,13 +66,21 @@ export function createLocalStudentRepository(): StudentRepository {
     collection.writeAll(students.with(index, transform(student)))
   }
 
+  const everyoneIn = (classId: string): Student[] =>
+    collection
+      .readAll()
+      .filter((item) => item.classId === classId)
+      .toSorted((a, b) => compareByLocale(a.fullName, b.fullName))
+
   return {
     async listByClass(classId) {
       await simulateLatency()
-      return collection
-        .readAll()
-        .filter((item) => item.classId === classId)
-        .toSorted((a, b) => compareByLocale(a.fullName, b.fullName))
+      return everyoneIn(classId).filter((item) => item.removedAt === undefined)
+    },
+
+    async listWithRemoved(classId) {
+      await simulateLatency()
+      return everyoneIn(classId)
     },
 
     async add(classId, input) {
@@ -101,10 +116,18 @@ export function createLocalStudentRepository(): StudentRepository {
       return { created: created.length, skipped: rows.length - created.length }
     },
 
+    /**
+     * Marks the student removed and keeps the record, as the API does (RF09):
+     * deleting it here was how the demo lost the name on the sheets (#161).
+     * The first removal keeps its date.
+     */
     async remove(classId, id) {
       await simulateLatency()
       const target = isTarget(classId, id)
-      collection.writeAll(collection.readAll().filter((item) => !target(item)))
+      const removedAt = new Date().toISOString()
+      collection.writeAll(
+        collection.readAll().map((item) => (target(item) && item.removedAt === undefined ? { ...item, removedAt } : item)),
+      )
     },
 
     async anonymize(classId, id) {
@@ -131,12 +154,15 @@ export function createHttpStudentRepository(api: ApiClient): StudentRepository {
   const studentsPath = (classId: string) => `/classes/${encodeURIComponent(classId)}/students`
   const studentPath = (classId: string, id: string) => `${studentsPath(classId)}/${encodeURIComponent(id)}`
 
-  const readPage = async (classId: string, page: number) =>
-    parsePage(studentSchema, await api.request('GET', studentsPath(classId), { query: { page, pageSize: STUDENTS_PER_PAGE } }))
+  const readPage = async (classId: string, query: QueryParams) =>
+    parsePage(studentSchema, await api.request('GET', studentsPath(classId), { query }))
 
   return {
     /** Paging stays on the server, and the screens still receive the whole class, as the local version gives it. */
-    listByClass: (classId) => readEveryPage((page) => readPage(classId, page)),
+    listByClass: (classId) => readEveryPage((page) => readPage(classId, { page, pageSize: STUDENTS_PER_PAGE })),
+
+    listWithRemoved: (classId) =>
+      readEveryPage((page) => readPage(classId, { page, pageSize: STUDENTS_PER_PAGE, includeRemoved: true })),
 
     async add(classId, input) {
       return parseEntity(studentSchema, await api.request('POST', studentsPath(classId), { body: input }))

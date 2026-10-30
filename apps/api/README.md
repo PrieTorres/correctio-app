@@ -129,6 +129,14 @@ com as mesmas regras das telas, sem cópia.
 | `GET /applications/:id/corrections/:correctionId` | Uma correção, para a tela de revisão (P16) |
 | `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49). Sem login, com limite de 30 requisições por minuto por IP. Código desconhecido responde `200` com `{ status: "INVALID_CODE" }`, igual a um código que existe mas não leva a nada, para quem tenta adivinhar não distinguir os dois. Responde `X-Robots-Tag: noindex` |
 
+### Alunos
+
+`GET /classes/:id/students` deixa de fora o aluno removido da turma (RF09). Com
+`includeRemoved=true`, lista todos que a turma já teve, cada removido com `removedAt`: é assim que
+as folhas, a correção e o relatório de uma aplicação continuam com o nome dele (#161). O
+anonimizado (RF38) sai só com o nome anonimizado, removido ou não. A consulta pública não usa
+essa lista e continua escondendo o aluno removido.
+
 ### Aplicações
 
 `GET` e `POST /applications`, `GET` e `PATCH /applications/:id`, arquivar e restaurar, a geração

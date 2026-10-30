@@ -654,7 +654,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Cabeçalho: prova + turma, status, menu (Regenerar PDF, Arquivar)
 - Card “PDF”: “Baixar PDF”, data de geração
 - Tabela “Versões”: nº, embaralhamentos, gabarito publicado?, botão “Publicar gabarito” por linha; botão “Publicar todos”
-- Tabela “Alunos e versões” (se identificada)
+- Tabela “Alunos e versões” (se identificada). O aluno removido da turma depois de gerar continua com o nome (RF09, #161); o anonimizado aparece só como “Aluno anonimizado” (RF38)
 - Card “Correção”: progresso X/N alunos, botões “Corrigir provas” (→ P15) e “Ver relatório” (→ P18), e link “Pendentes de atribuição (N)” (→ P17) quando houver correção sem aluno
 - Controle do que o aluno vê ao escanear o QR, em dois níveis independentes (RF46): “Publicar gabarito” por versão, e “Liberar notas” para a aplicação inteira. Liberar a nota sem o gabarito publicado é bloqueado, com texto explicando o motivo
 

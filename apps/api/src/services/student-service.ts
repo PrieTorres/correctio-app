@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { isDuplicateEntry } from '../db/errors'
 import { API_ERROR_CODE, ApiError } from '../lib/api-error'
 import { mergePatch } from '../lib/merge-patch'
-import { parsePageRequest, type Page } from '../lib/pagination'
+import { booleanParam, parseListRequest, type Page } from '../lib/pagination'
 import { parseRequest } from '../lib/parse-request'
 import type { ClassRepository } from '../repositories/class-repository'
 import { REGISTRATION_INDEX, type NewStudent, type StudentChanges, type StudentRepository } from '../repositories/student-repository'
@@ -100,7 +100,9 @@ function changesFrom(input: StudentInput, sent: readonly (typeof STUDENT_FIELDS)
  *
  * A student removed from the class (RF09) keeps the record and its grades, and
  * keeps the registration taken too: the unique index of the class still holds
- * it, and the screen has no way to bring the student back yet.
+ * it, and the screen has no way to bring the student back yet. The list leaves
+ * the student out unless `includeRemoved=true` asks for everyone the class
+ * had, which is how the sheets and the grades of an application keep the name.
  *
  * An archived class takes no new student, by adding or importing (decided by
  * the PM in #144). What it already has stays editable, removable and
@@ -155,7 +157,7 @@ export function createStudentService({ classes, students }: StudentServiceDepend
   return {
     async list(teacherId, classId, query) {
       await requireClass(teacherId, classId)
-      return students.list(classId, parsePageRequest(query))
+      return students.list(classId, parseListRequest(query, { includeRemoved: booleanParam.default('false') }))
     },
 
     async add(teacherId, classId, body) {

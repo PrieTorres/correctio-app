@@ -444,6 +444,35 @@ describe('detalhe da aplicação', () => {
     cy.get('table tbody tr').should('have.length', 12)
   })
 
+  /**
+   * RF09 keeps the record and the grades of a student removed from the class,
+   * so the sheet printed with the name goes on showing it, here and in the
+   * correction list, instead of "Aluno removido" (#161). The test waits for
+   * the dialog to close, which is when the removal has reached the server.
+   */
+  it('mantém o nome do aluno removido da turma nas folhas já geradas', () => {
+    cy.contains('table tbody tr', 'Bruno Carvalho Lima').should('be.visible')
+
+    cy.visit('/turmas')
+    cy.contains('a', 'Cálculo I — Noturno').click()
+    cy.contains('h1', 'Cálculo I — Noturno').should('be.visible')
+    cy.contains('li', 'Bruno Carvalho Lima').within(() => {
+      cy.contains('button', 'Remover').click()
+    })
+    cy.findInDialog('button', 'Remover').click()
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.contains('Bruno Carvalho Lima').should('not.exist')
+
+    openDetailOf(ALREADY_GENERATED)
+    cy.get('table tbody tr').should('have.length', 12)
+    cy.contains('table tbody tr', 'Bruno Carvalho Lima').should('be.visible')
+    cy.contains('Aluno removido').should('not.exist')
+
+    cy.contains('a', 'Corrigir folhas').click()
+    cy.contains('Bruno Carvalho Lima').should('be.visible')
+    cy.contains('Aluno removido').should('not.exist')
+  })
+
   /** Publishing shows students something, so it asks first; taking the key back only hides it. */
   it('pede confirmação para publicar o gabarito de uma versão e despublica sem pedir', () => {
     cy.get('[aria-label="Publicar gabarito da versão 1"]').click()

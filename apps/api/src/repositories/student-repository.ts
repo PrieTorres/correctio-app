@@ -35,9 +35,17 @@ export interface AnonymizedData {
   at: Date
 }
 
+/**
+ * A page of the class. `includeRemoved` adds the students removed from it,
+ * whose name the sheets and the grades of an application still show (RF09).
+ */
+export interface StudentListRequest extends PageRequest {
+  includeRemoved: boolean
+}
+
 export interface StudentRepository {
-  /** The students still in the class, searched by name and registration, ordered by name. */
-  list: (classId: string, request: PageRequest) => Promise<Page<Student>>
+  /** The students of the class, searched by name and registration, ordered by name. */
+  list: (classId: string, request: StudentListRequest) => Promise<Page<Student>>
   /** A student still in the class; one removed from it is not found. */
   findInClass: (classId: string, id: string) => Promise<Student | undefined>
   /** Finds a removed student too, for what still applies to them, such as anonymization. */
@@ -91,9 +99,9 @@ export function createStudentRepository(db: Kysely<Database>, cipher: FieldCiphe
   const changeRow = (classId: string, id: string) => db.updateTable('students').where('classId', '=', classId).where('id', '=', id)
 
   return {
-    async list(classId, { search, page, pageSize }) {
+    async list(classId, { search, page, pageSize, includeRemoved }) {
       const filtered = inClass(classId)
-        .where('removedAt', 'is', null)
+        .$if(!includeRemoved, (query) => query.where('removedAt', 'is', null))
         .$if(search !== '', (query) => query.where(anyColumnContains(['fullName', 'registration'], search)))
 
       const { total } = await filtered.select((eb) => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow()
