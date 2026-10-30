@@ -45,7 +45,7 @@ export function PublicLookupPage() {
       </QueryBoundary>
 
       <footer className="mt-auto pt-6 text-caption text-ink-subtle">
-        <Link to={ROUTES.privacy} className="underline">
+        <Link to={ROUTES.privacy} className="link-target underline">
           Aviso de privacidade
         </Link>
       </footer>
