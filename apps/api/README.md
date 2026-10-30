@@ -206,6 +206,12 @@ Spec, a mesma rota matricula por e-mail um aluno que já tem conta, mas aqui o a
 (`docs/Arquitetura.md`, seção 9). Pelo mesmo motivo, as rotas de código de convite da Spec
 (`/classes/:id/invite-code` e `/classes/join-by-code`) não existem.
 
+Turma arquivada não recebe aluno novo (decisão da PM na #144): `POST /classes/:id/students` e
+`POST /classes/:id/students/import` respondem 409, pedindo para restaurar a turma. Editar, remover
+e anonimizar os alunos que ela já tem continuam liberados. A importação pula a matrícula que já
+está na turma pela mesma regra da prévia no web (`registrationKey`, em `@correctio/domain`): sem
+acento e sem diferenciar maiúscula, como o índice único da tabela.
+
 ## Variáveis de ambiente
 
 Ver `.env.example` para rodar local. No Firebase, `NODE_ENV=production`, `DATABASE_TLS=verify`,

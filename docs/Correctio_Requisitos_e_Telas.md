@@ -473,6 +473,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Clique em uma aplicação → P14
 - Editar → P4 · Arquivar → confirmação → P3
 - “Anonimizar” → modal de confirmação → apaga nome, matrícula e e-mail e preserva a nota
+- Turma arquivada (decisão da PM, #144): o status aparece no cabeçalho com “Restaurar”, e “Adicionar aluno” e “Importar alunos” ficam desabilitados com o motivo na tela; a API também recusa aluno novo. Editar, remover e anonimizar os alunos que ela já tem continuam liberados
 
 #### P6. Banco de questões (lista)
 
