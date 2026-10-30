@@ -20,6 +20,14 @@ describe('consulta pública', () => {
     cy.contains('h1', 'Aviso de privacidade').should('be.visible')
   })
 
+  it('dá 44 px de altura ao link do aviso de privacidade e ao de voltar', () => {
+    cy.visit('/r/CODIGOQUENAOEXISTE')
+    cy.contains('a', 'Aviso de privacidade').invoke('outerHeight').should('be.gte', 44)
+
+    cy.visit('/privacidade')
+    cy.contains('a', 'Voltar para o início').invoke('outerHeight').should('be.gte', 44)
+  })
+
   it('pede aos buscadores que não indexem a página', () => {
     cy.visit('/r/CODIGOQUENAOEXISTE')
 
