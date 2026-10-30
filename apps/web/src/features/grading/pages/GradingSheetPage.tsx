@@ -37,28 +37,31 @@ export function GradingSheetPage() {
   const { id = '', sheetId = '' } = useParams<{ id: string; sheetId: string }>();
   const [params] = useSearchParams();
   const { data, isPending, isError } = useGradingOverview(id);
-
-  const sheet = data?.sheets.find((item) => item.id === sheetId);
-  const version = data?.versions.find((item) => item.id === sheet?.examVersionId);
+  const sources = reviewSourcesOf(data, sheetId, params.get(PHOTO_PARAM) ?? undefined);
 
   return (
     <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando folha…">
-      {data === null || data === undefined || data.exam === null || sheet === undefined || version === undefined ? (
-        <SheetNotFound applicationId={id} />
-      ) : (
-        <SheetReview
-          applicationId={id}
-          sheet={sheet}
-          version={version}
-          exam={data.exam}
-          bank={data.bank}
-          students={data.students}
-          correction={data.corrections.find((item) => item.answerSheetId === sheet.id)}
-          photoId={params.get(PHOTO_PARAM) ?? undefined}
-        />
-      )}
+      {sources === null ? <SheetNotFound applicationId={id} /> : <SheetReview {...sources} />}
     </QueryBoundary>
   );
+}
+
+/** Everything the review of one sheet needs, or `null` when the sheet, its version or its exam is gone. */
+function reviewSourcesOf(data: ReturnType<typeof useGradingOverview>['data'], sheetId: string, photoId: string | undefined): ReviewSources | null {
+  const sheet = data?.sheets.find((item) => item.id === sheetId);
+  const version = data?.versions.find((item) => item.id === sheet?.examVersionId);
+  if (data?.exam == null || sheet === undefined || version === undefined) return null;
+
+  return {
+    applicationId: data.application.id,
+    sheet,
+    version,
+    exam: data.exam,
+    bank: data.bank,
+    students: data.students,
+    correction: data.corrections.find((item) => item.answerSheetId === sheet.id),
+    photoId,
+  };
 }
 
 function SheetNotFound({ applicationId }: Readonly<{ applicationId: string }>) {

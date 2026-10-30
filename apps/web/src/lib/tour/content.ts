@@ -12,8 +12,9 @@ export interface TourStep {
 }
 
 /**
- * The tour text, copied from `docs/Tour_Guiado.md`, with each step tied to the
- * element it talks about.
+ * The tour text, with each step tied to the element it talks about. This is
+ * the source `docs/Tour_Guiado.md` repeats (#177), and a test keeps the two
+ * the same.
  *
  * It lives here rather than inside the screens so the wording is reviewed in
  * one place, and so the two limits the document sets — at most four steps per
