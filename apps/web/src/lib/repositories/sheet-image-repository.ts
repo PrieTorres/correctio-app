@@ -72,14 +72,14 @@ export function createLocalSheetImageRepository({ contextOf, readPhoto = readPho
       return { imageId, ...reading }
     },
 
-    async photo(applicationId, imageId) {
+    photo(applicationId, imageId) {
       const stored = photos.get(imageId)
-      if (stored?.applicationId !== applicationId) throw new StorageError(PHOTO_NOT_FOUND, 'not-found')
-      return stored.photo
+      if (stored?.applicationId !== applicationId) return Promise.reject(new StorageError(PHOTO_NOT_FOUND, 'not-found'))
+      return Promise.resolve(stored.photo)
     },
 
-    async readFailures(applicationId) {
-      return failures.filter((entry) => entry.applicationId === applicationId).map((entry) => entry.failure)
+    readFailures(applicationId) {
+      return Promise.resolve(failures.filter((entry) => entry.applicationId === applicationId).map((entry) => entry.failure))
     },
   }
 }

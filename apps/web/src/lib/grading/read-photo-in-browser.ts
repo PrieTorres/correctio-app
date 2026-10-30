@@ -39,11 +39,11 @@ async function toPixels(photo: Blob) {
  * decoder's WebAssembly bundled by Vite instead of fetched from a CDN.
  */
 export async function readPhotoInBrowser(photo: Blob, { sheets, layouts }: ReadingContext): Promise<PhotoReading> {
-  const [{ readSheet, useQrDecoderBinary }, { default: wasmUrl }] = await Promise.all([
+  const [{ readSheet, useQrDecoderBinary: setQrDecoderBinary }, { default: wasmUrl }] = await Promise.all([
     import('@correctio/sheet-reader'),
     import('zxing-wasm/reader/zxing_reader.wasm?url'),
   ])
-  useQrDecoderBinary({ wasmUrl })
+  setQrDecoderBinary({ wasmUrl })
 
   const pixels = await toPixels(photo).catch(() => null)
   if (pixels === null) return { status: 'QR_NOT_RECOGNIZED' }
