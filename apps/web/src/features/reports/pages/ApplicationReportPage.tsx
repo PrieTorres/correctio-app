@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Download, Loader2 } from 'lucide-react';
-import { BackLink, Badge, Button, ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration } from '@/components/ui';
+import { BackLink, Badge, ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import type { ApplicationReport, Distribution, ReportQuestion, ReportStudentRow, TagAccuracy } from '@/lib/reports';
 import { Tour } from '@/components/ui/Tour';
+import { ExportButtons } from '../components/ExportButtons';
 import { useApplicationReport } from '../hooks/useApplicationReport';
+import { REPORT_KIND } from '../hooks/useExportReport';
 
 type SortKey = 'name' | 'score';
 
@@ -31,7 +32,7 @@ export function ApplicationReportPage() {
           help
           title="Relatório da aplicação"
           description={report === undefined ? '' : `${report.examTitle} · ${report.className}`}
-          actions={<ExportButton disabled={finished === 0} />}
+          actions={<ExportButtons report={{ kind: REPORT_KIND.APPLICATION, applicationId: id ?? '' }} disabled={finished === 0} />}
         />
 
         {report !== undefined && <Progress report={report} />}
@@ -41,25 +42,6 @@ export function ApplicationReportPage() {
 
       <Tour screen="applicationReport" ready={finished > 0} />
     </QueryBoundary>
-  );
-}
-
-/** RF41: a long operation confirms at once and runs out of the way. */
-function ExportButton({ disabled }: Readonly<{ disabled: boolean }>) {
-  const [exporting, setExporting] = useState(false);
-  const exportReport = () => {
-    setExporting(true);
-    window.setTimeout(() => setExporting(false), 1200);
-  };
-
-  return (
-    <Button
-      icon={exporting ? <Loader2 size={18} aria-hidden className="animate-spin" /> : <Download size={18} aria-hidden />}
-      disabled={exporting || disabled}
-      onClick={exportReport}
-    >
-      {exporting ? 'Exportando…' : 'Exportar'}
-    </Button>
   );
 }
 

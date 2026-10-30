@@ -231,15 +231,10 @@ describe('pendentes de atribuição', () => {
 })
 
 describe('relatório da aplicação', () => {
-  it('explica que nada foi corrigido ainda', () => {
-    printForTheTeacher().then((printed) => {
-      cy.visit(`/aplicacoes/${printed.applicationId}/relatorio`)
+  const reportOf = (applicationId: string) => `/aplicacoes/${applicationId}/relatorio`
 
-      cy.contains('h3', 'Nada corrigido ainda').should('be.visible')
-    })
-  })
-
-  it('mostra as estatísticas depois da primeira correção confirmada', () => {
+  /** The way a teacher gets there: the review confirmed through the screens, then "Ver relatório" on P14. */
+  it('mostra a correção confirmada pela tela no relatório, aberto pela aplicação', () => {
     sendRightAnswer().then((printed) => {
       cy.get('[aria-label="Revisar a folha 1"]').click()
       cy.contains('button', 'Confirmar correção').click()
@@ -250,7 +245,97 @@ describe('relatório da aplicação', () => {
 
       cy.contains('h1', 'Relatório da aplicação').should('be.visible')
       cy.contains('Média').should('be.visible')
-      cy.contains(printed.studentName).should('be.visible')
+      cy.contains('tr', printed.studentName).should('contain', '10')
     })
+  })
+
+  it('explica que nada foi corrigido ainda', () => {
+    printForTheTeacher().then(({ applicationId }) => cy.visit(reportOf(applicationId)))
+
+    cy.contains('h3', 'Nada corrigido ainda').should('be.visible')
+    cy.contains('0 de 1 folhas corrigidas').should('be.visible')
+  })
+
+  it('calcula as estatísticas depois da primeira correção', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, sheet, questionId, correctAlternativeId }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [{ questionId, selectedAlternativeId: correctAlternativeId }], finalize: true })
+      cy.visit(reportOf(applicationId))
+    })
+
+    cy.contains('h1', 'Relatório da aplicação').should('be.visible')
+    cy.contains('1 de 1 folhas corrigidas').should('be.visible')
+    cy.contains('Média').should('be.visible')
+    cy.contains('h2', 'Distribuição das notas').should('be.visible')
+    cy.contains('tr', 'Rafaela Souza').should('contain', '2026901').and('contain', '10')
+    cy.contains('h2', 'Por questão').should('be.visible')
+    cy.contains('100% de acerto').should('be.visible')
+    cy.contains('h2', 'Por conteúdo').should('be.visible')
+    cy.contains('li', 'Geometria').should('contain', '100%')
+  })
+
+  /** RF48: the grade counts once the correction is finished; until then it is named apart, out of every number. */
+  it('conta à parte a correção em andamento, fora das estatísticas', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, sheet }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [], finalize: false })
+      cy.visit(reportOf(applicationId))
+    })
+
+    cy.contains('1 em andamento').should('be.visible')
+    cy.contains('h3', 'Nada corrigido ainda').should('be.visible')
+  })
+
+  /** RF36 and RF41: the notice confirms at once, and the file is downloaded from it, one row per student. */
+  it('exporta o relatório em CSV e baixa o arquivo pelo aviso', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, sheet, questionId, correctAlternativeId }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [{ questionId, selectedAlternativeId: correctAlternativeId }], finalize: true })
+      cy.visit(reportOf(applicationId))
+    })
+    cy.intercept({ method: 'GET', pathname: /^\/api\/applications\/[^/]+\/report$/, query: { format: 'csv' } }).as('export')
+
+    cy.contains('button', 'Exportar CSV').click()
+
+    cy.contains('[aria-label="Operações em segundo plano"]', 'Relatório da aplicação em CSV').should('be.visible')
+    cy.wait('@export').its('response.headers.content-type').should('contain', 'text/csv')
+    cy.contains('button', 'Baixar relatorio-aplicacao-2026-11-20.csv').click()
+    cy.readFile(`${Cypress.config('downloadsFolder')}/relatorio-aplicacao-2026-11-20.csv`)
+      .should('contain', 'Aluno;Matrícula;Versão;Q1;Total')
+      .and('contain', 'Rafaela Souza;2026901;1;10;10')
+  })
+
+  /** RF41: the teacher leaves the report while the file is made and finds it ready on the next screen. */
+  it('avisa que o arquivo ficou pronto mesmo fora da tela do relatório', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, sheet, questionId, correctAlternativeId }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [{ questionId, selectedAlternativeId: correctAlternativeId }], finalize: true })
+      cy.visit(reportOf(applicationId))
+    })
+
+    cy.contains('button', 'Exportar PDF').click()
+    cy.get('[aria-label="Navegação principal"]').contains('a', 'Painel').click()
+
+    cy.contains('h1', 'Painel').should('be.visible')
+    cy.contains('[role="status"]', 'Relatório da aplicação em PDF: pronto.').should('be.visible')
+    cy.contains('button', 'Baixar relatorio-aplicacao-2026-11-20.pdf').should('be.visible')
+    cy.get('[aria-label="Fechar aviso"]').click()
+    cy.contains('Relatório da aplicação em PDF').should('not.exist')
+  })
+
+  it('não oferece exportar antes da primeira correção', () => {
+    printForTheTeacher().then(({ applicationId }) => cy.visit(reportOf(applicationId)))
+
+    cy.contains('h3', 'Nada corrigido ainda').should('be.visible')
+    cy.contains('button', 'Exportar Excel').should('be.disabled')
+    cy.contains('button', 'Exportar CSV').should('be.disabled')
+    cy.contains('button', 'Exportar PDF').should('be.disabled')
+  })
+
+  /** The API answers 404 for another teacher's application, so the screen has nothing of hers to draw. */
+  it('não abre o relatório de outra professora', () => {
+    printForTheTeacher().then(({ applicationId }) => {
+      cy.signInAsNewTeacher({ withSampleData: false })
+      cy.visit(reportOf(applicationId))
+    })
+
+    cy.get('[role="alert"]').should('contain', 'Não foi possível carregar os dados')
+    cy.contains('Geometria — Prova da consulta').should('not.exist')
   })
 })

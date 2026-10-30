@@ -131,6 +131,7 @@ com as mesmas regras das telas, sem cópia.
 | `GET /applications/:id/sheet-images/:imageId` | Entrega a foto, só ao professor da aplicação |
 | `GET /applications/:id/read-failures` | As fotos cuja leitura falhou, do `ActivityLog`, para a P15 listar |
 | `GET /dashboard` | Os números e a atividade recente do painel (P1), numa requisição só (#50). Ver "Painel, perfil e relatórios" |
+| `GET /applications/:id/report?format=` | Arquivo do relatório da aplicação (RF36, #82). A Spec define a rota sem `format`; o parâmetro segue o do `GET /reports/consolidated` |
 | `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49). Sem login, com limite de 30 requisições por minuto por IP. Código desconhecido responde `200` com `{ status: "INVALID_CODE" }`, igual a um código que existe mas não leva a nada, para quem tenta adivinhar não distinguir os dois. Responde `X-Robots-Tag: noindex` |
 
 ### Alunos
@@ -297,6 +298,35 @@ Regras dos três:
   filtrar `status` nem `deletedAt`: a prova arquivada nomeia a linha, e a tag da questão excluída
   do banco continua no acerto por conteúdo. O aluno removido da turma continua com o nome (#161).
 - Aplicação de outro professor responde **404**.
+
+#### Exportação (RF36, #82)
+
+`GET /applications/:id/report` e `GET /reports/consolidated` com `?format=xlsx|csv|pdf` respondem
+o arquivo, com `Content-Disposition: attachment`; sem `format`, o JSON das telas. O arquivo sai dos
+mesmos números da tela, então nunca discorda dela. Formato desconhecido responde 400.
+
+- **Colunas** (decisão da PM de 30/10, enquanto a #69 espera o cliente; podem mudar quando ela for
+  respondida): por aplicação, uma linha por correção finalizada, com aluno, matrícula, versão,
+  `Q1`…`Qn` e total. `Q1` é a questão 1 da prova pela `order`, qualquer que seja a versão do aluno,
+  e a folha sem aluno sai como "Folha N", com a matrícula vazia. O consolidado tem as colunas da
+  tela: prova, turma, data, corrigidas, média, menor e maior.
+- **Filtros do consolidado:** `class`, `subject`, `term`, `from` e `to` (`yyyy-MM-dd`), os mesmos
+  nomes que a P19 guarda no endereço, aplicados pela mesma função da tela (`filterReportRows`), para o
+  arquivo trazer as linhas que estão na tela. Valem também no JSON.
+- **CSV:** UTF-8 com BOM, separado por `;` e com vírgula decimal, como o Excel em português lê. Célula
+  que começaria com `=`, `+`, `-`, `@`, tabulação ou retorno ganha um apóstrofo na frente e não vira
+  fórmula (injeção por CSV).
+- **Excel:** `write-excel-file` (dependência só da API), com toda célula de texto gravada como texto,
+  o que já impede a fórmula, o cabeçalho em negrito e fixo na rolagem.
+- **PDF:** `pdfkit` com as fontes DejaVu da prova (`registerFonts`), A4 deitado, com o cabeçalho da
+  tabela repetido em cada página.
+- **Nome do arquivo:** `relatorio-aplicacao-<data da aplicação>` ou `relatorio-consolidado-<hoje>`,
+  nunca o nome de um aluno.
+- **Limite:** só com `format`, a camada cara por professor (`expensiveLimit`: 10 por hora, a mesma do
+  PDF da prova). A tela lendo o mesmo relatório sem `format` não conta.
+- O arquivo é montado durante a requisição, em menos de um segundo para uma turma. O segundo plano do
+  RF41 fica no front: a exportação é um job do TanStack Query, com aviso no topo da tela. Uma fila de
+  verdade, para arquivos que passem do tempo da hospedagem, é da N3.
 
 `GET /me` responde nome, e-mail e tipo da conta do token (P2). `POST /me/anonymize` (RF05; Spec,
 Feature 1.1) troca o nome por "Professor anonimizado" e o e-mail por

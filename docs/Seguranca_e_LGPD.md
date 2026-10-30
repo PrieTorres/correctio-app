@@ -174,6 +174,7 @@ armazenamento privado, e entram no PDF gerado.
 | Upload de imagem | Tipo conferido pelos primeiros bytes (JPEG, PNG ou WebP), nunca pela extensão nem pelo `Content-Type`; até 10 MB; guardado no bucket privado e entregue só ao professor da aplicação (#47). |
 | Cache das respostas | `Cache-Control: no-store` em toda resposta da API (`middlewares/no-store.ts`). O cache existe só na memória do app — ver "Cache" abaixo. |
 | Limite de requisições | As camadas da seção 4 estão em `apps/api/src/middlewares/rate-limit.ts` (`RATE_LIMITS`). Cada rota especial aplica a sua camada. |
+| Exportação de relatório | A camada cara vale só com `?format=` (#82): a mesma rota sem ele é a tela lendo os números. No CSV, célula que começaria com `=`, `+`, `-`, `@`, tabulação ou retorno ganha um apóstrofo na frente e não vira fórmula no Excel (injeção por CSV, OWASP), porque nome de aluno chega por importação; no .xlsx toda célula de texto é gravada como texto. O nome do arquivo leva o relatório e a data, nunca o nome de um aluno. |
 
 ### Credenciais em trânsito
 

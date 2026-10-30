@@ -133,6 +133,22 @@ describe('relatório consolidado: filtros', () => {
     cy.location('search').should('eq', '')
   })
 
+  /** RF36: the file holds the rows on screen, so the filters go along with the export. */
+  it('exporta em Excel só as linhas do filtro e baixa o arquivo pelo aviso', () => {
+    cy.findByLabel('Turma').select('Física II')
+    cy.intercept({ method: 'GET', pathname: '/api/reports/consolidated', query: { format: 'xlsx' } }).as('export')
+
+    cy.contains('button', 'Exportar Excel').click()
+
+    cy.wait('@export').then(({ request, response }) => {
+      expect(request.url).to.contain('class=')
+      expect(response?.headers['content-type']).to.contain('spreadsheetml')
+    })
+    cy.contains('[role="status"]', 'Relatório consolidado em Excel: pronto.').within(() => {
+      cy.contains('button', /^Baixar relatorio-consolidado-\d{4}-\d{2}-\d{2}\.xlsx$/).click()
+    })
+  })
+
   /** Each row's figures come from its own scores, and only the rows that survive the filter are drawn. */
   it('mostra só as linhas que passam pelo filtro', () => {
     cy.get('tbody tr').should('have.length', 2)

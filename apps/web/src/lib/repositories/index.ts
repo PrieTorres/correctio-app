@@ -11,7 +11,7 @@ import {
   type PublicLookupRepository,
 } from './public-lookup-repository'
 import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
-import { createLocalReportRepository, type ReportRepository } from './report-repository'
+import { createLocalReportRepository, type ReportFile, type ReportRepository } from './report-repository'
 import { createHttpStudentRepository, createLocalStudentRepository, type StudentRepository } from './student-repository'
 import { createHttpQuestionRepository } from './http/create-http-question-repository'
 import { createHttpExamRepository } from './http/create-http-exam-repository'
@@ -32,6 +32,7 @@ export type {
   PublicLookupRepository,
   QuestionRepository,
   SheetImageRepository,
+  ReportFile,
   ReportRepository,
   StudentRepository,
 }

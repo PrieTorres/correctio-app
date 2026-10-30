@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createLocalAuthProvider, type AuthProvider } from '@/lib/auth'
+import { useBackgroundJob, useBackgroundJobs } from '@/lib/background-jobs'
 import { renderHookWithProviders, renderWithProviders } from '@/test-utils'
 import {
   authKeys,
@@ -96,6 +97,23 @@ describe('auth data hooks', () => {
 
     expect(result.current.queryClient.getQueryData(['classes'])).toBeUndefined()
     await waitFor(() => expect(result.current.session.data).toMatchObject({ email: 'ana@example.br' }))
+  })
+
+  /** An exported report holds students' names: the next person on the browser never finds it in the notice. */
+  it('drops the background jobs and their files when the session changes', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      signIn: useSignIn(),
+      signOut: useSignOut(),
+      exportReport: useBackgroundJob('EXPORT', (_request: { label: string }) => Promise.resolve({ blob: new Blob(['x']), filename: 'r.csv' })),
+      jobs: useBackgroundJobs(),
+    }))
+    await act(() => result.current.signIn.mutateAsync({ email: 'ana@example.br', password: 'secret1' }))
+    await act(() => result.current.exportReport.mutateAsync({ label: 'Relatório' }))
+    await waitFor(() => expect(result.current.jobs).toHaveLength(1))
+
+    await act(() => result.current.signOut.mutateAsync())
+
+    await waitFor(() => expect(result.current.jobs).toEqual([]))
   })
 
   it('ends the session everywhere and forgets the user', async () => {

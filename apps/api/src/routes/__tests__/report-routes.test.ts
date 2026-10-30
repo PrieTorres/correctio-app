@@ -121,7 +121,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('report routes (real MySQL)', ()
         { examId: 'exam-applied', questionId: 'q-old', order: 1, score: 3, allowShuffleAlternatives: true },
       ])
       .execute()
-    app = createApp({ env, logger: createLogger('silent'), db, verifyToken, rateLimits: { read: RELAXED, write: RELAXED } })
+    app = createApp({ env, logger: createLogger('silent'), db, verifyToken, rateLimits: { read: RELAXED, write: RELAXED, expensive: RELAXED } })
   })
 
   afterAll(async () => {
@@ -349,6 +349,112 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('report routes (real MySQL)', ()
       await correct(sitting.applicationId, sitting.first, FULL_MARKS)
 
       expect((await bia().get('/reports/consolidated')).body).toEqual([])
+    })
+  })
+
+  /** RF36: the same routes answer the file with `?format=`, drawn from the numbers the screens show. */
+  describe('export', () => {
+    const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+    const download = (token: string, path: string, target = app) =>
+      request(target).get(path).set({ Authorization: `Bearer ${token}` }).responseType('blob')
+
+    const text = (response: request.Response) => (response.body as Buffer).toString('utf8')
+
+    async function correctedSitting() {
+      const sitting = await application()
+      await correct(sitting.applicationId, sitting.first, FULL_MARKS)
+      await correct(sitting.applicationId, sitting.blank, { ...FULL_MARKS, discursiveScores: [{ questionId: 'q-essay', score: 1 }] })
+      return sitting
+    }
+
+    it('exports the report of the application as CSV, one row per student, named without a student', async () => {
+      const { applicationId } = await correctedSitting()
+
+      const response = await download('token-ana', `/applications/${applicationId}/report?format=csv`)
+
+      expect(response.status).toBe(200)
+      expect(response.headers['content-type']).toBe('text/csv; charset=utf-8')
+      expect(response.headers['content-disposition']).toBe('attachment; filename=relatorio-aplicacao-2026-10-05.csv')
+      expect(text(response).split('\r\n')).toEqual(['\uFEFFAluno;Matrícula;Versão;Q1;Q2;Q3;Total', 'Ana Lima;2026001;1;3;3;4;10', 'Folha 3;;1;3;3;1;7', ''])
+    })
+
+    it('exports the report of the application as Excel and as PDF', async () => {
+      const { applicationId } = await correctedSitting()
+
+      const xlsx = await download('token-ana', `/applications/${applicationId}/report?format=xlsx`)
+      const pdf = await download('token-ana', `/applications/${applicationId}/report?format=pdf`)
+
+      expect(xlsx.headers['content-type']).toBe(XLSX)
+      expect((xlsx.body as Buffer).subarray(0, 2).toString()).toBe('PK')
+      expect(pdf.headers['content-type']).toBe('application/pdf')
+      expect(pdf.headers['content-disposition']).toBe('attachment; filename=relatorio-aplicacao-2026-10-05.pdf')
+      expect((pdf.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-')
+    })
+
+    it('answers 404 for the export of another teacher’s application, never 403', async () => {
+      const { applicationId } = await correctedSitting()
+
+      expect((await download('token-bia', `/applications/${applicationId}/report?format=csv`)).status).toBe(404)
+    })
+
+    it('refuses a format it does not write, saying which it does', async () => {
+      const { applicationId } = await correctedSitting()
+
+      const response = await ana().get(`/applications/${applicationId}/report?format=docx`)
+
+      expect(response.status).toBe(400)
+      expect(response.body.message).toBe('Formato de exportação inválido. Use xlsx, csv ou pdf.')
+    })
+
+    it('exports the consolidated report with the columns of the screen, and only the rows of its filters', async () => {
+      await correctedSitting()
+      const other = await application({ classId: 'class-old', date: '2026-11-10T12:00:00.000Z' })
+      await correct(other.applicationId, other.first, FULL_MARKS)
+
+      const all = await download('token-ana', '/reports/consolidated?format=csv')
+      const filtered = await download('token-ana', '/reports/consolidated?format=csv&class=class-old')
+
+      expect(all.headers['content-disposition']).toMatch(/^attachment; filename=relatorio-consolidado-\d{4}-\d{2}-\d{2}\.csv$/)
+      expect(text(all).split('\r\n')).toEqual([
+        '\uFEFFProva;Turma;Data;Corrigidas;Média;Menor;Maior',
+        'Prova exam-applied;Turma class-old;10/11/2026;1;10;10;10',
+        'Prova exam-applied;Turma class-ana;05/10/2026;2;8,5;7;10',
+        '',
+      ])
+      expect(text(filtered).split('\r\n')).toHaveLength(3)
+      expect((await download('token-ana', '/reports/consolidated?format=xlsx')).headers['content-type']).toBe(XLSX)
+      expect((await download('token-ana', '/reports/consolidated?format=pdf')).headers['content-type']).toBe('application/pdf')
+    })
+
+    it('exports nothing of another teacher in the consolidated report', async () => {
+      await correctedSitting()
+
+      expect(text(await download('token-bia', '/reports/consolidated?format=csv')).split('\r\n')).toHaveLength(2)
+    })
+
+    /** `docs/Seguranca_e_LGPD.md`, section 4: exporting is the expensive tier; reading the same report on screen is not. */
+    it('counts the exports against the expensive limit of the teacher, and the screens’ reads not', async () => {
+      const limited = createApp({
+        env,
+        logger: createLogger('silent'),
+        db,
+        verifyToken,
+        rateLimits: { read: RELAXED, write: RELAXED, expensive: { windowMs: 60_000, limit: 2 } },
+      })
+      const { applicationId } = await correctedSitting()
+      const path = `/applications/${applicationId}/report`
+
+      const reads = [(await download('token-ana', path, limited)).status, (await download('token-ana', '/reports/consolidated', limited)).status]
+      const exports = [
+        (await download('token-ana', `${path}?format=csv`, limited)).status,
+        (await download('token-ana', '/reports/consolidated?format=pdf', limited)).status,
+        (await download('token-ana', `${path}?format=xlsx`, limited)).status,
+      ]
+
+      expect(reads).toEqual([200, 200])
+      expect(exports).toEqual([200, 200, 429])
+      expect((await download('token-ana', path, limited)).status).toBe(200)
     })
   })
 })

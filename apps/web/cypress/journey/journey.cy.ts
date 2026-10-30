@@ -641,6 +641,24 @@ function readReport(): void {
   cy.contains('h2', 'Por questão').should('be.visible')
   cy.contains('h2', 'Por conteúdo').should('be.visible')
   cy.contains('li', DRAW_TAG).should('be.visible')
+
+  exportReport()
+}
+
+/**
+ * RF36 and RF41: the export confirms at once in the notice at the top, the
+ * server draws the spreadsheet, and the teacher downloads it from the notice
+ * and closes it.
+ */
+function exportReport(): void {
+  cy.intercept({ method: 'GET', pathname: /^\/api\/applications\/[^/]+\/report$/, query: { format: 'xlsx' } }).as('export')
+  cy.contains('button', 'Exportar Excel').click()
+
+  cy.contains('[aria-label="Operações em segundo plano"]', 'Relatório da aplicação em Excel').should('be.visible')
+  cy.wait('@export').its('response.headers.content-type').should('contain', 'spreadsheetml')
+  cy.contains('button', /^Baixar relatorio-aplicacao-\d{4}-\d{2}-\d{2}\.xlsx$/).click()
+  cy.get('[aria-label="Fechar aviso"]').click()
+  cy.contains('Relatório da aplicação em Excel').should('not.exist')
 }
 
 function summaryCard(label: string) {
@@ -733,7 +751,7 @@ describe('jornada completa', () => {
     cy.log('**12. Consultar a nota pelo QR Code**')
     lookUpByQrCode()
 
-    cy.log('**13. Ler o relatório da aplicação**')
+    cy.log('**13. Ler o relatório da aplicação e exportar em Excel**')
     readReport()
 
     cy.log('**14. Conferir o painel: saudação e correções pendentes**')

@@ -8,6 +8,7 @@ import {
   type QueryKey,
 } from '@tanstack/react-query'
 import { useServices } from '@/app/services'
+import { dropBackgroundJobs } from '@/lib/background-jobs'
 import type { AuthProvider } from '@/lib/auth'
 import type { SignInInput, SignUpInput } from '@/lib/schemas'
 import type { AuthenticatedUser } from '@/types/domain'
@@ -54,8 +55,8 @@ function isAccountData(query: Query): boolean {
 
 /**
  * The session is replaced in place and everything the previous person loaded
- * leaves the cache, so a teacher never sees, even for a moment, another
- * teacher's data.
+ * leaves the cache, the files of their background jobs included, so a teacher
+ * never sees, even for a moment, another teacher's data.
  *
  * The session query itself is never removed: whoever observes it, the app
  * root included, would keep the removed copy until something else re-rendered
@@ -64,6 +65,7 @@ function isAccountData(query: Query): boolean {
 function startSession(queryClient: QueryClient, user: AuthenticatedUser | null): void {
   queryClient.setQueryData(authKeys.currentUser, user)
   queryClient.removeQueries({ predicate: isAccountData })
+  dropBackgroundJobs(queryClient)
 }
 
 /**

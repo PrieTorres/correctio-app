@@ -127,6 +127,8 @@ Formato exigido pela professora: cada RF descreve uma ação que pode ser feita 
 | RF47 | O sistema deve corrigir automaticamente as questões objetivas de uma prova que também contenha discursivas, deixando a correção com status "em andamento" até que o professor lance a nota de cada discursiva. | Correção |
 | RF48 | O sistema deve indicar, na lista de correções de uma aplicação, quais estão em andamento por dependerem de nota de questão discursiva. | Correção |
 
+**Colunas da exportação (RF36).** Enquanto o cliente não valida as colunas (#69), a exportação segue a decisão da PM de 30/10: o relatório da aplicação sai com uma linha por aluno corrigido, com nome, matrícula, versão, a nota de cada questão na coluna da questão da prova (Q1 é a questão 1 da prova, qualquer que seja a versão do aluno) e o total; a folha ainda sem aluno sai como "Folha N", com a matrícula vazia. O consolidado sai com uma linha por aplicação e as colunas da tela (prova, turma, data, corrigidas, média, menor e maior), só com as linhas dos filtros aplicados. As colunas podem mudar quando a #69 for respondida.
+
 **Minimização (RF07).** O e-mail do aluno é coletado hoje sem nenhuma finalidade no sistema: não existe área do aluno e nada é enviado a ele por e-mail. Coletar dado pessoal sem finalidade contraria o princípio da necessidade (LGPD, Art. 6º, III). Levar ao cliente: o campo tem uso previsto? Se não tiver, sai do cadastro e da importação.
 
 ## 4. Requisitos Não-Funcionais (RNF) — com métrica
