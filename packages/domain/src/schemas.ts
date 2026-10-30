@@ -399,6 +399,38 @@ export const objectiveResultSchema = z.object({
   selectedAlternativeId: id.optional(),
 });
 
+const publicLookupHeaderSchema = z.object({
+  examTitle: z.string(),
+  subject: z.string(),
+  className: z.string(),
+  date: z.string(),
+  identity: z.discriminatedUnion('type', [
+    z.object({ type: z.literal('STUDENT'), fullName: z.string() }),
+    z.object({ type: z.literal('SHEET'), sheetNumber: z.number(), versionNumber: z.number() }),
+  ]),
+});
+
+const answerKeySchema = z.array(z.object({ questionId: id, correctAlternativeId: id }));
+
+/**
+ * The answer of the public lookup, one object per state. `z.object` drops any
+ * key it does not declare, which is the right default for the one response
+ * that reaches strangers: a field the server added by mistake never gets to
+ * the screen.
+ */
+export const publicLookupSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('INVALID_CODE') }),
+  z.object({ status: z.literal('NOTHING_RELEASED'), header: publicLookupHeaderSchema }),
+  z.object({ status: z.literal('ANSWER_KEY_ONLY'), header: publicLookupHeaderSchema, answerKey: answerKeySchema }),
+  z.object({
+    status: z.literal('ANSWER_KEY_AND_SCORE'),
+    header: publicLookupHeaderSchema,
+    answerKey: answerKeySchema,
+    totalScore: z.number(),
+    objectiveResults: z.array(objectiveResultSchema),
+  }),
+]);
+
 export const correctionSchema = z.object({
   id,
   examVersionId: id,

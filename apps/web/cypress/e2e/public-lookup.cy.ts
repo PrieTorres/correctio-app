@@ -51,6 +51,51 @@ describe('consulta pública', () => {
   })
 })
 
+/**
+ * A correction left open still waits for the open-ended score, so its total is
+ * not final: the student sees the answer key and no grade until the teacher
+ * confirms. Everything after the code is read is done through the app's own
+ * links, because a reload would destroy a write still in flight.
+ */
+describe('consulta pública com correção em andamento', () => {
+  it('só mostra a nota depois que o professor confirma a correção', () => {
+    cy.visit('/aplicacoes')
+    cy.contains('a', 'Cálculo I — Prova 1').click()
+
+    cy.get('table tbody tr td:last-child')
+      .first()
+      .invoke('text')
+      .then((code) => {
+        const sheetCode = code.trim()
+
+        cy.contains('button', 'Publicar gabarito').first().click()
+        cy.contains('Gabarito publicado').should('be.visible')
+        cy.contains('label', 'Liberar a consulta de nota').find('input').check()
+        cy.contains('label', 'Liberar a consulta de nota').find('input').should('be.checked')
+
+        cy.contains('a', 'Corrigir folhas').click()
+        cy.get('input[aria-label="Marcar a folha 1 para leitura"]').check()
+        cy.contains('button', 'Ler 1 folhas').click()
+        cy.contains('a', 'Revisar', { timeout: 10000 }).first().click()
+        cy.get('input[aria-label^="Nota da questão"]').first().clear().type('2.5')
+        cy.contains('button', 'Salvar sem finalizar').click()
+        cy.contains('Em andamento', { timeout: 10000 }).should('be.visible')
+
+        cy.visit(`/r/${sheetCode}`)
+        cy.contains('h2', 'Gabarito').should('be.visible')
+        cy.contains('Sua nota').should('not.exist')
+
+        cy.go('back')
+        cy.contains('a', 'Revisar', { timeout: 10000 }).first().click()
+        cy.contains('button', 'Confirmar correção').click()
+        cy.contains('Corrigida', { timeout: 10000 }).should('be.visible')
+
+        cy.visit(`/r/${sheetCode}`)
+        cy.contains('h2', 'Sua nota').should('be.visible')
+      })
+  })
+})
+
 describe('aviso de privacidade', () => {
   beforeEach(() => cy.visit('/privacidade'))
 

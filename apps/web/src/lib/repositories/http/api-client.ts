@@ -38,6 +38,7 @@ export interface ApiClientOptions {
 }
 
 const GENERIC_FAILURE = 'Não foi possível falar com o servidor. Tente de novo em instantes.'
+const WAIT_A_MINUTE = 'Muitas consultas seguidas. Aguarde um minuto e tente de novo.'
 const SIGN_IN_REQUIRED = 'Faça login para continuar.'
 
 /** The client errors the API answers in its `{ code, message }` shape, mapped by status. */
@@ -47,7 +48,11 @@ const CLIENT_ERRORS: Readonly<Partial<Record<number, StorageErrorCode>>> = {
   409: 'conflict',
 }
 
-/** 429 carries a message worth showing ("wait a minute"), but nothing to fix: it is a failure. */
+/**
+ * 429 has its own code because the right reaction differs from every other
+ * failure: reloading, which the generic message asks for, only spends more of
+ * the budget that ran out.
+ */
 const TOO_MANY_REQUESTS = 429
 
 interface ErrorBody {
@@ -72,7 +77,7 @@ export function toStorageError(status: number, body: unknown): StorageError {
 
   const clientCode = CLIENT_ERRORS[status]
   if (server !== null && clientCode !== undefined) return new StorageError(server.message, clientCode)
-  if (server !== null && status === TOO_MANY_REQUESTS) return new StorageError(server.message, 'failure')
+  if (status === TOO_MANY_REQUESTS) return new StorageError(server?.message ?? WAIT_A_MINUTE, 'rate-limited')
 
   return new StorageError(GENERIC_FAILURE, 'failure')
 }
