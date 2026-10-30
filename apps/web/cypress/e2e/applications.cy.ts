@@ -1,3 +1,6 @@
+import { sampleClasses } from '@/lib/seed'
+import { apiAs, printForTheTeacher, type SignedInTeacher } from '../support/commands'
+
 /**
  * Applications: where an exam meets a class on a date, and paper comes out.
  *
@@ -9,6 +12,37 @@
  */
 const TO_GENERATE = 'Física II — Teste rápido'
 const ALREADY_GENERATED = 'Cálculo I — Prova 1'
+
+/** How many students the sample of this test put in a class, which is how many sheets its application prints. */
+function sampleStudentCount(className: string): number {
+  const group = sampleClasses().find((item) => item.input.name === className)
+  if (group === undefined) throw new Error(`A turma ${className} não está na amostra.`)
+  return group.students.length
+}
+
+const TO_GENERATE_SHEETS = sampleStudentCount('Física II')
+const ALREADY_GENERATED_SHEETS = sampleStudentCount('Cálculo I — Noturno')
+const LINEAR_ALGEBRA_SHEETS = sampleStudentCount('Álgebra Linear')
+
+/** The sample exam no application uses yet, to create one in a test. */
+const LINEAR_ALGEBRA_EXAM = 'Álgebra Linear — Prova 1'
+
+/** The sheets table of P14, the one table of the page. */
+function sheetTable(options?: Partial<Cypress.Timeoutable>) {
+  return cy.contains('table', 'Código', options)
+}
+
+/** The codes of the sheets, read from the column under the "Código" header rather than from a position. */
+function codesOf($table: JQuery<HTMLElement>): string[] {
+  const column = $table
+    .find('thead th')
+    .toArray()
+    .findIndex((cell) => cell.textContent?.trim() === 'Código')
+  return $table
+    .find('tbody tr')
+    .toArray()
+    .map((row) => row.querySelectorAll('td')[column]?.textContent?.trim() ?? '')
+}
 
 /** The item of the list that names the application. */
 function itemOf(title: string) {
@@ -38,6 +72,15 @@ function openDetailOf(title: string) {
   cy.contains('h1', title).should('be.visible')
 }
 
+/** Archives on the API the exam or class chosen in one of the form's selects, as another tab of the teacher would. */
+function archiveChosenIn(label: 'Prova' | 'Turma', collection: '/exams' | '/classes') {
+  cy.get<SignedInTeacher>('@teacher').then(({ accessToken }) => {
+    cy.findByLabel(label)
+      .invoke('val')
+      .then((id) => apiAs(accessToken)('PATCH', `${collection}/${String(id)}/archive`))
+  })
+}
+
 /** The application this test is on, to come back to it after a change, as the list leads there. */
 function backToTheList() {
   cy.get('main').contains('a', 'Aplicações').click()
@@ -59,7 +102,9 @@ describe('lista de aplicações', () => {
 
   /** P11 tells, without opening anything, whether the students see the key and how far the correction went. */
   it('mostra em cada item se o gabarito foi publicado e o progresso da correção', () => {
-    itemOf(ALREADY_GENERATED).should('contain', 'Gabarito não publicado').and('contain', '0 de 12 folhas corrigidas')
+    itemOf(ALREADY_GENERATED)
+      .should('contain', 'Gabarito não publicado')
+      .and('contain', `0 de ${ALREADY_GENERATED_SHEETS} folhas corrigidas`)
     itemOf(TO_GENERATE).should('not.contain', 'Gabarito').and('not.contain', 'folhas corrigidas')
   })
 
@@ -93,7 +138,7 @@ describe('lista de aplicações', () => {
   })
 
   it('distingue busca sem resultado de nenhuma aplicação ainda', () => {
-    cy.get('input[type="search"]').type('zzzz')
+    cy.get('[aria-label="Buscar aplicações"]').type('zzzz')
 
     cy.contains('h3', 'Nenhuma aplicação encontrada').should('be.visible')
     cy.contains('h3', 'Nenhuma aplicação ainda').should('not.exist')
@@ -101,12 +146,12 @@ describe('lista de aplicações', () => {
 
   /** The day is typed the way the list prints it, with or without the year. */
   it('acha a aplicação pela data como a tela mostra', () => {
-    cy.get('input[type="search"]').type('05/10')
+    cy.get('[aria-label="Buscar aplicações"]').type('05/10')
 
     cy.contains('a', ALREADY_GENERATED).should('be.visible')
     cy.contains('a', TO_GENERATE).should('not.exist')
 
-    cy.get('input[type="search"]').clear().type('12/11/2026')
+    cy.get('[aria-label="Buscar aplicações"]').clear().type('12/11/2026')
     cy.contains('a', TO_GENERATE).should('be.visible')
     cy.contains('a', ALREADY_GENERATED).should('not.exist')
   })
@@ -347,6 +392,52 @@ describe('criar aplicação', () => {
     cy.get('[role="alert"]').should('contain', 'Já existe uma aplicação com estes dados.')
     cy.contains('h1', 'Nova aplicação').should('be.visible')
   })
+
+  /**
+   * The form offers only active exams and classes, but either can be archived
+   * in another tab while the form is open. The server checks again (RF20),
+   * and the screen says what to do instead of failing silently.
+   */
+  it('recusa a prova arquivada depois de aberto o formulário, dizendo o que fazer', () => {
+    cy.findByLabel('Prova').should('contain', LINEAR_ALGEBRA_EXAM).select(LINEAR_ALGEBRA_EXAM)
+    cy.findByLabel('Turma').select('Álgebra Linear')
+    archiveChosenIn('Prova', '/exams')
+    cy.contains('button', 'Salvar e gerar').click()
+
+    cy.get('[role="alert"]').should('contain', 'Esta prova está arquivada. Restaure a prova antes de aplicá-la.')
+    cy.contains('h1', 'Nova aplicação').should('be.visible')
+  })
+
+  it('recusa a turma arquivada depois de aberto o formulário, dizendo o que fazer', () => {
+    cy.findByLabel('Prova').should('contain', LINEAR_ALGEBRA_EXAM).select(LINEAR_ALGEBRA_EXAM)
+    cy.findByLabel('Turma').select('Álgebra Linear')
+    archiveChosenIn('Turma', '/classes')
+    cy.contains('button', 'Salvar e gerar').click()
+
+    cy.get('[role="alert"]').should('contain', 'Esta turma está arquivada. Restaure a turma antes de aplicar uma prova a ela.')
+    cy.contains('h1', 'Nova aplicação').should('be.visible')
+  })
+
+  /**
+   * #160: what is created and printed lives on the API, so a browser with
+   * nothing stored still shows it. The browser is wiped only after the
+   * detail shows the sheets, when the generation has finished.
+   */
+  it('mostra a aplicação criada e gerada mesmo depois de limpar o navegador', () => {
+    cy.findByLabel('Prova').should('contain', LINEAR_ALGEBRA_EXAM).select(LINEAR_ALGEBRA_EXAM)
+    cy.findByLabel('Turma').select('Álgebra Linear')
+    cy.contains('button', 'Salvar e gerar').click()
+    cy.contains('h1', `Gerar PDF — ${LINEAR_ALGEBRA_EXAM}`).should('be.visible')
+    cy.contains('button', 'Gerar PDF').click()
+    cy.contains(`${LINEAR_ALGEBRA_SHEETS} folhas prontas para imprimir`, { timeout: 20000 }).should('be.visible')
+    sheetTable().find('tbody tr').should('have.length', LINEAR_ALGEBRA_SHEETS)
+
+    cy.clearLocalStorage()
+    cy.reload()
+
+    cy.contains('h1', LINEAR_ALGEBRA_EXAM).should('be.visible')
+    sheetTable().find('tbody tr').should('have.length', LINEAR_ALGEBRA_SHEETS)
+  })
 })
 
 describe('gerar a prova', () => {
@@ -372,19 +463,19 @@ describe('gerar a prova', () => {
     cy.get('[aria-label="Embaralhar alternativas da versão 2"]').uncheck()
     cy.contains('button', 'Gerar PDF').click()
 
-    cy.contains('10 folhas prontas para imprimir', { timeout: 20000 }).should('be.visible')
+    cy.contains(`${TO_GENERATE_SHEETS} folhas prontas para imprimir`, { timeout: 20000 }).should('be.visible')
     cy.contains('li', 'Versão 1').should('contain', 'alternativas embaralhadas')
     cy.contains('li', 'Versão 2').should('contain', 'alternativas na ordem')
   })
 
   it('gera uma folha por aluno, cada uma com um código próprio', () => {
     cy.contains('button', 'Gerar PDF').click()
-    cy.contains('10 folhas prontas para imprimir', { timeout: 20000 }).should('be.visible')
+    cy.contains(`${TO_GENERATE_SHEETS} folhas prontas para imprimir`, { timeout: 20000 }).should('be.visible')
 
-    cy.get('table tbody tr').should('have.length', 10)
-    cy.get('table tbody tr td:last-child').then(($codes) => {
-      const values = [...$codes].map((cell) => cell.textContent?.trim())
-      expect(new Set(values).size).to.equal(values.length)
+    sheetTable().find('tbody tr').should('have.length', TO_GENERATE_SHEETS)
+    sheetTable().then(($table) => {
+      const codes = codesOf($table)
+      expect(new Set(codes).size).to.equal(codes.length)
     })
   })
 
@@ -406,6 +497,47 @@ describe('gerar de novo', () => {
     cy.get('[role="status"]').should('contain', 'substitui')
     cy.contains('button', 'Gerar de novo').should('be.visible')
   })
+
+  /**
+   * RF24: every sheet comes back with a new code, so the old paper stops
+   * leading anywhere; the public lookup refusing the old code is covered in
+   * `public-lookup.cy.ts`. The codes before are kept in a variable, since an
+   * alias of the table would be read again after the change.
+   */
+  it('troca o código de todas as folhas ao gerar de novo', () => {
+    openDetailOf(ALREADY_GENERATED)
+    sheetTable().find('tbody tr').should('have.length', ALREADY_GENERATED_SHEETS)
+
+    sheetTable().then(($table) => {
+      const before = codesOf($table)
+
+      cy.contains('button', 'Ações').click()
+      cy.contains('[role="menuitem"]', 'Regenerar PDF').click()
+      cy.contains('button', 'Gerar de novo').click()
+      cy.location('pathname', { timeout: 20000 }).should('match', /^\/aplicacoes\/[^/]+$/)
+
+      sheetTable({ timeout: 10000 }).should(($after) => {
+        const after = codesOf($after)
+        expect(after, 'folhas depois de gerar de novo').to.have.length(before.length)
+        expect(after.filter((code) => before.includes(code)), 'códigos antigos que continuam').to.deep.equal([])
+      })
+    })
+  })
+
+  /**
+   * A correction points at the version it was read from, so once a sheet is
+   * corrected the paper cannot change, and the menu says why before anyone
+   * opens P13. The correction is written on the API, where the rule reads it.
+   */
+  it('bloqueia gerar de novo depois de uma folha corrigida, dizendo o motivo', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, examTitle, sheet }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [], finalize: false })
+      openDetailOf(examTitle)
+    })
+
+    cy.contains('button', 'Ações').click()
+    blockedMenuItem('Regenerar PDF').and('contain', 'Uma folha desta aplicação já foi corrigida.')
+  })
 })
 
 describe('detalhe da aplicação', () => {
@@ -419,7 +551,7 @@ describe('detalhe da aplicação', () => {
   /** The file is the one the server drew for this application, not a fixed sample. */
   it('baixa o PDF gerado pelo servidor', () => {
     cy.intercept({ method: 'GET', pathname: /^\/api\/applications\/[^/]+\/pdf$/ }).as('pdf')
-    cy.contains('12 folhas prontas para imprimir').should('be.visible')
+    cy.contains(`${ALREADY_GENERATED_SHEETS} folhas prontas para imprimir`).should('be.visible')
 
     cy.contains('button', 'Baixar PDF').click()
 
@@ -441,7 +573,7 @@ describe('detalhe da aplicação', () => {
     cy.contains('h2', 'Versões').should('be.visible')
     cy.contains('li', 'Versão 2').should('be.visible')
     cy.contains('h2', 'Folhas').should('be.visible')
-    cy.get('table tbody tr').should('have.length', 12)
+    sheetTable().find('tbody tr').should('have.length', ALREADY_GENERATED_SHEETS)
   })
 
   /** Publishing shows students something, so it asks first; taking the key back only hides it. */
@@ -545,7 +677,7 @@ describe('detalhe da aplicação', () => {
   })
 
   it('mostra o progresso da correção, contando só as folhas corrigidas', () => {
-    cy.contains('0 de 12 folhas corrigidas').should('be.visible')
+    cy.contains(`0 de ${ALREADY_GENERATED_SHEETS} folhas corrigidas`).should('be.visible')
     cy.contains('a', 'Corrigir folhas').should('be.visible')
   })
 

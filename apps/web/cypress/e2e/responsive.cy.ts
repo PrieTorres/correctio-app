@@ -1,3 +1,5 @@
+import { apiAs, printForTheTeacher } from '../support/commands'
+
 /**
  * The widths the delivery has to survive, checked for the one failure that is
  * always a bug rather than a taste: content wider than the screen.
@@ -13,6 +15,9 @@ const SCREENS = [
   '/aplicacoes',
   '/privacidade',
 ] as const
+
+/** The access screens send a signed-in teacher to the panel, so they are measured signed out. */
+const SIGNED_OUT_SCREENS = ['/entrar', '/criar-conta', '/recuperar-senha'] as const
 
 const WIDTHS = [
   { name: 'celular pequeno', width: 360, height: 740 },
@@ -38,6 +43,31 @@ describe('responsividade', () => {
         it(`não rola na horizontal em ${path}`, () => {
           cy.visit(path)
           cy.get('main, h1').should('exist')
+
+          expectNoHorizontalScroll()
+        })
+      })
+
+      SIGNED_OUT_SCREENS.forEach((path) => {
+        it(`não rola na horizontal em ${path}`, () => {
+          cy.clearCookies()
+          cy.visit(path)
+          cy.get('h1').should('be.visible')
+
+          expectNoHorizontalScroll()
+        })
+      })
+
+      /**
+       * PUB1 is opened from the QR code, on the phone first, so it is measured
+       * with a real sheet and its published answer key on screen rather than
+       * the short "QR inválido" card.
+       */
+      it('não rola na horizontal na consulta pública de uma folha', () => {
+        printForTheTeacher().then(({ accessToken, applicationId, sheet }) => {
+          apiAs(accessToken)('POST', `/applications/${applicationId}/publish-answer-keys`)
+          cy.visit(`/r/${sheet.code}`)
+          cy.contains('h2', 'Gabarito').should('be.visible')
 
           expectNoHorizontalScroll()
         })
