@@ -1,3 +1,5 @@
+import { printForTheTeacher, type SignedInTeacher } from '../support/commands'
+
 /**
  * The panel and the profile: where a term is read at a glance, and where the
  * sessions and the account are managed.
@@ -46,8 +48,9 @@ describe('painel', () => {
 
 /**
  * The greeting and the "Correções pendentes" card. The number comes from the
- * corrections of the teacher signed in, so the tests move it by reading sheets
- * through the app instead of trusting a fixed figure.
+ * API (#50), counted from the corrections of the teacher signed in, so the
+ * tests move it by writing a correction there instead of trusting a fixed
+ * figure.
  */
 describe('painel: saudação e correções pendentes', () => {
   it('saúda a professora pelo primeiro nome', () => {
@@ -56,21 +59,34 @@ describe('painel: saudação e correções pendentes', () => {
     cy.contains('Olá, Professora!').should('be.visible')
   })
 
-  it('mostra zero correções pendentes numa conta sem correções', () => {
+  it('mostra zero correções pendentes numa conta sem folhas lidas', () => {
     cy.visit('/painel')
 
     cy.contains('a', 'Correções pendentes').should('contain', '0')
   })
 
-  it('conta uma correção que ainda espera nota de discursiva', () => {
-    cy.correctFirstSheetOf('Cálculo I — Prova 1')
-    cy.get('[aria-label="Navegação principal"]').contains('a', 'Painel').click()
+  it('conta uma correção que ainda não foi finalizada', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, sheet }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [], finalize: false })
+    })
+    cy.visit('/painel')
 
     cy.contains('a', 'Correções pendentes').should('contain', '1')
   })
 
+  /** A finished correction of a named sheet owes the teacher nothing. */
+  it('não conta a correção finalizada', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, sheet, questionId, correctAlternativeId }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [{ questionId, selectedAlternativeId: correctAlternativeId }], finalize: true })
+    })
+    cy.visit('/painel')
+
+    cy.contains('a', 'Geometria — Prova da consulta').should('be.visible')
+    cy.contains('a', 'Correções pendentes').should('contain', '0')
+  })
+
   it('leva à lista de aplicações já filtrada por correção em andamento', () => {
-    cy.correctFirstSheetOf('Cálculo I — Prova 1')
+    cy.readFirstSheetOf('Cálculo I — Prova 1')
     cy.get('[aria-label="Navegação principal"]').contains('a', 'Painel').click()
     cy.contains('a', 'Correções pendentes').click()
 
@@ -82,7 +98,9 @@ describe('painel: saudação e correções pendentes', () => {
   })
 
   it('não conta as folhas de outra professora', () => {
-    cy.correctFirstSheetOf('Cálculo I — Prova 1')
+    printForTheTeacher().then(({ accessToken, applicationId, sheet }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [], finalize: false })
+    })
     cy.signInAsNewTeacher()
     cy.visit('/painel')
 
@@ -134,9 +152,15 @@ describe('painel: corrigir folhas', () => {
 describe('perfil', () => {
   beforeEach(() => cy.visit('/perfil'))
 
-  it('mostra os dados da conta em leitura', () => {
+  /** P2: what the API has for the account (`GET /me`), for reading only. */
+  it('mostra nome, e-mail e tipo da conta', () => {
     cy.contains('h1', 'Meu perfil').should('be.visible')
     cy.contains('h2', 'Dados da conta').should('be.visible')
+    cy.get<SignedInTeacher>('@teacher').then(({ fullName, email }) => {
+      cy.contains('dt', 'Nome').next().should('have.text', fullName)
+      cy.contains('dt', 'E-mail').next().should('have.text', email)
+    })
+    cy.contains('dt', 'Tipo').next().should('have.text', 'Professor')
   })
 
   /** Each screen's own help button is how a tour comes back, so the profile no longer resets all of them. */
@@ -168,5 +192,16 @@ describe('perfil', () => {
     cy.findByLabel('Digite ANONIMIZAR para confirmar').type('anonimizar')
 
     cy.contains('button', 'Anonimizar minha conta').should('be.disabled')
+  })
+
+  /** RF05: the account is anonymized on the server, every session ends, and the old e-mail and password no longer sign in. */
+  it('anonimiza a conta, volta para o login e não entra mais com ela', () => {
+    cy.findByLabel('Digite ANONIMIZAR para confirmar').type('ANONIMIZAR')
+    cy.contains('button', 'Anonimizar minha conta').click()
+
+    cy.location('pathname').should('eq', '/entrar')
+    cy.get<SignedInTeacher>('@teacher').then(({ email, password }) => {
+      cy.request({ method: 'POST', url: '/api/auth/login', body: { email, password }, failOnStatusCode: false }).its('status').should('eq', 401)
+    })
   })
 })

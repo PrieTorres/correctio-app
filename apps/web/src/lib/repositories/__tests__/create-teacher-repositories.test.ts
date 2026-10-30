@@ -9,7 +9,8 @@ const EMPTY_PAGE = { items: [], total: 0 }
 function fakeApi() {
   const request = vi.fn<ApiClient['request']>(() => Promise.resolve(EMPTY_PAGE))
   const download = vi.fn<FileClient['download']>()
-  return { api: { request, download }, request }
+  const upload = vi.fn<FileClient['upload']>(() => Promise.resolve({ imageId: 'photo-1', status: 'QR_NOT_RECOGNIZED' }))
+  return { api: { request, download, upload }, request, upload }
 }
 
 describe('createTeacherRepositories', () => {
@@ -28,13 +29,29 @@ describe('createTeacherRepositories', () => {
     expect(paths).toEqual(['GET /applications', 'GET /applications/a%201/versions', 'GET /applications/a%201/sheets'])
   })
 
-  /** The corrections move to the API with their own screens (#48); until then they stay in this browser. */
-  it('keeps the corrections in this browser even with a client', async () => {
+  /** One request each, calculated on the server (#50), instead of every list read here. */
+  it('reads the panel and the reports from the API when there is a client', async () => {
     const { api, request } = fakeApi()
+    const { reports } = createTeacherRepositories('ana', api)
+    request.mockResolvedValueOnce({ classes: 0, questions: 0, exams: 0, applications: 0, pendingCorrections: 0, recent: [], gradable: [] })
+    request.mockResolvedValueOnce([])
 
-    await createTeacherRepositories('ana', api).corrections.listByAnswerSheets(['sheet-1'])
+    await reports.dashboard()
+    await reports.consolidated()
 
-    expect(request).not.toHaveBeenCalled()
+    expect(request.mock.calls.map(([method, path]) => `${method} ${path}`)).toEqual(['GET /dashboard', 'GET /reports/consolidated'])
+  })
+
+  /** With a client, the corrections and the photos are the API's (#47, #48): nothing of the browser's is left (#51). */
+  it('reads the corrections and sends the photos to the API when there is a client', async () => {
+    const { api, request, upload } = fakeApi()
+    const { corrections, sheetImages } = createTeacherRepositories('ana', api)
+
+    await corrections.listByApplication('a 1')
+    await sheetImages.upload('a 1', new Blob(['photo']))
+
+    expect(request.mock.calls.map(([method, path]) => `${method} ${path}`)).toEqual(['GET /applications/a%201/corrections'])
+    expect(upload).toHaveBeenCalledWith('/applications/a%201/sheet-images', expect.any(Blob))
   })
 
   it('generates in this browser when there is no client, as the demo does', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { totalScore } from '../score'
+import { totalScore } from '../exam-score'
 
 const question = (score: number) => ({
   questionId: `q${score}`,

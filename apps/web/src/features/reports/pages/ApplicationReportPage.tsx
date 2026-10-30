@@ -3,72 +3,82 @@ import { useParams } from 'react-router-dom';
 import { Download, Loader2 } from 'lucide-react';
 import { BackLink, Badge, Button, ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
-import { accuracyByTag, accuracyOf, distribute, summarise } from '@/lib/reports';
-import { totalScore } from '@/lib/exams';
-import { useGradingOverview } from '@/features/grading';
+import type { ApplicationReport, Distribution, ReportQuestion, ReportStudentRow, TagAccuracy } from '@/lib/reports';
 import { Tour } from '@/components/ui/Tour';
+import { useApplicationReport } from '../hooks/useApplicationReport';
 
 type SortKey = 'name' | 'score';
 
-type Overview = NonNullable<ReturnType<typeof useGradingOverview>['data']>;
+/** The tallest bar of the histogram, in pixels; the others are drawn in proportion. */
+const BAR_HEIGHT_PX = 120;
 
-type Correction = Overview['corrections'][number];
-
-type Question = Overview['bank'][number];
-
+/**
+ * The report of one application (P18, RF34 and RF35). Every number comes
+ * calculated from the server (#50), from the finished corrections only; the
+ * screen draws what arrives and never counts on its own.
+ */
 export function ApplicationReportPage() {
   const { id } = useParams<{ id: string }>();
-  const { data, isPending, isError } = useGradingOverview(id);
+  const { data: report, isPending, isError } = useApplicationReport(id);
+  const finished = report?.summary.count ?? 0;
+
+  return (
+    <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Calculando o relatório…">
+      <div className="flex flex-col gap-6">
+        <BackLink to={id === undefined ? ROUTES.applications : buildPath(ROUTES.applicationDetail, { id })}>Aplicação</BackLink>
+
+        <PageHeader
+          help
+          title="Relatório da aplicação"
+          description={report === undefined ? '' : `${report.examTitle} · ${report.className}`}
+          actions={<ExportButton disabled={finished === 0} />}
+        />
+
+        {report !== undefined && <Progress report={report} />}
+
+        {report === undefined || finished === 0 ? <NothingCorrected applicationId={id ?? ''} /> : <ReportSections report={report} />}
+      </div>
+
+      <Tour screen="applicationReport" ready={finished > 0} />
+    </QueryBoundary>
+  );
+}
+
+/** RF41: a long operation confirms at once and runs out of the way. */
+function ExportButton({ disabled }: Readonly<{ disabled: boolean }>) {
   const [exporting, setExporting] = useState(false);
-
-  const corrections = data?.corrections ?? [];
-
-  /** RF41: a long operation confirms at once and runs out of the way. */
   const exportReport = () => {
     setExporting(true);
     window.setTimeout(() => setExporting(false), 1200);
   };
 
   return (
-    <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Calculando o relatório…">
-      <div className="flex flex-col gap-6">
-        <BackLink to={id === undefined ? ROUTES.applications : buildPath(ROUTES.applicationDetail, { id })}>
-          Aplicação
-        </BackLink>
-
-        <PageHeader help
-          title="Relatório da aplicação"
-          description={data?.exam?.title ?? 'Prova removida'}
-          actions={<ExportButton exporting={exporting} disabled={corrections.length === 0} onExport={exportReport} />}
-        />
-
-        {exporting && (
-          <p role="status" className="text-caption text-ink-subtle">
-            A exportação roda em segundo plano. Você pode continuar usando a tela.
-          </p>
-        )}
-
-        <ReportContent overview={data} applicationId={id ?? ''} />
-      </div>
-
-      <Tour screen="applicationReport" ready={corrections.length > 0} />
-    </QueryBoundary>
-  );
-}
-
-function ExportButton({
-  exporting,
-  disabled,
-  onExport,
-}: Readonly<{ exporting: boolean; disabled: boolean; onExport: () => void }>) {
-  return (
     <Button
       icon={exporting ? <Loader2 size={18} aria-hidden className="animate-spin" /> : <Download size={18} aria-hidden />}
       disabled={exporting || disabled}
-      onClick={onExport}
+      onClick={exportReport}
     >
       {exporting ? 'Exportando…' : 'Exportar'}
     </Button>
+  );
+}
+
+/**
+ * How much of the class the numbers describe. The corrections still waiting
+ * for an open-ended score are named apart (RF48): they are out of every number
+ * until the teacher finishes them.
+ */
+function Progress({ report }: Readonly<{ report: ApplicationReport }>) {
+  return (
+    <p className="text-body text-ink-muted">
+      {report.summary.count} de {report.sheets} folhas corrigidas
+      {report.inProgress > 0 && (
+        <>
+          {' · '}
+          {report.inProgress} em andamento, fora das contas até a correção terminar
+        </>
+      )}
+    </p>
   );
 }
 
@@ -89,19 +99,8 @@ function NothingCorrected({ applicationId }: Readonly<{ applicationId: string }>
   );
 }
 
-/** Statistics need at least one correction; before that, the way to the first one. */
-function ReportContent({ overview, applicationId }: Readonly<{ overview: Overview | null | undefined; applicationId: string }>) {
-  if (overview == null || overview.corrections.length === 0) return <NothingCorrected applicationId={applicationId} />;
-  return <ReportBody overview={overview} />;
-}
-
-/** The statistics of an application with at least one correction, every section computed from the same overview. */
-function ReportBody({ overview }: Readonly<{ overview: Overview }>) {
-  const { corrections, exam, bank } = overview;
-  const scores = corrections.map((correction) => correction.totalScore);
-  const summary = summarise(scores);
-  const objectiveResults = corrections.flatMap((correction) => correction.objectiveResults);
-  const byId = new Map(bank.map((question) => [question.id, question]));
+function ReportSections({ report }: Readonly<{ report: ApplicationReport }>) {
+  const { summary } = report;
 
   return (
     <>
@@ -112,17 +111,15 @@ function ReportBody({ overview }: Readonly<{ overview: Overview }>) {
         <Figure label="Desvio padrão" value={summary.standardDeviation} />
         <Figure label="Menor e maior" value={`${summary.lowest} – ${summary.highest}`} />
       </div>
-
-      <ScoreDistribution scores={scores} maximum={exam === null ? 0 : totalScore(exam.questions)} />
-      <StudentScores overview={overview} />
-      <QuestionAccuracyCard entries={exam?.questions ?? []} byId={byId} objectiveResults={objectiveResults} />
-      <TagAccuracyCard byTag={accuracyByTag(objectiveResults, (questionId) => byId.get(questionId)?.tags ?? [])} />
+      <DistributionCard bands={report.distribution} />
+      <GradesCard students={report.students} />
+      <QuestionsCard questions={report.questions} />
+      <TagsCard tags={report.tags} />
     </>
   );
 }
 
-function ScoreDistribution({ scores, maximum }: Readonly<{ scores: number[]; maximum: number }>) {
-  const bands = distribute(scores, maximum);
+function DistributionCard({ bands }: Readonly<{ bands: readonly Distribution[] }>) {
   const tallest = Math.max(1, ...bands.map((band) => band.count));
 
   return (
@@ -135,7 +132,7 @@ function ScoreDistribution({ scores, maximum }: Readonly<{ scores: number[]; max
             <div
               role="img"
               aria-label={`${band.count} notas entre ${band.from} e ${band.to}`}
-              style={{ height: `${Math.max(4, (band.count / tallest) * 120)}px` }}
+              style={{ height: `${Math.max(4, (band.count / tallest) * BAR_HEIGHT_PX)}px` }}
               className="w-full rounded-t-[var(--radius-chip)] bg-primary-fixed"
             />
             <span className="text-caption text-ink-subtle">
@@ -148,21 +145,12 @@ function ScoreDistribution({ scores, maximum }: Readonly<{ scores: number[]; max
   );
 }
 
-/** A sheet nobody claimed yet is named by its number, and a student removed since by what happened to them. */
-function scoreOwnerOf(correction: Correction, overview: Overview): string {
-  if (correction.studentId === undefined) {
-    const sheet = overview.sheets.find((item) => item.id === correction.answerSheetId);
-    return `Folha ${sheet?.sheetNumber ?? '—'}`;
-  }
-  return overview.students.find((student) => student.id === correction.studentId)?.fullName ?? 'Aluno removido';
-}
+const byScore = (a: ReportStudentRow, b: ReportStudentRow) => b.totalScore - a.totalScore;
 
-function StudentScores({ overview }: Readonly<{ overview: Overview }>) {
+/** The server sends the rows in name order; sorting by grade is the only order worked out here. */
+function GradesCard({ students }: Readonly<{ students: readonly ReportStudentRow[] }>) {
   const [sortBy, setSortBy] = useState<SortKey>('name');
-
-  const rows = overview.corrections
-    .map((correction) => ({ id: correction.id, name: scoreOwnerOf(correction, overview), score: correction.totalScore }))
-    .toSorted((a, b) => (sortBy === 'name' ? a.name.localeCompare(b.name, 'pt-BR') : b.score - a.score));
+  const rows = sortBy === 'name' ? students : students.toSorted(byScore);
 
   return (
     <Card>
@@ -182,19 +170,19 @@ function StudentScores({ overview }: Readonly<{ overview: Overview }>) {
           <caption className="sr-only">Notas de cada aluno nesta aplicação</caption>
           <thead className="text-label text-ink-muted">
             <tr className="border-b border-line">
-              <th scope="col" className="px-5 py-3 text-left">
-                Aluno
-              </th>
-              <th scope="col" className="px-5 py-3 text-right">
-                Nota
-              </th>
+              <th scope="col" className="px-5 py-3 text-left">Aluno</th>
+              <th scope="col" className="px-5 py-3 text-left">Matrícula</th>
+              <th scope="col" className="px-5 py-3 text-right">Versão</th>
+              <th scope="col" className="px-5 py-3 text-right">Nota</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {rows.map((row) => (
-              <tr key={row.id}>
+              <tr key={row.correctionId}>
                 <td className="px-5 py-3 text-ink">{row.name}</td>
-                <td className="px-5 py-3 text-right text-ink">{row.score}</td>
+                <td className="px-5 py-3 text-ink-muted">{row.registration === '' ? '—' : row.registration}</td>
+                <td className="px-5 py-3 text-right text-ink-muted">{row.versionNumber ?? '—'}</td>
+                <td className="px-5 py-3 text-right text-ink">{row.totalScore}</td>
               </tr>
             ))}
           </tbody>
@@ -204,21 +192,13 @@ function StudentScores({ overview }: Readonly<{ overview: Overview }>) {
   );
 }
 
-/** Green from 70 % of right answers, amber from 40 %, red below: a question most of the class missed stands out. */
 function accuracyTone(percentage: number): 'success' | 'warning' | 'danger' {
   if (percentage >= 70) return 'success';
   return percentage >= 40 ? 'warning' : 'danger';
 }
 
-function QuestionAccuracyCard({
-  entries,
-  byId,
-  objectiveResults,
-}: Readonly<{
-  entries: { questionId: string; order: number }[];
-  byId: ReadonlyMap<string, Question>;
-  objectiveResults: Correction['objectiveResults'];
-}>) {
+/** Only the multiple-choice questions: an open-ended one has no alternative to count. */
+function QuestionsCard({ questions }: Readonly<{ questions: readonly ReportQuestion[] }>) {
   return (
     <Card data-tour="by-question">
       <div className="border-b border-line px-5 py-4">
@@ -228,66 +208,45 @@ function QuestionAccuracyCard({
         </p>
       </div>
       <ul className="divide-y divide-line">
-        {entries
-          .toSorted((a, b) => a.order - b.order)
-          .flatMap((entry, index) => {
-            const question = byId.get(entry.questionId);
-            if (question === undefined || question.type !== 'objetiva') return [];
-            return [
-              <QuestionAccuracyRow
-                key={entry.questionId}
-                position={index + 1}
-                question={question}
-                accuracy={accuracyOf(entry.questionId, objectiveResults)}
-              />,
-            ];
-          })}
+        {questions.map((question) => (question.accuracy === undefined ? null : <QuestionItem key={question.questionId} question={question} accuracy={question.accuracy} />))}
       </ul>
     </Card>
   );
 }
 
-function QuestionAccuracyRow({
-  position,
-  question,
-  accuracy,
-}: Readonly<{ position: number; question: Question; accuracy: ReturnType<typeof accuracyOf> }>) {
-  const marked = question.alternatives?.findIndex((alternative) => alternative.id === accuracy.mostMarkedAlternativeId) ?? -1;
-
+function QuestionItem({ question, accuracy }: Readonly<{ question: ReportQuestion; accuracy: NonNullable<ReportQuestion['accuracy']> }>) {
   return (
     <li className="flex flex-col gap-1 px-5 py-4">
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 text-body text-ink">
-          <span className="text-ink-subtle">{position}.</span> {question.statement}
+          <span className="text-ink-subtle">{question.number}.</span> {question.statement}
         </p>
         <Badge tone={accuracyTone(accuracy.percentage)}>{accuracy.percentage}% de acerto</Badge>
       </div>
       <p className="text-caption text-ink-subtle">
         {accuracy.correct} de {accuracy.answered} acertaram
-        {marked >= 0 && <> · mais marcada: alternativa {'ABCDE'[marked] ?? '?'}</>}
+        {accuracy.mostMarkedLetter !== undefined && <> · mais marcada: alternativa {accuracy.mostMarkedLetter}</>}
       </p>
     </li>
   );
 }
 
-function TagAccuracyCard({ byTag }: Readonly<{ byTag: ReturnType<typeof accuracyByTag> }>) {
+function TagsCard({ tags }: Readonly<{ tags: readonly TagAccuracy[] }>) {
   return (
     <Card data-tour="by-tag">
       <div className="border-b border-line px-5 py-4">
         <h2 className="text-title text-primary">Por conteúdo</h2>
         <p className="mt-1 text-caption text-ink-subtle">
-          Do conteúdo menos aprendido para o mais. É por aqui que se decide o que
-          retomar.
+          Do conteúdo menos aprendido para o mais. É por aqui que se decide o que retomar.
         </p>
       </div>
-      {byTag.length === 0 ? (
+      {tags.length === 0 ? (
         <p className="px-5 py-6 text-body text-ink-muted">
-          Nenhuma questão desta prova tem tag. Marcar as questões por conteúdo é o que
-          faz esta seção existir.
+          Nenhuma questão desta prova tem tag. Marcar as questões por conteúdo é o que faz esta seção existir.
         </p>
       ) : (
         <ul className="divide-y divide-line">
-          {byTag.map((tag) => (
+          {tags.map((tag) => (
             <li key={tag.tag} className="flex items-center justify-between gap-3 px-5 py-4">
               <span className="text-body text-ink">{tag.tag}</span>
               <span className="text-caption text-ink-subtle">

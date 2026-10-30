@@ -11,12 +11,14 @@ import {
   type PublicLookupRepository,
 } from './public-lookup-repository'
 import { createLocalQuestionRepository, type QuestionRepository } from './question-repository'
+import { createLocalReportRepository, type ReportRepository } from './report-repository'
 import { createHttpStudentRepository, createLocalStudentRepository, type StudentRepository } from './student-repository'
 import { createHttpQuestionRepository } from './http/create-http-question-repository'
 import { createHttpExamRepository } from './http/create-http-exam-repository'
 import { createHttpApplicationRepository } from './http/create-http-application-repository'
 import { createHttpPrintingRepository } from './http/create-http-printing-repository'
 import { createHttpCorrectionRepository } from './http/create-http-correction-repository'
+import { createHttpReportRepository } from './http/create-http-report-repository'
 import type { ApiClient, FileClient } from './http/api-client'
 
 export * from './types'
@@ -30,6 +32,7 @@ export type {
   PublicLookupRepository,
   QuestionRepository,
   SheetImageRepository,
+  ReportRepository,
   StudentRepository,
 }
 
@@ -42,6 +45,8 @@ export interface TeacherRepositories {
   printing: PrintingRepository
   corrections: CorrectionRepository
   sheetImages: SheetImageRepository
+  /** The panel and the reports, calculated on the API since #50. */
+  reports: ReportRepository
 }
 
 /**
@@ -56,9 +61,10 @@ export interface TeacherRepositories {
  *
  * With an API client, the areas on the API read and write there: classes and
  * students since #42, questions since #44, exams since #45, applications
- * with their versions and sheets since #46, and the photos and corrections of
- * the sheets since #47 and #48. Without a client, which is the GitHub Pages
- * demo and the unit tests, every entry stays in this browser.
+ * with their versions and sheets since #46, the photos and corrections of the
+ * sheets since #47 and #48, and the panel and the reports since #50. Without a
+ * client, which is the GitHub Pages demo and the unit tests, every entry stays
+ * in this browser.
  */
 export function createTeacherRepositories(teacherId: string, api?: ApiClient & FileClient): TeacherRepositories {
   return api === undefined ? createLocalTeacherRepositories(teacherId) : createHttpTeacherRepositories(api)
@@ -96,6 +102,7 @@ export function createLocalTeacherRepositories(teacherId: string): TeacherReposi
     printing,
     corrections,
     sheetImages: createLocalSheetImageRepository({ contextOf: (id) => readingContextOf(printing, id) }),
+    reports: createLocalReportRepository({ classes, questions, exams, applications, students, printing, corrections }),
   }
 }
 
@@ -119,5 +126,6 @@ export function createHttpTeacherRepositories(api: ApiClient & FileClient): Teac
     printing: createHttpPrintingRepository(api),
     corrections: createHttpCorrectionRepository(api),
     sheetImages: createHttpSheetImageRepository(api),
+    reports: createHttpReportRepository(api),
   }
 }

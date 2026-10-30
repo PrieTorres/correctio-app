@@ -1,4 +1,4 @@
-import type { ExamQuestion } from '@/types/domain'
+import type { ExamQuestion } from './domain'
 
 /**
  * Adds up what an exam is worth.
@@ -10,6 +10,6 @@ import type { ExamQuestion } from '@/types/domain'
  * Nothing here validates the result. Closing an exam on ten points is the
  * teacher's call, and the screens show the total without ever blocking a save.
  */
-export function totalScore(questions: readonly ExamQuestion[]): number {
+export function totalScore(questions: readonly Pick<ExamQuestion, 'score'>[]): number {
   return Math.round(questions.reduce((sum, item) => sum + item.score, 0) * 100) / 100
 }

@@ -1,22 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ApplicationStatus } from '@/types/domain'
-import { GRADING_SHORTCUT, gradableApplications, gradingShortcut } from '../grading-shortcut'
-
-const application = (id: string, status: ApplicationStatus, date: string) => ({ id, status, date })
-
-describe('gradableApplications', () => {
-  /** A draft has no sheets yet, and a closed application has left the list. */
-  it('keeps only the applications with printed sheets, the most recent first', () => {
-    const applications = [
-      application('old', 'generated', '2026-09-20T12:00:00.000Z'),
-      application('draft', 'draft', '2026-10-15T12:00:00.000Z'),
-      application('new', 'generated', '2026-10-10T12:00:00.000Z'),
-      application('closed', 'closed', '2026-10-12T12:00:00.000Z'),
-    ]
-
-    expect(gradableApplications(applications).map((item) => item.id)).toEqual(['new', 'old'])
-  })
-})
+import { GRADING_SHORTCUT, gradingShortcut } from '../grading-shortcut'
 
 describe('gradingShortcut', () => {
   it('has nowhere to go without an application to grade', () => {

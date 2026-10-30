@@ -34,6 +34,20 @@ export function useCurrentUser() {
   return useQuery(currentUserQuery(auth))
 }
 
+/**
+ * The account as the server has it (P2, `GET /me`). Outside the `auth` keys on
+ * purpose: it is the teacher's data, so it leaves the cache with everything
+ * else when the session changes (`startSession`).
+ */
+export const accountKeys = {
+  detail: ['account'] as const satisfies QueryKey,
+}
+
+export function useAccount() {
+  const { auth } = useServices()
+  return useQuery({ queryKey: accountKeys.detail, queryFn: () => auth.loadAccount() })
+}
+
 function isAccountData(query: Query): boolean {
   return query.queryKey[0] !== authKeys.currentUser[0]
 }
