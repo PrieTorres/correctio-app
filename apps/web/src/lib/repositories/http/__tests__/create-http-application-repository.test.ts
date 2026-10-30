@@ -8,7 +8,8 @@ type Answer = (method: HttpMethod, path: string, options?: RequestOptions) => Pr
 function fakeApi(answer: Answer, file: Awaited<ReturnType<FileClient['download']>> = { blob: new Blob() }) {
   const request = vi.fn<ApiClient['request']>(answer)
   const download = vi.fn<FileClient['download']>(() => Promise.resolve(file))
-  return { api: { request, download }, request, download }
+  const upload = vi.fn<FileClient['upload']>()
+  return { api: { request, download, upload }, request, download }
 }
 
 const OVERVIEW = {
