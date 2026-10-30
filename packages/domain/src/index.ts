@@ -3,8 +3,8 @@
  * `docs/Modelo_de_Dados.md`, the Zod schemas that validate them, and the
  * rules both sides must apply alike: the pagination of the exam, the geometry
  * of the answer card, the automatic draw of an exam, the generation of the
- * printed versions and sheets, the grading of a sheet and the public lookup of
- * a grade.
+ * printed versions and sheets, the grading of a sheet, the public lookup of a
+ * grade and the comparison of two registrations.
  */
 export * from './answer-card'
 export * from './answer-sheet-code'
@@ -17,4 +17,5 @@ export * from './grades-release'
 export * from './grading'
 export * from './public-lookup'
 export * from './regeneration'
+export * from './registration'
 export * from './schemas'

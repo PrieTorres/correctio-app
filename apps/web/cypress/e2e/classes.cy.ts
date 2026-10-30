@@ -143,8 +143,96 @@ describe('turmas', () => {
   })
 })
 
+/** #144: the header of P5 says the state of the class and edits or archives it without going back to P3. */
+describe('turmas: detalhe da turma', () => {
+  it('mostra a situação da turma e edita pelo cabeçalho', () => {
+    openClass('Cálculo I — Noturno')
+
+    cy.contains('h1', 'Cálculo I — Noturno').parent().should('contain', 'Ativa')
+    cy.contains('button', 'Editar').click()
+    cy.findByLabel('Nome da turma').clear().type('Cálculo I — Turma B')
+    cy.findInDialog('button', 'Salvar').click()
+
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.contains('h1', 'Cálculo I — Turma B').should('be.visible')
+  })
+
+  it('arquiva pelo cabeçalho e volta para a lista de turmas', () => {
+    openClass('Física II')
+
+    cy.contains('button', 'Arquivar').click()
+    cy.findInDialog('button', 'Arquivar').click()
+
+    cy.contains('h1', 'Turmas').should('be.visible')
+    cy.contains('a', 'Física II').should('not.exist')
+  })
+
+  /** Decided by the PM in #144: an archived class takes no new student, and the screen says why instead of hiding the buttons. */
+  it('não deixa a turma arquivada receber aluno novo e diz por quê, até ser restaurada', () => {
+    openClass('Física II')
+    cy.contains('button', 'Arquivar').click()
+    cy.findInDialog('button', 'Arquivar').click()
+    cy.contains('h1', 'Turmas').should('be.visible')
+
+    cy.chooseSegment('Arquivadas')
+    cy.contains('a', 'Física II').click()
+
+    cy.contains('h1', 'Física II').parent().should('contain', 'Arquivada')
+    cy.contains('[role="note"]', 'Esta turma está arquivada e não recebe alunos novos.')
+      .invoke('attr', 'id')
+      .then((reasonId) => {
+        cy.contains('button', 'Adicionar aluno').should('be.disabled').and('have.attr', 'aria-describedby', reasonId)
+        cy.contains('button', 'Importar alunos').should('be.disabled').and('have.attr', 'aria-describedby', reasonId)
+      })
+    cy.contains('li', 'Ana Beatriz Moreira').contains('button', 'Remover').should('be.enabled')
+
+    cy.contains('button', 'Restaurar').click()
+    cy.findInDialog('button', 'Restaurar').click()
+
+    cy.contains('h1', 'Física II').parent().should('contain', 'Ativa')
+    cy.contains('button', 'Adicionar aluno').should('be.enabled')
+    cy.get('[role="note"]').should('not.exist')
+  })
+
+  it('busca um aluno pelo nome, sem acento, e pela matrícula', () => {
+    openClass('Cálculo I — Noturno')
+
+    cy.get('[aria-label="Buscar aluno por nome ou matrícula"]').type('joao')
+    cy.contains('li', 'João Pedro Barbosa').should('be.visible')
+    cy.contains('li', 'Ana Beatriz Moreira').should('not.exist')
+
+    cy.get('[aria-label="Buscar aluno por nome ou matrícula"]').clear().type('202602')
+    cy.contains('li', 'Bruno Carvalho Lima').should('be.visible')
+    cy.contains('li', 'João Pedro Barbosa').should('not.exist')
+
+    cy.get('[aria-label="Buscar aluno por nome ou matrícula"]').clear().type('Zacarias')
+    cy.contains('h3', 'Nenhum aluno encontrado').should('be.visible')
+    cy.contains('button', 'Limpar busca').click()
+    cy.contains('li', 'Ana Beatriz Moreira').should('be.visible')
+    cy.contains('h2', 'Alunos (12)').should('be.visible')
+  })
+
+  /** P5 asks for both actions in the empty list, and the text says how the import works: pasting what was copied. */
+  it('oferece adicionar e importar na turma sem alunos', () => {
+    cy.visit('/turmas')
+    cy.contains('button', 'Nova turma').click()
+    cy.findByLabel('Nome da turma').type('Estatística I')
+    cy.findByLabel('Disciplina').type('Matemática')
+    cy.findByLabel('Período').type('2026/2')
+    cy.findInDialog('button', 'Salvar').click()
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.contains('a', 'Estatística I').click()
+
+    cy.contains('h3', 'Nenhum aluno ainda').should('be.visible')
+    cy.contains('copie a lista da planilha e cole em "Importar alunos"').should('be.visible')
+    cy.get('button').filter(':contains("Importar alunos")').should('have.length', 2)
+    cy.get('button').filter(':contains("Adicionar aluno")').should('have.length', 2)
+  })
+})
+
 describe('turmas: importação de alunos', () => {
-  it('importa uma lista colada e mostra o que entrou e o que foi ignorado', () => {
+  /** #144: the preview counts only who will come in, so the button and the result say the same number. */
+  it('importa uma lista colada e deixa de fora, na prévia, a matrícula que já está na turma', () => {
     openClass('Álgebra Linear')
 
     pasteStudentList([
@@ -154,14 +242,16 @@ describe('turmas: importação de alunos', () => {
       'Tiago Prado;2027902',
     ])
 
-    cy.findInDialog('h3', '3 alunos prontos para importar').should('be.visible')
+    cy.findInDialog('h3', '2 alunos prontos para importar').should('be.visible')
+    cy.findInDialog('h3', '1 aluno já está na turma e não será importado').should('be.visible')
+    cy.findInDialog('li', 'Ana Beatriz Moreira (202701)').should('be.visible')
     cy.findInDialog('a', 'Aviso de privacidade').should('be.visible')
-    cy.findInDialog('button', 'Importar 3 alunos').click()
+    cy.findInDialog('button', 'Importar 2 alunos').click()
 
     cy.findInDialog('h3', 'Importação concluída').should('be.visible')
     cy.get('[role="dialog"]')
       .should('contain', '2 alunos entraram na turma.')
-      .and('contain', '1 foi ignorado porque a matrícula já estava na turma.')
+      .and('not.contain', 'foi ignorado')
     cy.findInDialog('button', 'Fechar').click()
 
     cy.get('[role="dialog"]').should('not.exist')
@@ -274,7 +364,7 @@ describe('turmas: erros da API na tela', () => {
 
     cy.contains('Não foi possível carregar os alunos.').should('be.visible')
     cy.contains('button', 'Tentar de novo').should('be.visible')
-    cy.contains('Nenhum aluno nesta turma').should('not.exist')
+    cy.contains('Nenhum aluno ainda').should('not.exist')
   })
 })
 

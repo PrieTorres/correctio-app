@@ -1,3 +1,4 @@
+import { registrationKey } from '@correctio/domain'
 import { z } from 'zod'
 import type { Student } from '@/types/domain'
 import type { StudentInput } from '@/lib/schemas'
@@ -44,8 +45,9 @@ function anonymized(student: Student): Student {
 export function createLocalStudentRepository(): StudentRepository {
   const collection = createCollection('students', studentSchema)
 
+  /** Keyed by `registrationKey`, as the API's unique index compares, so the demo skips what production skips. */
   const registrationsIn = (classId: string, students: Student[]): Set<string> =>
-    new Set(students.filter((item) => item.classId === classId).map((item) => item.registration))
+    new Set(students.filter((item) => item.classId === classId).map((item) => registrationKey(item.registration)))
 
   const isTarget = (classId: string, id: string) => (item: Student) => item.classId === classId && item.id === id
 
@@ -70,7 +72,7 @@ export function createLocalStudentRepository(): StudentRepository {
       await simulateLatency()
       const students = collection.readAll()
 
-      if (registrationsIn(classId, students).has(input.registration)) {
+      if (registrationsIn(classId, students).has(registrationKey(input.registration))) {
         throw new StorageError(
           `A matrícula ${input.registration} já existe nesta turma.`,
           'conflict',
@@ -89,8 +91,9 @@ export function createLocalStudentRepository(): StudentRepository {
 
       const created: Student[] = []
       for (const row of rows) {
-        if (taken.has(row.registration)) continue
-        taken.add(row.registration)
+        const key = registrationKey(row.registration)
+        if (taken.has(key)) continue
+        taken.add(key)
         created.push({ id: createId(), classId, ...row })
       }
 

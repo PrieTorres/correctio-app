@@ -216,8 +216,18 @@ function importStudents(): void {
   cy.get('[role="dialog"]').should('not.exist')
 }
 
+/** With the whole class on screen, the search is how a teacher finds one student, by name or by registration (#144). */
+function findStudent(): void {
+  cy.get('[aria-label="Buscar aluno por nome ou matrícula"]').type('2026104')
+  cy.contains('li', 'Diego Fernandes Alves').should('be.visible')
+  cy.contains('li', 'Elisa Prado Nunes').should('not.exist')
+
+  cy.get('[aria-label="Buscar aluno por nome ou matrícula"]').clear()
+  cy.contains('li', 'Elisa Prado Nunes').should('be.visible')
+}
+
 function addStudents(): void {
-  cy.contains('h3', 'Nenhum aluno nesta turma').should('be.visible')
+  cy.contains('h3', 'Nenhum aluno ainda').should('be.visible')
 
   addStudentByHand(GRADED_STUDENT)
   skipTour()
@@ -226,6 +236,7 @@ function addStudents(): void {
 
   cy.contains('h2', `Alunos (${STUDENT_COUNT})`).should('be.visible')
   cy.contains('li', 'Elisa Prado Nunes').should('be.visible')
+  findStudent()
 }
 
 /** Enter commits each tag, which is how a teacher types them one after another. */
@@ -585,7 +596,7 @@ describe('jornada completa', () => {
     cy.log('**3. Criar a turma**')
     createClass()
 
-    cy.log('**4. Cadastrar os alunos, um a um e pela planilha**')
+    cy.log('**4. Cadastrar os alunos, um a um e pela planilha, e buscar um deles**')
     addStudents()
 
     cy.log('**5. Escrever as questões**')
