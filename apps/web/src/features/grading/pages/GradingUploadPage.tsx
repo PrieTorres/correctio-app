@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, Clock, Loader2, Upload } from 'lucide-react';
-import { Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary, Tour } from '@/components/ui';
+import { CheckCircle2, Clock, Loader2, Upload } from 'lucide-react';
+import { BackLink, Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { CORRECTION_STATUS } from '@/types/domain';
 import { useGradingOverview, useReadSheets } from '../hooks/useGrading';
@@ -46,13 +46,9 @@ export function GradingUploadPage() {
   return (
     <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando folhas…">
       <div className="flex flex-col gap-6">
-        <Link
-          to={id === undefined ? ROUTES.applications : buildPath(ROUTES.applicationDetail, { id })}
-          className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-        >
-          <ArrowLeft size={16} aria-hidden />
+        <BackLink to={id === undefined ? ROUTES.applications : buildPath(ROUTES.applicationDetail, { id })}>
           Aplicação
-        </Link>
+        </BackLink>
 
         <PageHeader help
           title="Enviar folhas de respostas"
@@ -173,7 +169,13 @@ function CorrectionBadge({ correction }: Readonly<{ correction: Correction | und
   );
 }
 
-/** A sheet still unread can be picked for reading; one already read can be reviewed. */
+/**
+ * A sheet still unread can be picked for reading; one already read can be
+ * reviewed. The box sits in a 44 px label, so a finger near it still ticks it
+ * (#145), and a read sheet keeps the same space so the columns stay aligned.
+ * "Revisar" carries the sheet number and its owner in its name, since a screen
+ * reader lists every "Revisar" of the page together.
+ */
 function SheetRow({
   applicationId,
   sheet,
@@ -194,15 +196,17 @@ function SheetRow({
   return (
     <li className="flex flex-wrap items-center gap-3 px-5 py-4">
       {correction === undefined ? (
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggle}
-          aria-label={`Marcar a folha ${sheet.sheetNumber} para leitura`}
-          className="size-4 accent-[var(--color-primary)]"
-        />
+        <label className="touch-target inline-flex cursor-pointer items-center justify-center">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            aria-label={`Marcar a folha ${sheet.sheetNumber} para leitura`}
+            className="size-4 accent-[var(--color-primary)]"
+          />
+        </label>
       ) : (
-        <span className="size-4" aria-hidden />
+        <span className="touch-target" aria-hidden />
       )}
 
       <span className="text-label text-ink-subtle">#{sheet.sheetNumber}</span>
@@ -218,6 +222,7 @@ function SheetRow({
         <ButtonLink
           variant="ghost"
           data-tour="confirm"
+          aria-label={`Revisar a folha ${sheet.sheetNumber}, ${ownerOf(sheet, overview)}`}
           to={buildPath(ROUTES.gradingSheet, { id: applicationId, sheetId: sheet.id })}
         >
           Revisar

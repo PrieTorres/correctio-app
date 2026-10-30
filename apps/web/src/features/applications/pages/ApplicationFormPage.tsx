@@ -2,8 +2,7 @@ import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft } from 'lucide-react';
-import { Button, Card, PageHeader, QueryBoundary, SaveError } from '@/components/ui';
+import { BackLink, Button, Card, PageHeader, QueryBoundary, SaveError } from '@/components/ui';
 import { applicationInputSchema, type ApplicationInput } from '@/lib/schemas';
 import { buildPath, ROUTES } from '@/app/routes';
 import { todayAsStored } from '@/lib/utils';
@@ -39,10 +38,7 @@ export function ApplicationFormPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link to={ROUTES.applications} className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary">
-        <ArrowLeft size={16} aria-hidden />
-        Aplicações
-      </Link>
+      <BackLink to={ROUTES.applications}>Aplicações</BackLink>
 
       <PageHeader
         title="Nova aplicação"

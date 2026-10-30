@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import {
+  BackLink,
   Button,
   ButtonLink,
   Card,
@@ -161,13 +162,7 @@ function QuestionFormBody({
 
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        to={ROUTES.questions}
-        className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-      >
-        <ArrowLeft size={16} aria-hidden />
-        Banco de questões
-      </Link>
+      <BackLink to={ROUTES.questions}>Banco de questões</BackLink>
 
       <PageHeader
         help
@@ -329,13 +324,7 @@ function DiscursiveField({
 function QuestionNotFound() {
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        to={ROUTES.questions}
-        className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-      >
-        <ArrowLeft size={16} aria-hidden />
-        Banco de questões
-      </Link>
+      <BackLink to={ROUTES.questions}>Banco de questões</BackLink>
 
       <Card>
         <EmptyState
@@ -455,7 +444,7 @@ function AlternativesField({
 
 function ShuffleToggle({ form }: Readonly<{ form: ReturnType<typeof useForm<QuestionInput>> }>) {
   return (
-    <label data-tour="shuffle" className="flex cursor-pointer items-start gap-3">
+    <label data-tour="shuffle" className="flex min-h-11 cursor-pointer items-start gap-3">
       <input
         type="checkbox"
         className="mt-1 size-4 accent-[var(--color-primary)]"

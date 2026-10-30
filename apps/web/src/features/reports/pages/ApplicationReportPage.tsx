@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Loader2 } from 'lucide-react';
-import { Badge, Button, ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration } from '@/components/ui';
+import { useParams } from 'react-router-dom';
+import { Download, Loader2 } from 'lucide-react';
+import { BackLink, Badge, Button, ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { accuracyByTag, accuracyOf, distribute, summarise } from '@/lib/reports';
 import { totalScore } from '@/lib/exams';
@@ -32,13 +32,9 @@ export function ApplicationReportPage() {
   return (
     <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Calculando o relatório…">
       <div className="flex flex-col gap-6">
-        <Link
-          to={id === undefined ? ROUTES.applications : buildPath(ROUTES.applicationDetail, { id })}
-          className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-        >
-          <ArrowLeft size={16} aria-hidden />
+        <BackLink to={id === undefined ? ROUTES.applications : buildPath(ROUTES.applicationDetail, { id })}>
           Aplicação
-        </Link>
+        </BackLink>
 
         <PageHeader help
           title="Relatório da aplicação"

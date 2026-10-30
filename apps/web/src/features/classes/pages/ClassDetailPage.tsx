@@ -1,7 +1,8 @@
 import { useId, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Archive, ArrowLeft, Pencil, RotateCcw, ShieldOff, Trash2, Upload, UserPlus } from 'lucide-react'
+import { Archive, Pencil, RotateCcw, ShieldOff, Trash2, Upload, UserPlus } from 'lucide-react'
 import {
+  BackLink,
   Badge,
   Button,
   Card,
@@ -80,7 +81,7 @@ function ClassNotFound() {
   return (
     <Card className="p-6">
       <p className="text-body text-ink-muted">Turma não encontrada.</p>
-      <Link to={ROUTES.classes} className="mt-3 inline-block text-label text-primary underline">
+      <Link to={ROUTES.classes} className="mt-3 link-target text-label text-primary underline">
         Voltar para turmas
       </Link>
     </Card>
@@ -112,13 +113,7 @@ function ClassDetail({ schoolClass }: Readonly<{ schoolClass: Class }>) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        to={ROUTES.classes}
-        className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-      >
-        <ArrowLeft size={16} aria-hidden />
-        Turmas
-      </Link>
+      <BackLink to={ROUTES.classes}>Turmas</BackLink>
 
       <PageHeader
         help
@@ -423,6 +418,10 @@ function StudentActionDialog({
   )
 }
 
+/**
+ * One student of P5. The two buttons name the student after the visible word,
+ * so a screen reader tells apart the "Remover" of each row (#145).
+ */
 function StudentRow({
   student,
   onAction,
@@ -450,6 +449,7 @@ function StudentRow({
           <Button
             variant="ghost"
             icon={<ShieldOff size={16} aria-hidden />}
+            aria-label={`Anonimizar ${student.fullName}`}
             onClick={() => onAction('anonymize')}
           >
             Anonimizar
@@ -457,6 +457,7 @@ function StudentRow({
           <Button
             variant="ghost"
             icon={<Trash2 size={16} aria-hidden />}
+            aria-label={`Remover ${student.fullName} da turma`}
             onClick={() => onAction('remove')}
           >
             Remover

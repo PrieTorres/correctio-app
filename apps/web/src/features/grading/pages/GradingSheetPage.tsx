@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
-import { Badge, Button, Card, NumberInput, PageHeader, QueryBoundary, Tour } from '@/components/ui';
+import { RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { BackLink, Badge, Button, Card, NumberInput, PageHeader, QueryBoundary, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import {
   clampDiscursiveScore,
@@ -16,49 +16,89 @@ import { useAssignStudent, useConfirmCorrection, useGradingOverview } from '../h
 
 const DEMO_SHEET = '/demo-sheets/folha-01.svg';
 
+type Overview = NonNullable<ReturnType<typeof useGradingOverview>['data']>;
+
+type Correction = Overview['corrections'][number];
+
+type Sheet = Overview['sheets'][number];
+
+type Exam = NonNullable<Overview['exam']>;
+
+type Question = Overview['bank'][number];
+
+export function GradingSheetPage() {
+  const { id, sheetId } = useParams<{ id: string; sheetId: string }>();
+  const { data, isPending, isError } = useGradingOverview(id);
+  const applicationId = id ?? '';
+
+  const correction = data?.corrections.find((item) => item.answerSheetId === sheetId);
+  const sheet = data?.sheets.find((item) => item.id === sheetId);
+  const exam = data?.exam ?? null;
+
+  return (
+    <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando correção…">
+      {data == null || correction === undefined || sheet === undefined || exam === null ? (
+        <CorrectionNotFound applicationId={applicationId} />
+      ) : (
+        <SheetReview applicationId={applicationId} overview={data} correction={correction} sheet={sheet} exam={exam} />
+      )}
+    </QueryBoundary>
+  );
+}
+
+function CorrectionNotFound({ applicationId }: Readonly<{ applicationId: string }>) {
+  return (
+    <Card className="p-6">
+      <p className="text-body text-ink-muted">Correção não encontrada.</p>
+      <Link
+        to={buildPath(ROUTES.grading, { id: applicationId })}
+        className="mt-3 link-target text-label text-primary underline"
+      >
+        Voltar para as folhas
+      </Link>
+    </Card>
+  );
+}
+
+/** The marks as they were read, before the teacher changed any of them. */
+function answersReadOn(correction: Correction): MarkedAnswer[] {
+  return correction.objectiveResults.map((result) => ({
+    questionId: result.questionId,
+    ...(result.selectedAlternativeId === undefined ? {} : { selectedAlternativeId: result.selectedAlternativeId }),
+  }));
+}
+
 /**
  * Two ways out, because stopping halfway is a real thing to do and leaving the
  * screen used to throw the review away.
+ *
+ * What is on screen starts from what was read and is edited here, so nothing
+ * is written until the teacher confirms. Deriving the marks from the stored
+ * correction on every render would throw away the edits.
  */
-export function GradingSheetPage() {
-  const { id, sheetId } = useParams<{ id: string; sheetId: string }>();
+function SheetReview({
+  applicationId,
+  overview,
+  correction,
+  sheet,
+  exam,
+}: Readonly<{ applicationId: string; overview: Overview; correction: Correction; sheet: Sheet; exam: Exam }>) {
   const navigate = useNavigate();
-  const { data, isPending, isError } = useGradingOverview(id);
   const confirmCorrection = useConfirmCorrection();
   const assignStudent = useAssignStudent();
 
   const [answers, setAnswers] = useState<MarkedAnswer[] | null>(null);
   const [scores, setScores] = useState<DiscursiveScore[] | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
 
-  const correction = data?.corrections.find((item) => item.answerSheetId === sheetId);
-  const sheet = data?.sheets.find((item) => item.id === sheetId);
-  const exam = data?.exam ?? null;
-  const bank = useMemo(() => data?.bank ?? [], [data]);
-
+  const { bank } = overview;
   const byId = useMemo(() => new Map(bank.map((question) => [question.id, question])), [bank]);
-  const version = data?.versions.find((item) => item.id === sheet?.examVersionId);
+  const version = overview.versions.find((item) => item.id === sheet.examVersionId);
+  const backToSheets = buildPath(ROUTES.grading, { id: applicationId });
 
-  /**
-   * What is on screen starts from what was read and is edited here, so nothing
-   * is written until the teacher confirms. Deriving the marks from the stored
-   * correction on every render would throw away the edits.
-   */
-  const currentAnswers =
-    answers ??
-    (correction?.objectiveResults ?? []).map((result) => ({
-      questionId: result.questionId,
-      ...(result.selectedAlternativeId === undefined
-        ? {}
-        : { selectedAlternativeId: result.selectedAlternativeId }),
-    }));
-  const discursiveIds = exam === null ? [] : discursiveQuestionIdsOf(exam, bank);
-  const currentScores =
-    scores ?? withDefaultDiscursiveScores(discursiveIds, correction?.discursiveScores ?? []);
-
-  const graded = exam === null ? null : gradeObjectives(exam, bank, currentAnswers);
-  const total = totalCorrectionScore(graded?.results ?? [], currentScores);
+  const currentAnswers = answers ?? answersReadOn(correction);
+  const discursiveIds = discursiveQuestionIdsOf(exam, bank);
+  const currentScores = scores ?? withDefaultDiscursiveScores(discursiveIds, correction.discursiveScores);
+  const graded = gradeObjectives(exam, bank, currentAnswers);
 
   const setAnswer = (questionId: string, selectedAlternativeId: string | undefined) =>
     setAnswers(
@@ -75,9 +115,7 @@ export function GradingSheetPage() {
     setScores([...currentScores.filter((item) => item.questionId !== questionId), next]);
   };
 
-  const save = (finalize: boolean) => {
-    if (correction === undefined || graded === null) return;
-
+  const save = (finalize: boolean) =>
     confirmCorrection.mutate(
       {
         correction,
@@ -87,166 +125,171 @@ export function GradingSheetPage() {
         discursiveQuestionIds: discursiveIds,
         finalize,
       },
-      { onSuccess: () => void navigate(buildPath(ROUTES.grading, { id: id ?? '' })) },
+      { onSuccess: () => void navigate(backToSheets) },
     );
-  };
 
   return (
-    <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando correção…">
-      {correction === undefined || sheet === undefined || exam === null ? (
-        <Card className="p-6">
-          <p className="text-body text-ink-muted">Correção não encontrada.</p>
-          <Link
-            to={buildPath(ROUTES.grading, { id: id ?? '' })}
-            className="mt-3 inline-block text-label text-primary underline"
-          >
-            Voltar para as folhas
-          </Link>
-        </Card>
-      ) : (
-        <div className="flex flex-col gap-6">
-          <Link
-            to={buildPath(ROUTES.grading, { id: id ?? '' })}
-            className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-          >
-            <ArrowLeft size={16} aria-hidden />
-            Folhas
-          </Link>
+    <div className="flex flex-col gap-6">
+      <BackLink to={backToSheets}>Folhas</BackLink>
 
-          <PageHeader help
-            title={`Folha ${sheet.sheetNumber}`}
-            description={`Versão ${version?.versionNumber ?? '—'} · leitura automática, revisada por você`}
+      <PageHeader help
+        title={`Folha ${sheet.sheetNumber}`}
+        description={`Versão ${version?.versionNumber ?? '—'} · leitura automática, revisada por você`}
+      />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SheetImage sheetNumber={sheet.sheetNumber} />
+
+        <div className="flex flex-col gap-4">
+          <Card className="flex items-center justify-between gap-3 p-5">
+            <h2 className="text-title text-primary">Nota</h2>
+            <p className="text-headline text-primary" aria-live="polite">
+              {totalCorrectionScore(graded.results, currentScores)}
+            </p>
+          </Card>
+
+          {sheet.studentId === undefined && (
+            <AssignStudent
+              students={overview.students}
+              assignedTo={correction.studentId}
+              pending={assignStudent.isPending}
+              onAssign={(studentId) => assignStudent.mutate({ correctionId: correction.id, studentId })}
+              error={assignStudent.error?.message}
+            />
+          )}
+
+          {discursiveIds.length > 0 && <DiscursiveNotice count={discursiveIds.length} />}
+
+          <QuestionsCard
+            exam={exam}
+            byId={byId}
+            answers={currentAnswers}
+            scores={currentScores}
+            onAnswer={setAnswer}
+            onScore={setScore}
           />
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card data-tour="image" className="flex flex-col gap-3 p-4">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-title text-primary">Folha lida</h2>
-                <div className="flex gap-1">
-                  <IconButton label="Diminuir o zoom" onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}>
-                    <ZoomOut size={16} aria-hidden />
-                  </IconButton>
-                  <IconButton label="Aumentar o zoom" onClick={() => setZoom((z) => Math.min(3, z + 0.25))}>
-                    <ZoomIn size={16} aria-hidden />
-                  </IconButton>
-                  <IconButton label="Girar a folha" onClick={() => setRotation((r) => (r + 90) % 360)}>
-                    <RotateCw size={16} aria-hidden />
-                  </IconButton>
-                </div>
-              </div>
-              <div className="flex max-h-[32rem] items-start justify-center overflow-auto rounded-[var(--radius-control)] bg-surface-muted p-4">
-                <img
-                  src={DEMO_SHEET}
-                  alt={`Folha de respostas número ${sheet.sheetNumber}`}
-                  style={{ scale: String(zoom), rotate: `${rotation}deg` }}
-                  className="max-w-full"
-                />
-              </div>
-              <p className="text-caption text-ink-subtle">
-                Imagem de demonstração. O envio real de fotos entra junto com o servidor.
-              </p>
-            </Card>
-
-            <div className="flex flex-col gap-4">
-              <Card className="flex items-center justify-between gap-3 p-5">
-                <h2 className="text-title text-primary">Nota</h2>
-                <p className="text-headline text-primary" aria-live="polite">
-                  {total}
-                </p>
-              </Card>
-
-              {sheet.studentId === undefined && (
-                <AssignStudent
-                  students={data?.students ?? []}
-                  assignedTo={correction.studentId}
-                  pending={assignStudent.isPending}
-                  onAssign={(studentId) =>
-                    assignStudent.mutate({ correctionId: correction.id, studentId })
-                  }
-                  error={assignStudent.error?.message}
-                />
-              )}
-
-              {discursiveIds.length > 0 && (
-                <Card className="border-l-4 border-l-accent p-5">
-                  <p role="status" className="text-body text-ink-muted">
-                    O sistema já corrigiu as objetivas.{' '}
-                    {discursiveIds.length === 1
-                      ? 'A questão discursiva começa valendo 0'
-                      : `As ${discursiveIds.length} questões discursivas começam valendo 0`}
-                    , então confira cada uma antes de confirmar. Se preferir parar no meio, salve
-                    sem finalizar e volte depois.
-                  </p>
-                </Card>
-              )}
-
-              <Card data-tour="questions">
-                <div className="border-b border-line px-5 py-4">
-                  <h2 className="text-title text-primary">Questões</h2>
-                </div>
-                <ol className="divide-y divide-line">
-                  {exam.questions
-                    .toSorted((a, b) => a.order - b.order)
-                    .map((entry, index) => {
-                      const question = byId.get(entry.questionId);
-                      if (question === undefined) return null;
-
-                      return (
-                        <li key={entry.questionId} className="px-5 py-4">
-                          {isMultipleChoice(question) ? (
-                            <ObjectiveRow
-                              index={index}
-                              statement={question.statement}
-                              alternatives={question.alternatives}
-                              correctAlternativeId={question.correctAlternativeId}
-                              selectedAlternativeId={
-                                currentAnswers.find((a) => a.questionId === entry.questionId)
-                                  ?.selectedAlternativeId
-                              }
-                              onSelect={(alternativeId) =>
-                                setAnswer(entry.questionId, alternativeId)
-                              }
-                            />
-                          ) : (
-                            <DiscursiveRow
-                              index={index}
-                              statement={question.statement}
-                              maxScore={question.maxScore ?? 0}
-                              score={
-                                currentScores.find((s) => s.questionId === entry.questionId)
-                                  ?.score ?? 0
-                              }
-                              onScore={(score) => setScore(entry.questionId, score)}
-                            />
-                          )}
-                        </li>
-                      );
-                    })}
-                </ol>
-              </Card>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap justify-end gap-3">
-            <Button variant="ghost" onClick={() => void navigate(buildPath(ROUTES.grading, { id: id ?? '' }))}>
-              Cancelar
-            </Button>
-            <Button disabled={confirmCorrection.isPending} onClick={() => save(false)}>
-              Salvar sem finalizar
-            </Button>
-            <Button
-              variant="primary"
-              disabled={confirmCorrection.isPending}
-              onClick={() => save(true)}
-            >
-              {confirmCorrection.isPending ? 'Salvando…' : 'Confirmar correção'}
-            </Button>
-          </div>
-
-          <Tour screen="gradingSheet" ready />
         </div>
-      )}
-    </QueryBoundary>
+      </div>
+
+      <div className="flex flex-wrap justify-end gap-3">
+        <Button variant="ghost" onClick={() => void navigate(backToSheets)}>
+          Cancelar
+        </Button>
+        <Button disabled={confirmCorrection.isPending} onClick={() => save(false)}>
+          Salvar sem finalizar
+        </Button>
+        <Button variant="primary" disabled={confirmCorrection.isPending} onClick={() => save(true)}>
+          {confirmCorrection.isPending ? 'Salvando…' : 'Confirmar correção'}
+        </Button>
+      </div>
+
+      <Tour screen="gradingSheet" ready />
+    </div>
+  );
+}
+
+/** The photo of the sheet, which the teacher may zoom and turn to read a faint mark. */
+function SheetImage({ sheetNumber }: Readonly<{ sheetNumber: number }>) {
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+
+  return (
+    <Card data-tour="image" className="flex flex-col gap-3 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-title text-primary">Folha lida</h2>
+        <div className="flex gap-1">
+          <IconButton label="Diminuir o zoom" onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}>
+            <ZoomOut size={16} aria-hidden />
+          </IconButton>
+          <IconButton label="Aumentar o zoom" onClick={() => setZoom((z) => Math.min(3, z + 0.25))}>
+            <ZoomIn size={16} aria-hidden />
+          </IconButton>
+          <IconButton label="Girar a folha" onClick={() => setRotation((r) => (r + 90) % 360)}>
+            <RotateCw size={16} aria-hidden />
+          </IconButton>
+        </div>
+      </div>
+      <div className="flex max-h-[32rem] items-start justify-center overflow-auto rounded-[var(--radius-control)] bg-surface-muted p-4">
+        <img
+          src={DEMO_SHEET}
+          alt={`Folha de respostas número ${sheetNumber}`}
+          style={{ scale: String(zoom), rotate: `${rotation}deg` }}
+          className="max-w-full"
+        />
+      </div>
+      <p className="text-caption text-ink-subtle">
+        Imagem de demonstração. O envio real de fotos entra junto com o servidor.
+      </p>
+    </Card>
+  );
+}
+
+function DiscursiveNotice({ count }: Readonly<{ count: number }>) {
+  return (
+    <Card className="border-l-4 border-l-accent p-5">
+      <p role="status" className="text-body text-ink-muted">
+        O sistema já corrigiu as objetivas.{' '}
+        {count === 1 ? 'A questão discursiva começa valendo 0' : `As ${count} questões discursivas começam valendo 0`}
+        , então confira cada uma antes de confirmar. Se preferir parar no meio, salve
+        sem finalizar e volte depois.
+      </p>
+    </Card>
+  );
+}
+
+/** Every question of the exam, in its order: the marks of the objectives, and a score for each open-ended one. */
+function QuestionsCard({
+  exam,
+  byId,
+  answers,
+  scores,
+  onAnswer,
+  onScore,
+}: Readonly<{
+  exam: Exam;
+  byId: ReadonlyMap<string, Question>;
+  answers: MarkedAnswer[];
+  scores: DiscursiveScore[];
+  onAnswer: (questionId: string, alternativeId: string | undefined) => void;
+  onScore: (questionId: string, score: number) => void;
+}>) {
+  return (
+    <Card data-tour="questions">
+      <div className="border-b border-line px-5 py-4">
+        <h2 className="text-title text-primary">Questões</h2>
+      </div>
+      <ol className="divide-y divide-line">
+        {exam.questions
+          .toSorted((a, b) => a.order - b.order)
+          .map((entry, index) => {
+            const question = byId.get(entry.questionId);
+            if (question === undefined) return null;
+
+            return (
+              <li key={entry.questionId} className="px-5 py-4">
+                {isMultipleChoice(question) ? (
+                  <ObjectiveRow
+                    index={index}
+                    statement={question.statement}
+                    alternatives={question.alternatives}
+                    correctAlternativeId={question.correctAlternativeId}
+                    selectedAlternativeId={answers.find((a) => a.questionId === entry.questionId)?.selectedAlternativeId}
+                    onSelect={(alternativeId) => onAnswer(entry.questionId, alternativeId)}
+                  />
+                ) : (
+                  <DiscursiveRow
+                    index={index}
+                    statement={question.statement}
+                    maxScore={question.maxScore ?? 0}
+                    score={scores.find((s) => s.questionId === entry.questionId)?.score ?? 0}
+                    onScore={(score) => onScore(entry.questionId, score)}
+                  />
+                )}
+              </li>
+            );
+          })}
+      </ol>
+    </Card>
   );
 }
 

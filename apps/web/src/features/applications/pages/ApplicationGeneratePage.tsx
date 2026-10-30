@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, FileText, Loader2 } from 'lucide-react';
-import { Button, Card, NumberInput, PageHeader, QueryBoundary, SaveError, Tour } from '@/components/ui';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { AlertTriangle, FileText, Loader2 } from 'lucide-react';
+import { BackLink, Button, Card, CheckboxField, NumberInput, PageHeader, QueryBoundary, SaveError, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
 import { MAX_VERSIONS, type VersionShuffle } from '@/lib/schemas';
@@ -93,10 +93,7 @@ function GenerationForm({
 
   return (
     <div className="flex flex-col gap-6">
-      <Link to={backTo} className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary">
-        <ArrowLeft size={16} aria-hidden />
-        Voltar
-      </Link>
+      <BackLink to={backTo}>Voltar</BackLink>
 
       <PageHeader
         help
@@ -132,10 +129,10 @@ function GenerationForm({
           <legend data-tour="identification" className="text-label text-ink-muted">
             Identificação, para a prova inteira
           </legend>
-          <Toggle
+          <CheckboxField
             label="Imprimir o nome do aluno em cada folha"
             checked={withStudentIdentification}
-            onChange={setWithStudentIdentification}
+            onChange={(event) => setWithStudentIdentification(event.target.checked)}
           />
           <p className="text-caption text-ink-subtle">
             Sem identificação, a folha sai só com o código e o aluno é atribuído na correção.
@@ -233,17 +230,17 @@ function VersionShuffles({
         <li key={`version-${index + 1}`} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-label text-ink">Versão {index + 1}</span>
           <div className="flex flex-col gap-2 sm:flex-row sm:gap-5">
-            <Toggle
+            <CheckboxField
               label="Embaralhar questões"
-              accessibleLabel={`Embaralhar questões da versão ${index + 1}`}
+              aria-label={`Embaralhar questões da versão ${index + 1}`}
               checked={version.shuffleQuestions}
-              onChange={(checked) => onChange(index, { shuffleQuestions: checked })}
+              onChange={(event) => onChange(index, { shuffleQuestions: event.target.checked })}
             />
-            <Toggle
+            <CheckboxField
               label="Embaralhar alternativas"
-              accessibleLabel={`Embaralhar alternativas da versão ${index + 1}`}
+              aria-label={`Embaralhar alternativas da versão ${index + 1}`}
               checked={version.shuffleAlternatives}
-              onChange={(checked) => onChange(index, { shuffleAlternatives: checked })}
+              onChange={(event) => onChange(index, { shuffleAlternatives: event.target.checked })}
             />
           </div>
         </li>
@@ -253,25 +250,5 @@ function VersionShuffles({
         embaralhadas, mesmo aqui.
       </li>
     </ul>
-  );
-}
-
-function Toggle({
-  label,
-  accessibleLabel,
-  checked,
-  onChange,
-}: Readonly<{ label: string; accessibleLabel?: string; checked: boolean; onChange: (value: boolean) => void }>) {
-  return (
-    <label className="flex min-h-11 cursor-pointer items-center gap-3">
-      <input
-        type="checkbox"
-        checked={checked}
-        aria-label={accessibleLabel}
-        onChange={(event) => onChange(event.target.checked)}
-        className="size-4 accent-[var(--color-primary)]"
-      />
-      <span className="text-body text-ink">{label}</span>
-    </label>
   );
 }

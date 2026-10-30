@@ -1,6 +1,6 @@
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, UserCheck } from 'lucide-react'
-import { ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration, Tour } from '@/components/ui'
+import { useParams } from 'react-router-dom'
+import { UserCheck } from 'lucide-react'
+import { BackLink, ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration, Tour } from '@/components/ui'
 import { buildPath, ROUTES } from '@/app/routes'
 import { useGradingOverview } from '../hooks/useGrading'
 
@@ -11,6 +11,9 @@ import { useGradingOverview } from '../hooks/useGrading'
  * to nobody until somebody says so — and a grade with no owner is the one thing
  * that cannot be released. Gathering them here is what stops them being
  * discovered at the end.
+ *
+ * Every row has its "Associar aluno", so each one names its sheet after the
+ * visible words, for a screen reader to tell them apart (#145).
  */
 export function UnassignedCorrectionsPage() {
   const { id } = useParams<{ id: string }>()
@@ -24,13 +27,7 @@ export function UnassignedCorrectionsPage() {
   return (
     <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando pendências…">
       <div className="flex flex-col gap-6">
-        <Link
-          to={buildPath(ROUTES.grading, { id: id ?? '' })}
-          className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-        >
-          <ArrowLeft size={16} aria-hidden />
-          Folhas
-        </Link>
+        <BackLink to={buildPath(ROUTES.grading, { id: id ?? '' })}>Folhas</BackLink>
 
         <PageHeader help
           title="Pendentes de atribuição"
@@ -62,6 +59,7 @@ export function UnassignedCorrectionsPage() {
                     </span>
                     <ButtonLink
                       variant="secondary"
+                      aria-label={`Associar aluno à folha ${sheet?.sheetNumber ?? '—'}`}
                       to={buildPath(ROUTES.gradingSheet, {
                         id: id ?? '',
                         sheetId: correction.answerSheetId,

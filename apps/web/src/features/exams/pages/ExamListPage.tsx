@@ -141,12 +141,14 @@ export function ExamListPage() {
   );
 }
 
+/** One exam of P8, whose repeated buttons say which exam they act on after the visible word (#145). */
 function ExamRow({
   exam,
   onArchive,
   onDuplicate,
 }: Readonly<{ exam: Exam; onArchive: () => void; onDuplicate: () => void }>) {
   const archived = exam.status === 'closed';
+  const archiveLabel = archived ? 'Restaurar' : 'Arquivar';
 
   return (
     <Card
@@ -174,16 +176,22 @@ function ExamRow({
 
       <div className="above-card-link flex shrink-0 gap-1">
         {!archived && (
-          <Button variant="ghost" icon={<Copy size={16} aria-hidden />} onClick={onDuplicate}>
+          <Button
+            variant="ghost"
+            icon={<Copy size={16} aria-hidden />}
+            aria-label={`Duplicar a prova ${exam.title}`}
+            onClick={onDuplicate}
+          >
             Duplicar
           </Button>
         )}
         <Button
           variant="ghost"
           icon={archived ? <RotateCcw size={16} aria-hidden /> : <Archive size={16} aria-hidden />}
+          aria-label={`${archiveLabel} a prova ${exam.title}`}
           onClick={onArchive}
         >
-          {archived ? 'Restaurar' : 'Arquivar'}
+          {archiveLabel}
         </Button>
       </div>
     </Card>

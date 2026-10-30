@@ -41,6 +41,11 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: ROUTES.reports, label: 'Relatórios', Icon: BarChart3 },
 ];
 
+/**
+ * The frame of every signed-in screen: the side menu, which becomes a drawer on
+ * a phone, and the content. Every control of the menu is 44 px tall, "Sair"
+ * and the privacy notice included, which were the height of their text (#145).
+ */
 export function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = () => setDrawerOpen(false);
@@ -126,7 +131,7 @@ export function AppLayout() {
               <button
                 type="button"
                 onClick={() => signOut.mutate()}
-                className="shrink-0 text-label text-primary hover:underline"
+                className="touch-target inline-flex shrink-0 items-center justify-center rounded-[var(--radius-control)] px-2 text-label text-primary hover:underline"
               >
                 Sair
               </button>
@@ -147,7 +152,7 @@ export function AppLayout() {
           </button>
           <NavLink
             to={ROUTES.privacy}
-            className="px-2 text-caption text-ink-subtle hover:text-primary"
+            className="link-target px-2 text-caption text-ink-subtle hover:text-primary"
           >
             Aviso de privacidade
           </NavLink>

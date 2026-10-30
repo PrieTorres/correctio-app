@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Copy, Pencil, Plus } from 'lucide-react';
-import { Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary } from '@/components/ui';
+import { Copy, Pencil, Plus } from 'lucide-react';
+import { BackLink, Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { totalScore } from '@/lib/exams';
 import { useQuestionsByIds } from '@/features/questions';
@@ -25,19 +25,13 @@ export function ExamDetailPage() {
       {exam === null || exam === undefined ? (
         <Card className="p-6">
           <p className="text-body text-ink-muted">Prova não encontrada.</p>
-          <Link to={ROUTES.exams} className="mt-3 inline-block text-label text-primary underline">
+          <Link to={ROUTES.exams} className="mt-3 link-target text-label text-primary underline">
             Voltar para provas
           </Link>
         </Card>
       ) : (
         <div className="flex flex-col gap-6">
-          <Link
-            to={ROUTES.exams}
-            className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-          >
-            <ArrowLeft size={16} aria-hidden />
-            Provas
-          </Link>
+          <BackLink to={ROUTES.exams}>Provas</BackLink>
 
           <PageHeader
             title={exam.title}

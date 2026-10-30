@@ -6,19 +6,12 @@
  * nested link answered, so the bug passed CI. These click near the left edge,
  * inside the padding, where a button wrapping a link did nothing.
  */
-const TOUR = '[aria-label^="Tour desta tela"]'
 
 /** Spots on the padding, away from the rounded corners, which take no clicks. */
 const LEFT_EDGE = { x: 6, y: 22 } as const
 
 const TO_GENERATE = 'Física II — Teste rápido'
 const ALREADY_GENERATED = 'Cálculo I — Prova 1'
-
-/** The first visit to a screen with content opens its tour, which takes the focus. */
-function skipTour(): void {
-  cy.get(TOUR).contains('button', 'Pular').click()
-  cy.get(TOUR).should('not.exist')
-}
 
 /**
  * One control, as tall as a button: no button around the link or inside it,
@@ -40,6 +33,8 @@ function followFromTheEdge(label: string, heading: string): void {
 }
 
 describe('link com cara de botão', () => {
+  beforeEach(() => cy.visitWithoutTours())
+
   it('navega ao clicar na borda de "Nova aplicação", e não só no texto', () => {
     cy.visit('/aplicacoes')
 
@@ -49,7 +44,6 @@ describe('link com cara de botão', () => {
   /** Tab lands on the link and leaves it on the next press; Enter follows it. */
   it('para uma vez só no Tab e segue com Enter', () => {
     cy.visit('/aplicacoes')
-    skipTour()
 
     cy.get('[aria-label="Ver o tour desta tela"]').focus()
     cy.press(Cypress.Keyboard.Keys.TAB)
@@ -61,12 +55,6 @@ describe('link com cara de botão', () => {
     cy.contains('a', 'Nova aplicação').focus()
     cy.press(Cypress.Keyboard.Keys.ENTER)
     cy.contains('h1', 'Nova aplicação').should('be.visible')
-  })
-
-  it('deixa o tour apontar para o link, que é o próprio botão', () => {
-    cy.visit('/aplicacoes')
-
-    cy.contains('a', 'Nova aplicação').should('have.attr', 'data-tour', 'create').and('have.class', 'tour-target')
   })
 
   it('navega pela borda dos botões da lista de provas', () => {
@@ -127,6 +115,15 @@ describe('link com cara de botão', () => {
     cy.visit('/questoes/00000000-0000-0000-0000-000000000000')
     cy.contains('Questão não encontrada', { timeout: 10000 }).should('be.visible')
     followFromTheEdge('Voltar ao banco de questões', 'Banco de questões')
+  })
+})
+
+describe('link com cara de botão no tour', () => {
+  /** The tours point at `create`, `generate`, `grading` and `confirm`, which are links now. */
+  it('deixa o tour apontar para o link, que é o próprio botão', () => {
+    cy.visit('/aplicacoes')
+
+    cy.contains('a', 'Nova aplicação').should('have.attr', 'data-tour', 'create').and('have.class', 'tour-target')
   })
 })
 

@@ -19,12 +19,15 @@ import {
  * the whole page, so an exam or a class archived later still shows its name.
  *
  * The card leads to P14; the menu and the archive button sit above that link.
+ * Both repeat on every card, so each names the application after its visible
+ * word, the way the screen reader tells one "Arquivar" from the next (#145).
  */
 export function ApplicationRow({
   application,
   onArchive,
 }: Readonly<{ application: ApplicationOverview; onArchive: () => void }>) {
   const archived = application.status === 'closed';
+  const archiveLabel = archived ? 'Restaurar' : 'Arquivar';
   const status = APPLICATION_STATUS_LABEL[application.status];
   const answerKey = answerKeyBadgeOf(application.progress);
   const { correctedSheets, sheets } = application.progress;
@@ -58,9 +61,10 @@ export function ApplicationRow({
         <Button
           variant="ghost"
           icon={archived ? <RotateCcw size={16} aria-hidden /> : <Archive size={16} aria-hidden />}
+          aria-label={`${archiveLabel} a aplicação ${examTitleOf(application)}, ${sittingOf(application)}`}
           onClick={onArchive}
         >
-          {archived ? 'Restaurar' : 'Arquivar'}
+          {archiveLabel}
         </Button>
       </div>
     </Card>

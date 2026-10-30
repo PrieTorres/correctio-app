@@ -12,7 +12,6 @@ import { createBaseConfig, ratchet } from '../../tooling/eslint/base.js';
  * pieces and deletes its entry. Entries are only ever removed, never added.
  */
 const LEGACY_COMPLEXITY = {
-  'src/features/grading/pages/GradingSheetPage.tsx': { cyclomatic: 30 },
   'src/lib/public-lookup/resolve.ts': { cyclomatic: 14 },
 };
 

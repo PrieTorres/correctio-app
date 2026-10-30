@@ -236,6 +236,11 @@ function EmptyClassList({
   );
 }
 
+/**
+ * One class of P3. Its buttons repeat on every card, so each one's accessible
+ * name starts with the visible word and then names the class: a screen
+ * reader's list of buttons otherwise reads "Editar, Editar, Editar…" (#145).
+ */
 function ClassCard({
   item,
   onEdit,
@@ -246,6 +251,7 @@ function ClassCard({
   onToggleArchive: () => void;
 }>) {
   const isArchived = item.status === 'archived';
+  const archiveLabel = isArchived ? 'Restaurar' : 'Arquivar';
 
   return (
     <Card interactive className="flex h-full flex-col justify-between p-5">
@@ -264,15 +270,16 @@ function ClassCard({
       </div>
 
       <div className="above-card-link mt-5 flex gap-2">
-        <Button variant="ghost" onClick={onEdit}>
+        <Button variant="ghost" aria-label={`Editar a turma ${item.name}`} onClick={onEdit}>
           Editar
         </Button>
         <Button
           variant="ghost"
           icon={isArchived ? <RotateCcw size={16} aria-hidden /> : <Archive size={16} aria-hidden />}
+          aria-label={`${archiveLabel} a turma ${item.name}`}
           onClick={onToggleArchive}
         >
-          {isArchived ? 'Restaurar' : 'Arquivar'}
+          {archiveLabel}
         </Button>
       </div>
     </Card>

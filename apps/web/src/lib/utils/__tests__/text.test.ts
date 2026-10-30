@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compareByLocale, firstName, matchesSearch, normalize } from '../text'
+import { compareByLocale, excerpt, firstName, matchesSearch, normalize } from '../text'
 
 describe('matchesSearch', () => {
   it('matches every record when the term is blank', () => {
@@ -65,5 +65,30 @@ describe('firstName', () => {
     expect(firstName(undefined)).toBe('')
     expect(firstName('')).toBe('')
     expect(firstName('   ')).toBe('')
+  })
+})
+
+describe('excerpt', () => {
+  it('keeps a short text whole', () => {
+    expect(excerpt('A derivada de f(x) = x³ é:')).toBe('A derivada de f(x) = x³ é:')
+  })
+
+  it('cuts a long text at a word and says there is more', () => {
+    const statement = 'Explique com suas palavras o que significa dizer que uma função é contínua em um ponto.'
+
+    expect(excerpt(statement)).toBe('Explique com suas palavras o que significa dizer que uma…')
+    expect(excerpt(statement).length).toBeLessThanOrEqual(61)
+  })
+
+  it('folds line breaks and repeated spaces into one space', () => {
+    expect(excerpt('Primeira linha\n\n  segunda linha')).toBe('Primeira linha segunda linha')
+  })
+
+  it('drops the punctuation left before the ellipsis', () => {
+    expect(excerpt('Calcule, sem calculadora, o valor de', 10)).toBe('Calcule…')
+  })
+
+  it('cuts inside a word only when the first word alone is too long', () => {
+    expect(excerpt('Pneumoultramicroscopicossilicovulcanoconiótico', 10)).toBe('Pneumoultr…')
   })
 })
