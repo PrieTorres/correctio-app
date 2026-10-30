@@ -91,10 +91,10 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 | **App mobile nativo** | Fora em qualquer hipótese. Tudo pelo site responsivo. |
 | **Área do aluno com login** | Fora. O aluno é um registro da turma e consulta a nota pelo QR Code da sua folha. |
 | **Editor manual de layout do PDF / exportar .doc** | Fora. A paginação é comportamento da geração (RF43, RF44), não configuração que o professor ajusta. |
+| **Versões com questões realmente diferentes por aluno (A/B/C)** | Fora do MVP. A professora respondeu (#83, 26/10/2026) que o embaralhamento atende o escopo da disciplina e que questões diferentes por aluno são um extra opcional, se sobrar tempo. |
 
 ### 🤔 Em discussão e pendente de validação
 
-- **Em discussão com a professora:** versionamento A/B/C de questões (provas realmente diferentes por aluno, não só embaralhadas).
 - **Pendente de validação com o cliente:** importação e exportação via Excel · retorno do cartão-resposta corrigido ao aluno · finalidade do campo e-mail do aluno · existência de alunos menores de idade.
 
 ### 📅 Evolução ao longo do semestre

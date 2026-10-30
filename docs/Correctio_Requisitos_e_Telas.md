@@ -44,7 +44,7 @@ Cruza o **Relato do Cliente**, a **Spec SGP Católica** e o retorno da apresenta
 
 **Nome da plataforma:** Correctio.
 
-**Stack:** React + Vite + TypeScript no front (Vue era a preferência da Spec, mas React foi aceito). Backend Node.js + Express + MySQL, conforme a disciplina. Hospedagem: GitHub Pages na N1 (dados simulados em localStorage), migrando para Firebase Hosting com Firebase Auth nas fases seguintes. **[Firebase Auth: validar com a professora — substitui os endpoints /auth da Spec]**
+**Stack:** React + Vite + TypeScript no front (Vue era a preferência da Spec, mas React foi aceito). Backend Node.js + Express + MySQL, conforme a disciplina. Hospedagem: GitHub Pages na N1 (dados simulados em localStorage), migrando para Firebase Hosting nas fases seguintes. **Autenticação (decidida em 14/10/2026, #40 e #83):** login com Google e com e-mail e senha, os dois emitindo o JWT próprio da API, nas rotas `/auth` da Spec. O Firebase Auth saiu do plano. A professora respondeu em 26/10/2026 que a decisão técnica é do grupo.
 
 *As decisões de arquitetura, o desenho de segurança/LGPD, a especificação do tour guiado e o portão de qualidade dos Pull Requests estão detalhados em documentos próprios no repositório (docs/Arquitetura.md, docs/Seguranca_e_LGPD.md, docs/Tour_Guiado.md, docs/CI_CD.md).*
 
@@ -234,7 +234,7 @@ Continua sem editor manual de layout: é comportamento da geração, não config
 
 ### 6.3 — Versionamento A/B/C de questões (discutível)
 
-Ideia levantada em 28/08: provas realmente diferentes por aluno, não só embaralhadas. Marcada como discutível pelo grupo. Fica em discussão — hoje a Aplicação sempre embaralha a mesma prova.
+Ideia levantada em 28/08: provas realmente diferentes por aluno, não só embaralhadas. **Decidido em 26/10/2026 (#83):** fica fora do MVP. A professora respondeu que o embaralhamento atende o escopo da disciplina e que questões diferentes por aluno são um extra opcional, se sobrar tempo. A Aplicação segue embaralhando a mesma prova.
 
 ### 6.4 — LGPD dos alunos sem conta
 
@@ -249,9 +249,10 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 1. Finalidade do campo e-mail do aluno — ele tem algum uso previsto? Hoje é coletado sem finalidade no sistema (ver nota do RF07).
 1. Existe aluno menor de 18 anos? Se houver, o tratamento tem exigências adicionais (LGPD, Art. 14).
 
-**Levar à professora:**
+**Levado à professora (respondido em 26/10/2026, #83):**
 
-1. Versionamento A/B/C de questões entra em algum momento ou fica fora (ver 6.3)?
+1. ~~Versionamento A/B/C de questões entra em algum momento ou fica fora?~~ Fica fora do MVP: o embaralhamento basta, e versões realmente diferentes são um extra opcional (ver 6.3).
+1. ~~Firebase Auth no lugar dos endpoints `/auth` da Spec?~~ Os endpoints `/auth` ficam (decisão da PM de 14/10). A professora respondeu que a decisão técnica é do grupo e que o principal é entregar o MVP funcionando.
 
 ## 8. Especificação de telas
 
@@ -777,16 +778,15 @@ Mudanças em relação às entidades da Spec, decorrentes do novo escopo:
 
 ## 10. Fora do escopo / em discussão
 
-- **Fora:** app mobile; editor manual de layout do PDF / exportar .doc; área do aluno com login.
-- **Em discussão:** versionamento A/B/C de questões (provas realmente diferentes) — ver 6.3.
-- **Depende de validação:** importação/exportação Excel, retorno do cartão-resposta, finalidade do e-mail do aluno, existência de alunos menores de idade — ver seção 7. Com a professora: Firebase Auth no lugar dos endpoints /auth da Spec (seção 1) e versionamento A/B/C (6.3).
+- **Fora:** app mobile; editor manual de layout do PDF / exportar .doc; área do aluno com login; versionamento A/B/C de questões (provas realmente diferentes por aluno), extra opcional se sobrar tempo — ver 6.3.
+- **Depende de validação:** importação/exportação Excel, retorno do cartão-resposta, finalidade do e-mail do aluno, existência de alunos menores de idade — ver seção 7.
 
 ## 11. Como seguir — até a N1 (11/09)
 
 ### Esta semana
 
 - Levar ao cliente as validações da seção 7 (agora com dois itens novos: finalidade do e-mail do aluno e existência de alunos menores de idade)
-- Levar à professora a dúvida da seção 6.3 (versionamento A/B/C) e o uso de Firebase Auth no lugar dos endpoints /auth da Spec (seção 1)
+- ~~Levar à professora a dúvida da seção 6.3 (versionamento A/B/C) e o uso de Firebase Auth~~ — respondido em 26/10/2026 (seções 1, 6.3 e 7)
 - Reorganizar as Issues do GitHub Project pela lista atual de 42 RFs, agrupando por área
 - PDF de telas para validação com o cliente — confirmar se já foi entregue; é item obrigatório do checklist da N1 e a base textual é a seção 8 (agora com PUB2)
 
@@ -817,7 +817,7 @@ Cada ponto levantado no grupo após a apresentação e onde ele está neste docu
 | Formulário para montar prova automaticamente (tags, discursivas, quantidade) | RF16; P9b |
 | Salvar embaralhamento na prova, ativável/desativável na aplicação | RF17; P9 (preferências); P13 (herdadas, editáveis) |
 | Duplicar provas | RF18; P8; P10 |
-| Versionamento A/B/C de questões (discutível) | 6.3; seção 10 (em discussão) |
+| Versionamento A/B/C de questões (discutível) | 6.3; seção 10 (fora do MVP, extra opcional) |
 | Embaralhar alternativas por questão ao montar a prova | RF13; P7 (padrão da questão) e P9 (ajuste por prova) |
 | Disponibilizar a nota pelo QR Code ao final da prova | RF33; PUB1; toggle “Liberar notas” em P14; 6.1 |
 | Validar com o cliente: discursivas, import/export Excel, notas por QR | Seção 7; marcações [validar] nos RFs |
