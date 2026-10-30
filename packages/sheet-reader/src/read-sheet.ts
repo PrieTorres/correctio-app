@@ -1,4 +1,4 @@
-import { ANSWER_CARD, type ExamVersionLayout } from '@correctio/domain'
+import { ANSWER_CARD, SHEET_READING, type ExamVersionLayout } from '@correctio/domain'
 import { findMarker } from './find-marker'
 import { toGrey, type GreyImage } from './grey-image'
 import { matchSheet, type SheetWithCode } from './identify-sheet'
@@ -6,19 +6,8 @@ import { homography, project, type Homography, type Point, type Quad } from './p
 import { decodeQrCodes, type PixelImage } from './qr-decoder'
 import { readMarks, type ReadAnswer } from './read-marks'
 
-/**
- * The outcomes of reading one photo, as the upload screen (P15) lists them.
- * None of them is a grade: the teacher confirms every reading in the review
- * (RF28), so even `READ` only fills the review in.
- */
-export const SHEET_READING = Object.freeze({
-  /** The sheet was identified and its marks were read. */
-  READ: 'READ',
-  /** No QR Code of this application on the photo; the teacher picks the sheet by hand (RF30). */
-  QR_NOT_RECOGNIZED: 'QR_NOT_RECOGNIZED',
-  /** The sheet was identified, but its marks could not be read. */
-  READ_FAILED: 'READ_FAILED',
-} as const)
+/** The outcomes live in `@correctio/domain`, where the API and the web app read them too. */
+export { SHEET_READING } from '@correctio/domain'
 
 export type SheetReading<Sheet> =
   | { status: typeof SHEET_READING.READ; sheet: Sheet; answers: ReadAnswer[] }

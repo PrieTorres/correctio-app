@@ -156,10 +156,10 @@ casos, o professor pode salvar sem finalizar e voltar depois, até confirmar a c
 ### Etapa 5 — Publicação e consulta pelo QR Code
 
 Por fim, incluímos a publicação do gabarito, a liberação das notas e os quatro resultados
-possíveis da página do QR Code (PUB1), todos decididos pela API. Um ponto desta etapa fica
-tracejado: a nota só depois da confirmação do professor (RNF07 e RF47, [#47]). A recusa da
-liberação sem o gabarito publicado (P14) já é linha cheia: a API faz essa conferência desde a
-[#46]. Esta é a versão final.
+possíveis da página do QR Code (PUB1), todos decididos pela API. A nota só aparece depois da
+confirmação do professor (RNF07 e RF47): uma correção ainda em andamento devolve só o gabarito,
+e a API faz essa conferência desde a [#47]. A recusa da liberação sem o gabarito publicado
+(P14) é feita pela API desde a [#46]. Esta é a versão final.
 
 ![Diagrama de atividades do Correctio, versão final](activity-diagram.png)
 
@@ -176,13 +176,13 @@ O PlantUML não desenha losango tracejado. Por isso, a decisão prevista aparece
 e "previsto" no rótulo, e o caminho que ela cria fica tracejado. Enquanto a issue não mergeia,
 o fluxo passa por esse losango sempre pelo caminho de linha cheia.
 
-Na N1, três pontos eram tracejados. O "Gabarito publicado?" virou linha cheia com a [#46]; os
-outros dois continuam tracejados, porque as issues que os implementam ainda estão abertas:
+Na N1, três pontos eram tracejados. O "Gabarito publicado?" virou linha cheia com a [#46], e a
+nota só depois da confirmação do professor, com a [#47]. O ponto que resta continua tracejado,
+porque as issues que o implementam ainda estão abertas:
 
 | Ponto tracejado                                                  | Como aparece no diagrama                                                             | Vira linha cheia quando mergear |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------- |
 | "Leitura reconhecida?" e "Inserir a correção manualmente" (RF30) | "Leitura reconhecida? previsto (#48 e #78)" e "Inserir a correção manualmente (#48)" | [#48] e [#78]                   |
-| Nota só depois da confirmação do professor (RNF07 e RF47)        | "Correção confirmada e concluída? previsto (#47)" e "Devolver só o gabarito (#47)"   | [#47]                           |
 
 A troca para linha cheia é um item do checklist da [#47] e da [#48]: quem fechar cada uma
 atualiza o diagrama, como mostra o apêndice.

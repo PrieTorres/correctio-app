@@ -4,6 +4,7 @@ import type { Logger } from 'pino'
 import type { AuthController } from '../controllers/auth-controller'
 import type { FieldCipher } from '../lib/field-encryption'
 import type { FileStorage } from '../lib/file-storage'
+import type { PhotoReader } from '../lib/sheet-reading/photo-reader'
 import type { AuthLimits } from '../middlewares/rate-limit'
 import type { Database } from '../models/tables'
 import type { HealthService } from '../services/health-service'
@@ -31,6 +32,8 @@ export interface RouteDependencies {
   expensiveLimit: RequestHandler
   /** The origin of the web app, which the PDF prints in every QR code (`PUBLIC_APP_URL`). */
   publicAppUrl: string
+  /** Reads the photo of a sheet sent for correction (#47, ADR-007). */
+  readPhoto: PhotoReader
   logger: Logger
   /** Absent in tests that exercise only the gate, which then answers every route as before #40. */
   auth?: { controller: AuthController; limits: AuthLimits }
@@ -53,6 +56,7 @@ export function createRouter({
   teacherLimit,
   expensiveLimit,
   publicAppUrl,
+  readPhoto,
   logger,
   auth,
 }: RouteDependencies): Router {
@@ -71,7 +75,7 @@ export function createRouter({
   router.use('/questions', questionRoutes(db))
   router.use('/classes', classRoutes({ db, fieldCipher, expensiveLimit }))
   router.use('/exams', examRoutes(db))
-  router.use('/applications', applicationRoutes({ db, fileStorage, expensiveLimit, publicAppUrl, logger }))
+  router.use('/applications', applicationRoutes({ db, fileStorage, expensiveLimit, publicAppUrl, readPhoto, logger }))
 
   return router
 }

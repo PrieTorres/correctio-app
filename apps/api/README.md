@@ -127,6 +127,9 @@ com as mesmas regras das telas, sem cópia.
 | `GET /applications/:id/pdf` | Baixa o PDF consolidado. É o endereço que o `pdfUrl` da aplicação traz |
 | `POST /applications/:id/corrections` | Grava a revisão de uma folha (RF28, RF30). A Spec só lista e edita as correções |
 | `GET /applications/:id/corrections/:correctionId` | Uma correção, para a tela de revisão (P16) |
+| `POST /applications/:id/sheet-images` | Recebe a foto de uma folha (#47) e devolve a leitura. Ver "Fotos das folhas" |
+| `GET /applications/:id/sheet-images/:imageId` | Entrega a foto, só ao professor da aplicação |
+| `GET /applications/:id/read-failures` | As fotos cuja leitura falhou, do `ActivityLog`, para a P15 listar |
 | `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49). Sem login, com limite de 30 requisições por minuto por IP. Código desconhecido responde `200` com `{ status: "INVALID_CODE" }`, igual a um código que existe mas não leva a nada, para quem tenta adivinhar não distinguir os dois. Responde `X-Robots-Tag: noindex` |
 
 ### Aplicações
@@ -238,6 +241,31 @@ As correções ficam debaixo da aplicação: `GET` e `POST /applications/:id/cor
   API guarda; a mesma chave duas vezes responde 409.
 - **Lista:** na ordem das folhas, com os filtros `assigned` (`false` lista as pendentes de
   atribuição, P17) e `status` (`IN_PROGRESS`, RF48).
+- **Origem:** a correção revisada a partir de uma foto manda o `imageId` que o envio devolveu, e
+  grava `source: "IMAGE_UPLOAD"` com a chave da foto em `imageUrl` (ADR-004). Sem `imageId`, é
+  `MANUAL` (RF30). Foto de outra aplicação responde 404.
+
+### Fotos das folhas
+
+`POST /applications/:id/sheet-images` recebe **uma** foto por requisição, como corpo da própria
+requisição (não é multipart): a P15 envia uma de cada vez.
+
+- **Tipo real:** só JPEG, PNG ou WebP, conferidos pelos primeiros bytes do arquivo, nunca pela
+  extensão nem pelo `Content-Type` (`docs/Seguranca_e_LGPD.md`, seção 7). Até 10 MB (RNF16).
+  Fora disso, responde 400 com `code: "invalid"`.
+- **Guarda privada:** o arquivo vai para o Storage em `answer-sheets/<aplicação>/<id>.<ext>`
+  (ADR-004), e a tabela `sheet_images` guarda a chave, o tipo, o tamanho e o resultado da leitura.
+  A foto só sai por `GET /applications/:id/sheet-images/:imageId`, para o professor da aplicação.
+- **Leitura:** a API lê o QR Code e as marcações com o `@correctio/sheet-reader`, numa worker
+  thread (ADR-007), e responde `{ imageId, status, answerSheetId?, answers? }`, com `status`
+  `READ`, `QR_NOT_RECOGNIZED` ou `READ_FAILED`. **Nada vira `Correction` aqui:** a leitura volta
+  para a tela, e a correção só nasce quando o professor confirma a revisão (RF28).
+- **Falhas:** toda leitura que não termina em `READ` vai para o `ActivityLog`
+  (`SHEET_READ_FAILED`), com o id da foto e da folha e sem dado pessoal, e aparece em
+  `GET /applications/:id/read-failures`.
+- **Limite:** 500 fotos e 200 MB por professor em 24 horas (`docs/Seguranca_e_LGPD.md`, seção
+  4), contados no banco. Passou disso, responde 429.
+- **Aplicação sem PDF gerado** responde 409: não há folha para reconhecer.
 - Por enquanto toda correção é `MANUAL`. A correção que vem de uma foto (`IMAGE_UPLOAD`), com a
   `imageUrl`, chega com o envio das fotos (#47, segunda parte).
 

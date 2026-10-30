@@ -1,12 +1,16 @@
-import { Router, type RequestHandler } from 'express'
+import express, { Router, type RequestHandler } from 'express'
 import type { Kysely } from 'kysely'
 import type { Logger } from 'pino'
 import { createApplicationController } from '../controllers/application-controller'
 import { createCorrectionController } from '../controllers/correction-controller'
 import { createGenerationController } from '../controllers/generation-controller'
 import { createPrintingController } from '../controllers/printing-controller'
+import { createSheetImageController } from '../controllers/sheet-image-controller'
 import type { FileStorage } from '../lib/file-storage'
+import type { PhotoReader } from '../lib/sheet-reading/photo-reader'
+import { PHOTO_BODY_LIMIT_BYTES } from '../middlewares/body-limit'
 import type { Database } from '../models/tables'
+import { createActivityLogRepository } from '../repositories/activity-log-repository'
 import { createApplicationRepository, type ApplicationRepository } from '../repositories/application-repository'
 import { createClassRepository } from '../repositories/class-repository'
 import { createCorrectionRepository } from '../repositories/correction-repository'
@@ -14,11 +18,13 @@ import { createExamRepository } from '../repositories/exam-repository'
 import { createGradingRepository } from '../repositories/grading-repository'
 import { createPrintingRepository, type PrintingRepository } from '../repositories/printing-repository'
 import { QuestionRepository } from '../repositories/question-repository'
+import { createSheetImageRepository } from '../repositories/sheet-image-repository'
 import { createApplicationService } from '../services/application-service'
 import { createCorrectionService } from '../services/correction-service'
 import { createExamService } from '../services/exam-service'
 import { createGenerationService } from '../services/generation-service'
 import { createPrintingService } from '../services/printing-service'
+import { createSheetImageService } from '../services/sheet-image-service'
 
 export interface ApplicationRouteDependencies {
   db: Kysely<Database>
@@ -28,6 +34,8 @@ export interface ApplicationRouteDependencies {
   expensiveLimit: RequestHandler
   /** The origin of the web app, printed in the QR code of every sheet (`PUBLIC_APP_URL`). */
   publicAppUrl: string
+  /** Reads the photo of a sheet off the thread that answers requests (ADR-007). */
+  readPhoto: PhotoReader
   logger: Logger
 }
 
@@ -57,8 +65,8 @@ function generationController(
 }
 
 /**
- * Applications and what was printed for them (P11 to P14), and the
- * corrections of their sheets (P15 to P17, #47). `ExamAssignment` gets no
+ * Applications and what was printed for them (P11 to P14), and the photos
+ * and corrections of their sheets (P15 to P17, #47). `ExamAssignment` gets no
  * route: the answer sheets took its place, and it stays in the contract only
  * for a student area (`docs/Modelo_de_Dados.md`).
  */
@@ -75,13 +83,27 @@ export function applicationRoutes(dependencies: ApplicationRouteDependencies): R
   )
   const generation = generationController(dependencies, repositories)
   const printing = createPrintingController(createPrintingService(repositories))
+  const sheetImageRepository = createSheetImageRepository(db)
   const corrections = createCorrectionController(
     createCorrectionService({
       ...repositories,
       grading: createGradingRepository(db),
       corrections: createCorrectionRepository(db),
+      sheetImages: sheetImageRepository,
     }),
   )
+  const sheetImages = createSheetImageController(
+    createSheetImageService({
+      ...repositories,
+      sheetImages: sheetImageRepository,
+      activityLog: createActivityLogRepository(db),
+      fileStorage,
+      readPhoto: dependencies.readPhoto,
+      logger: dependencies.logger,
+    }),
+  )
+  /** Any content type: the photo is told apart by its own bytes in the service, never by what the client declares. */
+  const photoBody = express.raw({ type: () => true, limit: PHOTO_BODY_LIMIT_BYTES })
 
   const router = Router()
   router.get('/', applications.list)
@@ -98,6 +120,10 @@ export function applicationRoutes(dependencies: ApplicationRouteDependencies): R
   router.post('/:id/versions/:versionId/publish-answer-key', printing.publishAnswerKey)
   router.post('/:id/publish-answer-keys', printing.publishAllAnswerKeys)
   router.get('/:id/sheets', printing.listSheets)
+
+  router.post('/:id/sheet-images', photoBody, sheetImages.upload)
+  router.get('/:id/sheet-images/:imageId', sheetImages.image)
+  router.get('/:id/read-failures', sheetImages.readFailures)
 
   router.get('/:id/corrections', corrections.list)
   router.post('/:id/corrections', corrections.create)

@@ -82,12 +82,10 @@ endif
 if (Código válido?) then ([Sim])
   if (Gabarito da versão publicado?) then ([Sim])
     if (Notas liberadas e folha corrigida?) then ([Sim])
-      if <<planned>> (Correção confirmada e concluída?\n<i>previsto (#47)</i>) then ([Sim])
+      if (Correção confirmada e concluída?) then ([Sim])
         :Devolver gabarito, nota e acertos;
       else ([Não])
-        -[dashed]->
-        :Devolver só o gabarito (#47); <<planned>>
-        -[dashed]->
+        :Devolver só o gabarito;
       endif
     else ([Não])
       :Devolver só o gabarito;

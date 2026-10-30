@@ -2,6 +2,7 @@ import type { AnswerSheet, Application, ExamVersion } from '@correctio/domain'
 import type { Insertable, Kysely, Selectable } from 'kysely'
 import { byText } from '../db/text-search'
 import { pageWindow, type Page, type PageRequest } from '../lib/pagination'
+import type { ReadingContext } from '../lib/sheet-reading/read-photo'
 import type { AnswerSheetsTable, Database, ExamVersionsTable } from '../models/tables'
 
 const VERSION_COLUMNS = [
@@ -74,6 +75,12 @@ export interface PrintingRepository {
   listSheets: (applicationId: string, request: PageWindowRequest) => Promise<Page<AnswerSheet>>
   /** One sheet, looked for inside its application, so the id of another application's sheet finds nothing. */
   findSheet: (applicationId: string, sheetId: string) => Promise<AnswerSheet | undefined>
+  /**
+   * Every sheet of the application with its code, and the layout of each
+   * version, all at once: what reading a photo needs to tell which sheet it
+   * is and where its bubbles are (#47, #78). A class fits in one query.
+   */
+  readingContextOf: (applicationId: string) => Promise<ReadingContext>
   /**
    * The students of a class who get a sheet, by name, all at once: the ones
    * still in the class (#41) whose data was not anonymized, since a sheet for
@@ -185,6 +192,14 @@ export function createPrintingRepository(db: Kysely<Database>): PrintingReposito
         await versionUpdate(trx, applicationId, versionId).set({ answerKeyPublished: false, answerKeyPublishedAt: null }).execute()
         return true
       })
+    },
+
+    async readingContextOf(applicationId) {
+      const [sheets, versions] = await Promise.all([
+        sheetsOf(applicationId).select(['id', 'code', 'examVersionId']).execute(),
+        versionsOf(applicationId).select(['id', 'layout']).execute(),
+      ])
+      return { sheets, layouts: Object.fromEntries(versions.map((version) => [version.id, version.layout])) }
     },
 
     async findSheet(applicationId, sheetId) {

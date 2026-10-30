@@ -205,6 +205,7 @@ Cada decisão técnica importante tem um registro próprio em [`docs/adr/`](docs
 | [ADR-004](docs/adr/ADR-004-answer-sheet-image-storage.md) | Imagens das folhas no Firebase Storage, fora do banco |
 | [ADR-005](docs/adr/ADR-005-api-hosting.md) | API em Cloud Functions do Firebase, no mesmo endereço do front |
 | [ADR-006](docs/adr/ADR-006-answer-sheet-reading.md) | Leitura da folha no servidor por padrão, com o mesmo leitor no navegador |
+| [ADR-007](docs/adr/ADR-007-sheet-reading-on-api-worker.md) | Leitura da folha na própria API, numa worker thread |
 
 ---
 

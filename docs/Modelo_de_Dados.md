@@ -299,7 +299,7 @@ gravada antes do campo existir é da primeira geometria, a única que havia.
   answerSheetId: string                 // +
   source: "IMAGE_UPLOAD" | "MANUAL"     // +
   status: "IN_PROGRESS" | "DONE"        // +  espera nota de discursiva
-  imageUrl?: string                     // +
+  imageUrl?: string                     // +  chave da foto no Storage (ADR-004), não um link que expira
 }
 ```
 
@@ -320,6 +320,27 @@ dado pessoal.**
   entity: string               // ex.: "answer_sheet"
   entityId?: string
   details?: object             // referência e motivo, sem dado pessoal
+  createdAt: Date
+}
+```
+
+### SheetImage `+`
+
+Acréscimo do grupo (#47, migração `0004`): a foto de uma folha enviada para correção. O arquivo
+fica no Storage (ADR-004); a linha guarda onde ele está e como terminou a leitura. É o que
+permite entregar a foto só ao professor da aplicação, ligar a correção à foto de onde veio e
+contar o limite diário de envios.
+
+```ts
+{
+  id: string
+  applicationId: string
+  teacherId: string
+  storageKey: string           // ex.: "answer-sheets/<applicationId>/<id>.jpg"
+  contentType: "image/jpeg" | "image/png" | "image/webp"
+  byteSize: number
+  status: "READ" | "QR_NOT_RECOGNIZED" | "READ_FAILED"   // valores do grupo
+  answerSheetId?: string       // ausente quando o QR não foi reconhecido
   createdAt: Date
 }
 ```

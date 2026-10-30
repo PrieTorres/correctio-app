@@ -329,6 +329,24 @@ export const CORRECTION_SOURCE = {
 export type CorrectionSource = (typeof CORRECTION_SOURCE)[keyof typeof CORRECTION_SOURCE];
 
 /**
+ * How reading the photo of a sheet ended (RF27), as the upload screen (P15)
+ * lists them. Values the group added, hence the case. None of them is a
+ * grade: the teacher confirms every reading in the review (RF28), so even
+ * `READ` only fills the review in. Shared by the reader, the API and the web
+ * app, so the three name the outcomes alike.
+ */
+export const SHEET_READING = Object.freeze({
+  /** The sheet was identified and its marks were read. */
+  READ: 'READ',
+  /** No QR Code of this application on the photo; the teacher picks the sheet by hand (RF30). */
+  QR_NOT_RECOGNIZED: 'QR_NOT_RECOGNIZED',
+  /** The sheet was identified, but its marks could not be read. */
+  READ_FAILED: 'READ_FAILED',
+} as const);
+
+export type SheetReadingStatus = (typeof SHEET_READING)[keyof typeof SHEET_READING];
+
+/**
  * Reading a sheet grades the multiple-choice questions on its own, but an
  * open-ended question has no single right answer, so a mixed exam is only
  * partly gradable by machine.

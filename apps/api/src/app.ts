@@ -8,6 +8,7 @@ import type { Env } from './config/env'
 import { createAuthController } from './controllers/auth-controller'
 import { refuseWithoutKey, type FieldCipher } from './lib/field-encryption'
 import { unavailableFileStorage, type FileStorage } from './lib/file-storage'
+import { createPhotoReader, type PhotoReader } from './lib/sheet-reading/photo-reader'
 import { createSessionCookie } from './lib/session-cookie'
 import { BODY_LIMIT_BYTES, limitBodySize } from './middlewares/body-limit'
 import { createErrorHandler } from './middlewares/error-handler'
@@ -66,6 +67,8 @@ export interface AppDependencies {
    * loudly instead of losing a file; `bootstrapApi` always passes a real one.
    */
   fileStorage?: FileStorage
+  /** Reads the photo of a sheet (#47); by default on a worker thread when the API runs bundled (ADR-007). */
+  readPhoto?: PhotoReader
   healthChecks?: readonly HealthCheck[]
   /** Overridable so tests reach a limit in a few requests instead of hundreds. */
   rateLimits?: Partial<RateLimits>
@@ -113,6 +116,7 @@ export function createApp({
   verifyToken = auth?.verifyToken ?? rejectAllTokens,
   fieldCipher = refuseWithoutKey,
   fileStorage = unavailableFileStorage,
+  readPhoto = createPhotoReader(),
   healthChecks = [],
   rateLimits,
   signInDelayStepMs,
@@ -142,6 +146,7 @@ export function createApp({
       teacherLimit: createTeacherRateLimit(limits),
       expensiveLimit: createRateLimit(limits.expensive, { key: byTeacher }),
       publicAppUrl: env.PUBLIC_APP_URL,
+      readPhoto,
       logger,
       auth: auth === undefined ? undefined : authRoutesFor(auth, env, limits, signInDelayStepMs),
     }),

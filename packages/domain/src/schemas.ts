@@ -6,7 +6,7 @@
  * responses, plus the Express request bodies, later.
  */
 import { z } from 'zod';
-import { CORRECTION_PROGRESS, CORRECTION_SOURCE, CORRECTION_STATUS } from './domain';
+import { CORRECTION_PROGRESS, CORRECTION_SOURCE, CORRECTION_STATUS, SHEET_READING } from './domain';
 
 const id = z.string().min(1);
 const timestamp = z.string().datetime();
@@ -517,6 +517,32 @@ export const correctionSchema = z.object({
   imageUrl: z.string().optional(),
 });
 
+const readAnswerSchema = z.object({ questionId: id, selectedAlternativeId: id.optional() });
+
+/**
+ * What the API answers to the photo of one sheet (#47): which sheet it is and
+ * what was marked, never a grade. `READ_FAILED` still names the sheet, since
+ * its QR Code was read; `QR_NOT_RECOGNIZED` names nothing.
+ */
+export const sheetImageUploadSchema = z.discriminatedUnion('status', [
+  z.object({
+    imageId: id,
+    status: z.literal(SHEET_READING.READ),
+    answerSheetId: id,
+    answers: z.array(readAnswerSchema),
+  }),
+  z.object({ imageId: id, status: z.literal(SHEET_READING.READ_FAILED), answerSheetId: id }),
+  z.object({ imageId: id, status: z.literal(SHEET_READING.QR_NOT_RECOGNIZED) }),
+]);
+
+/** A photo whose reading failed, from the log the upload screen lists (P15). */
+export const readFailureSchema = z.object({
+  imageId: id,
+  status: z.enum([SHEET_READING.QR_NOT_RECOGNIZED, SHEET_READING.READ_FAILED]),
+  answerSheetId: id.optional(),
+  createdAt: timestamp,
+});
+
 export type ClassInput = z.infer<typeof classInputSchema>;
 export type StudentInput = z.infer<typeof studentInputSchema>;
 export type QuestionInput = z.infer<typeof questionInputSchema>;
@@ -533,3 +559,5 @@ export type DrawRequest = z.infer<typeof drawRequestSchema>;
 export type ApplicationInput = z.infer<typeof applicationInputSchema>;
 export type VersionShuffle = z.infer<typeof versionShuffleSchema>;
 export type GenerationRequest = z.infer<typeof generationRequestSchema>;
+export type SheetImageUpload = z.infer<typeof sheetImageUploadSchema>;
+export type ReadFailure = z.infer<typeof readFailureSchema>;

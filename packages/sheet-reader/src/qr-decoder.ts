@@ -45,7 +45,7 @@ export interface DecodedQr {
  * unevenly lit and noisy, which is what the decoder was chosen for (ADR-006).
  */
 export async function decodeQrCodes(image: PixelImage): Promise<DecodedQr[]> {
-  const imageData: ImageData = { data: image.data, width: image.width, height: image.height, colorSpace: 'srgb' }
+  const imageData = { data: image.data, width: image.width, height: image.height, colorSpace: 'srgb' as const }
   const results = await readBarcodes(imageData, { formats: ['QRCode'], tryHarder: true, maxNumberOfSymbols: MAX_CODES })
   return results.filter((result) => result.isValid).map(({ text, position }) => ({ text, corners: position }))
 }
