@@ -26,8 +26,28 @@ export function ApplicationGeneratePage() {
           <p className="text-body text-ink-muted">Aplicação não encontrada.</p>
         </Card>
       ) : (
-        <GenerationForm application={application} />
+        <GenerationWithExam application={application} />
       )}
+    </QueryBoundary>
+  );
+}
+
+/**
+ * The versions start from the shuffling the exam prefers (RF17), so the form
+ * waits for the exam. Offered earlier, a quick click sent shuffling the exam
+ * had turned off. An exam that is not found leaves both preferences on, as a
+ * new exam has them.
+ */
+function GenerationWithExam({ application }: Readonly<{ application: ApplicationOverview }>) {
+  const { data: exam, isPending, isError } = useExam(application.examId);
+  const preferences: VersionShuffle = {
+    shuffleQuestions: exam?.defaultShuffleQuestions ?? true,
+    shuffleAlternatives: exam?.defaultShuffleAlternatives ?? true,
+  };
+
+  return (
+    <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando prova…">
+      <GenerationForm application={application} preferences={preferences} />
     </QueryBoundary>
   );
 }
@@ -42,22 +62,20 @@ export function ApplicationGeneratePage() {
  * When the server refuses, its reason shows here, since it may have seen a
  * correction this screen had not.
  */
-function GenerationForm({ application }: Readonly<{ application: ApplicationOverview }>) {
+function GenerationForm({
+  application,
+  preferences,
+}: Readonly<{ application: ApplicationOverview; preferences: VersionShuffle }>) {
   const navigate = useNavigate();
   const location = useLocation();
   const origin: unknown = location.state;
   const backTo = returnPathFrom(origin);
-  const { data: exam } = useExam(application.examId);
   const generate = useGenerateApplication();
 
   const [versionCount, setVersionCount] = useState(DEFAULT_VERSION_COUNT);
   const [changes, setChanges] = useState<ShuffleChanges>({});
   const [withStudentIdentification, setWithStudentIdentification] = useState(true);
 
-  const preferences: VersionShuffle = {
-    shuffleQuestions: exam?.defaultShuffleQuestions ?? true,
-    shuffleAlternatives: exam?.defaultShuffleAlternatives ?? true,
-  };
   const versions = versionShufflesOf(versionCount, preferences, changes);
   const verdict = canRegenerate(application, application.progress.corrections);
 

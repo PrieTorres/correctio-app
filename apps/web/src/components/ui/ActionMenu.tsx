@@ -44,23 +44,38 @@ export function ActionMenu({
           className="z-50 min-w-56 max-w-[calc(100vw-2rem)] rounded-[var(--radius-card)] border border-line bg-surface p-1 shadow-[var(--shadow-overlay)]"
         >
           {actions.map((action) => (
-            <DropdownMenu.Item
-              key={action.label}
-              disabled={action.disabledReason !== undefined}
-              onSelect={action.onSelect}
-              className="flex min-h-11 cursor-pointer items-start gap-2 rounded-[var(--radius-control)] px-3 py-2 text-body text-ink outline-none data-[disabled]:cursor-not-allowed data-[highlighted]:bg-surface-muted data-[disabled]:text-ink-subtle"
-            >
-              {action.icon !== undefined && <span className="mt-0.5 shrink-0">{action.icon}</span>}
-              <span className="flex flex-col">
-                <span>{action.label}</span>
-                {action.disabledReason !== undefined && (
-                  <span className="text-caption text-ink-subtle">{action.disabledReason}</span>
-                )}
-              </span>
-            </DropdownMenu.Item>
+            <MenuItem key={action.label} action={action} />
           ))}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
+  )
+}
+
+/**
+ * A blocked item is marked `aria-disabled` rather than Radix's `disabled`:
+ * Radix skips disabled items when the arrows move through the menu, and the
+ * reason under the label would never reach someone using the keyboard or a
+ * screen reader. Selecting it does nothing and keeps the menu open, so the
+ * reason stays on screen.
+ */
+function MenuItem({ action }: Readonly<{ action: MenuAction }>) {
+  const blocked = action.disabledReason !== undefined
+
+  return (
+    <DropdownMenu.Item
+      aria-disabled={blocked || undefined}
+      onSelect={(event) => {
+        if (blocked) event.preventDefault()
+        else action.onSelect()
+      }}
+      className="flex min-h-11 cursor-pointer items-start gap-2 rounded-[var(--radius-control)] px-3 py-2 text-body text-ink outline-none aria-disabled:cursor-not-allowed aria-disabled:text-ink-subtle data-[highlighted]:bg-surface-muted"
+    >
+      {action.icon !== undefined && <span className="mt-0.5 shrink-0">{action.icon}</span>}
+      <span className="flex flex-col">
+        <span>{action.label}</span>
+        {blocked && <span className="text-caption text-ink-subtle">{action.disabledReason}</span>}
+      </span>
+    </DropdownMenu.Item>
   )
 }

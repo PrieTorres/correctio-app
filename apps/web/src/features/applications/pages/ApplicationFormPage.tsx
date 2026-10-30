@@ -6,13 +6,9 @@ import { ArrowLeft } from 'lucide-react';
 import { Button, Card, PageHeader, QueryBoundary, SaveError } from '@/components/ui';
 import { applicationInputSchema, type ApplicationInput } from '@/lib/schemas';
 import { buildPath, ROUTES } from '@/app/routes';
+import { todayAsStored } from '@/lib/utils';
 import { ApplicationDateField } from '../components/ApplicationDateField';
 import { useSaveApplication, useSittingChoices } from '../hooks/useApplications';
-
-/** Today, so a new application defaults to something plausible. */
-function today(): string {
-  return new Date().toISOString();
-}
 
 /**
  * Creating an application (P12): an active exam, an active class and a day.
@@ -34,7 +30,7 @@ export function ApplicationFormPage() {
     formState: { errors, isSubmitting },
   } = useForm<ApplicationInput>({
     resolver: zodResolver(applicationInputSchema),
-    defaultValues: { examId: '', classId: '', date: today() },
+    defaultValues: { examId: '', classId: '', date: todayAsStored() },
   });
 
   const onSubmit = (input: ApplicationInput) => {

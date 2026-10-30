@@ -69,6 +69,22 @@ const regenerationBlocker: GenerationBlocker = ({ application, corrections }) =>
   return verdict.allowed ? undefined : verdict.reason
 }
 
+const SITTING_CHANGED = 'A prova ou a turma desta aplicação mudou enquanto o PDF era gerado. Gere o PDF de novo.'
+
+/**
+ * The paper is drawn for one exam and one class, outside any lock, and a
+ * draft can still change both. Under the lock the sitting is compared again:
+ * paper drawn for the old exam must not land on an application that already
+ * names another, where the corrections and the public lookup would read it.
+ */
+function swapBlocker(drawnFor: Pick<StoredApplication, 'examId' | 'classId'>): GenerationBlocker {
+  return (state) => {
+    const { examId, classId } = state.application
+    const sameSitting = examId === drawnFor.examId && classId === drawnFor.classId
+    return regenerationBlocker(state) ?? (sameSitting ? undefined : SITTING_CHANGED)
+  }
+}
+
 function refuse(reason: string | undefined): void {
   if (reason !== undefined) throw new ApiError(API_ERROR_CODE.CONFLICT, reason)
 }
@@ -173,8 +189,9 @@ export function createGenerationService(deps: GenerationServiceDependencies): Ge
   }
 
   /** Swaps the paper, and removes the new PDF again if nothing ends up pointing at it. */
-  async function swap(applicationId: string, paper: GeneratedPaper, pdfKey: string): Promise<string | undefined> {
-    const outcome = await printing.replacePaper(applicationId, { ...paper, pdfKey }, regenerationBlocker).catch(async (error: unknown) => {
+  async function swap(application: StoredApplication, paper: GeneratedPaper, pdfKey: string): Promise<string | undefined> {
+    const applicationId = application.id
+    const outcome = await printing.replacePaper(applicationId, { ...paper, pdfKey }, swapBlocker(application)).catch(async (error: unknown) => {
       await removeQuietly(pdfKey)
       throw error
     })
@@ -201,7 +218,7 @@ export function createGenerationService(deps: GenerationServiceDependencies): Ge
       const pdfKey = `applications/${applicationId}/${randomUUID()}.pdf`
       await fileStorage.save(pdfKey, await render(sources, paper), 'application/pdf')
 
-      const previousPdfKey = await swap(applicationId, paper, pdfKey)
+      const previousPdfKey = await swap(application, paper, pdfKey)
       if (previousPdfKey !== undefined) await removeQuietly(previousPdfKey)
       await markReadyQuietly(teacherId, sources.exam.id)
       return paper

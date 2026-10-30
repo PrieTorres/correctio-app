@@ -66,6 +66,10 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('generation service (real MySQL)
       .values({ id: 'exam-ana', teacherId: 'ana', title: 'Prova 1', description: '', status: 'draft', defaultShuffleQuestions: false, defaultShuffleAlternatives: false })
       .execute()
     await db.insertInto('exam_questions').values({ examId: 'exam-ana', questionId: 'q-1', order: 0, score: 10, allowShuffleAlternatives: true }).execute()
+    await db
+      .insertInto('exams')
+      .values({ id: 'exam-ana-2', teacherId: 'ana', title: 'Prova 2', description: '', status: 'draft', defaultShuffleQuestions: false, defaultShuffleAlternatives: false })
+      .execute()
 
     folder = await mkdtemp(join(tmpdir(), 'correctio-files-'))
     fileStorage = createLocalFileStorage(folder)
@@ -158,6 +162,30 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('generation service (real MySQL)
 
     await expect(serviceWith({ printing: lateCorrection }).generate('ana', id, REQUEST)).rejects.toMatchObject({ status: 409 })
     expect(await filesOf(id)).toEqual(files)
+  })
+
+  /**
+   * A draft changes its exam while the PDF of the old one is drawn. Under the
+   * lock the sitting no longer matches, so the paper is refused and the PDF
+   * drawn for nothing goes.
+   */
+  it('refuses the swap when the exam of the draft changed while the PDF was drawn', async () => {
+    const id = await insertApplication()
+    const printing = createPrintingRepository(db)
+    const changedMeanwhile: PrintingRepository = {
+      ...printing,
+      replacePaper: async (...args) => {
+        await db.updateTable('applications').set({ examId: 'exam-ana-2' }).where('id', '=', id).execute()
+        return printing.replacePaper(...args)
+      },
+    }
+
+    await expect(serviceWith({ printing: changedMeanwhile }).generate('ana', id, REQUEST)).rejects.toMatchObject({
+      status: 409,
+      message: 'A prova ou a turma desta aplicação mudou enquanto o PDF era gerado. Gere o PDF de novo.',
+    })
+    expect(await db.selectFrom('exam_versions').select('id').where('applicationId', '=', id).execute()).toEqual([])
+    expect(await filesOf(id)).toEqual([])
   })
 
   it('removes the PDF it stored when the swap fails, and answers the failure', async () => {

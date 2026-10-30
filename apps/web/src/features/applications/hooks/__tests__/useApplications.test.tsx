@@ -286,6 +286,16 @@ describe('useSittingChoices', () => {
     expect(result.current.data?.exams.map((item) => item.title)).toEqual(['Prova'])
     expect(result.current.data?.classes.map((item) => item.name)).toEqual(['Turma'])
   })
+
+  /** The empty state of P12 sends the teacher to create an exam; coming back must read the list again. */
+  it('is read again on the next visit, not served from the last one', async () => {
+    await seedApplication()
+
+    const { result } = renderHookWithProviders(() => useSittingChoices())
+
+    await waitFor(() => expect(result.current.data).toBeDefined())
+    expect(result.current.isStale).toBe(true)
+  })
 })
 
 describe('useApplicationFilterChoices', () => {
@@ -314,6 +324,15 @@ describe('useApplicationFilterChoices', () => {
       expect.objectContaining({ label: 'Turma' }),
       { value: archivedClass.id, label: 'Turma antiga (arquivada)' },
     ])
+  })
+
+  it('is read again on the next visit, not served from the last one', async () => {
+    await seedApplication()
+
+    const { result } = renderHookWithProviders(() => useApplicationFilterChoices())
+
+    await waitFor(() => expect(result.current.data).toBeDefined())
+    expect(result.current.isStale).toBe(true)
   })
 })
 

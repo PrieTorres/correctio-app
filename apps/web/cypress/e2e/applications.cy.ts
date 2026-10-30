@@ -24,11 +24,11 @@ function openMenuOf(title: string) {
 /**
  * An item of the open menu that stays there blocked, ready for an assertion on
  * the reason under its label. `match` keeps the item as the subject:
- * `have.attr` would hand the next assertion the value of `data-disabled`, an
- * empty string, and the reason would be searched for in it.
+ * `have.attr` would hand the next assertion the value of `aria-disabled`, and
+ * the reason would be searched for in it.
  */
 function blockedMenuItem(label: string) {
-  return cy.contains('[role="menuitem"]', label).should('match', '[data-disabled]')
+  return cy.contains('[role="menuitem"]', label).should('match', '[aria-disabled="true"]')
 }
 
 /** The detail of a seeded application, reached through the list as a teacher would. */
@@ -177,6 +177,19 @@ describe('lista de aplicações: menu de cada item', () => {
   it('bloqueia corrigir antes de gerar, dizendo o motivo', () => {
     openMenuOf(TO_GENERATE)
     blockedMenuItem('Corrigir folhas').and('contain', 'Gere o PDF antes de corrigir as folhas.')
+  })
+
+  /** A blocked item and its reason reach the keyboard: the arrows stop on it, and Enter changes nothing. */
+  it('deixa o item bloqueado ao alcance do teclado, sem executar nada', () => {
+    cy.get(`[aria-label^="Ações de ${TO_GENERATE}"]`).focus().type('{enter}')
+    cy.get('[role="menu"]').should('be.visible')
+
+    cy.focused().type('{end}')
+    cy.focused().should('contain', 'Corrigir folhas').and('contain', 'Gere o PDF antes de corrigir as folhas.')
+    cy.focused().type('{enter}')
+
+    cy.get('[role="menu"]').should('be.visible')
+    cy.contains('h1', 'Aplicações').should('be.visible')
   })
 
   it('leva a gerar a prova, e cancelar volta para a lista', () => {

@@ -34,7 +34,7 @@ export interface SheetHolder {
 
 /** What a generation is checked against, read under the lock of the application. */
 export interface GenerationState {
-  application: Pick<Application, 'status' | 'gradesReleased'>
+  application: Pick<Application, 'status' | 'gradesReleased' | 'examId' | 'classId'>
   corrections: readonly { id: string }[]
 }
 
@@ -225,7 +225,7 @@ export function createPrintingRepository(db: Kysely<Database>): PrintingReposito
         .execute(async (trx): Promise<PaperSwap> => {
           const application = await trx
             .selectFrom('applications')
-            .select(['status', 'gradesReleased', 'pdfUrl'])
+            .select(['status', 'gradesReleased', 'pdfUrl', 'examId', 'classId'])
             .where('id', '=', applicationId)
             .forUpdate()
             .executeTakeFirstOrThrow()

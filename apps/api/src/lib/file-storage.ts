@@ -99,10 +99,18 @@ function isMissingObject(error: unknown): boolean {
  * PDF has nowhere to go either. The bucket is asked only after a 404, so a
  * normal download costs no extra call. The failure is logged with its cause,
  * which is what whoever sets up the project needs to see.
+ *
+ * Asking can fail too: a service account with an object-level role has no
+ * `storage.buckets.get`. That failure says nothing about the bucket, so it is
+ * taken as "the bucket is there" and the original 404 goes on as before,
+ * instead of hiding it behind an error of its own.
  */
 async function missingBucketFailure(bucket: StorageBucket, error: unknown): Promise<ApiError | undefined> {
   if (!isMissingObject(error)) return undefined
-  const [exists] = await bucket.exists()
+  const exists = await bucket.exists().then(
+    ([found]) => found,
+    () => true,
+  )
   return exists ? undefined : new ApiError(API_ERROR_CODE.FAILURE, BUCKET_MISSING, { cause: error })
 }
 

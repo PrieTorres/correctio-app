@@ -36,12 +36,17 @@ export function useApplicationList(params: ApplicationListParams = {}) {
  * Every class and exam of the teacher, archived ones included, for the filters
  * of P11. A teacher with more than a page of either still finds the one to
  * filter by.
+ *
+ * Read again on every visit (`staleTime: 0`): creating or archiving an exam or
+ * a class invalidates only its own keys, and the list kept from the last visit
+ * would leave out what was just created.
  */
 export function useApplicationFilterChoices() {
   const { repositories } = useServices();
 
   return useQuery({
     queryKey: applicationKeys.filterChoices,
+    staleTime: 0,
     queryFn: async () => {
       const [activeExams, archivedExams, activeClasses, archivedClasses] = await Promise.all([
         readEveryPage((page) => repositories.exams.list({ page, pageSize: LARGEST_PAGE })),
@@ -61,12 +66,17 @@ export function useApplicationFilterChoices() {
  * Every active exam and class, for the choices of P12. A teacher with more
  * than a page of either still finds the one to apply: the lists of P8 and P3
  * page, and a choice limited to their first page would hide the rest.
+ *
+ * Read again on every visit, for the reason given on the filters of P11: the
+ * empty state sends the teacher to create an exam, and the exam must be there
+ * when they come back.
  */
 export function useSittingChoices() {
   const { repositories } = useServices();
 
   return useQuery({
     queryKey: applicationKeys.choices,
+    staleTime: 0,
     queryFn: async () => {
       const [exams, classes] = await Promise.all([
         readEveryPage((page) => repositories.exams.list({ page, pageSize: LARGEST_PAGE })),

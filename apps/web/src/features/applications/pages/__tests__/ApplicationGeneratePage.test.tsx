@@ -7,6 +7,7 @@ import { createTeacherRepositories } from '@/lib/repositories'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 import { correctionSchema } from '@/lib/schemas'
 import { ROUTES } from '@/app/routes'
+import type { AppServices } from '@/app/services'
 import { renderWithProviders, TEST_TEACHER_ID } from '@/test-utils'
 import { ApplicationGeneratePage } from '../ApplicationGeneratePage'
 
@@ -44,17 +45,29 @@ async function seedApplication() {
   })
 }
 
-function renderAt(applicationId: string) {
+function renderAt(applicationId: string, services: Partial<AppServices> = {}) {
   return renderWithProviders(
     <Routes>
       <Route path={ROUTES.applicationPdf} element={<ApplicationGeneratePage />} />
     </Routes>,
-    { path: `/aplicacoes/${applicationId}/pdf` },
+    { path: `/aplicacoes/${applicationId}/pdf`, services },
   )
 }
 
 describe('ApplicationGeneratePage', () => {
   beforeEach(clearAllCollections)
+
+  /** RF17: the versions start from the exam's shuffling, so nothing can be generated before the exam arrives. */
+  it('waits for the exam before offering to generate', async () => {
+    const application = await seedApplication()
+    const base = repositories()
+    const examNeverArrives = { ...base, exams: { ...base.exams, getById: () => new Promise<never>(() => undefined) } }
+
+    renderAt(application.id, { repositories: examNeverArrives })
+
+    await screen.findByText('Carregando prova…')
+    expect(screen.queryByRole('button', { name: 'Gerar PDF' })).toBeNull()
+  })
 
   it('generates the versions asked for and one sheet per student', async () => {
     const application = await seedApplication()

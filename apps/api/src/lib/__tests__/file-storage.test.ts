@@ -163,6 +163,15 @@ describe('createBucketFileStorage', () => {
     expect(exists).not.toHaveBeenCalled()
   })
 
+  /** An account without `storage.buckets.get` cannot ask; the missing file must still read as missing. */
+  it('keeps the missing file a missing file when asking about the bucket is denied', async () => {
+    const { bucket } = fakeBucket()
+    const denied = Object.assign(new Error('Permission denied'), { code: 403 })
+    const storage = createBucketFileStorage(() => ({ ...bucket, exists: () => Promise.reject(denied) }))
+
+    await expect(storage.read('applications/a1/none.pdf')).resolves.toBeNull()
+  })
+
   it('passes on any other failure of the bucket', async () => {
     const denied = Object.assign(new Error('Permission denied'), { code: 403 })
     const bucket: StorageBucket = {
