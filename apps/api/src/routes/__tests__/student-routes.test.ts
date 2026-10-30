@@ -360,6 +360,50 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('student routes (real MySQL)', (
     })
   })
 
+  /** Decided by the PM in #144: an archived class takes no new student, and keeps every right over the ones it has. */
+  describe('an archived class', () => {
+    const archive = () => ana().patch(`/classes/${classId}/archive`)
+    const ARCHIVED = {
+      code: 'conflict',
+      message: 'Esta turma está arquivada. Restaure a turma para adicionar ou importar alunos.',
+    }
+
+    it('refuses a new student, saying to restore the class first', async () => {
+      await archive()
+      const response = await ana().post(studentsOf(), ANA)
+
+      expect(response.status).toBe(409)
+      expect(response.body).toEqual(ARCHIVED)
+      expect(await listedNames()).toEqual([])
+    })
+
+    it('refuses an import and writes none of its rows', async () => {
+      await archive()
+      const response = await importRows([ANA, { fullName: 'Bruno', registration: '2' }])
+
+      expect(response.status).toBe(409)
+      expect(response.body).toEqual(ARCHIVED)
+      expect(await listedNames()).toEqual([])
+    })
+
+    it('still edits, removes and anonymizes the students it already has', async () => {
+      const student = await add()
+      const bruno = await add({ fullName: 'Bruno Lima', registration: '2026002' })
+      await archive()
+
+      expect((await ana().patch(studentPath(student.id), { fullName: 'Ana B.' })).status).toBe(200)
+      expect((await ana().delete(studentPath(bruno.id))).status).toBe(204)
+      expect((await ana().post(`${studentPath(student.id)}/anonymize`)).status).toBe(204)
+    })
+
+    it('takes new students again once restored', async () => {
+      await archive()
+      await ana().patch(`/classes/${classId}/restore`)
+
+      expect((await ana().post(studentsOf(), ANA)).status).toBe(201)
+    })
+  })
+
   describe('another teacher', () => {
     it('gets 404 on every student route, and the student stays as it was', async () => {
       const student = await add()

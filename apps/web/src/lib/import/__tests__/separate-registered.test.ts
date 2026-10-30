@@ -21,9 +21,9 @@ describe('separateRegistered', () => {
     expect(result.alreadyInClass).toEqual([ana, caio])
   })
 
-  /** The database compares registrations case-insensitively, so the preview must not call "ab1" new. */
-  it('compares ignoring case and the padding around the registration', () => {
-    expect(separateRegistered([caio], [' ab1 '])).toEqual({ toImport: [], alreadyInClass: [caio] })
+  /** The API skips by `registrationKey`, so the preview must not call "áb1" new either. */
+  it('compares as the API import does, without case or accents', () => {
+    expect(separateRegistered([caio], ['áb1'])).toEqual({ toImport: [], alreadyInClass: [caio] })
   })
 
   it('has nothing to separate in an empty list', () => {

@@ -38,6 +38,18 @@ describe('student repository', () => {
     expect(await repository.listByClass('c1')).toHaveLength(3)
   })
 
+  /** The demo compares as the API's unique index does, so it skips what production skips. */
+  it('treats registrations that differ only in case or accents as the same', async () => {
+    const repository = createLocalStudentRepository()
+    await repository.add('c1', { fullName: 'Ana', registration: 'AB1' })
+
+    await expect(repository.add('c1', { fullName: 'Outra Ana', registration: 'áb1' })).rejects.toThrow(/já existe/i)
+    await expect(repository.importMany('c1', [{ fullName: 'Ana de novo', registration: 'ab1' }])).resolves.toEqual({
+      created: 0,
+      skipped: 1,
+    })
+  })
+
   it('erases personal data but keeps the record when anonymizing', async () => {
     const repository = createLocalStudentRepository()
     const student = await repository.add('c1', { ...ana, email: 'ana@example.br' })
