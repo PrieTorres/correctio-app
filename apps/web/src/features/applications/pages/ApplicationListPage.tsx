@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import {
   ApplicationsIllustration,
   ArchiveIllustration,
   Button,
+  ButtonLink,
   Card,
   EmptyState,
   PageHeader,
@@ -72,9 +72,9 @@ export function ApplicationListPage() {
   });
 
   const newApplicationButton = (
-    <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
-      <Link to={ROUTES.newApplication}>Nova aplicação</Link>
-    </Button>
+    <ButtonLink variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create" to={ROUTES.newApplication}>
+      Nova aplicação
+    </ButtonLink>
   );
 
   return (

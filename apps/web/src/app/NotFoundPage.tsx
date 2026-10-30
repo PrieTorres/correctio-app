@@ -1,5 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { Button, Card, EmptyState, SearchIllustration } from '@/components/ui'
+import { useNavigate } from 'react-router-dom'
+import { Button, ButtonLink, Card, EmptyState, SearchIllustration } from '@/components/ui'
 import { ROUTES } from './routes'
 
 /**
@@ -23,9 +23,9 @@ export function NotFoundPage() {
             <Button variant="secondary" onClick={() => void navigate(-1)}>
               Voltar
             </Button>
-            <Button variant="primary">
-              <Link to={ROUTES.dashboard}>Ir para o painel</Link>
-            </Button>
+            <ButtonLink variant="primary" to={ROUTES.dashboard}>
+              Ir para o painel
+            </ButtonLink>
           </div>
         }
       />

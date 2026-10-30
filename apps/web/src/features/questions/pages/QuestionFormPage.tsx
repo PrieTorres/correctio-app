@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import {
   Button,
+  ButtonLink,
   Card,
   EmptyState,
   PageHeader,
@@ -342,9 +343,9 @@ function QuestionNotFound() {
           title="Questão não encontrada"
           description="Esta questão não existe ou pertence a outro professor."
           action={
-            <Link to={ROUTES.questions}>
-              <Button variant="primary">Voltar ao banco de questões</Button>
-            </Link>
+            <ButtonLink variant="primary" to={ROUTES.questions}>
+              Voltar ao banco de questões
+            </ButtonLink>
           }
         />
       </Card>

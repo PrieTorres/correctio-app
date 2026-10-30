@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, UserCheck } from 'lucide-react'
-import { Button, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration, Tour } from '@/components/ui'
+import { ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration, Tour } from '@/components/ui'
 import { buildPath, ROUTES } from '@/app/routes'
 import { useGradingOverview } from '../hooks/useGrading'
 
@@ -60,16 +60,15 @@ export function UnassignedCorrectionsPage() {
                         nota {correction.totalScore}
                       </span>
                     </span>
-                    <Button variant="secondary">
-                      <Link
-                        to={buildPath(ROUTES.gradingSheet, {
-                          id: id ?? '',
-                          sheetId: correction.answerSheetId,
-                        })}
-                      >
-                        Associar aluno
-                      </Link>
-                    </Button>
+                    <ButtonLink
+                      variant="secondary"
+                      to={buildPath(ROUTES.gradingSheet, {
+                        id: id ?? '',
+                        sheetId: correction.answerSheetId,
+                      })}
+                    >
+                      Associar aluno
+                    </ButtonLink>
                   </li>
                 )
               })}

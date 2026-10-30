@@ -5,6 +5,7 @@ import {
   ArchiveIllustration,
   Badge,
   Button,
+  ButtonLink,
   Card,
   ConfirmDialog,
   EmptyState,
@@ -92,11 +93,9 @@ export function QuestionListPage() {
   const filtering = view.filters.search.trim() !== '' || view.type !== 'all' || view.tags.length > 0 || view.onlyUntagged;
 
   const newQuestionButton = (
-    <Link to={ROUTES.newQuestion}>
-      <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
-        Nova questão
-      </Button>
-    </Link>
+    <ButtonLink variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create" to={ROUTES.newQuestion}>
+      Nova questão
+    </ButtonLink>
   );
 
   const clearFilters = () => {

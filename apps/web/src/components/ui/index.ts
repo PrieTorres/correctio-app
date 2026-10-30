@@ -1,6 +1,7 @@
 export { ActionMenu, type MenuAction } from './ActionMenu'
 export { Badge, type BadgeTone } from './Badge'
 export { Button, type ButtonVariant } from './Button'
+export { ButtonLink } from './ButtonLink'
 export { Card } from './Card'
 export { ConfirmDialog } from './ConfirmDialog'
 export { Drawer } from './Drawer'

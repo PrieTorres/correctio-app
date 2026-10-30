@@ -13,8 +13,6 @@ import { createBaseConfig, ratchet } from '../../tooling/eslint/base.js';
  */
 const LEGACY_COMPLEXITY = {
   'src/features/grading/pages/GradingSheetPage.tsx': { cyclomatic: 30 },
-  'src/features/grading/pages/GradingUploadPage.tsx': { cyclomatic: 19 },
-  'src/features/reports/pages/ApplicationReportPage.tsx': { cyclomatic: 24 },
   'src/lib/public-lookup/resolve.ts': { cyclomatic: 14 },
 };
 

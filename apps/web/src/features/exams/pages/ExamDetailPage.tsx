@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Copy, Pencil, Plus } from 'lucide-react';
-import { Badge, Button, Card, PageHeader, QueryBoundary } from '@/components/ui';
+import { Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { totalScore } from '@/lib/exams';
 import { useQuestionsByIds } from '@/features/questions';
@@ -55,9 +55,9 @@ export function ExamDetailPage() {
                 >
                   Duplicar
                 </Button>
-                <Button icon={<Pencil size={18} aria-hidden />}>
-                  <Link to={buildPath(ROUTES.editExam, { id: exam.id })}>Editar</Link>
-                </Button>
+                <ButtonLink icon={<Pencil size={18} aria-hidden />} to={buildPath(ROUTES.editExam, { id: exam.id })}>
+                  Editar
+                </ButtonLink>
               </>
             }
           />
@@ -119,9 +119,9 @@ export function ExamDetailPage() {
               Aplicar leva a prova a uma turma numa data. A mesma prova rende quantas aplicações
               você quiser, inclusive segunda chamada.
             </p>
-            <Button variant="primary" icon={<Plus size={18} aria-hidden />}>
-              <Link to={ROUTES.newApplication}>Nova aplicação com esta prova</Link>
-            </Button>
+            <ButtonLink variant="primary" icon={<Plus size={18} aria-hidden />} to={ROUTES.newApplication}>
+              Nova aplicação com esta prova
+            </ButtonLink>
           </Card>
         </div>
       )}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Archive, ArrowLeft } from 'lucide-react';
-import { ActionMenu, Badge, Button, Card, PageHeader, QueryBoundary, Tour, type MenuAction } from '@/components/ui';
+import { ActionMenu, Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary, Tour, type MenuAction } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
 import { useStudents } from '@/features/classes';
@@ -179,9 +179,14 @@ function CorrectionCard({ application }: Readonly<{ application: ApplicationOver
         {correctedSheets} de {sheets} folhas corrigidas
       </p>
       {blocker === undefined ? (
-        <Button variant="secondary" className="self-start" data-tour="grading">
-          <Link to={buildPath(ROUTES.grading, { id: application.id })}>Corrigir folhas</Link>
-        </Button>
+        <ButtonLink
+          variant="secondary"
+          className="self-start"
+          data-tour="grading"
+          to={buildPath(ROUTES.grading, { id: application.id })}
+        >
+          Corrigir folhas
+        </ButtonLink>
       ) : (
         <>
           <Button variant="secondary" className="self-start" data-tour="grading" disabled>

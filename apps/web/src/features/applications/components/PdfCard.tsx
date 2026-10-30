@@ -1,6 +1,5 @@
 import { Download, FileText } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Button, Card, SaveError } from '@/components/ui';
+import { Button, ButtonLink, Card, SaveError } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
 import type { ApplicationOverview } from '@/types/domain';
@@ -45,11 +44,14 @@ export function PdfCard({ application }: Readonly<{ application: ApplicationOver
           </Button>
         )}
         {!printed && verdict.allowed && (
-          <Button variant="primary" icon={<FileText size={18} aria-hidden />}>
-            <Link to={buildPath(ROUTES.applicationPdf, { id: application.id })} state={fromDetailOf(application.id)}>
-              Gerar PDF
-            </Link>
-          </Button>
+          <ButtonLink
+            variant="primary"
+            icon={<FileText size={18} aria-hidden />}
+            to={buildPath(ROUTES.applicationPdf, { id: application.id })}
+            state={fromDetailOf(application.id)}
+          >
+            Gerar PDF
+          </ButtonLink>
         )}
       </div>
       {printed && !verdict.allowed && application.status !== 'closed' && (

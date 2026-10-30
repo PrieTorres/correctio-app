@@ -5,6 +5,7 @@ import {
   ArchiveIllustration,
   Badge,
   Button,
+  ButtonLink,
   Card,
   ConfirmDialog,
   EmptyState,
@@ -48,9 +49,9 @@ export function ExamListPage() {
   const exams = data?.items ?? [];
 
   const newExamButton = (
-    <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
-      <Link to={ROUTES.newExam}>Nova prova</Link>
-    </Button>
+    <ButtonLink variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create" to={ROUTES.newExam}>
+      Nova prova
+    </ButtonLink>
   );
 
   return (
@@ -61,9 +62,9 @@ export function ExamListPage() {
         description="A prova é o conteúdo. Aplicá-la a uma turma é o passo seguinte, e a mesma prova serve para várias."
         actions={
           <>
-            <Button icon={<Sparkles size={18} aria-hidden />} data-tour="generate">
-              <Link to={ROUTES.generateExam}>Gerar automaticamente</Link>
-            </Button>
+            <ButtonLink icon={<Sparkles size={18} aria-hidden />} data-tour="generate" to={ROUTES.generateExam}>
+              Gerar automaticamente
+            </ButtonLink>
             {newExamButton}
           </>
         }
