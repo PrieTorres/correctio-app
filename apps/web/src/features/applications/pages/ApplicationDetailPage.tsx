@@ -5,6 +5,7 @@ import { ActionMenu, Badge, Button, Card, PageHeader, QueryBoundary, Tour, type 
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
 import { useStudentsWithRemoved } from '@/features/classes';
+import { useUnassignedCorrections } from '@/features/grading/hooks/useGrading';
 import type { ApplicationOverview } from '@/types/domain';
 import { APPLICATION_STATUS_LABEL, correctionBlockerOf, examTitleOf, sittingOf } from '../application-labels';
 import { ArchiveApplicationDialog } from '../components/ArchiveApplicationDialog';
@@ -165,11 +166,17 @@ function ArchivedNotice({ onRestore }: Readonly<{ onRestore: () => void }>) {
   );
 }
 
+/** A link with the look of the secondary button, for the actions of the correction card. */
+const LINK_BUTTON =
+  'touch-target inline-flex items-center justify-center self-start rounded-[var(--radius-control)] border border-primary bg-surface px-4 text-label font-semibold text-primary hover:bg-surface-muted';
+
 /**
  * How far the correction has gone, counting only the sheets whose correction
  * the teacher confirmed: one still waiting for an open-ended score is not
  * corrected yet. "Corrigir folhas" is a link, as on the panel and on P11's
  * menu, and before the paper exists it says why there is nothing to correct.
+ * Once something is corrected, the card leads to the report (P18), and to the
+ * sheets still waiting for their student (P17) only when there are any (#143).
  */
 function CorrectionCard({ application }: Readonly<{ application: ApplicationOverview }>) {
   const { correctedSheets, sheets } = application.progress;
@@ -182,9 +189,16 @@ function CorrectionCard({ application }: Readonly<{ application: ApplicationOver
         {correctedSheets} de {sheets} folhas corrigidas
       </p>
       {blocker === undefined ? (
-        <Button variant="secondary" className="self-start" data-tour="grading">
-          <Link to={buildPath(ROUTES.grading, { id: application.id })}>Corrigir folhas</Link>
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Link to={buildPath(ROUTES.grading, { id: application.id })} className={LINK_BUTTON} data-tour="grading">
+            Corrigir folhas
+          </Link>
+          {application.progress.corrections > 0 && (
+            <Link to={buildPath(ROUTES.applicationReport, { id: application.id })} className={LINK_BUTTON}>
+              Ver relatório
+            </Link>
+          )}
+        </div>
       ) : (
         <>
           <Button variant="secondary" className="self-start" data-tour="grading" disabled>
@@ -193,6 +207,19 @@ function CorrectionCard({ application }: Readonly<{ application: ApplicationOver
           <p className="text-caption text-ink-subtle">{blocker}</p>
         </>
       )}
+      <UnassignedLink applicationId={application.id} />
     </Card>
+  );
+}
+
+function UnassignedLink({ applicationId }: Readonly<{ applicationId: string }>) {
+  const unassigned = useUnassignedCorrections(applicationId);
+  const count = unassigned.data?.length ?? 0;
+  if (count === 0) return null;
+
+  return (
+    <Link to={buildPath(ROUTES.unassignedCorrections, { id: applicationId })} className="text-label text-primary underline">
+      Pendentes de atribuição ({count})
+    </Link>
   );
 }
