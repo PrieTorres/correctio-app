@@ -222,6 +222,12 @@ describe('questionInputSchema, against the limits of the database', () => {
     expect(messagesOf(withScore(-2))).toEqual(['A nota máxima precisa ser maior que zero'])
   })
 
+  /** A number field turns `1e400` into `Infinity`, which Zod 4 would refuse in English. */
+  it('refuses an infinite score with the message of the limit it goes past', () => {
+    expect(messagesOf(withScore(Number.POSITIVE_INFINITY))).toEqual(['A nota máxima pode ser no máximo 9999,99'])
+    expect(messagesOf(withScore(Number.NEGATIVE_INFINITY))).toEqual(['A nota máxima precisa ser maior que zero'])
+  })
+
   it('refuses a statement of only spaces, like an empty one', () => {
     expect(messagesOf(questionInputSchema.safeParse({ ...submittedMultipleChoice, statement: '   \n ' }))).toEqual([
       'Informe o enunciado',

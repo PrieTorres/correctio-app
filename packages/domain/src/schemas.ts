@@ -255,10 +255,24 @@ function hasAtMostTwoDecimals(value: number): boolean {
   return Math.abs(cents - Math.round(cents)) < 1e-6;
 }
 
+const MAX_SCORE_NOT_POSITIVE = 'A nota máxima precisa ser maior que zero';
+const MAX_SCORE_ABOVE_CEILING = 'A nota máxima pode ser no máximo 9999,99';
+
+/**
+ * Zod 4 refuses an infinite number as a wrong type, in English, before any
+ * limit runs. The number field still produces one (`Number('1e400')`), so it
+ * gets the message of the limit it went past, as it did on Zod 3.
+ */
+function infiniteMaxScoreMessage(issue: { input?: unknown }): string | undefined {
+  if (issue.input === Number.POSITIVE_INFINITY) return MAX_SCORE_ABOVE_CEILING;
+  if (issue.input === Number.NEGATIVE_INFINITY) return MAX_SCORE_NOT_POSITIVE;
+  return undefined;
+}
+
 const questionMaxScore = z
-  .number()
-  .positive('A nota máxima precisa ser maior que zero')
-  .max(MAX_SCORE, 'A nota máxima pode ser no máximo 9999,99')
+  .number({ error: infiniteMaxScoreMessage })
+  .positive(MAX_SCORE_NOT_POSITIVE)
+  .max(MAX_SCORE, MAX_SCORE_ABOVE_CEILING)
   .refine(hasAtMostTwoDecimals, 'A nota máxima aceita no máximo 2 casas decimais');
 
 /**
