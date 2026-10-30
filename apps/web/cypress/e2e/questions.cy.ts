@@ -1,3 +1,6 @@
+import type { QuestionInput } from '@/lib/schemas'
+import { apiAs, type SignedInTeacher } from '../support/commands'
+
 /**
  * The question bank: the screen the client called the point of the product,
  * since writing a question once is what stops the work repeating every term.
@@ -489,5 +492,101 @@ describe('questão inexistente', () => {
     cy.visit('/questoes/00000000-0000-0000-0000-000000000000')
 
     cy.contains('Questão não encontrada', { timeout: 10000 }).should('be.visible')
+  })
+})
+
+/**
+ * What #63 asked of the bank against the API that the scenarios above leave
+ * out: a teacher with nothing yet, a list longer than a page written to the
+ * database (not stubbed), a save the server refuses, and an edit reopened
+ * through the app's own links.
+ */
+describe('banco de questões contra a API (#63)', () => {
+  /** A teacher of the test's own, with nothing in the bank, and the token that writes as them. */
+  function startWithEmptyBank(): Cypress.Chainable<SignedInTeacher> {
+    cy.clearCookies()
+    return cy.signInAsNewTeacher({ withSampleData: false })
+  }
+
+  function objective(statement: string, tags: string[] = []): QuestionInput {
+    const right = crypto.randomUUID()
+    return {
+      type: 'objetiva',
+      statement,
+      tags,
+      alternatives: [
+        { id: crypto.randomUUID(), text: 'Errada' },
+        { id: right, text: 'Certa' },
+        { id: crypto.randomUUID(), text: 'Outra errada' },
+      ],
+      correctAlternativeId: right,
+      allowShuffleAlternatives: true,
+    }
+  }
+
+  it('mostra o banco vazio e a lixeira vazia a um professor novo', () => {
+    startWithEmptyBank()
+    cy.visit('/questoes')
+
+    cy.contains('h3', 'Nenhuma questão ainda').should('be.visible')
+    cy.chooseSegment('Excluídas')
+    cy.contains('h3', 'Nenhuma questão excluída').should('be.visible')
+  })
+
+  /**
+   * The filter is the server's: a page holds fifty, newest first, and the
+   * open-ended question was written before them all, so it sits on page 2
+   * until the filter asks the server for it.
+   */
+  it('o filtro "Discursivas" acha a discursiva que a primeira página não mostra', () => {
+    startWithEmptyBank().then(({ accessToken }) => {
+      const api = apiAs(accessToken)
+      api('POST', '/questions', { type: 'discursiva', statement: 'A discursiva escondida', tags: [], maxScore: 2, allowShuffleAlternatives: true })
+      Cypress._.times(51, (index) => api('POST', '/questions', objective(`Objetiva ${String(index + 1).padStart(2, '0')}`)))
+    })
+    cy.visit('/questoes')
+
+    cy.contains('Mostrando 1–50 de 52', { timeout: 10000 }).should('be.visible')
+    cy.contains('a', 'A discursiva escondida').should('not.exist')
+    cy.chooseSegment('Discursivas')
+    cy.contains('a', 'A discursiva escondida').should('be.visible')
+    cy.contains('a', 'Objetiva 01').should('not.exist')
+  })
+
+  it('mostra o erro do servidor e continua no formulário', () => {
+    cy.intercept('POST', '/api/questions', { statusCode: 500, body: { code: 'FAILURE', message: 'Erro inesperado no servidor.' } }).as('save')
+    cy.visit('/questoes/nova')
+    cy.findByLabel('Enunciado').type('Questão que o servidor recusa')
+    cy.get('[aria-label="Texto da alternativa A"]').type('uma')
+    cy.get('[aria-label="Texto da alternativa B"]').type('outra')
+    cy.contains('button', 'Salvar questão').click()
+
+    cy.wait('@save')
+    cy.get('[role="alert"]').should('be.visible')
+    cy.contains('h1', 'Nova questão').should('be.visible')
+    cy.findByLabel('Enunciado').should('have.value', 'Questão que o servidor recusa')
+  })
+
+  /** Reopened through the list's link, never by reloading, which would cut the save short. */
+  it('edita e reabre sem perder enunciado, tags, alternativas e gabarito', () => {
+    startWithEmptyBank().then(({ accessToken }) => {
+      apiAs(accessToken)('POST', '/questions', objective('Questão para editar', ['Limites']))
+    })
+    cy.visit('/questoes')
+    cy.contains('a', 'Questão para editar').click()
+    cy.contains('h1', 'Editar questão', { timeout: 10000 }).should('be.visible')
+
+    cy.findByLabel('Enunciado').clear().type('Questão editada')
+    cy.findByLabel('Tags de conteúdo').type('Derivadas{enter}')
+    cy.contains('button', 'Salvar questão').click()
+    cy.contains('h1', 'Banco de questões', { timeout: 10000 }).should('be.visible')
+
+    cy.contains('a', 'Questão editada').click()
+    cy.contains('h1', 'Editar questão', { timeout: 10000 }).should('be.visible')
+    cy.findByLabel('Enunciado').should('have.value', 'Questão editada')
+    cy.get('[aria-label="Remover tag Limites"]').should('exist')
+    cy.get('[aria-label="Remover tag Derivadas"]').should('exist')
+    cy.get('[aria-label="Texto da alternativa C"]').should('have.value', 'Outra errada')
+    cy.get('[aria-label="Alternativa B é a correta"]').should('be.checked')
   })
 })
