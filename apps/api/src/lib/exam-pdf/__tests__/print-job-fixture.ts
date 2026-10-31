@@ -64,6 +64,7 @@ export function sheetOf(sheetNumber: number, examVersionId: string, student?: Pr
       ...(student !== undefined && { studentId: `student-${sheetNumber}` }),
       sheetNumber,
       code,
+      answerCardVersion: 1,
     },
     ...(student !== undefined && { student }),
   }

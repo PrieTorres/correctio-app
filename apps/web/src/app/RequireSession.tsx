@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { QueryBoundary } from '@/components/ui'
+import { Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui'
 import { useCurrentUser } from '@/features/auth'
 import { ROUTES } from './routes'
 
@@ -34,9 +35,35 @@ export function RequireSession() {
     return <Navigate to={ROUTES.signIn} replace state={state} />
   }
 
+  if (isPending) return <SessionSplash />
+  if (isError) return <SessionSplash failed />
+  return <Outlet />
+}
+
+/**
+ * What the teacher sees while the session is restored, before any screen
+ * exists: the whole page, centred, with the brand as on the sign-in, instead
+ * of a line of text in the corner of an empty page. A failure says so in the
+ * same place and offers to try again, which reloads, since nothing else of
+ * the app is on the page yet.
+ */
+function SessionSplash({ failed = false }: Readonly<{ failed?: boolean }>) {
   return (
-    <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Abrindo sua sessão…">
-      <Outlet />
-    </QueryBoundary>
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-canvas px-4 text-center">
+      <p className="font-[family-name:var(--font-heading)] text-headline text-primary">Correctio</p>
+      {failed ? (
+        <div role="alert" className="flex flex-col items-center gap-4">
+          <p className="text-body text-ink-muted">Não foi possível abrir sua sessão. Confira a conexão e tente de novo.</p>
+          <Button variant="secondary" onClick={() => window.location.reload()}>
+            Tentar de novo
+          </Button>
+        </div>
+      ) : (
+        <p role="status" className="flex items-center gap-3 text-body text-ink-muted">
+          <Loader2 size={20} aria-hidden className="motion-safe:animate-spin text-primary" />
+          Abrindo sua sessão…
+        </p>
+      )}
+    </div>
   )
 }

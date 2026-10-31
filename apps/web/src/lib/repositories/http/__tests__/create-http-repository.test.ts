@@ -53,9 +53,9 @@ describe('createHttpOwnedRepository', () => {
   })
 
   it('keeps fields the schema does not know', async () => {
-    const { repository } = classRepository(() => Promise.resolve({ ...CLASS, studentCount: 32 }))
+    const { repository } = classRepository(() => Promise.resolve({ ...CLASS, futureApiField: 32 }))
 
-    await expect(repository.getById('c1')).resolves.toMatchObject({ studentCount: 32 })
+    await expect(repository.getById('c1')).resolves.toMatchObject({ futureApiField: 32 })
   })
 
   it('refuses a response out of shape instead of dropping it silently', async () => {

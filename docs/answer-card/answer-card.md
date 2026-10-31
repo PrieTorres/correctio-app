@@ -22,8 +22,14 @@ crescendo para baixo.
 | Bolinhas | 20 linhas por 5 colunas, com raio de 2,3. A questão `n` (0 a 19) na letra `k` (0 = A até 4 = E) tem centro em x = 134 + 8k e y = 136 + 6,5n |
 | Número da questão | `n + 1`, alinhado à direita em x = 128, na altura da linha |
 | QR Code | quadrado de lado 55, com o canto em x = 25 e y = 166,5 |
-| Folha e versão | "Folha N · Versão V", logo acima do QR Code |
-| Código da folha | "Código …", logo abaixo do QR Code |
+| Folha e versão | "Folha N · Versão V", acima do QR Code, fora da margem livre dele |
+| Código da folha | "Código …", abaixo do QR Code, fora da margem livre dele |
+
+A margem livre é a que o padrão do QR Code pede em volta do símbolo: 4 módulos de cada lado, sem
+nada impresso, para o leitor achar o código. O tamanho do módulo depende do comprimento do
+endereço (com `https://correctio-app.web.app`, o símbolo tem 33 módulos e a margem fica em torno
+de 6,7 mm), por isso o PDF calcula a posição dos dois textos a partir do símbolo impresso. O QR
+Code em si nunca muda de lugar.
 
 As funções `bubbleCenter(n, k)` e `columnLetter(k)` fazem essas contas, e recusam uma linha ou uma
 letra que o cartão não tem.
@@ -79,9 +85,10 @@ pode ter mudado depois.
 
 ## Antes de mudar uma medida
 
-- Mudar uma medida muda o PDF e a leitura ao mesmo tempo, mas não muda o papel já impresso. Depois
-  da primeira prova aplicada em produção, mudar a geometria exige saber com qual geometria cada
-  folha foi impressa.
+- Mudar uma medida muda o PDF e a leitura ao mesmo tempo, mas não muda o papel já impresso. Por
+  isso cada folha grava com qual geometria saiu, em `AnswerSheet.answerCardVersion`, que a
+  geração preenche com `ANSWER_CARD.version`. Quem muda uma medida aumenta essa versão e mantém
+  a geometria anterior para a leitura das folhas que já estão com os alunos.
 - `packages/domain/src/__tests__/answer-card.test.ts` confere que o cartão cabe na página, que as
   bolinhas não se encostam e ficam dentro dos marcadores, e que o QR Code nunca cobre uma bolinha.
 
@@ -89,10 +96,17 @@ pode ter mudado depois.
 
 - A capa traz prova, turma, data, versão e folha. Quando a aplicação é identificada, traz também
   o nome e a matrícula do aluno; senão, linhas em branco para ele preencher.
+- O título da prova ocupa no máximo 2 linhas, e a linha da turma, 1; o que passar disso termina
+  em reticências. São os únicos textos que o professor escreve do tamanho que quiser, e o corte
+  garante que as instruções de preenchimento sempre caibam acima do cartão. O nome e a matrícula
+  do aluno nunca são cortados. Um teste confere isso com os maiores textos que os schemas aceitam.
 - As questões começam na segunda página, na ordem do `layout` da versão, com as alternativas
   na ordem de `printedOrder`, de A a E.
 - Questão nunca quebra entre páginas (RF43). Cada folha termina em número par de páginas,
   contando a capa, com uma página em branco quando precisa (RF44), para a folha seguinte não
   começar no verso.
+- Uma questão mais alta que uma página inteira não é impressa: o gerador recusa o PDF com o erro
+  `QuestionTooTallError`, que diz qual questão é. Impressa assim mesmo, ela teria o enunciado
+  cortado e abriria uma página fora do plano, quebrando o RF44.
 - A fonte DejaVu vai embutida no PDF, para símbolos como →, ³ e √ saírem iguais em qualquer
   impressora.

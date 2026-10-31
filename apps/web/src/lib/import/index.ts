@@ -1,4 +1,6 @@
 export { parseStudents } from './parse-students'
 export type { ParsedStudent, ParseProblem, ParseResult } from './parse-students'
-export { describeImport, describeReady, studentCount } from './describe-import'
+export { describeAlreadyInClass, describeImport, describeReady, studentCount } from './describe-import'
+export { separateRegistered } from './separate-registered'
+export type { SeparatedStudents } from './separate-registered'
 export type { ImportSummary } from './describe-import'

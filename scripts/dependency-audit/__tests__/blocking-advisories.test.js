@@ -11,6 +11,14 @@ const advisory = (name, severity, ghsa, title = `${name} issue`) => ({
   url: `https://github.com/advisories/${ghsa}`,
 });
 
+/**
+ * An allow list for the rules of the verdict, apart from the real one, which
+ * is empty since zod 4 fixed its advisory (#164) and may stay empty.
+ */
+const allowList = Object.freeze([
+  Object.freeze({ id: 'GHSA-mrhx-c7xc-m3w5', packageName: 'zod', reason: 'Fixed only in a major version not adopted yet.', issue: 164 }),
+]);
+
 /** The shape of `npm audit --json`: a package vulnerable through another names it in `via`. */
 const report = {
   vulnerabilities: {
@@ -45,7 +53,7 @@ describe('advisoriesIn', () => {
 
 describe('auditVerdict', () => {
   it('fails on a high advisory outside the list, lets the allowed one through and ignores moderate ones', () => {
-    const verdict = auditVerdict(report, ALLOWED_ADVISORIES);
+    const verdict = auditVerdict(report, allowList);
 
     assert.deepEqual(verdict.blocking.map((item) => item.packageName), ['body-parser']);
     assert.deepEqual(verdict.allowed.map((item) => item.packageName), ['zod']);
@@ -55,12 +63,12 @@ describe('auditVerdict', () => {
   it('passes once the only high advisory is the allowed one', () => {
     const onlyZod = { vulnerabilities: { zod: report.vulnerabilities.zod } };
 
-    assert.deepEqual(auditVerdict(onlyZod, ALLOWED_ADVISORIES).blocking, []);
+    assert.deepEqual(auditVerdict(onlyZod, allowList).blocking, []);
   });
 
   /** An entry left behind would silently allow the advisory again if it ever came back. */
   it('names the allowed entries that no longer match anything', () => {
-    const verdict = auditVerdict({ vulnerabilities: {} }, ALLOWED_ADVISORIES);
+    const verdict = auditVerdict({ vulnerabilities: {} }, allowList);
 
     assert.deepEqual(verdict.stale.map((entry) => entry.id), ['GHSA-mrhx-c7xc-m3w5']);
   });
@@ -68,11 +76,18 @@ describe('auditVerdict', () => {
   it('fails on a critical advisory too', () => {
     const critical = { vulnerabilities: { lib: { severity: 'critical', via: [advisory('lib', 'critical', 'GHSA-aaaa-bbbb-cccc')] } } };
 
-    assert.equal(auditVerdict(critical, ALLOWED_ADVISORIES).blocking.length, 1);
+    assert.equal(auditVerdict(critical, allowList).blocking.length, 1);
   });
 });
 
 describe('ALLOWED_ADVISORIES', () => {
+  /** The exception left with the move to zod 4 (#164); were the advisory to come back, the audit must fail. */
+  it('no longer lets the zod advisory through', () => {
+    const onlyZod = { vulnerabilities: { zod: report.vulnerabilities.zod } };
+
+    assert.deepEqual(auditVerdict(onlyZod, ALLOWED_ADVISORIES).blocking.map((item) => item.id), ['GHSA-mrhx-c7xc-m3w5']);
+  });
+
   it('gives every entry a reason and the issue that removes it', () => {
     for (const entry of ALLOWED_ADVISORIES) {
       assert.match(entry.id, /^GHSA-/);

@@ -11,9 +11,12 @@ import type { ClassInput, StudentInput } from '@/lib/schemas';
  */
 export const classKeys = {
   all: ['classes'] as const satisfies QueryKey,
+  lists: ['classes', 'list'] as const satisfies QueryKey,
   list: (archived: boolean, search: string, page = 1) => ['classes', 'list', { archived, search, page }] as const,
   detail: (id: string) => ['classes', 'detail', id] as const,
   students: (classId: string) => ['classes', classId, 'students'] as const,
+  /** Under `students`, so removing or anonymizing a student refreshes this list too. */
+  studentsWithRemoved: (classId: string) => ['classes', classId, 'students', 'with-removed'] as const,
 };
 
 /** One page of the list, as the API serves it; the screen pages beyond it. */
@@ -54,16 +57,39 @@ export function useStudents(classId: string | undefined) {
   });
 }
 
+/**
+ * Everyone the class has had, the removed students included: what names who
+ * sat an application, which outlives the student's removal (RF09, #161). The
+ * class screen lists only `useStudents`.
+ */
+export function useStudentsWithRemoved(classId: string | undefined) {
+  const { repositories } = useServices();
+
+  return useQuery({
+    queryKey: classKeys.studentsWithRemoved(classId ?? ''),
+    queryFn: () => repositories.students.listWithRemoved(classId ?? ''),
+    enabled: classId !== undefined,
+  });
+}
+
 /** Shared invalidation so every mutation refreshes the same slice of cache. */
 function useInvalidateClasses() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: classKeys.all });
 }
 
-/** Every change to a class's students refreshes that class's list, and nothing else. */
+/**
+ * Every change to a class's students refreshes that class's students and the
+ * lists of classes, whose cards count the students (#146); without the second,
+ * P3 would show the old number until the cache expired.
+ */
 function useInvalidateStudents(classId: string) {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: classKeys.students(classId) });
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: classKeys.students(classId) }),
+      queryClient.invalidateQueries({ queryKey: classKeys.lists }),
+    ]);
 }
 
 export function useSaveClass() {

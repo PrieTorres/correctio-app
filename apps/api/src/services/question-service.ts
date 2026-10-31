@@ -1,13 +1,38 @@
 import { randomUUID } from 'node:crypto'
 import { questionInputSchema } from '@correctio/domain'
 import { z } from 'zod'
+import { isDuplicateEntry } from '../db/errors'
 import { API_ERROR_CODE, ApiError } from '../lib/api-error'
 import { booleanParam } from '../lib/pagination'
-import type {
-  QuestionRecord,
-  QuestionRepository,
-  QuestionWrite,
+import { parseRequest } from '../lib/parse-request'
+import {
+  QUESTION_TAG_INDEX,
+  type QuestionRecord,
+  type QuestionRepository,
+  type QuestionWrite,
 } from '../repositories/question-repository'
+
+/**
+ * The schema already refuses two tags that differ only in case or accents;
+ * this is for the rare pair it compares apart and the database does not, such
+ * as "ß" and "ss".
+ */
+const REPEATED_TAGS = 'Duas tags são a mesma para o banco de questões: deixe só uma'
+
+/**
+ * Writes and turns a tag refused by the key of `question_tags` into a 400.
+ * Anything else the database refuses is unexpected, and stays a 500.
+ */
+async function writeQuestion(write: () => Promise<QuestionRecord>): Promise<QuestionRecord> {
+  try {
+    return await write()
+  } catch (error) {
+    if (isDuplicateEntry(error, QUESTION_TAG_INDEX)) {
+      throw new ApiError(API_ERROR_CODE.INVALID, REPEATED_TAGS, { cause: error })
+    }
+    throw error
+  }
+}
 
 /** The `pageSize` ceiling documented in the README. */
 const MAX_PAGE_SIZE = 1000
@@ -71,14 +96,11 @@ function toWrite(input: ReturnType<typeof questionInputSchema.parse>): QuestionW
 export class QuestionService {
   constructor(private readonly repository: QuestionRepository) {}
 
+  /** A refusal answers the schema's own message, so the API says what the form says (#184). */
   async create(teacherId: string, data: unknown) {
-    const parsed = questionInputSchema.safeParse(data)
+    const input = parseRequest(questionInputSchema, data)
 
-    if (!parsed.success) {
-      throw new ApiError(API_ERROR_CODE.INVALID, 'Dados da questão inválidos.')
-    }
-
-    return this.repository.create(randomUUID(), teacherId, toWrite(parsed.data))
+    return writeQuestion(() => this.repository.create(randomUUID(), teacherId, toWrite(input)))
   }
 
   async getById(id: string, teacherId: string) {
@@ -144,13 +166,9 @@ export class QuestionService {
       delete merged.correctAlternativeId
     }
 
-    const parsed = questionInputSchema.safeParse(merged)
+    const input = parseRequest(questionInputSchema, merged)
 
-    if (!parsed.success) {
-      throw new ApiError(API_ERROR_CODE.INVALID, 'Dados da questão inválidos.')
-    }
-
-    return this.repository.update(id, teacherId, toWrite(parsed.data))
+    return writeQuestion(() => this.repository.update(id, teacherId, toWrite(input)))
   }
 
   async archive(id: string, teacherId: string) {

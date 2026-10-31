@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Button, Drawer, SaveError } from '@/components/ui'
 import {
+  describeAlreadyInClass,
   describeImport,
   describeReady,
   parseStudents,
+  separateRegistered,
   studentCount,
   type ParseProblem,
   type ParsedStudent,
 } from '@/lib/import'
 import type { ImportResult } from '@/lib/repositories/student-repository'
-import { useImportStudents } from '../hooks/useClasses'
+import { useImportStudents, useStudents } from '../hooks/useClasses'
 import { PrivacyNotice } from './PrivacyNotice'
 
 interface ImportStudentsDialogProps {
@@ -45,7 +47,12 @@ export function ImportStudentsDialog({
     resetImport()
   }, [open, resetImport])
 
-  const { students, problems } = parseStudents(raw)
+  const classStudents = useStudents(classId)
+  const { students: parsed, problems } = parseStudents(raw)
+  const { toImport: students, alreadyInClass } = separateRegistered(
+    parsed,
+    (classStudents.data ?? []).map((student) => student.registration),
+  )
   const result = importStudents.data
   const close = () => onOpenChange(false)
 
@@ -63,7 +70,7 @@ export function ImportStudentsDialog({
             </Button>
             <Button
               variant="primary"
-              disabled={students.length === 0 || importStudents.isPending}
+              disabled={students.length === 0 || importStudents.isPending || classStudents.isPending}
               onClick={() => importStudents.mutate(students)}
             >
               {importStudents.isPending ? 'Importando…' : `Importar ${studentCount(students.length)}`}
@@ -80,7 +87,13 @@ export function ImportStudentsDialog({
     >
       {result === undefined ? (
         <div className="flex flex-col gap-4">
-          <ImportPreview raw={raw} onRawChange={setRaw} students={students} problems={problems} />
+          <ImportPreview
+            raw={raw}
+            onRawChange={setRaw}
+            students={students}
+            alreadyInClass={alreadyInClass}
+            problems={problems}
+          />
           <PrivacyNotice />
           <SaveError error={importStudents.error} />
         </div>
@@ -95,11 +108,13 @@ function ImportPreview({
   raw,
   onRawChange,
   students,
+  alreadyInClass,
   problems,
 }: Readonly<{
   raw: string
   onRawChange: (raw: string) => void
   students: ParsedStudent[]
+  alreadyInClass: ParsedStudent[]
   problems: ParseProblem[]
 }>) {
   return (
@@ -135,6 +150,19 @@ function ImportPreview({
               >
                 <span className="min-w-0 truncate text-ink">{student.fullName}</span>
                 <span className="shrink-0 text-ink-subtle">{student.registration}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {alreadyInClass.length > 0 && (
+        <div role="status">
+          <h3 className="text-label text-ink-muted">{describeAlreadyInClass(alreadyInClass.length)}</h3>
+          <ul className="mt-2 flex flex-col gap-1">
+            {alreadyInClass.map((student) => (
+              <li key={student.registration} className="text-caption text-ink-muted">
+                {student.fullName} ({student.registration})
               </li>
             ))}
           </ul>

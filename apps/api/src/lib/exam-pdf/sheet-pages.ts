@@ -95,12 +95,38 @@ export type SheetPage =
 const COVER_ID = 'cover'
 
 /**
+ * A question whose statement, score and answers do not fit on one page. Printed
+ * anyway, its statement would be cut and the rest would spill onto a page the
+ * plan never counted, so the sheet would end on an odd page and break RF44.
+ * The generation refuses it instead, naming the question for the teacher to
+ * shorten or split.
+ */
+export class QuestionTooTallError extends Error {
+  constructor(readonly questionId: string) {
+    super(`Question ${questionId} is taller than a printed page`)
+    this.name = 'QuestionTooTallError'
+  }
+}
+
+/**
+ * The space after a question is left out: it only separates it from the next
+ * one, so a question that fills the page exactly still prints whole.
+ */
+function refuseQuestionsTallerThanAPage(questions: readonly MeasuredQuestion[]): void {
+  const tooTall = questions.find((question) => question.height - QUESTION.spacing > USABLE_HEIGHT)
+  if (tooTall !== undefined) throw new QuestionTooTallError(tooTall.content.id)
+}
+
+/**
  * The pages of one sheet. The cover is a block as tall as a page, so it stands
  * alone on page 1 and still counts for RF44: a sheet whose cover and questions
  * end on an odd page gets the blank page, and no question is ever split across
  * pages (RF43). Both rules come from `paginate`, the one the web app shares.
+ * Unlike the screen, the PDF refuses a question taller than a page rather than
+ * letting it overflow, because paper cannot scroll.
  */
 export function planSheetPages(questions: readonly MeasuredQuestion[]): SheetPage[] {
+  refuseQuestionsTallerThanAPage(questions)
   const byId = new Map(questions.map((question) => [question.content.id, question]))
   const blocks = [{ id: COVER_ID, height: USABLE_HEIGHT }, ...questions.map((question) => ({ id: question.content.id, height: question.height }))]
 

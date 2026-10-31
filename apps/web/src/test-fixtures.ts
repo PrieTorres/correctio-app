@@ -1,5 +1,6 @@
 import { createLocalAuthProvider } from '@/lib/auth'
 import { createTeacherRepositories } from '@/lib/repositories'
+import type { Correction } from '@/types/domain'
 import { TEST_TEACHER_ID } from '@/test-utils'
 
 /**
@@ -82,4 +83,23 @@ export async function seedApplicationChain(teacherId: string = TEST_TEACHER_ID):
     discursiveQuestionId: discursive.id,
     correctAlternativeId: 'alt-right',
   }
+}
+
+/**
+ * Records the review of each sheet as the teacher would confirm it on P16,
+ * nothing marked and no open-ended score. On the mixed exam of
+ * `seedApplicationChain` a finalized review still waits for that score
+ * (RF48), which is the correction in progress most tests need.
+ */
+export async function recordReviews(
+  applicationId: string,
+  answerSheetIds: readonly string[],
+  { finalize = true }: { finalize?: boolean } = {},
+): Promise<Correction[]> {
+  const { corrections } = createTeacherRepositories(TEST_TEACHER_ID)
+  const recorded: Correction[] = []
+  for (const answerSheetId of answerSheetIds) {
+    recorded.push(await corrections.create(applicationId, { answerSheetId, answers: [], discursiveScores: [], finalize }))
+  }
+  return recorded
 }

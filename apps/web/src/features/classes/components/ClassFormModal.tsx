@@ -1,8 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { classInputSchema, type ClassInput } from '@/lib/schemas'
 import { Button, Modal, SaveError, TextField } from '@/components/ui'
+import { buildPath, ROUTES } from '@/app/routes'
 import type { Class } from '@/types/domain'
 import { useSaveClass } from '../hooks/useClasses'
 
@@ -13,6 +15,11 @@ const EMPTY: ClassInput = { name: '', subject: '', term: '' }
  *
  * The spec models this as its own screen, but with three fields a modal saves
  * a round trip and keeps the flow within the three-click budget.
+ *
+ * Saving leads to the class (P5), on create and on edit, as the spec says
+ * (#146): a new class opens ready for its first student, instead of leaving
+ * the teacher to find its card in the list. Edited from P5 itself, the teacher
+ * is already there, and navigating again would only add a step to "Voltar".
  */
 export function ClassFormModal({
   open,
@@ -25,6 +32,8 @@ export function ClassFormModal({
 }>) {
   const save = useSaveClass()
   const { reset: resetSave } = save
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
 
   const {
     register,
@@ -33,9 +42,18 @@ export function ClassFormModal({
     formState: { errors },
   } = useForm<ClassInput>({ resolver: zodResolver(classInputSchema), defaultValues: EMPTY })
 
-  /** Reopening starts clean: the refusal of the last attempt belongs to that attempt. */
+  /**
+   * Reopening starts clean: the refusal of the last attempt belongs to that
+   * attempt. Only the opening resets, never a new copy of the class while the
+   * modal is open: the save itself refetches the class, and resetting then
+   * cancelled the save's own callback, so the modal never closed, and a
+   * refetch while typing would have erased what was typed.
+   */
+  const wasOpen = useRef(false)
   useEffect(() => {
-    if (!open) return
+    const opening = open && !wasOpen.current
+    wasOpen.current = open
+    if (!opening) return
     reset(
       editing === null
         ? EMPTY
@@ -50,7 +68,16 @@ export function ClassFormModal({
    * an unhandled rejection to the console as well.
    */
   const onSubmit = (input: ClassInput) => {
-    save.mutate({ id: editing?.id, input }, { onSuccess: () => onOpenChange(false) })
+    save.mutate(
+      { id: editing?.id, input },
+      {
+        onSuccess: (saved) => {
+          onOpenChange(false)
+          const detail = buildPath(ROUTES.classDetail, { id: saved.id })
+          if (pathname !== detail) void navigate(detail)
+        },
+      },
+    )
   }
 
   return (

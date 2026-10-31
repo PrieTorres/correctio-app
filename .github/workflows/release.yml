@@ -82,6 +82,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # The Firebase build must carry nothing of the demo of GitHub Pages (#51).
+      - run: node scripts/check-firebase-bundle.mjs apps/web/dist
 
   # Waits for the PM's approval: the production environment requires her as
   # reviewer. The exact commit that passed the gate is what gets published.

@@ -31,16 +31,56 @@ describe('turmas', () => {
     cy.contains('Cálculo I — Noturno').should('be.visible')
   })
 
-  it('cria uma turma e mostra na lista', () => {
+  /** #146: "Salvar" on a new class opens it (P5), ready for its first student, as the spec asks. */
+  it('cria uma turma, abre a turma nova e a mostra na lista sem alunos', () => {
     cy.visit('/turmas')
 
     cy.contains('button', 'Nova turma').click()
     cy.findByLabel('Nome da turma').type('Estatística I')
     cy.findByLabel('Disciplina').type('Matemática')
     cy.findByLabel('Período').type('2026/2')
-    cy.contains('button', 'Salvar').click()
+    cy.findInDialog('button', 'Salvar').click()
 
-    cy.contains('Estatística I').should('be.visible')
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.contains('h1', 'Estatística I').should('be.visible')
+    cy.contains('h3', 'Nenhum aluno ainda').should('be.visible')
+
+    cy.get('main').contains('a', 'Turmas').click()
+    cy.contains('li', 'Estatística I').should('contain', '0 alunos')
+  })
+
+  /** #146: editing from the list also leads to the class, as the spec says for "Salvar ao editar". */
+  it('edita uma turma pela lista e abre a turma', () => {
+    cy.visit('/turmas')
+
+    cy.get('[aria-label="Editar a turma Física II"]').click()
+    cy.findByLabel('Disciplina').clear().type('Física Moderna')
+    cy.findInDialog('button', 'Salvar').click()
+
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.contains('h1', 'Física II').should('be.visible')
+    cy.contains('Física Moderna · 2026/2').should('be.visible')
+  })
+
+  /**
+   * #146: the card counts the students the way "Alunos (N)" does on P5: an
+   * anonymized student still counts, a removed one does not. Back on the list
+   * through the app's own link, the count is already the new one.
+   */
+  it('mostra quantos alunos tem cada turma, e acompanha quem sai', () => {
+    cy.visit('/turmas')
+    cy.contains('li', 'Cálculo I — Noturno').should('contain', '12 alunos')
+
+    cy.contains('a', 'Cálculo I — Noturno').click()
+    cy.get('[aria-label="Anonimizar Ana Beatriz Moreira"]').click()
+    cy.findInDialog('button', 'Anonimizar').click()
+    cy.contains('li', 'Aluno anonimizado').should('be.visible')
+    cy.get('[aria-label="Remover Bruno Carvalho Lima da turma"]').click()
+    cy.findInDialog('button', 'Remover').click()
+    cy.contains('h2', 'Alunos (11)').should('be.visible')
+
+    cy.get('main').contains('a', 'Turmas').click()
+    cy.contains('li', 'Cálculo I — Noturno').should('contain', '11 alunos')
   })
 
   it('arquiva uma turma e a encontra no filtro de arquivadas', () => {
@@ -143,8 +183,102 @@ describe('turmas', () => {
   })
 })
 
+/** #144: the header of P5 says the state of the class and edits or archives it without going back to P3. */
+describe('turmas: detalhe da turma', () => {
+  /**
+   * Saved on P5 itself, the screen stays and adds no step to the history
+   * (#146), so going back still leads to the list it was opened from.
+   */
+  it('mostra a situação da turma e edita pelo cabeçalho', () => {
+    openClass('Cálculo I — Noturno')
+
+    cy.contains('h1', 'Cálculo I — Noturno').parent().should('contain', 'Ativa')
+    cy.contains('button', 'Editar').click()
+    cy.findByLabel('Nome da turma').clear().type('Cálculo I — Turma B')
+    cy.findInDialog('button', 'Salvar').click()
+
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.contains('h1', 'Cálculo I — Turma B').should('be.visible')
+    cy.go('back')
+    cy.contains('h1', 'Turmas').should('be.visible')
+  })
+
+  it('arquiva pelo cabeçalho e volta para a lista de turmas', () => {
+    openClass('Física II')
+
+    cy.contains('button', 'Arquivar').click()
+    cy.findInDialog('button', 'Arquivar').click()
+
+    cy.contains('h1', 'Turmas').should('be.visible')
+    cy.contains('a', 'Física II').should('not.exist')
+  })
+
+  /** Decided by the PM in #144: an archived class takes no new student, and the screen says why instead of hiding the buttons. */
+  it('não deixa a turma arquivada receber aluno novo e diz por quê, até ser restaurada', () => {
+    openClass('Física II')
+    cy.contains('button', 'Arquivar').click()
+    cy.findInDialog('button', 'Arquivar').click()
+    cy.contains('h1', 'Turmas').should('be.visible')
+
+    cy.chooseSegment('Arquivadas')
+    cy.contains('a', 'Física II').click()
+
+    cy.contains('h1', 'Física II').parent().should('contain', 'Arquivada')
+    cy.contains('[role="note"]', 'Esta turma está arquivada e não recebe alunos novos.')
+      .invoke('attr', 'id')
+      .then((reasonId) => {
+        cy.contains('button', 'Adicionar aluno').should('be.disabled').and('have.attr', 'aria-describedby', reasonId)
+        cy.contains('button', 'Importar alunos').should('be.disabled').and('have.attr', 'aria-describedby', reasonId)
+      })
+    cy.contains('li', 'Ana Beatriz Moreira').contains('button', 'Remover').should('be.enabled')
+
+    cy.contains('button', 'Restaurar').click()
+    cy.findInDialog('button', 'Restaurar').click()
+
+    cy.contains('h1', 'Física II').parent().should('contain', 'Ativa')
+    cy.contains('button', 'Adicionar aluno').should('be.enabled')
+    cy.get('[role="note"]').should('not.exist')
+  })
+
+  it('busca um aluno pelo nome, sem acento, e pela matrícula', () => {
+    openClass('Cálculo I — Noturno')
+
+    cy.get('[aria-label="Buscar aluno por nome ou matrícula"]').type('joao')
+    cy.contains('li', 'João Pedro Barbosa').should('be.visible')
+    cy.contains('li', 'Ana Beatriz Moreira').should('not.exist')
+
+    cy.get('[aria-label="Buscar aluno por nome ou matrícula"]').clear().type('202602')
+    cy.contains('li', 'Bruno Carvalho Lima').should('be.visible')
+    cy.contains('li', 'João Pedro Barbosa').should('not.exist')
+
+    cy.get('[aria-label="Buscar aluno por nome ou matrícula"]').clear().type('Zacarias')
+    cy.contains('h3', 'Nenhum aluno encontrado').should('be.visible')
+    cy.contains('button', 'Limpar busca').click()
+    cy.contains('li', 'Ana Beatriz Moreira').should('be.visible')
+    cy.contains('h2', 'Alunos (12)').should('be.visible')
+  })
+
+  /** P5 asks for both actions in the empty list, and the text says how the import works: pasting what was copied. */
+  it('oferece adicionar e importar na turma sem alunos', () => {
+    cy.visit('/turmas')
+    cy.contains('button', 'Nova turma').click()
+    cy.findByLabel('Nome da turma').type('Estatística I')
+    cy.findByLabel('Disciplina').type('Matemática')
+    cy.findByLabel('Período').type('2026/2')
+    cy.findInDialog('button', 'Salvar').click()
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.contains('h1', 'Estatística I').should('be.visible')
+
+    cy.contains('h3', 'Nenhum aluno ainda').should('be.visible')
+    cy.contains('copie a lista da planilha e cole em "Importar alunos"').should('be.visible')
+    cy.get('button').filter(':contains("Importar alunos")').should('have.length', 2)
+    cy.get('button').filter(':contains("Adicionar aluno")').should('have.length', 2)
+  })
+})
+
 describe('turmas: importação de alunos', () => {
-  it('importa uma lista colada e mostra o que entrou e o que foi ignorado', () => {
+  /** #144: the preview counts only who will come in, so the button and the result say the same number. */
+  it('importa uma lista colada e deixa de fora, na prévia, a matrícula que já está na turma', () => {
     openClass('Álgebra Linear')
 
     pasteStudentList([
@@ -154,14 +288,16 @@ describe('turmas: importação de alunos', () => {
       'Tiago Prado;2027902',
     ])
 
-    cy.findInDialog('h3', '3 alunos prontos para importar').should('be.visible')
+    cy.findInDialog('h3', '2 alunos prontos para importar').should('be.visible')
+    cy.findInDialog('h3', '1 aluno já está na turma e não será importado').should('be.visible')
+    cy.findInDialog('li', 'Ana Beatriz Moreira (202701)').should('be.visible')
     cy.findInDialog('a', 'Aviso de privacidade').should('be.visible')
-    cy.findInDialog('button', 'Importar 3 alunos').click()
+    cy.findInDialog('button', 'Importar 2 alunos').click()
 
     cy.findInDialog('h3', 'Importação concluída').should('be.visible')
     cy.get('[role="dialog"]')
       .should('contain', '2 alunos entraram na turma.')
-      .and('contain', '1 foi ignorado porque a matrícula já estava na turma.')
+      .and('not.contain', 'foi ignorado')
     cy.findInDialog('button', 'Fechar').click()
 
     cy.get('[role="dialog"]').should('not.exist')
@@ -274,7 +410,7 @@ describe('turmas: erros da API na tela', () => {
 
     cy.contains('Não foi possível carregar os alunos.').should('be.visible')
     cy.contains('button', 'Tentar de novo').should('be.visible')
-    cy.contains('Nenhum aluno nesta turma').should('not.exist')
+    cy.contains('Nenhum aluno ainda').should('not.exist')
   })
 })
 
@@ -365,5 +501,38 @@ describe('turmas: busca e paginação no servidor', () => {
 
     cy.contains('button', 'Anterior').click()
     cy.contains('a', 'Turma 01').should('be.visible')
+  })
+})
+
+/**
+ * "Aplicações desta turma" on P5 (#144): what was applied to the class, the
+ * day and where the correction stands, each leading to P14. The sample
+ * applies the calculus midterm to "Cálculo I — Noturno" on 05/10/2026 and
+ * nothing to "Álgebra Linear".
+ */
+describe('aplicações desta turma', () => {
+  const applicationsOfTheClass = () => cy.get('[aria-label="Aplicações desta turma"]')
+
+  it('lista o que foi aplicado à turma, com o dia e a correção, e leva à aplicação', () => {
+    openClass('Cálculo I — Noturno')
+
+    applicationsOfTheClass().contains('li', 'Cálculo I — Prova 1').should('contain', '05/10/2026').and('contain', 'Correção não iniciada')
+    applicationsOfTheClass().contains('a', 'Cálculo I — Prova 1').click()
+    cy.contains('h1', 'Cálculo I — Prova 1').should('be.visible')
+  })
+
+  it('mostra a correção em andamento depois da primeira folha corrigida', () => {
+    cy.correctFirstSheetOf('Cálculo I — Prova 1')
+    cy.get('[aria-label="Navegação principal"]').contains('a', 'Turmas').click()
+    cy.contains('a', 'Cálculo I — Noturno').click()
+
+    applicationsOfTheClass().contains('li', 'Cálculo I — Prova 1').should('contain', 'Correção em andamento')
+  })
+
+  it('diz quando nada foi aplicado à turma', () => {
+    openClass('Álgebra Linear')
+
+    cy.contains('Nenhuma prova aplicada a esta turma ainda').should('be.visible')
+    applicationsOfTheClass().should('not.exist')
   })
 })

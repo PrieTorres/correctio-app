@@ -84,7 +84,7 @@ Um limite único não serve: 300 req/min mata a importação em lote e não impe
 | Leitura | GETs autenticados | 300/min | professor |
 | Escrita comum | CRUD | 60/min | professor |
 | **Cara** | gerar PDF, importar lote, exportar relatório | 10/h + 1 job concorrente | professor |
-| **Muito cara** | upload e leitura de folha | 500 imagens/dia, 200 MB/dia, 1 job concorrente | professor |
+| **Muito cara** | upload e leitura de folha | 500 imagens/dia, 200 MB/dia, contados no banco (`sheet_images`); uma leitura de cada vez, na worker thread | professor |
 
 ### Quatro detalhes que quebram isso na prática
 
@@ -109,7 +109,7 @@ Limite por usuário não protege a conta: 600 professores legítimos na semana d
 - **Quota global diária com degradação** — passado o teto do dia, as rotas caras entram em fila longa ou recusam com mensagem clara, em vez de escalar sem limite.
 - **Alerta de orçamento** em 50%, 80% e 100%. É a linha de defesa que de fato evita a fatura surpresa.
 - **Teto de instâncias.** Autoescalonamento sem máximo definido é exatamente como o custo explode.
-- **Leitura da folha com processamento de imagem próprio**, em vez de API de visão paga: no servidor por padrão, e no navegador do professor no demo e quando a API não responde (ADR-006). Custo previsível, e a imagem nunca vai a terceiros (ver seção 6).
+- **Leitura da folha com processamento de imagem próprio**, em vez de API de visão paga: na API, numa worker thread (ADR-007), e no navegador do professor só no demo sem API (ADR-006). Custo previsível, e a imagem nunca vai a terceiros (ver seção 6).
 - **Armazenamento em classe adequada ao acesso.** Folhas escaneadas são o maior volume e quase nunca são relidas depois do semestre. A economia vem de mover imagens antigas para armazenamento frio — **não** de apagá-las. Não existe descarte automático no Correctio: apagar dado que ninguém pediu para apagar é perda de informação. Exclusão só sob solicitação, via anonimização (RF05 e RF38).
 
 ---
@@ -128,12 +128,12 @@ Limite por usuário não protege a conta: 600 professores legítimos na semana d
 |---|---|
 | **Necessidade / minimização** (Art. 6º, III) | Pendente: o e-mail do aluno é coletado sem finalidade no sistema. Ver nota do RF07. |
 | **Transparência** (Art. 6º, VI) | RF39 — aviso de privacidade no cadastro e na importação de alunos, mais página pública de aviso de privacidade. |
-| **Direito de exclusão** (Art. 18, VI) | RF38 — anonimização do aluno. Remover da turma (RF09) **não** cumpre esse direito: preserva os dados. |
+| **Direito de exclusão** (Art. 18, VI) | RF38 — anonimização do aluno. Remover da turma (RF09) **não** cumpre esse direito: preserva os dados. RF05 — anonimização da conta do professor (`POST /me/anonymize`): nome, e-mail e senha substituídos e sessões encerradas, com turmas, provas e notas preservadas. |
 | **Direito de acesso e correção** (Art. 18, I–III) | O aluno não tem login, então exerce pelo professor, que edita ou anonimiza o registro. |
 | **Segurança** (Art. 46) | RNF04 (tráfego), RNF16 (arquivos), RNF18 (API), RNF14 (isolamento). |
 | **Registro das operações** (Art. 37) | RF40 e RNF17 — trilha de auditoria. |
 | **Retenção** | Definida pela instituição, não pelo sistema. Sem descarte automático — o que protege contra perda é o backup com restauração testada (RNF09), e o que é "excluído" pela interface é reversível (RF42). Os backups em si duram 30 dias: um aluno anonimizado (RF38) continua, por até 30 dias, nos backups feitos antes da anonimização. |
-| **Transferência internacional** (Art. 33) | Acontece e precisa estar declarada. O banco fica nos EUA, no Aiven sobre a DigitalOcean, em São Francisco (ADR-001). A API, as imagens das folhas e os backups diários do banco ficam no Google, em us-west1 (ADR-004, ADR-005 e `docs/CI_CD.md`, seção 8). Aiven, DigitalOcean e Google são subprocessadores. A leitura da folha roda no servidor ou no navegador do professor, nunca mandando a imagem a terceiros (ADR-006). |
+| **Transferência internacional** (Art. 33) | Acontece e precisa estar declarada. O banco fica nos EUA, no Aiven sobre a DigitalOcean, em São Francisco (ADR-001). A API, as imagens das folhas e os backups diários do banco ficam no Google, em us-west1 (ADR-004, ADR-005 e `docs/CI_CD.md`, seção 8). Aiven, DigitalOcean e Google são subprocessadores. A leitura da folha roda na API ou, no demo, no navegador do professor, nunca mandando a imagem a terceiros (ADR-006 e ADR-007). |
 | **Comunicação de incidente** (Art. 48) | Procedimento documentado: quem detecta, quem comunica, em quanto tempo. |
 
 ### Três pontos que não estavam previstos em lugar nenhum
@@ -170,9 +170,11 @@ armazenamento privado, e entram no PDF gerado.
 | Container | Executado sem privilégio de root, imagem em versão LTS fixada. |
 | Observabilidade | Log estruturado em JSON com id de correlação por requisição, sem dado pessoal. |
 | Ciclo de vida | Encerramento gracioso em `SIGTERM`; erro desconhecido derruba o processo em vez de seguir em estado corrompido. |
-| Processamento pesado | Leitura de imagem é uso intensivo de CPU e **não pode** rodar na thread principal — trava a API inteira. Vai para worker ou serviço separado, o mesmo motivo que empurra o trabalho caro para fila. |
+| Processamento pesado | Leitura de imagem é uso intensivo de CPU e **não pode** rodar na thread principal — trava a API inteira. Roda numa worker thread (`lib/sheet-reading`, ADR-007), uma foto de cada vez. |
+| Upload de imagem | Tipo conferido pelos primeiros bytes (JPEG, PNG ou WebP), nunca pela extensão nem pelo `Content-Type`; até 10 MB; guardado no bucket privado e entregue só ao professor da aplicação (#47). |
 | Cache das respostas | `Cache-Control: no-store` em toda resposta da API (`middlewares/no-store.ts`). O cache existe só na memória do app — ver "Cache" abaixo. |
 | Limite de requisições | As camadas da seção 4 estão em `apps/api/src/middlewares/rate-limit.ts` (`RATE_LIMITS`). Cada rota especial aplica a sua camada. |
+| Exportação de relatório | A camada cara vale só com `?format=` (#82): a mesma rota sem ele é a tela lendo os números. No CSV, célula que começaria com `=`, `+`, `-`, `@`, tabulação ou retorno ganha um apóstrofo na frente e não vira fórmula no Excel (injeção por CSV, OWASP), porque nome de aluno chega por importação; no .xlsx toda célula de texto é gravada como texto. O nome do arquivo leva o relatório e a data, nunca o nome de um aluno. |
 
 ### Credenciais em trânsito
 

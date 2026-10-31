@@ -25,3 +25,14 @@ export function fromDateInputValue(value: string): string {
   const date = new Date(`${value}T12:00:00.000Z`)
   return Number.isNaN(date.getTime()) ? '' : date.toISOString()
 }
+
+/**
+ * Today as the teacher's calendar shows it, in the stored form: noon UTC of
+ * that day. The current instant would not do, since after 21h in Brazil it is
+ * already tomorrow in UTC, and the server compares sittings by the UTC day.
+ */
+export function todayAsStored(now: Date = new Date()): string {
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return fromDateInputValue(`${now.getFullYear()}-${month}-${day}`)
+}

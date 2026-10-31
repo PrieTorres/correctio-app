@@ -92,11 +92,9 @@ start
 :Enviar as fotos para a API;
 |API|
 :Ler o QR Code e as marcações da foto;
-if <<planned>> (Leitura reconhecida?\n<i>previsto (#48 e #78)</i>) then ([Não])
-  -[dashed]->
+if (Leitura reconhecida?) then ([Não])
   |Professor|
-  :Inserir a correção manualmente (#48); <<planned>>
-  -[dashed]->
+  :Inserir a correção manualmente;
 else ([Sim])
   |API|
   :Corrigir as objetivas e gravar a leitura no banco;
@@ -162,11 +160,9 @@ start
 :Enviar as fotos para a API;
 |API|
 :Ler o QR Code e as marcações da foto;
-if <<planned>> (Leitura reconhecida?\n<i>previsto (#48 e #78)</i>) then ([Não])
-  -[dashed]->
+if (Leitura reconhecida?) then ([Não])
   |Professor|
-  :Inserir a correção manualmente (#48); <<planned>>
-  -[dashed]->
+  :Inserir a correção manualmente;
 else ([Sim])
   |API|
   :Corrigir as objetivas e gravar a leitura no banco;
