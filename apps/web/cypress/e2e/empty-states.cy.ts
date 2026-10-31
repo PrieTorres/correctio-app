@@ -68,8 +68,7 @@ describe('carregando e erro', () => {
     })
     cy.visit('/turmas')
 
-    cy.get('[role="status"]').should('contain', 'Carregando')
-    cy.contains('Carregando').should('not.be.visible')
+    cy.get('[role="status"]').should('contain', 'Carregando').find('[aria-hidden="true"]').should('be.visible')
     cy.contains('Cálculo I — Noturno').should('be.visible')
   })
 

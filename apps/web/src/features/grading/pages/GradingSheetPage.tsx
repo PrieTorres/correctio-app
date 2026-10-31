@@ -260,9 +260,11 @@ function BlobImage({ blob, alt, style }: Readonly<{ blob: Blob; alt: string; sty
 
 /**
  * Who a sheet printed without a name belongs to (RF31). On a correction
- * already stored the choice is saved at once; on a new one it goes with the
- * review. A student who already has a sheet of this version comes back as a
- * conflict, shown here.
+ * already stored the choice is saved at once, and it also goes with the
+ * review: a confirm right after choosing sends a second write, and without
+ * the student in it that write could land last and leave the sheet without
+ * an owner. A student who already has a sheet of this version comes back as
+ * a conflict, shown here.
  */
 function StudentCard({
   applicationId,
@@ -272,11 +274,11 @@ function StudentCard({
   onChoose,
 }: Readonly<{ applicationId: string; students: Student[]; correction: Correction | undefined; chosen: string | undefined; onChoose: (studentId: string | undefined) => void }>) {
   const assignStudent = useAssignStudent();
-  const value = correction?.studentId ?? chosen ?? '';
+  const value = chosen ?? correction?.studentId ?? '';
 
   const choose = (studentId: string) => {
-    if (correction === undefined) onChoose(studentId === '' ? undefined : studentId);
-    else if (studentId !== '') assignStudent.mutate({ applicationId, correctionId: correction.id, studentId });
+    onChoose(studentId === '' ? undefined : studentId);
+    if (correction !== undefined && studentId !== '') assignStudent.mutate({ applicationId, correctionId: correction.id, studentId });
   };
 
   return (
