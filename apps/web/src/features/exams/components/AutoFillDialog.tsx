@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2 } from 'lucide-react';
-import { Button, CheckboxField, Modal, NumberInput, Tour } from '@/components/ui';
+import { Button, CheckboxField, Modal, NumberInput, Spinner, Tour } from '@/components/ui';
 import { useQuestionCount, useQuestionTags } from '@/features/questions';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { DrawResult } from '@/lib/exams';
@@ -63,7 +63,7 @@ function useAvailability(tags: readonly string[]) {
  * does not have, and the draw waits, since its filters were never checked.
  */
 function availabilityLabel({ objectives, openEnded, includeOpenEnded, remainingSlots }: Availability): string {
-  if (objectives.isPending || openEnded.isPending) return 'Carregando o banco de questões…';
+  if (objectives.isPending || openEnded.isPending) return 'Contando as questões do banco…';
   if (objectives.isError || openEnded.isError) {
     return 'Não foi possível contar as questões do banco agora. Mude um filtro ou tente de novo em instantes.';
   }
@@ -214,8 +214,15 @@ export function AutoFillDialog({
           />
         )}
 
-        <p className="text-caption text-ink-subtle" aria-live="polite">
-          {availabilityLabel({ objectives, openEnded, includeOpenEnded, remainingSlots })}
+        <p className="flex min-h-5 items-center gap-2 text-caption text-ink-subtle" aria-live="polite">
+          {counting ? (
+            <>
+              <Spinner size="sm" />
+              <span className="sr-only">{availabilityLabel({ objectives, openEnded, includeOpenEnded, remainingSlots })}</span>
+            </>
+          ) : (
+            availabilityLabel({ objectives, openEnded, includeOpenEnded, remainingSlots })
+          )}
         </p>
 
         <Button variant="secondary" onClick={generate} disabled={busy}>

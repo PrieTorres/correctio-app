@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle, FileText, Loader2 } from 'lucide-react';
-import { BackLink, Button, Card, CheckboxField, NumberInput, PageHeader, QueryBoundary, SaveError, Tour } from '@/components/ui';
+import { BackLink, Button, Card, CheckboxField, NotFoundState, NumberInput, PageHeader, QueryBoundary, SaveError, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
 import { MAX_VERSIONS, type VersionShuffle } from '@/lib/schemas';
@@ -22,9 +22,12 @@ export function ApplicationGeneratePage() {
   return (
     <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando aplicação…">
       {application === null || application === undefined ? (
-        <Card className="p-6">
-          <p className="text-body text-ink-muted">Aplicação não encontrada.</p>
-        </Card>
+        <NotFoundState
+          title="Aplicação não encontrada"
+          description="A aplicação pode ter sido apagada, ou o endereço está errado."
+          backTo={ROUTES.applications}
+          backLabel="Voltar para aplicações"
+        />
       ) : (
         <GenerationWithExam application={application} />
       )}

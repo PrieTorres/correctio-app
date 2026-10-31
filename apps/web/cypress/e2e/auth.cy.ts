@@ -333,7 +333,7 @@ describe('abrindo a sessão', () => {
     })
     cy.visit('/painel')
 
-    cy.contains('[role="status"]', 'Abrindo sua sessão…').should('be.visible')
+    cy.contains('[role="status"]', 'Abrindo sua sessão…').should('exist')
     cy.contains('p', 'Correctio').should('be.visible')
     cy.contains('h1', 'Painel', { timeout: 10000 }).should('be.visible')
   })

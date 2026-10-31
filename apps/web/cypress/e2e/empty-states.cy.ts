@@ -53,3 +53,35 @@ describe('estados vazios', () => {
     cy.get('svg[aria-hidden="true"]').should('exist')
   })
 })
+
+/**
+ * The other two states a screen can be in. Loading is an animation in the
+ * middle of the page, its sentence left to screen readers; a failure explains
+ * itself and offers to try again, which here brings the list back.
+ */
+describe('carregando e erro', () => {
+  it('mostra uma animação, e não um texto, enquanto a lista carrega', () => {
+    cy.intercept({ method: 'GET', pathname: '/api/classes' }, (req) => {
+      req.on('response', (res) => {
+        res.setDelay(1500)
+      })
+    })
+    cy.visit('/turmas')
+
+    cy.get('[role="status"]').should('contain', 'Carregando')
+    cy.contains('Carregando').should('not.be.visible')
+    cy.contains('Cálculo I — Noturno').should('be.visible')
+  })
+
+  /** Two failures, because a failed read is tried once more on its own before the screen gives up. */
+  it('explica o erro e tenta de novo pelo botão', () => {
+    cy.intercept({ method: 'GET', pathname: '/api/classes', times: 2 }, { statusCode: 500, body: { code: 'FAILURE', message: 'Erro inesperado.' } })
+    cy.visit('/turmas')
+
+    cy.contains('[role="alert"]', 'Não foi possível carregar os dados', { timeout: 20000 }).should('be.visible')
+    cy.contains('button', 'Tentar de novo').click()
+
+    cy.contains('Cálculo I — Noturno').should('be.visible')
+    cy.get('[role="alert"]').should('not.exist')
+  })
+})

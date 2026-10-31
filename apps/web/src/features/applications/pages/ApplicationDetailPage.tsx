@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Archive } from 'lucide-react';
-import { ActionMenu, BackLink, Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary, Tour, type MenuAction } from '@/components/ui';
+import { ActionMenu, BackLink, Badge, Button, ButtonLink, Card, NotFoundState, PageHeader, QueryBoundary, Tour, type MenuAction } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
 import { useStudentsWithRemoved } from '@/features/classes';
@@ -33,12 +33,12 @@ export function ApplicationDetailPage() {
 
 function NotFound() {
   return (
-    <Card className="p-6">
-      <p className="text-body text-ink-muted">Aplicação não encontrada.</p>
-      <Link to={ROUTES.applications} className="mt-3 link-target text-label text-primary underline">
-        Voltar para aplicações
-      </Link>
-    </Card>
+    <NotFoundState
+      title="Aplicação não encontrada"
+      description="A aplicação pode ter sido apagada, ou o endereço está errado."
+      backTo={ROUTES.applications}
+      backLabel="Voltar para aplicações"
+    />
   );
 }
 

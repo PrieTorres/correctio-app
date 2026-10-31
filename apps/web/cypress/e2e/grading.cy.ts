@@ -122,7 +122,8 @@ describe('correção: vazio, erro e isolamento', () => {
     cy.contains('h1', 'Física II — Teste rápido').should('be.visible')
     cy.location('pathname').then((detail) => cy.visit(`${detail}/corrigir`))
 
-    cy.contains('Esta aplicação ainda não foi gerada, então não há folhas para corrigir.').should('be.visible')
+    cy.contains('h3', 'Ainda não há folhas para corrigir').should('be.visible')
+    cy.contains('a', 'Gerar PDF').should('be.visible')
     cy.contains('label', 'Escolher arquivos').should('not.exist')
   })
 
@@ -143,7 +144,7 @@ describe('correção: vazio, erro e isolamento', () => {
       cy.visit(`/aplicacoes/${printed.applicationId}/corrigir/${printed.sheet.id}`)
     })
 
-    cy.contains(/Folha não encontrada\.|Não foi possível carregar os dados/, { timeout: 20000 }).should('be.visible')
+    cy.contains(/Folha não encontrada|Não foi possível carregar os dados/, { timeout: 20000 }).should('be.visible')
     cy.contains('button', 'Confirmar correção').should('not.exist')
   })
 

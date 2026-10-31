@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui'
+import { Button, Spinner } from '@/components/ui'
 import { useCurrentUser } from '@/features/auth'
 import { ROUTES } from './routes'
 
@@ -42,8 +41,9 @@ export function RequireSession() {
 
 /**
  * What the teacher sees while the session is restored, before any screen
- * exists: the whole page, centred, with the brand as on the sign-in, instead
- * of a line of text in the corner of an empty page. A failure says so in the
+ * exists: the whole page, centred, with the brand as on the sign-in and an
+ * animation, instead of a line of text in the corner of an empty page. The
+ * sentence is for screen readers only. A failure says so in the
  * same place and offers to try again, which reloads, since nothing else of
  * the app is on the page yet.
  */
@@ -59,9 +59,9 @@ function SessionSplash({ failed = false }: Readonly<{ failed?: boolean }>) {
           </Button>
         </div>
       ) : (
-        <p role="status" className="flex items-center gap-3 text-body text-ink-muted">
-          <Loader2 size={20} aria-hidden className="motion-safe:animate-spin text-primary" />
-          Abrindo sua sessão…
+        <p role="status">
+          <Spinner />
+          <span className="sr-only">Abrindo sua sessão…</span>
         </p>
       )}
     </div>

@@ -1,7 +1,7 @@
 import { useId, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Camera, CheckCircle2, Clock, FolderOpen, Loader2 } from 'lucide-react';
-import { BackLink, Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary, Tour } from '@/components/ui';
+import { ApplicationsIllustration, BackLink, Badge, Button, ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { discursiveQuestionIdsOf, gradeObjectives } from '@/lib/grading';
 import { formatDate } from '@/lib/utils';
@@ -51,8 +51,13 @@ export function GradingUploadPage() {
         />
 
         {data === null || data === undefined || data.sheets.length === 0 ? (
-          <Card className="p-6">
-            <p className="text-body text-ink-muted">Esta aplicação ainda não foi gerada, então não há folhas para corrigir.</p>
+          <Card>
+            <EmptyState
+              illustration={<ApplicationsIllustration />}
+              title="Ainda não há folhas para corrigir"
+              description="Esta aplicação ainda não foi gerada. Gere o PDF, imprima as folhas e volte aqui para fotografá-las."
+              action={<ButtonLink to={buildPath(ROUTES.applicationPdf, { id })}>Gerar PDF</ButtonLink>}
+            />
           </Card>
         ) : (
           <UploadArea applicationId={id} overview={data} />

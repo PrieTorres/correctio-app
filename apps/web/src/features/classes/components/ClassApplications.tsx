@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Badge, Card, QueryBoundary } from '@/components/ui'
+import { ApplicationsIllustration, Badge, ButtonLink, Card, EmptyState, QueryBoundary } from '@/components/ui'
 import { buildPath, ROUTES } from '@/app/routes'
 import { correctionBadgeOf, examTitleOf } from '@/features/applications/application-labels'
 import { useApplicationList } from '@/features/applications/hooks/useApplications'
@@ -35,15 +35,18 @@ export function ClassApplications({ classId }: Readonly<{ classId: string }>) {
       </div>
 
       <div className="px-5 py-4">
-        <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando aplicações…">
+        <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando as aplicações da turma…">
           {total === 0 ? (
-            <p className="text-body text-ink-muted">
-              Nenhuma prova aplicada a esta turma ainda. Aplique uma prova em{' '}
-              <Link to={ROUTES.applications} className="text-primary underline">
-                Aplicações
-              </Link>
-              .
-            </p>
+            <EmptyState
+              illustration={<ApplicationsIllustration />}
+              title="Nenhuma prova aplicada ainda"
+              description="Quando você aplicar uma prova a esta turma, ela aparece aqui com a data e a situação da correção."
+              action={
+                <ButtonLink variant="secondary" to={ROUTES.newApplication}>
+                  Nova aplicação
+                </ButtonLink>
+              }
+            />
           ) : (
             <ul aria-label="Aplicações desta turma" className="-my-3 divide-y divide-line">
               {data?.items.map((application) => <ClassApplicationItem key={application.id} application={application} />)}
