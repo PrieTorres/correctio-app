@@ -236,8 +236,12 @@ essa lista e continua escondendo o aluno removido.
   volta para `draft`, nunca para `ready`. O `PATCH` mescla e ignora `status`, `id` e `teacherId`.
 - **Sorteio (RF16):** `POST /exams/draw` recebe `{ tags, multipleChoiceCount, openEndedCount,
   excludeIds }` e responde `{ questions, shortfall }`. Sorteia entre as questões ativas do
-  professor que têm todas as tags pedidas, deixando de fora `excludeIds` (as que já estão na prova
-  ou na prévia). Pedir mais do que o banco tem não é erro: volta o que achou e o que faltou em
+  professor que têm **pelo menos uma** das tags pedidas, deixando de fora `excludeIds` (as que já
+  estão na prova ou na prévia), e **equilibra os conteúdos**: cada questão vai para a tag menos
+  coberta até ali, então toda tag pedida ganha uma questão antes de qualquer uma ganhar a segunda,
+  e as discursivas seguem a cobertura das objetivas. A contagem da P9b usa
+  `GET /questions?tags=…&anyTag=true`, a mesma regra; sem `anyTag`, o filtro da P6 exige todas as
+  tags. Pedir mais do que o banco tem não é erro: volta o que achou e o que faltou em
   `shortfall`. Não grava nada; a prova só muda quando o professor salva.
 
 ### Correções

@@ -52,6 +52,8 @@ export interface QuestionFilters {
   search?: string
   type?: QuestionType
   tags?: string[]
+  /** `true` keeps a question carrying any of `tags`, as the automatic draw asks; otherwise it must carry them all, as P6 filters. */
+  anyTag?: boolean
   onlyUntagged?: boolean
   archived?: boolean
   sort?: 'newest' | 'statement'
@@ -94,6 +96,8 @@ function whereOf(filters: QuestionFilters) {
           ),
         ),
       )
+    } else if (filters.tags !== undefined && filters.tags.length > 0 && filters.anyTag === true) {
+      terms.push(eb('id', 'in', eb.selectFrom('question_tags').select('questionId').where('tag', 'in', filters.tags)))
     } else if (filters.tags !== undefined && filters.tags.length > 0) {
       const tags = filters.tags
       terms.push(

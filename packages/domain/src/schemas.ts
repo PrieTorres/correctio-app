@@ -401,7 +401,7 @@ export const examInputSchema = z.object({
 
 /**
  * What the automatic exam asks the server for (RF16): how many questions of
- * each kind, carrying every tag listed, leaving out the ones already in the
+ * each kind, carrying at least one of the tags listed, leaving out the ones already in the
  * exam or on screen. Asking for more than the bank has is not an error; asking
  * for more than an exam takes is.
  */

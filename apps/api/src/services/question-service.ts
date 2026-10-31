@@ -47,6 +47,7 @@ const listFiltersSchema = z.object({
   search: z.string().optional(),
   type: z.enum(['objetiva', 'discursiva']).optional(),
   tags: tagsParam.optional(),
+  anyTag: booleanParam.optional(),
   onlyUntagged: booleanParam.optional(),
   archived: booleanParam.optional(),
   sort: z.enum(['newest', 'statement']).optional(),

@@ -57,12 +57,19 @@ describe('drawQuestions', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('keeps only questions carrying every tag asked for', () => {
+  /** More tags widen the draw: a question needs one of them, not all, or two tags would empty the bank. */
+  it('keeps the questions carrying any of the tags asked for', () => {
     const result = drawQuestions(
       bank,
-      { tags: ['Limites', 'Cálculo'], multipleChoiceCount: 5, openEndedCount: 5 },
+      { tags: ['Cálculo', 'Matrizes'], multipleChoiceCount: 5, openEndedCount: 5 },
       takeFirst,
     )
+
+    expect(result.questions.map((item) => item.id).sort()).toEqual(['mc2', 'mc3', 'oe2'])
+  })
+
+  it('leaves out a question with none of the tags asked for', () => {
+    const result = drawQuestions(bank, { tags: ['Cálculo'], multipleChoiceCount: 5, openEndedCount: 5 }, takeFirst)
 
     expect(result.questions.map((item) => item.id)).toEqual(['mc2'])
   })
@@ -163,5 +170,57 @@ describe('distributeScore', () => {
   it('returns nothing for no questions, rather than dividing by zero', () => {
     expect(distributeScore(10, 0)).toEqual([])
     expect(distributeScore(10, -1)).toEqual([])
+  })
+})
+
+describe('drawQuestions balanced over the tags asked', () => {
+  const tagged = (prefix: string, tag: string, count: number, make = multipleChoice) =>
+    Array.from({ length: count }, (_, index) => make(`${prefix}${index + 1}`, [tag]))
+
+  /** The tag with the most questions does not crowd out the others: each content gets one before any gets two. */
+  it('covers every tag asked before giving any of them a second question', () => {
+    const bank = [...tagged('lim', 'Limites', 5), ...tagged('der', 'Derivadas', 1), ...tagged('int', 'Integrais', 1)]
+
+    const result = drawQuestions(bank, { tags: ['Limites', 'Derivadas', 'Integrais'], multipleChoiceCount: 3, openEndedCount: 0 }, takeFirst)
+
+    expect(result.questions.map((item) => item.tags[0]).sort()).toEqual(['Derivadas', 'Integrais', 'Limites'])
+  })
+
+  it('splits the questions evenly between the tags while the bank allows', () => {
+    const bank = [...tagged('lim', 'Limites', 4), ...tagged('mat', 'Matrizes', 4)]
+
+    const result = drawQuestions(bank, { tags: ['Limites', 'Matrizes'], multipleChoiceCount: 4, openEndedCount: 0 }, takeFirst)
+
+    const perTag = result.questions.map((item) => item.tags[0])
+    expect(perTag.filter((tag) => tag === 'Limites')).toHaveLength(2)
+    expect(perTag.filter((tag) => tag === 'Matrizes')).toHaveLength(2)
+  })
+
+  it('fills from the tags that still have questions once a tag runs out', () => {
+    const bank = [...tagged('lim', 'Limites', 4), ...tagged('mat', 'Matrizes', 1)]
+
+    const result = drawQuestions(bank, { tags: ['Limites', 'Matrizes'], multipleChoiceCount: 4, openEndedCount: 0 }, takeFirst)
+
+    expect(result.questions).toHaveLength(4)
+    expect(result.questions.filter((item) => item.tags.includes('Matrizes'))).toHaveLength(1)
+    expect(result.shortfall).toBeNull()
+  })
+
+  /** The open-ended questions go on from what the multiple-choice ones covered. */
+  it('draws the open-ended questions from the contents the multiple-choice ones left out', () => {
+    const bank = [multipleChoice('mc-lim', ['Limites']), openEnded('oe-lim', ['Limites']), openEnded('oe-mat', ['Matrizes'])]
+
+    const result = drawQuestions(bank, { tags: ['Limites', 'Matrizes'], multipleChoiceCount: 1, openEndedCount: 1 }, takeFirst)
+
+    expect(result.questions.map((item) => item.id)).toEqual(['mc-lim', 'oe-mat'])
+  })
+
+  it('counts a question for every asked tag it carries', () => {
+    const bank = [multipleChoice('both', ['Limites', 'Matrizes']), ...tagged('lim', 'Limites', 2), ...tagged('mat', 'Matrizes', 2)]
+
+    const result = drawQuestions(bank, { tags: ['Limites', 'Matrizes'], multipleChoiceCount: 3, openEndedCount: 0 }, takeFirst)
+
+    const count = (tag: string) => result.questions.filter((item) => item.tags.includes(tag)).length
+    expect(Math.abs(count('Limites') - count('Matrizes'))).toBeLessThanOrEqual(1)
   })
 })
