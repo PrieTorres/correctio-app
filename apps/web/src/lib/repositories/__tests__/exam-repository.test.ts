@@ -117,7 +117,7 @@ describe('exam repository, the automatic draw', () => {
   const essay = { type: 'discursiva' as const, tags: ['Limites'], maxScore: 1, allowShuffleAlternatives: true }
 
   /** The demo draws over this browser's bank, with the same rules the server applies. */
-  it('draws only active questions of this teacher, with every tag asked, leaving out excludeIds', async () => {
+  it('draws only active questions of this teacher, with a tag asked, leaving out excludeIds', async () => {
     const mine = createLocalQuestionRepository('ana')
     const kept = await mine.create({ ...essay, statement: 'Já está na prova' })
     const deleted = await mine.create({ ...essay, statement: 'Excluída' })

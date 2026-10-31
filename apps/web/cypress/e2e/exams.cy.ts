@@ -428,6 +428,22 @@ describe('geração automática', () => {
   })
 
   /**
+   * No sample question carries both the linear algebra tag and the physics
+   * one. A draw that wanted every tag found none and said the bank was short;
+   * a question needs only one of the tags marked.
+   */
+  it('sorteia as questões que têm qualquer uma das tags marcadas', () => {
+    cy.contains('4 objetivas disponíveis com estes filtros').should('be.visible')
+    cy.contains('Entram as questões com pelo menos uma das tags marcadas.').should('be.visible')
+    cy.get('[role="dialog"]').contains('label', 'Álgebra Linear').click()
+    cy.get('[role="dialog"]').contains('label', 'Física II').click()
+    cy.contains('2 objetivas').should('be.visible')
+    cy.findInDialog('button', 'Gerar seleção').click()
+
+    cy.get('[role="dialog"]').should('contain', 'matriz quadrada').and('contain', 'A segunda lei de Newton')
+  })
+
+  /**
    * Two of the four multiple-choice questions are drawn, so the bank still has
    * spares. Asking for all of them leaves nothing to swap to, which is the
    * case the test after the next covers.
@@ -607,5 +623,64 @@ describe('provas na API', () => {
     cy.visit('/provas')
 
     cy.contains('a', 'Cálculo I — Prova 1').parents('li').first().should('contain', 'Aplicada')
+  })
+})
+
+/**
+ * The automatic exam spreads its questions over the tags marked: one of each
+ * content before a second of any, and a swap keeps the content of the
+ * question going out. The bank is the test's own, with three questions of
+ * Limites and one of Matrizes, so a draw that ignored the balance would often
+ * bring two of Limites.
+ */
+describe('geração automática equilibrada entre as tags', () => {
+  const LIMITS = ['Limites A', 'Limites B', 'Limites C']
+
+  beforeEach(() => {
+    cy.clearCookies()
+    cy.signInAsNewTeacher({ withSampleData: false }).then(({ accessToken }) => {
+      const api = apiAs(accessToken)
+      const objective = (statement: string, tag: string): QuestionInput => {
+        const right = crypto.randomUUID()
+        return {
+          type: 'objetiva',
+          statement,
+          tags: [tag],
+          alternatives: [
+            { id: right, text: 'certa' },
+            { id: crypto.randomUUID(), text: 'errada' },
+          ],
+          correctAlternativeId: right,
+          allowShuffleAlternatives: true,
+        }
+      }
+      for (const statement of LIMITS) api('POST', '/questions', objective(statement, 'Limites'))
+      api('POST', '/questions', objective('Matrizes A', 'Matrizes'))
+    })
+    cy.visit('/provas')
+    cy.contains('a', 'Gerar automaticamente').click()
+    cy.contains('disponíveis com estes filtros').should('be.visible')
+    cy.get('[role="dialog"]').contains('label', 'Limites').click()
+    cy.get('[role="dialog"]').contains('label', 'Matrizes').click()
+    cy.get('[aria-label="Quantas objetivas"]').clear().type('2')
+    cy.findInDialog('button', 'Gerar seleção').click()
+  })
+
+  it('sorteia uma questão de cada tag marcada antes de repetir uma tag', () => {
+    cy.get('[role="dialog"] ul li').should('have.length', 2)
+    cy.get('[role="dialog"] ul').should('contain', 'Matrizes A').and('contain', 'Limites')
+  })
+
+  it('troca uma questão por outra do mesmo conteúdo', () => {
+    cy.get('[role="dialog"] ul')
+      .contains('li', 'Limites')
+      .invoke('text')
+      .then((text) => {
+        const statement = LIMITS.find((item) => text.includes(item)) ?? ''
+        cy.get(`[aria-label="Trocar a questão ${statement}"]`).click()
+
+        cy.get('[role="dialog"] ul').should('not.contain', statement).and('contain', 'Matrizes A')
+        cy.get('[role="dialog"] ul').contains('li', 'Limites').should('exist')
+      })
   })
 })

@@ -337,6 +337,20 @@ describe.runIf(serverUrl !== undefined)('question routes (real MySQL)', () => {
       expect(res.body.items[0].statement).toBe('A')
     })
 
+    /** What the automatic exam counts and draws from: any of the tags, so choosing more tags finds more. */
+    it('keeps a question carrying any of the tags with anyTag=true', async () => {
+      await post('token-ana', { ...makeQuestion('A'), tags: ['math', 'algebra'] })
+      await post('token-ana', { ...makeQuestion('B'), tags: ['geometry'] })
+      await post('token-ana', { ...makeQuestion('C'), tags: ['history'] })
+
+      const res = await request(app)
+        .get('/questions?tags=algebra&tags=geometry&anyTag=true')
+        .set('Authorization', 'Bearer token-ana')
+
+      expect(res.status).toBe(200)
+      expect(res.body.items.map((item: { statement: string }) => item.statement).sort()).toEqual(['A', 'B'])
+    })
+
     it('filters by onlyUntagged', async () => {
       await post('token-ana', { ...makeQuestion('tagged'), tags: ['math'] })
       await post('token-ana', { ...makeQuestion('untagged'), tags: [] })

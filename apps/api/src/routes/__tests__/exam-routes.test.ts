@@ -258,6 +258,15 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('exam routes (real MySQL)', () =
       expect(response.body.shortfall).toEqual({ multipleChoice: 3, openEnded: 0 })
     })
 
+    /** No question carries both tags, so a draw that wanted all of them would say the bank is empty. */
+    it('draws the questions carrying any of the tags asked, not only those with all of them', async () => {
+      const response = await ana().post('/exams/draw', { tags: ['Derivadas', 'Limites'], multipleChoiceCount: 5, openEndedCount: 1 })
+
+      const ids = (response.body.questions as { id: string }[]).map((item) => item.id).sort()
+      expect(ids).toEqual(['q-continuity', 'q-derivative', 'q-essay', 'q-limits'])
+      expect(response.body.shortfall).toEqual({ multipleChoice: 2, openEnded: 0 })
+    })
+
     it('leaves out the questions already in the exam or on screen', async () => {
       const response = await ana().post('/exams/draw', {
         tags: ['Limites'],

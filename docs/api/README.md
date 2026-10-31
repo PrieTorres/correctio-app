@@ -70,7 +70,7 @@ O detalhe de cada recurso (regras, códigos de erro e exemplos) está no
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/questions` | Questões do professor, com filtros de tipo, tag e texto (P6). |
+| `GET` | `/questions` | Questões do professor, com filtros de tipo, tag e texto (P6); com várias tags exige todas, ou qualquer uma com `anyTag=true`. |
 | `POST` | `/questions` | Cria uma questão objetiva ou discursiva (P7). |
 | `GET` | `/questions/tags` | As tags já usadas, para os filtros e o autocompletar. |
 | `GET` | `/questions/:id` | Uma questão, mesmo excluída, porque a prova aplicada ainda a imprime. |
@@ -84,7 +84,7 @@ O detalhe de cada recurso (regras, códigos de erro e exemplos) está no
 |---|---|---|
 | `GET` | `/exams` | Provas do professor, ativas ou arquivadas (P8). |
 | `POST` | `/exams` | Cria uma prova com as questões escolhidas (P9). |
-| `POST` | `/exams/draw` | Sorteia as questões de uma prova por filtros (P9b). |
+| `POST` | `/exams/draw` | Sorteia as questões de uma prova (P9b) entre as que têm alguma das tags pedidas, equilibrando os conteúdos. |
 | `GET` | `/exams/:id` | Uma prova (P10). |
 | `PATCH` | `/exams/:id` | Edita a prova. |
 | `PATCH` | `/exams/:id/archive` | Arquiva a prova. |
