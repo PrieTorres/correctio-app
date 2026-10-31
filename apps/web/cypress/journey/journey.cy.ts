@@ -698,7 +698,7 @@ function followPendingCorrections(): void {
 
   cy.contains('h1', 'Aplicações').should('be.visible')
   cy.location('search').should('eq', '?status=correction-in-progress')
-  cy.contains('label', 'Correção em andamento').find('input[type="radio"]').should('be.checked')
+  cy.contains('label', 'Correção em andamento').find(':checked').should('exist')
   cy.get('main').contains('a', EXAM.title).should('be.visible')
 }
 

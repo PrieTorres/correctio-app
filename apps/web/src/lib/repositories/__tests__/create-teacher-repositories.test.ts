@@ -29,6 +29,20 @@ describe('createTeacherRepositories', () => {
     expect(paths).toEqual(['GET /applications', 'GET /applications/a%201/versions', 'GET /applications/a%201/sheets'])
   })
 
+  /** Outside the demo nothing is read in this browser (#51): the other areas reach the API too. */
+  it('reads the classes, the students, the questions and the exams from the API when there is a client', async () => {
+    const { api, request } = fakeApi()
+    const repositories = createTeacherRepositories('ana', api)
+
+    await repositories.classes.list()
+    await repositories.students.listByClass('c 1')
+    await repositories.questions.list()
+    await repositories.exams.list()
+
+    const paths = request.mock.calls.map(([method, path]) => `${method} ${path.split('?')[0] ?? ''}`)
+    expect(paths).toEqual(['GET /classes', 'GET /classes/c%201/students', 'GET /questions', 'GET /exams'])
+  })
+
   /** One request each, calculated on the server (#50), instead of every list read here. */
   it('reads the panel and the reports from the API when there is a client', async () => {
     const { api, request } = fakeApi()

@@ -92,7 +92,7 @@ describe('painel: saudação e correções pendentes', () => {
 
     cy.location().should((location) => expect(location.pathname + location.search).to.match(/^\/aplicacoes\?status=correction-in-progress$/))
     cy.contains('h1', 'Aplicações').should('be.visible')
-    cy.contains('label', 'Correção em andamento').find('input[type="radio"]').should('be.checked')
+    cy.contains('label', 'Correção em andamento').find(':checked').should('exist')
     cy.contains('a', 'Cálculo I — Prova 1').should('be.visible')
     cy.contains('a', 'Física II — Teste rápido').should('not.exist')
   })

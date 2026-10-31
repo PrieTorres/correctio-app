@@ -1,4 +1,4 @@
-import { photoOf, printedPaperOf, printForTheTeacher, type PrintedApplication, type SignedInTeacher } from '../support/commands'
+import { apiAs, photoOf, printedPaperOf, printForTheTeacher, type PrintedApplication, type SignedInTeacher } from '../support/commands'
 
 /**
  * Correction, P15 to P17 (#47, #48): the photo of a printed sheet goes to the
@@ -79,7 +79,7 @@ describe('enviar folhas', () => {
       cy.findByLabel('Qual folha é esta foto?').parent().contains('button', 'Revisar').click()
 
       cy.contains('h1', 'Folha 1').should('be.visible')
-      cy.get('img[alt="Foto da folha 1"]').should('be.visible')
+      cy.get('[alt="Foto da folha 1"]').should('be.visible')
     })
   })
 
@@ -114,6 +114,73 @@ describe('enviar folhas', () => {
   })
 })
 
+/** What P15 to P17 show when there is nothing to grade, when the server fails, and to another teacher (#67). */
+describe('correção: vazio, erro e isolamento', () => {
+  it('explica que não há folhas antes de gerar o PDF', () => {
+    cy.visit('/aplicacoes')
+    cy.contains('a', 'Física II — Teste rápido').click()
+    cy.contains('h1', 'Física II — Teste rápido').should('be.visible')
+    cy.location('pathname').then((detail) => cy.visit(`${detail}/corrigir`))
+
+    cy.contains('Esta aplicação ainda não foi gerada, então não há folhas para corrigir.').should('be.visible')
+    cy.contains('label', 'Escolher arquivos').should('not.exist')
+  })
+
+  it('diz que não carregou quando o servidor falha', () => {
+    printForTheTeacher().then((printed) => {
+      cy.intercept({ method: 'GET', pathname: `/api/applications/${printed.applicationId}/sheets` }, { statusCode: 500, body: { code: 'FAILURE', message: 'Erro inesperado.' } })
+      cy.visit(`/aplicacoes/${printed.applicationId}/corrigir`)
+    })
+
+    cy.contains('[role="alert"]', 'Não foi possível carregar os dados', { timeout: 20000 }).should('be.visible')
+  })
+
+  /** The API answers 404 for another teacher's application, so neither the sheets nor the review open. */
+  it('não abre as folhas nem a revisão de outra professora', () => {
+    printForTheTeacher().then((printed) => {
+      cy.clearCookies()
+      cy.signInAsNewTeacher({ withSampleData: false })
+      cy.visit(`/aplicacoes/${printed.applicationId}/corrigir/${printed.sheet.id}`)
+    })
+
+    cy.contains(/Folha não encontrada\.|Não foi possível carregar os dados/, { timeout: 20000 }).should('be.visible')
+    cy.contains('button', 'Confirmar correção').should('not.exist')
+  })
+
+  /**
+   * RF31: two sheets printed without names cannot both be the same student on
+   * one version. The first is assigned through the API; giving the second the
+   * same student on P16 shows the API's refusal on the screen.
+   */
+  it('recusa associar o mesmo aluno a duas folhas da mesma versão', () => {
+    printForTheTeacher({ withStudentIdentification: false }).then((printed) => {
+      const api = apiAs(printed.accessToken)
+      api<{ classId: string }>('GET', `/applications/${printed.applicationId}`).then(({ body: { classId } }) => {
+        api<{ items: { id: string }[] }>('GET', `/classes/${classId}/students`).then(({ body: students }) => {
+          const studentId = students.items[0]?.id ?? ''
+          api<{ id: string }>('POST', `/classes/${classId}/students`, { fullName: 'Tiago Moreira', registration: '2026902' })
+          api('POST', `/applications/${printed.applicationId}/generate-pdf`, {
+            versions: [{ shuffleQuestions: false, shuffleAlternatives: false }],
+            withStudentIdentification: false,
+          })
+          printedPaperOf(printed.accessToken, printed.applicationId).then(({ sheets }) => {
+            const [first, second] = sheets.toSorted((a, b) => a.sheetNumber - b.sheetNumber)
+            cy.recordCorrection(printed.accessToken, { applicationId: printed.applicationId, answerSheetId: first?.id ?? '', answers: [], finalize: false }).then(
+              (correction) => api('PATCH', `/applications/${printed.applicationId}/corrections/${correction.id}`, { studentId }),
+            )
+            cy.recordCorrection(printed.accessToken, { applicationId: printed.applicationId, answerSheetId: second?.id ?? '', answers: [], finalize: false })
+            cy.visit(`/aplicacoes/${printed.applicationId}/pendentes`)
+            cy.get(`[aria-label="Associar aluno à folha ${second?.sheetNumber ?? ''}"]`).click()
+          })
+        })
+      })
+
+      cy.get('[aria-label="Associar esta folha a um aluno"]').select(printed.studentName)
+      cy.contains('[role="alert"]', 'Já existe uma correção deste aluno nesta versão').should('be.visible')
+    })
+  })
+})
+
 describe('revisar e confirmar', () => {
   beforeEach(() => {
     sendRightAnswer()
@@ -122,7 +189,7 @@ describe('revisar e confirmar', () => {
   })
 
   it('mostra a foto ao lado do que foi lido', () => {
-    cy.get('img[alt="Foto da folha 1"]').should('be.visible')
+    cy.get('[alt="Foto da folha 1"]').should('be.visible')
     cy.get('[aria-label="Questão 1, alternativa A, correta"]').should('have.attr', 'aria-pressed', 'true')
     totalShown().should('have.text', '10')
   })
@@ -152,10 +219,10 @@ describe('revisar e confirmar', () => {
   })
 
   it('permite girar e ampliar a foto', () => {
-    cy.get('button[aria-label="Girar a foto"]').click()
-    cy.get('button[aria-label="Aumentar o zoom"]').click()
+    cy.get('[aria-label="Girar a foto"]').click()
+    cy.get('[aria-label="Aumentar o zoom"]').click()
 
-    cy.get('img[alt="Foto da folha 1"]').should('have.attr', 'style').and('contain', 'rotate: 90deg')
+    cy.get('[alt="Foto da folha 1"]').should('have.attr', 'style').and('contain', 'rotate: 90deg')
   })
 })
 

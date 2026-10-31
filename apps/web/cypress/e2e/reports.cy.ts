@@ -12,6 +12,14 @@ import { printForTheTeacher } from '../support/commands'
 const CALCULUS = 'Cálculo I — Prova 1'
 const PHYSICS = 'Física II — Teste rápido'
 
+/** The cell of a row under a column, found by the header's text rather than by a fixed position. */
+function cellUnder(rowText: string, header: string): Cypress.Chainable<JQuery<HTMLElement>> {
+  return cy
+    .contains('th', header)
+    .invoke('index')
+    .then((column) => cy.contains('tr', rowText).find('td').eq(Number(column)))
+}
+
 function correctBoth(): void {
   cy.gradeFirstSheetOf(CALCULUS)
   cy.gradeFirstSheetOf(PHYSICS)
@@ -43,9 +51,7 @@ describe('relatório consolidado', () => {
   it('mostra os números de cada aplicação corrigida e leva ao relatório dela', () => {
     correctBoth()
 
-    cy.contains('tr', CALCULUS).within(() => {
-      cy.get('td').eq(3).should('have.text', '1')
-    })
+    cellUnder(CALCULUS, 'Corrigidas').should('have.text', '1')
     cy.contains('a', PHYSICS).click()
 
     cy.contains('h1', 'Relatório da aplicação').should('be.visible')

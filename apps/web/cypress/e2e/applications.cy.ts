@@ -332,10 +332,10 @@ describe('lista de aplicações: correção em andamento', () => {
     cy.correctFirstSheetOf(ALREADY_GENERATED)
     cy.visit('/aplicacoes?status=correction-in-progress')
 
-    cy.contains('label', 'Correção em andamento').find('input[type="radio"]').should('be.checked')
+    cy.contains('label', 'Correção em andamento').find(':checked').should('exist')
     cy.contains('a', ALREADY_GENERATED).should('be.visible')
     cy.reload()
-    cy.contains('label', 'Correção em andamento').find('input[type="radio"]').should('be.checked')
+    cy.contains('label', 'Correção em andamento').find(':checked').should('exist')
     cy.contains('a', ALREADY_GENERATED).should('be.visible')
   })
 
@@ -351,7 +351,7 @@ describe('lista de aplicações: correção em andamento', () => {
     cy.visit('/aplicacoes?status=nonsense')
 
     cy.contains('a', ALREADY_GENERATED).should('be.visible')
-    cy.contains('label', 'Ativas').find('input[type="radio"]').should('be.checked')
+    cy.contains('label', 'Ativas').find(':checked').should('exist')
   })
 })
 
@@ -583,7 +583,7 @@ describe('detalhe da aplicação', () => {
    * the dialog to close, which is when the removal has reached the server.
    */
   it('mantém o nome do aluno removido da turma nas folhas já geradas', () => {
-    cy.contains('table tbody tr', 'Bruno Carvalho Lima').should('be.visible')
+    sheetTable().contains('tr', 'Bruno Carvalho Lima').should('be.visible')
 
     cy.visit('/turmas')
     cy.contains('a', 'Cálculo I — Noturno').click()
@@ -596,8 +596,8 @@ describe('detalhe da aplicação', () => {
     cy.contains('Bruno Carvalho Lima').should('not.exist')
 
     openDetailOf(ALREADY_GENERATED)
-    cy.get('table tbody tr').should('have.length', 12)
-    cy.contains('table tbody tr', 'Bruno Carvalho Lima').should('be.visible')
+    sheetTable().find('tbody tr').should('have.length', ALREADY_GENERATED_SHEETS)
+    sheetTable().contains('tr', 'Bruno Carvalho Lima').should('be.visible')
     cy.contains('Aluno removido').should('not.exist')
 
     cy.contains('a', 'Corrigir folhas').click()

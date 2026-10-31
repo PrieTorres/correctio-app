@@ -379,7 +379,7 @@ Cypress.Commands.add('findInDialog', (selector: string, text: string) => {
  */
 Cypress.Commands.add('chooseSegment', (text: string) => {
   cy.contains('label', text).click()
-  return cy.contains('label', text).find('input[type="radio"]').should('be.checked')
+  return cy.contains('label', text).find(':checked').should('exist')
 })
 
 /**
