@@ -3,7 +3,14 @@ import { useMemo, type ReactNode } from 'react'
 import { currentUserQuery, recheckSession } from '@/features/auth/hooks/useAuth'
 import { DEMO_MODE } from '@/lib/app-mode'
 import { createHttpAuthProvider, createLocalAuthProvider } from '@/lib/auth'
-import { createPublicLookupRepository, createTeacherRepositories } from '@/lib/repositories'
+import {
+  createHttpPublicLookupRepository,
+  createHttpTeacherRepositories,
+  createLocalPublicLookupRepository,
+  createLocalTeacherRepositories,
+  type PublicLookupRepository,
+  type TeacherRepositories,
+} from '@/lib/repositories'
 import { apiBaseUrl } from '@/lib/repositories/http/api-config'
 import { createApiClient } from '@/lib/repositories/http/api-client'
 import { createAppQueryClient } from './query-client'
@@ -26,11 +33,18 @@ const api = createApiClient({
 })
 
 /**
- * The demo has no API, so its repositories get no client and keep everything
- * in this browser (`createTeacherRepositories`). The Firebase builds hand the
- * client over, and the areas already on the API read from it.
+ * Decided by the build, not at run time (#51): `DEMO_MODE` is a constant, so
+ * the Firebase bundle keeps only the HTTP side, and the repositories of the
+ * browser, the seed and the local sign-in never reach it. The demo has no API
+ * and keeps everything in the browser.
  */
-const repositoryApi = DEMO_MODE ? undefined : api
+function servicesFor(teacherId: string): { repositories: TeacherRepositories; publicLookup: PublicLookupRepository } {
+  if (DEMO_MODE) {
+    const repositories = createLocalTeacherRepositories(teacherId)
+    return { repositories, publicLookup: createLocalPublicLookupRepository(repositories) }
+  }
+  return { repositories: createHttpTeacherRepositories(api), publicLookup: createHttpPublicLookupRepository(api) }
+}
 
 /** Teacher id of the repositories while nobody is signed in; the guard keeps every screen that reads them closed. */
 const SIGNED_OUT = ''
@@ -42,10 +56,7 @@ const SIGNED_OUT = ''
 function TeacherServices({ children }: Readonly<{ children: ReactNode }>) {
   const { data: user } = useQuery(currentUserQuery(auth))
   const teacherId = user?.id ?? SIGNED_OUT
-  const services = useMemo(() => {
-    const repositories = createTeacherRepositories(teacherId, repositoryApi)
-    return { auth, repositories, publicLookup: createPublicLookupRepository(repositories, repositoryApi) }
-  }, [teacherId])
+  const services = useMemo(() => ({ auth, ...servicesFor(teacherId) }), [teacherId])
 
   return <AppServicesContext.Provider value={services}>{children}</AppServicesContext.Provider>
 }

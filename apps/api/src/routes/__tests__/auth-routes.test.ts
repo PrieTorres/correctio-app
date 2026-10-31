@@ -257,6 +257,58 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('authentication routes (real MyS
     })
   })
 
+  describe('account (P2)', () => {
+    it('answers the name, the e-mail and the type of the account of the token', async () => {
+      const email = uniqueEmail()
+      const { body } = await register(email)
+
+      const response = await request(app).get('/me').set('Authorization', `Bearer ${body.accessToken}`)
+
+      expect(response.status).toBe(200)
+      expect(response.body).toMatchObject({ fullName: 'Ana Lima', email, role: 'professor' })
+    })
+
+    /** RF05: the name and the e-mail go, the account and everything made with it stay, and every session ends. */
+    it('anonymizes the account, keeps what it made and ends every session', async () => {
+      const email = uniqueEmail()
+      const { body } = await register(email)
+      const devices = [sessionCookieOf(await signIn(email)), sessionCookieOf(await signIn(email))]
+      await db.insertInto('classes').values({ id: randomUUID(), teacherId: body.user.id, name: 'Turma', subject: 'Física', term: '2026/2', status: 'active', inviteCode: randomUUID().slice(0, 8) }).execute()
+
+      const before = await db.selectFrom('users').select('passwordHash').where('id', '=', body.user.id).executeTakeFirstOrThrow()
+
+      const response = await request(app).post('/me/anonymize').set('Authorization', `Bearer ${body.accessToken}`)
+
+      expect(response.status).toBe(204)
+      expect(response.get('Set-Cookie')?.[0]).toMatch(/^__session=;/)
+      const stored = await db.selectFrom('users').select(['fullName', 'email', 'passwordHash', 'anonymizedAt']).where('id', '=', body.user.id).executeTakeFirstOrThrow()
+      expect(stored).toMatchObject({ fullName: 'Professor anonimizado', email: `anon-${body.user.id}@removido.invalid` })
+      expect(stored.passwordHash).not.toBe(before.passwordHash)
+      expect(stored.anonymizedAt).toBeInstanceOf(Date)
+      expect(await db.selectFrom('classes').select('id').where('teacherId', '=', body.user.id).execute()).toHaveLength(1)
+      const open = await db.selectFrom('refresh_tokens').select('id').where('userId', '=', body.user.id).where('revokedAt', 'is', null).execute()
+      expect(open).toEqual([])
+      for (const device of devices) expect((await refresh(device)).status).toBe(401)
+      expect((await signIn(email)).status).toBe(401)
+    })
+
+    it('frees the e-mail of an anonymized account for a new one', async () => {
+      const email = uniqueEmail()
+      const { body } = await register(email)
+      await request(app).post('/me/anonymize').set('Authorization', `Bearer ${body.accessToken}`)
+
+      expect((await register(email)).status).toBe(201)
+    })
+
+    it('refuses to anonymize twice, and needs the access token', async () => {
+      const { body } = await register(uniqueEmail())
+
+      expect((await request(app).post('/me/anonymize')).status).toBe(401)
+      expect((await request(app).post('/me/anonymize').set('Authorization', `Bearer ${body.accessToken}`)).status).toBe(204)
+      expect((await request(app).post('/me/anonymize').set('Authorization', `Bearer ${body.accessToken}`)).status).toBe(401)
+    })
+  })
+
   describe('password reset', () => {
     const forgot = (email: string) => request(app).post('/auth/forgot-password').send({ email })
     const reset = (code: string, password = 'senha-nova-1') => request(app).post('/auth/reset-password').send({ code, password })

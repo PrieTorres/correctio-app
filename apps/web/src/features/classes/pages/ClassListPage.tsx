@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Archive, Plus, RotateCcw } from 'lucide-react';
+import { Archive, Plus, RotateCcw, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import {
   ArchiveIllustration,
@@ -8,7 +8,6 @@ import {
   Button,
   Card,
   ClassesIllustration,
-  ConfirmDialog,
   EmptyState,
   PageHeader,
   Pagination,
@@ -21,8 +20,10 @@ import {
   useDebouncedValue,
 } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
+import { studentCount } from '@/lib/import';
 import type { Class } from '@/types/domain';
 import { CLASS_PAGE_SIZE, useArchiveClass, useClassList } from '../hooks/useClasses';
+import { ArchiveClassDialog } from '../components/ArchiveClassDialog';
 import { ClassFormModal } from '../components/ClassFormModal';
 
 type Filter = 'active' | 'archived';
@@ -169,7 +170,7 @@ export function ClassListPage() {
 
       <ClassFormModal open={formOpen} onOpenChange={setFormOpen} editing={editing} />
 
-      <ArchiveConfirmDialog
+      <ArchiveClassDialog
         item={pendingArchive}
         pending={archiveClass.isPending}
         error={archiveClass.error}
@@ -236,6 +237,14 @@ function EmptyClassList({
   );
 }
 
+/**
+ * One class of P3. Its buttons repeat on every card, so each one's accessible
+ * name starts with the visible word and then names the class: a screen
+ * reader's list of buttons otherwise reads "Editar, Editar, Editar…" (#145).
+ *
+ * The number of students comes with the list (#146), so a class still empty
+ * shows it without being opened.
+ */
 function ClassCard({
   item,
   onEdit,
@@ -246,6 +255,7 @@ function ClassCard({
   onToggleArchive: () => void;
 }>) {
   const isArchived = item.status === 'archived';
+  const archiveLabel = isArchived ? 'Restaurar' : 'Arquivar';
 
   return (
     <Card interactive className="flex h-full flex-col justify-between p-5">
@@ -261,54 +271,27 @@ function ClassCard({
         </div>
         <p className="text-body text-ink-muted">{item.subject}</p>
         <p className="text-caption text-ink-subtle">{item.term}</p>
+        {item.studentCount !== undefined && (
+          <p className="mt-2 flex items-center gap-1.5 text-caption text-ink-muted">
+            <Users size={14} aria-hidden />
+            {studentCount(item.studentCount)}
+          </p>
+        )}
       </div>
 
       <div className="above-card-link mt-5 flex gap-2">
-        <Button variant="ghost" onClick={onEdit}>
+        <Button variant="ghost" aria-label={`Editar a turma ${item.name}`} onClick={onEdit}>
           Editar
         </Button>
         <Button
           variant="ghost"
           icon={isArchived ? <RotateCcw size={16} aria-hidden /> : <Archive size={16} aria-hidden />}
+          aria-label={`${archiveLabel} a turma ${item.name}`}
           onClick={onToggleArchive}
         >
-          {isArchived ? 'Restaurar' : 'Arquivar'}
+          {archiveLabel}
         </Button>
       </div>
     </Card>
-  );
-}
-
-/** Stays open when the API refuses, with the reason, instead of closing as if the archive or restore went through. */
-function ArchiveConfirmDialog({
-  item,
-  pending,
-  error,
-  onOpenChange,
-  onConfirm,
-}: Readonly<{
-  item: Class | null;
-  pending: boolean;
-  error: Error | null;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
-}>) {
-  const isArchiving = item?.status === 'active';
-
-  return (
-    <ConfirmDialog
-      open={item !== null}
-      onOpenChange={onOpenChange}
-      title={isArchiving ? 'Arquivar esta turma?' : 'Restaurar esta turma?'}
-      description={
-        isArchiving
-          ? 'A turma sai das listas ativas, mas continua nos relatórios e nas aplicações já feitas. Você pode restaurá-la depois.'
-          : 'A turma volta para a lista de ativas e pode receber novas aplicações.'
-      }
-      confirmLabel={isArchiving ? 'Arquivar' : 'Restaurar'}
-      pending={pending}
-      error={error}
-      onConfirm={onConfirm}
-    />
   );
 }

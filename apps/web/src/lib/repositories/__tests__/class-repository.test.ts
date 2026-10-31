@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createHttpClassRepository, createLocalClassRepository } from '../class-repository'
+import { countStudentsByClass, createHttpClassRepository, createLocalClassRepository } from '../class-repository'
+import { createLocalStudentRepository } from '../student-repository'
 import type { ApiClient } from '../http/api-client'
 import { clearAllCollections, createCollection } from '@/lib/storage/collection'
 import { classSchema } from '@/lib/schemas'
@@ -111,6 +112,53 @@ describe('class repository', () => {
   })
 })
 
+/** #146: the cards of P3 count the students as P5 does. */
+describe('class repository, student count', () => {
+  beforeEach(clearAllCollections)
+
+  it('counts anonymized students and leaves removed ones out', () => {
+    const counts = countStudentsByClass([
+      { classId: 'c1' },
+      { classId: 'c1', removedAt: '2026-10-30T00:00:00.000Z' },
+      { classId: 'c1' },
+      { classId: 'c2' },
+    ])
+
+    expect(counts.get('c1')).toBe(2)
+    expect(counts.get('c2')).toBe(1)
+    expect(counts.get('c3')).toBeUndefined()
+  })
+
+  it('lists every class with its count, an empty one with zero', async () => {
+    const classes = createLocalClassRepository('ana')
+    const students = createLocalStudentRepository()
+    const calculo = await classes.create({ name: 'Cálculo I', subject: 'Matemática', term: '2026/2' })
+    await classes.create({ name: 'Física II', subject: 'Física', term: '2026/2' })
+
+    const first = await students.add(calculo.id, { fullName: 'Ana Lima', registration: '202601' })
+    const second = await students.add(calculo.id, { fullName: 'Bruno Melo', registration: '202602' })
+    await students.add(calculo.id, { fullName: 'Carla Dias', registration: '202603' })
+    await students.anonymize(calculo.id, first.id)
+    await students.remove(calculo.id, second.id)
+
+    const page = await classes.list()
+
+    expect(page.items.map((item) => [item.name, item.studentCount])).toEqual([
+      ['Cálculo I', 2],
+      ['Física II', 0],
+    ])
+  })
+
+  it('never writes the count into the stored class', async () => {
+    const classes = createLocalClassRepository('ana')
+    await classes.create({ name: 'Cálculo I', subject: 'Matemática', term: '2026/2' })
+
+    await classes.list()
+
+    expect(createCollection('classes', classSchema).readAll()[0]).not.toHaveProperty('studentCount')
+  })
+})
+
 describe('class repository, duplicates', () => {
   beforeEach(clearAllCollections)
 
@@ -194,6 +242,14 @@ describe('HTTP class repository', () => {
     expect(request).toHaveBeenCalledWith('GET', '/classes', {
       query: { search: 'calculo', archived: undefined, page: 2, pageSize: 50 },
     })
+  })
+
+  /** #146: the count of each card comes from the API, checked like the rest of the class. */
+  it('keeps the student count the API sends with each class', async () => {
+    const request = vi.fn<ApiClient['request']>(() => Promise.resolve({ items: [{ ...CLASS, studentCount: 12 }], total: 1 }))
+    const repository = createHttpClassRepository({ request })
+
+    await expect(repository.list()).resolves.toMatchObject({ items: [{ studentCount: 12 }] })
   })
 
   it('archives and restores through the routes of the class', async () => {

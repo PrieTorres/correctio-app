@@ -30,3 +30,21 @@ export function compareByLocale(a: string, b: string): number {
 export function firstName(fullName: string | undefined): string {
   return fullName?.trim().split(/\s+/)[0] ?? ''
 }
+
+/** Long enough to tell two questions apart, short enough to be read out as part of a button's name. */
+const EXCERPT_LENGTH = 60
+
+/**
+ * The opening words of a text, cut at a word and marked with an ellipsis when
+ * there is more, with its line breaks folded into spaces. Used where a whole
+ * question statement would be too long to say, such as the name of a button
+ * that acts on that question.
+ */
+export function excerpt(text: string, maxLength = EXCERPT_LENGTH): string {
+  const flat = text.trim().replace(/\s+/g, ' ')
+  if (flat.length <= maxLength) return flat
+
+  const cut = flat.slice(0, maxLength)
+  const lastSpace = cut.lastIndexOf(' ')
+  return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).replace(/[\s,.;:]+$/, '')}…`
+}

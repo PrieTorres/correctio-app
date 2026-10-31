@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, fromDateInputValue, toDateInputValue } from '../date'
+import { formatDate, fromDateInputValue, toDateInputValue, todayAsStored } from '../date'
 
 describe('formatDate', () => {
   it('reads as a Brazilian date', () => {
@@ -38,5 +38,16 @@ describe('fromDateInputValue', () => {
 
   it('produces nothing usable from an empty field', () => {
     expect(fromDateInputValue('')).toBe('')
+  })
+})
+
+describe('todayAsStored', () => {
+  /** 22:30 on the teacher's clock is already the next day in UTC; the stored day must still be the one on the clock. */
+  it('keeps the day of the local calendar late in the evening, at noon UTC', () => {
+    expect(todayAsStored(new Date(2026, 9, 5, 22, 30))).toBe('2026-10-05T12:00:00.000Z')
+  })
+
+  it('keeps the day of the local calendar right after midnight', () => {
+    expect(todayAsStored(new Date(2026, 9, 6, 0, 5))).toBe('2026-10-06T12:00:00.000Z')
   })
 })

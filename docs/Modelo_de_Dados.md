@@ -110,10 +110,17 @@ de volta ao endereço de onde partiu (2 minutos). Os valores de `purpose` são d
   term: string
   status: "active" | "archived"
   inviteCode: string           // único, regenerável
+  studentCount?: number        // + só na listagem: alunos da turma, anonimizados sim, removidos não
 }
 ```
 
 > Arquivar é `status: "archived"`, **não** um campo `archivedAt`. A Spec define enum.
+
+`studentCount` é acréscimo do grupo (#146) para o card da P3, que a Spec pede com o número de
+alunos. É calculado a cada listagem, numa consulta agrupada por página, e **não é gravado**: não
+existe coluna para ele, e a turma lida por id, criada ou editada vem sem o campo. Conta como a
+P5 conta em "Alunos (N)": o aluno anonimizado continua na turma, com as notas (RF38), e conta; o
+removido saiu da turma (RF09) e não conta.
 
 ### ClassEnrollment
 
@@ -265,12 +272,18 @@ sem identificação.
   studentId?: string
   sheetNumber: number          // curto e legível, para o professor organizar papel
   code: string                 // token opaco de 26 caracteres (130 bits)
+  answerCardVersion: number    // geometria do cartão-resposta com que a folha foi impressa
 }
 ```
 
 > `sheetNumber` e `code` **nunca se confundem**. O primeiro é para organizar papel; o
 > segundo é a única chave da consulta pública. Usar um número curto como chave tornaria
 > todas as notas varreduráveis.
+
+**`answerCardVersion`** é o `ANSWER_CARD.version` do momento da geração. A leitura da foto
+procura as bolinhas onde aquela geometria as imprimiu, então o cartão pode mudar sem tornar
+ilegíveis as folhas que já estão com os alunos (`docs/answer-card/answer-card.md`). Uma folha
+gravada antes do campo existir é da primeira geometria, a única que havia.
 
 ### Correction
 
@@ -293,7 +306,7 @@ sem identificação.
   answerSheetId: string                 // +
   source: "IMAGE_UPLOAD" | "MANUAL"     // +
   status: "IN_PROGRESS" | "DONE"        // +  espera nota de discursiva
-  imageUrl?: string                     // +
+  imageUrl?: string                     // +  chave da foto no Storage (ADR-004), não um link que expira
 }
 ```
 
@@ -314,6 +327,27 @@ dado pessoal.**
   entity: string               // ex.: "answer_sheet"
   entityId?: string
   details?: object             // referência e motivo, sem dado pessoal
+  createdAt: Date
+}
+```
+
+### SheetImage `+`
+
+Acréscimo do grupo (#47, migração `0004`): a foto de uma folha enviada para correção. O arquivo
+fica no Storage (ADR-004); a linha guarda onde ele está e como terminou a leitura. É o que
+permite entregar a foto só ao professor da aplicação, ligar a correção à foto de onde veio e
+contar o limite diário de envios.
+
+```ts
+{
+  id: string
+  applicationId: string
+  teacherId: string
+  storageKey: string           // ex.: "answer-sheets/<applicationId>/<id>.jpg"
+  contentType: "image/jpeg" | "image/png" | "image/webp"
+  byteSize: number
+  status: "READ" | "QR_NOT_RECOGNIZED" | "READ_FAILED"   // valores do grupo
+  answerSheetId?: string       // ausente quando o QR não foi reconhecido
   createdAt: Date
 }
 ```
@@ -369,6 +403,8 @@ verdade, que toda tabela tem todos os campos deste documento.
 - **Remoção é sempre soft**, pelo campo de cada entidade. Nenhuma chave estrangeira apaga em
   cascata.
 - **`Student.email` guarda o texto criptografado** (AES-256-GCM), nunca o endereço.
+- **Campo calculado não vira coluna.** `Class.studentCount` é contado dos alunos a cada listagem;
+  o teste de conformidade das tabelas o deixa de fora.
 
 ---
 

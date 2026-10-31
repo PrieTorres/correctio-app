@@ -9,6 +9,12 @@ import type { Database } from '../models/tables'
 import type { QuestionType } from '@correctio/domain'
 
 /**
+ * The primary key of `question_tags`, on the question and the tag. It compares
+ * the tag under the collation of the column, which ignores case and accents.
+ */
+export const QUESTION_TAG_INDEX = 'question_tags.PRIMARY'
+
+/**
  * The shape of a question as the API exposes it, mirrors `questionSchema`.
  *
  * Optional fields are omitted when they have no value, not sent as `null`: the
@@ -154,6 +160,26 @@ export class QuestionRepository {
 
     const children = await this.loadChildren([row.id])
     return this.hydrate(row, children)
+  }
+
+  /**
+   * The questions of the teacher with these ids, deleted ones included, in no
+   * particular order. An exam keeps a question deleted from the bank after it
+   * joined, and its printed versions still need the alternatives, so the
+   * generation of an application reads by id rather than from the bank.
+   */
+  async findByIds(teacherId: string, ids: readonly string[]): Promise<QuestionRecord[]> {
+    if (ids.length === 0) return []
+
+    const rows = await this.db
+      .selectFrom('questions')
+      .selectAll()
+      .where('teacherId', '=', teacherId)
+      .where('id', 'in', [...ids])
+      .execute()
+
+    const children = await this.loadChildren(rows.map((row) => row.id))
+    return rows.map((row) => this.hydrate(row, children))
   }
 
   async findMany(teacherId: string, filters: QuestionFilters) {

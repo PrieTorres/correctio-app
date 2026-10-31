@@ -8,6 +8,7 @@ import type {
   ExamStatus,
   ExamVersionLayout,
   QuestionType,
+  SheetReadingStatus,
   UserRole,
 } from '@correctio/domain'
 import type { ColumnType } from 'kysely'
@@ -174,6 +175,8 @@ export interface AnswerSheetsTable {
   studentId: string | null
   sheetNumber: number
   code: string
+  /** `+` The geometry of the card the sheet was printed with (`0003-answer-card-version`); the first one by default. */
+  answerCardVersion: ColumnType<number, number | undefined, number>
 }
 
 export interface CorrectionsTable extends Audited {
@@ -209,6 +212,19 @@ export interface CorrectionDiscursiveScoresTable {
   score: number
 }
 
+/** A photo of a sheet sent for correction, kept in Cloud Storage under `storageKey` (migration `0004`). */
+export interface SheetImagesTable {
+  id: string
+  applicationId: string
+  teacherId: string
+  storageKey: string
+  contentType: string
+  byteSize: number
+  status: SheetReadingStatus
+  answerSheetId: string | null
+  createdAt: DatabaseTimestamp
+}
+
 /** The general log: what failed or happened, never the content of personal data. */
 export interface ActivityLogsTable {
   id: string
@@ -240,4 +256,5 @@ export interface Database {
   correction_objective_results: CorrectionObjectiveResultsTable
   correction_discursive_scores: CorrectionDiscursiveScoresTable
   activity_logs: ActivityLogsTable
+  sheet_images: SheetImagesTable
 }

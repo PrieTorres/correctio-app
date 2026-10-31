@@ -158,8 +158,8 @@ Erros que já aconteceram e não podem repetir:
 ## Estrutura
 
 ```
-apps/web/          front-end React + Vite (N1 em localStorage)
-apps/api/          back-end Express + MySQL, em camadas (a partir da N2)
+apps/web/          front-end React + Vite (o demo do Pages ainda roda em localStorage)
+apps/api/          back-end Express + MySQL, em camadas (desde a N2)
 packages/domain/   tipos e schemas Zod do contrato, usados pelo front e pela API
 docs/              documentação — ver índice no readme.md
 .plano/            plano de execução interno, fora do controle de versão

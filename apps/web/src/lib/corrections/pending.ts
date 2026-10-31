@@ -20,22 +20,16 @@ export function countPendingCorrections(corrections: readonly Pick<Correction, '
 export type CorrectionsByApplication = ReadonlyMap<string, readonly Correction[]>
 
 /**
- * Reads the corrections behind each application.
- *
- * Reached through the sheets because a correction does not name its
- * application. Starting from the teacher's own applications is also what keeps
+ * Reads the corrections behind each application, which live under it on the
+ * API (#47). Starting from the teacher's own applications is also what keeps
  * another teacher's corrections out of the count.
  */
 export async function loadCorrectionsByApplication(
-  { printing, corrections }: Pick<TeacherRepositories, 'printing' | 'corrections'>,
+  { corrections }: Pick<TeacherRepositories, 'corrections'>,
   applications: readonly Pick<Application, 'id'>[],
 ): Promise<CorrectionsByApplication> {
   const entries = await Promise.all(
-    applications.map(async ({ id }) => {
-      const sheets = await printing.listSheets(id)
-      const found = await corrections.listByAnswerSheets(sheets.map((sheet) => sheet.id))
-      return [id, found] as const
-    }),
+    applications.map(async ({ id }) => [id, await corrections.listByApplication(id)] as const),
   )
 
   return new Map(entries)

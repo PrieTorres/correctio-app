@@ -1,19 +1,29 @@
+import { printForTheTeacher } from '../support/commands'
+
 /**
  * The consolidated report (P19) and its filters.
  *
  * Two applications are corrected so there is something to tell apart: the
  * calculus midterm (a maths class, term 2026/2, on 2026-10-05) and the physics
  * quiz (a physics class, term 2026/2, on 2026-11-12). The sample data has no
- * corrections of its own.
+ * corrections of its own, and the report is calculated on the API (#50), so
+ * the corrections are written there, finished, with every answer right.
  */
 const CALCULUS = 'Cálculo I — Prova 1'
 const PHYSICS = 'Física II — Teste rápido'
 
+/** The cell of a row under a column, found by the header's text rather than by a fixed position. */
+function cellUnder(rowText: string, header: string): Cypress.Chainable<JQuery<HTMLElement>> {
+  return cy
+    .contains('th', header)
+    .invoke('index')
+    .then((column) => cy.contains('tr', rowText).find('td').eq(Number(column)))
+}
+
 function correctBoth(): void {
-  cy.readFirstSheetOf(CALCULUS)
-  cy.generateApplication(PHYSICS)
-  cy.readFirstSheetOf(PHYSICS)
-  cy.get('[aria-label="Navegação principal"]').contains('a', 'Relatórios').click()
+  cy.gradeFirstSheetOf(CALCULUS)
+  cy.gradeFirstSheetOf(PHYSICS)
+  cy.visit('/relatorios')
   cy.contains('h1', 'Relatório consolidado').should('be.visible')
   cy.contains('a', CALCULUS).should('be.visible')
   cy.contains('a', PHYSICS).should('be.visible')
@@ -25,6 +35,27 @@ describe('relatório consolidado', () => {
 
     cy.contains('Nenhuma aplicação corrigida').should('be.visible')
     cy.get('form[aria-label="Filtros do relatório"]').should('not.exist')
+  })
+
+  /** Requirements, section 5: a correction without every open-ended score has no grade to compare yet. */
+  it('deixa de fora a aplicação que só tem correção em andamento', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, sheet }) => {
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [], finalize: false })
+    })
+    cy.visit('/relatorios')
+
+    cy.contains('Nenhuma aplicação corrigida').should('be.visible')
+  })
+
+  /** Every number of a row comes from the server, from the finished corrections, with the full grade here. */
+  it('mostra os números de cada aplicação corrigida e leva ao relatório dela', () => {
+    correctBoth()
+
+    cellUnder(CALCULUS, 'Corrigidas').should('have.text', '1')
+    cy.contains('a', PHYSICS).click()
+
+    cy.contains('h1', 'Relatório da aplicação').should('be.visible')
+    cy.contains(PHYSICS).should('be.visible')
   })
 })
 
@@ -106,6 +137,22 @@ describe('relatório consolidado: filtros', () => {
     cy.contains('a', PHYSICS).should('be.visible')
     cy.contains('button', 'Limpar filtros').should('not.exist')
     cy.location('search').should('eq', '')
+  })
+
+  /** RF36: the file holds the rows on screen, so the filters go along with the export. */
+  it('exporta em Excel só as linhas do filtro e baixa o arquivo pelo aviso', () => {
+    cy.findByLabel('Turma').select('Física II')
+    cy.intercept({ method: 'GET', pathname: '/api/reports/consolidated', query: { format: 'xlsx' } }).as('export')
+
+    cy.contains('button', 'Exportar Excel').click()
+
+    cy.wait('@export').then(({ request, response }) => {
+      expect(request.url).to.contain('class=')
+      expect(response?.headers['content-type']).to.contain('spreadsheetml')
+    })
+    cy.contains('[role="status"]', 'Relatório consolidado em Excel: pronto.').within(() => {
+      cy.contains('button', /^Baixar relatorio-consolidado-\d{4}-\d{2}-\d{2}\.xlsx$/).click()
+    })
   })
 
   /** Each row's figures come from its own scores, and only the rows that survive the filter are drawn. */
