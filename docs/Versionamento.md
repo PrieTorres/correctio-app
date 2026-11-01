@@ -18,7 +18,7 @@ O projeto segue **SemVer** (`MAIOR.MENOR.CORREÇÃO`), com uma leitura própria 
 
 A troca de maior acompanha a fase da disciplina porque cada uma muda a fonte de dados por baixo — é uma quebra real de arquitetura, não um detalhe interno.
 
-Enquanto a versão começar com `0.`, vale a regra do SemVer: **nada é estável e qualquer coisa pode mudar**. É exatamente a situação das próximas semanas, e é honesto sinalizar isso.
+Enquanto a versão começava com `0.`, valia a regra do SemVer: **nada era estável e qualquer coisa podia mudar**. Foi assim até a N1 fechar na `1.0.0` (#25, 11/09/2026).
 
 ### O que faz subir cada número
 
@@ -26,19 +26,19 @@ Enquanto a versão começar com `0.`, vale a regra do SemVer: **nada é estável
 - **MENOR** (`0.3.1` → `0.4.0`): tela nova funcionando, fluxo novo, requisito atendido.
 - **MAIOR** (`0.9.0` → `1.0.0`): virada de fase, conforme a tabela acima.
 
-## 2. Como chegar em 1.0.0
+## 2. Como a 1.0.0 foi declarada
 
-A versão sobe conforme os passos do plano de execução são concluídos. Cada tela que sai do estado de espaço reservado e passa a funcionar com dados reais rende uma versão menor.
+A versão subia conforme os passos do plano de execução eram concluídos. Cada tela que saía do estado de espaço reservado e passava a funcionar com dados reais rendia uma versão menor.
 
-O critério para declarar **1.0.0** é objetivo — não é "parece pronto":
+O critério usado para fechar a N1 em **1.0.0** (#25) foi objetivo — não "parece pronto":
 
-- [ ] As 25 telas navegam entre si conforme a seção 8 do documento de requisitos
-- [ ] Todos os fluxos previstos funcionam com `localStorage`, sem tela de espaço reservado
-- [ ] O conjunto de dados de demonstração cobre todas as telas
-- [ ] Portão de qualidade passando: lint, tipos, cobertura ≥ 80% nas regras críticas, Cypress e Sonar
-- [ ] Sistema publicado e acessível pelo link do GitHub Pages
+- As 25 telas navegam entre si conforme a seção 8 do documento de requisitos
+- Todos os fluxos previstos funcionam com `localStorage`, sem tela de espaço reservado
+- O conjunto de dados de demonstração cobre todas as telas
+- Portão de qualidade passando: lint, tipos, cobertura ≥ 80% nas regras críticas, Cypress e Sonar
+- Sistema publicado e acessível pelo link do GitHub Pages
 
-Faltando qualquer item, continua `0.x`.
+Faltando qualquer item, a versão continuaria `0.x`. A `1.0.0` não ganhou tag: a primeira release com tag foi a `1.1.0`.
 
 ## 3. Release do dia
 
@@ -63,11 +63,11 @@ As entregas são agrupadas em **uma release por dia de trabalho**, e não uma po
 **Versão oficial:**
 
 1. Rode **"2. Release: publish to production"** informando a versão, por exemplo `1.2.0`.
-2. O workflow recusa uma versão que já existe e roda o portão de qualidade inteiro.
+2. O workflow só roda a partir da `main`, recusa uma versão que já existe e roda de novo lint, tipos, testes, build e a conferência do bundle do Firebase. Cypress, auditoria e Sonar já barraram o merge e não se repetem aqui.
 3. **A PM aprova a publicação** na página da execução ("Review deployments"). Sem a aprovação dela, nada vai para produção e nenhuma tag é criada.
 4. O workflow **publica em produção** (`https://correctio-app.web.app`) exatamente o commit que passou no portão e, com a produção respondendo, cria a tag `v1.2.0` e a release com as notas geradas a partir dos PRs mergeados desde a tag anterior. Se a publicação falhar, nenhuma tag é criada: corrija e rode de novo com a mesma versão.
 
-Nenhuma release sai de código que não passa no portão — é a mesma barreira do merge, aplicada de novo antes de publicar.
+Nenhuma release sai de código que não passa nessas verificações, aplicadas de novo antes de publicar.
 
 ### Notas de release legíveis
 
@@ -83,6 +83,8 @@ O projeto usa Conventional Commits nos títulos de PR e nos commits:
 | `refactor:` | mudança interna sem alterar comportamento |
 | `test:` | testes |
 | `chore:` | build, dependências, configuração |
+| `ci:` | workflows e publicação |
+| `release:` | PR da release do dia para a `main` |
 
 ## 4. Onde a versão vive
 
@@ -90,4 +92,17 @@ O projeto usa Conventional Commits nos títulos de PR e nos commits:
 
 ## 5. Estado atual
 
-**`1.1.0`** — primeira release com tag: a N1 completa mais a infraestrutura da N2 (API, banco MySQL e publicação no Firebase), ainda sem telas ligadas ao banco. A `2.0.0` sai na entrega da N2.
+**`2.0.0`** (01/11/2026) — a entrega da N2: todas as telas ligadas à API e ao MySQL, sem dado simulado no que está publicado em `https://correctio-app.web.app`. A próxima versão maior, `3.0.0`, é a entrega da N3.
+
+O histórico abaixo resume cada release. As notas completas, com todos os PRs, ficam na [página de releases](https://github.com/PrieTorres/correctio-app/releases).
+
+| Versão | Data | O que trouxe |
+|---|---|---|
+| `1.1.0` | 12/10/2026 | Primeira release com tag: a N1 completa mais a infraestrutura da N2 (API, banco MySQL e publicação no Firebase), ainda sem telas ligadas ao banco |
+| `1.2.0` | 16/10/2026 | Front publicado no GitHub Pages para teste; diagramas de atividades, de sequência e de classes |
+| `1.3.0` | 19/10/2026 | Turmas e alunos na API |
+| `1.4.0` | 20/10/2026 | Telas de turmas e alunos na API, com importação em lote; leitura das aplicações, armazenamento de arquivos e PDF da prova na API; primeiros ADRs |
+| `1.5.0` | 22/10/2026 | Banco de questões na API; provas e sorteio automático no servidor |
+| `1.6.0` | 28/10/2026 | Telas de provas na API; filtros do painel e dos relatórios |
+| `1.7.0` | 30/10/2026 | Consulta pública da nota pelo QR na API |
+| `2.0.0` | 01/11/2026 | N2 completa: aplicações geradas no servidor, leitura das fotos e correção na API, painel e relatórios na API, README v2; estados de carregamento, erro e vazio; sorteio por qualquer uma das tags marcadas |

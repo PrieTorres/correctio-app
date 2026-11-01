@@ -281,7 +281,8 @@ Pontos que o diagrama mostra e que vale saber antes de ler:
   apagadas (ver "Reservado para escopo futuro" no [Modelo de Dados](../Modelo_de_Dados.md)).
 - **Nenhuma chave estrangeira apaga em cascata.** Remover é sempre arquivar, pelo campo de cada
   entidade: `questions.deletedAt`, `classes.status = 'archived'`, `exams.status = 'closed'`,
-  `applications.status = 'closed'` e `students.removedAt`.
+  `applications.status = 'closed'` e `students.removedAt`. A exceção são as versões e as folhas
+  de uma aplicação, que a regeneração do PDF troca enquanto nenhuma folha tem correção (RF24).
 - **`TINYINT(1)` é booleano.** É como o MySQL guarda `BOOLEAN`; a API devolve `true` e `false`.
 
 ## Como gerar de novo

@@ -413,12 +413,16 @@ Rode na raiz, nesta ordem. É o mesmo portão que a CI aplica, então o que pass
 ```bash
 nvm use 22
 npm ci
-docker compose up -d mysql   # os testes de banco da API precisam dele
+docker compose up -d mysql   # os testes de banco da API e o Cypress precisam dele
 npm run lint
 npm run typecheck
 npm test
 npm run build
+node scripts/check-firebase-bundle.mjs apps/web/dist
+npm run db:migrate           # com o apps/api/.env da seção anterior
+npm run dev:api              # em outro terminal: o Cypress cadastra cada professor na API
 npm run test:e2e
+npm run test:e2e:demo        # refaz o build no modo demo e roda o spec do Pages
 npm audit --audit-level=high
 ```
 
@@ -456,9 +460,9 @@ descrição de cada uma, está em **[docs/api/README.md](docs/api/README.md)**.
 
 | Verificação | Estado |
 |---|---|
-| Testes unitários | 984 com Vitest: 708 do front, 239 do domínio e 37 do leitor da folha, com cobertura de linhas acima de 95% |
-| Testes da API | 519 com Supertest, contra um MySQL real, uma base por suíte |
-| Testes das ferramentas | 61 com `node:test`: diagrama ER, backup, auditoria de dependências e regras de lint |
+| Testes unitários | 991 com Vitest: 709 do front, 245 do domínio e 37 do leitor da folha, com cobertura de linhas acima de 95% |
+| Testes da API | 521 com Supertest, contra um MySQL real, uma base por suíte |
+| Testes das ferramentas | 63 com `node:test`: diagrama ER, backup, auditoria de dependências e regras de lint |
 | Testes de ponta a ponta | Cypress contra o build de produção, um spec por área, mais a jornada completa gravada em vídeo |
 | Tipos | `tsc --noEmit` sem erros, em modo estrito |
 | Lint | ESLint sem apontamentos, incluindo as regras próprias do grupo (complexidade, só JSDoc, comentário em inglês) |
@@ -503,7 +507,8 @@ conferência dele no PR desta seção antes do merge.
 - ADRs: [#120](https://github.com/PrieTorres/correctio-app/pull/120). Backup diário com teste de restauração: [#152](https://github.com/PrieTorres/correctio-app/pull/152). Regras de complexidade e de comentários: [#90](https://github.com/PrieTorres/correctio-app/pull/90). Vídeo da jornada em todo PR: [#92](https://github.com/PrieTorres/correctio-app/pull/92).
 - Correções de segurança das dependências e do SonarCloud: [#89](https://github.com/PrieTorres/correctio-app/pull/89), [#118](https://github.com/PrieTorres/correctio-app/pull/118), [#140](https://github.com/PrieTorres/correctio-app/pull/140), [#150](https://github.com/PrieTorres/correctio-app/pull/150), [#166](https://github.com/PrieTorres/correctio-app/pull/166), [#186](https://github.com/PrieTorres/correctio-app/pull/186).
 - Conclusão da N2 (envio e leitura da foto na API, telas de correção, retirada do dado simulado, relatórios na API e exportação, zod 4, ajustes de UX e de revisão): [#189](https://github.com/PrieTorres/correctio-app/pull/189).
-- Releases: [#116](https://github.com/PrieTorres/correctio-app/pull/116), [#122](https://github.com/PrieTorres/correctio-app/pull/122), [#128](https://github.com/PrieTorres/correctio-app/pull/128), [#134](https://github.com/PrieTorres/correctio-app/pull/134), [#183](https://github.com/PrieTorres/correctio-app/pull/183), [#187](https://github.com/PrieTorres/correctio-app/pull/187). Revisão de código de [#30](https://github.com/PrieTorres/correctio-app/pull/30), [#95](https://github.com/PrieTorres/correctio-app/pull/95), [#97](https://github.com/PrieTorres/correctio-app/pull/97), [#102](https://github.com/PrieTorres/correctio-app/pull/102), [#103](https://github.com/PrieTorres/correctio-app/pull/103), [#108](https://github.com/PrieTorres/correctio-app/pull/108), [#111](https://github.com/PrieTorres/correctio-app/pull/111), [#121](https://github.com/PrieTorres/correctio-app/pull/121), [#124](https://github.com/PrieTorres/correctio-app/pull/124), [#148](https://github.com/PrieTorres/correctio-app/pull/148), [#155](https://github.com/PrieTorres/correctio-app/pull/155), [#156](https://github.com/PrieTorres/correctio-app/pull/156), [#158](https://github.com/PrieTorres/correctio-app/pull/158).
+- Já na 2.0.0, depois da release do dia: geração automática de prova que sorteia entre as questões de qualquer tag marcada, equilibrando os conteúdos, e telas de carregamento, erro e vazio que se explicam: [#192](https://github.com/PrieTorres/correctio-app/pull/192), [#194](https://github.com/PrieTorres/correctio-app/pull/194).
+- Releases: [#116](https://github.com/PrieTorres/correctio-app/pull/116), [#122](https://github.com/PrieTorres/correctio-app/pull/122), [#128](https://github.com/PrieTorres/correctio-app/pull/128), [#134](https://github.com/PrieTorres/correctio-app/pull/134), [#183](https://github.com/PrieTorres/correctio-app/pull/183), [#187](https://github.com/PrieTorres/correctio-app/pull/187), [#190](https://github.com/PrieTorres/correctio-app/pull/190). Revisão de código de [#30](https://github.com/PrieTorres/correctio-app/pull/30), [#95](https://github.com/PrieTorres/correctio-app/pull/95), [#97](https://github.com/PrieTorres/correctio-app/pull/97), [#102](https://github.com/PrieTorres/correctio-app/pull/102), [#103](https://github.com/PrieTorres/correctio-app/pull/103), [#108](https://github.com/PrieTorres/correctio-app/pull/108), [#111](https://github.com/PrieTorres/correctio-app/pull/111), [#121](https://github.com/PrieTorres/correctio-app/pull/121), [#124](https://github.com/PrieTorres/correctio-app/pull/124), [#148](https://github.com/PrieTorres/correctio-app/pull/148), [#155](https://github.com/PrieTorres/correctio-app/pull/155), [#156](https://github.com/PrieTorres/correctio-app/pull/156), [#158](https://github.com/PrieTorres/correctio-app/pull/158).
 
 ### Heloísa Fogaça
 
@@ -515,7 +520,7 @@ conferência dele no PR desta seção antes do merge.
 - Diagrama de casos de uso: [#30](https://github.com/PrieTorres/correctio-app/pull/30).
 - Consulta pública pelo QR Code na API: [#156](https://github.com/PrieTorres/correctio-app/pull/156).
 - Painel com saudação, contagem de correções pendentes e filtros do relatório consolidado: [#158](https://github.com/PrieTorres/correctio-app/pull/158).
-- Prévia da importação sem os alunos que a turma já tem: [#180](https://github.com/PrieTorres/correctio-app/pull/180). Alvos de toque de 44 px nas telas de acesso e pública: [#182](https://github.com/PrieTorres/correctio-app/pull/182).
+- Prévia da importação sem os alunos que a turma já tem: [#180](https://github.com/PrieTorres/correctio-app/pull/180). Alvos de toque de 44 px nas telas de acesso e pública: [#182](https://github.com/PrieTorres/correctio-app/pull/182). Os dois PRs foram fechados sem merge, porque os commits entraram na `main` pelo [#189](https://github.com/PrieTorres/correctio-app/pull/189).
 - Contato com a professora (PO): respostas sobre autenticação e versões A/B/C registradas em [#181](https://github.com/PrieTorres/correctio-app/pull/181) ([#83](https://github.com/PrieTorres/correctio-app/issues/83)); validação do escopo em aberto em andamento ([#69](https://github.com/PrieTorres/correctio-app/issues/69)).
 - Revisão de código: [#148](https://github.com/PrieTorres/correctio-app/pull/148).
 
@@ -528,7 +533,7 @@ conferência dele no PR desta seção antes do merge.
 - Diagrama de atividades: [#97](https://github.com/PrieTorres/correctio-app/pull/97).
 - CRUD de turmas e alunos na API: [#111](https://github.com/PrieTorres/correctio-app/pull/111). Telas de turmas e alunos na API, com importação em lote: [#121](https://github.com/PrieTorres/correctio-app/pull/121).
 - Rotas de leitura das aplicações, armazenamento de arquivos e o PDF da prova: [#124](https://github.com/PrieTorres/correctio-app/pull/124).
-- Geração das aplicações no servidor e as telas P11 a P14 na API: [#148](https://github.com/PrieTorres/correctio-app/pull/148).
+- Geração das aplicações no servidor e as telas P11 a P14 na API: [#148](https://github.com/PrieTorres/correctio-app/pull/148) (fechado sem merge; os commits entraram na `main` pelo [#189](https://github.com/PrieTorres/correctio-app/pull/189)).
 - Revisão de código: [#103](https://github.com/PrieTorres/correctio-app/pull/103), [#108](https://github.com/PrieTorres/correctio-app/pull/108), [#136](https://github.com/PrieTorres/correctio-app/pull/136), [#157](https://github.com/PrieTorres/correctio-app/pull/157).
 
 ### Cleberson Maia

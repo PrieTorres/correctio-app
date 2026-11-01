@@ -181,7 +181,7 @@ Acréscimo do grupo, substituindo `ClassEnrollment` mais um `User` de aluno.
 >
 > A variante é modelada com campos opcionais, e não com união discriminada, porque essa é a
 > forma da Spec. Para estreitar com segurança, use os predicados `isMultipleChoice` e
-> `isOpenEnded` em `types/domain.ts`.
+> `isOpenEnded` de `@correctio/domain` (`packages/domain/src/domain.ts`).
 
 ### Exam
 
@@ -234,8 +234,8 @@ Acréscimo do grupo, substituindo `ClassEnrollment` mais um `User` de aluno.
   }
   answerKeyPublished: boolean
   answerKeyPublishedAt?: Date
-  publicCode: string           // acesso público ao gabarito
-  qrCodePayload: string
+  publicCode: string           // Spec: acesso público ao gabarito; no site a consulta usa AnswerSheet.code
+  qrCodePayload: string        // mesmo valor de publicCode; o QR impresso leva AnswerSheet.code
 }
 ```
 
@@ -280,10 +280,13 @@ sem identificação.
 > segundo é a única chave da consulta pública. Usar um número curto como chave tornaria
 > todas as notas varreduráveis.
 
-**`answerCardVersion`** é o `ANSWER_CARD.version` do momento da geração. A leitura da foto
-procura as bolinhas onde aquela geometria as imprimiu, então o cartão pode mudar sem tornar
-ilegíveis as folhas que já estão com os alunos (`docs/answer-card/answer-card.md`). Uma folha
-gravada antes do campo existir é da primeira geometria, a única que havia.
+**`answerCardVersion`** é o `ANSWER_CARD.version` do momento da geração, gravado para que a
+leitura possa escolher a geometria pela folha quando houver mais de uma, e assim o cartão
+mudar sem tornar ilegíveis as folhas que já estão com os alunos
+(`docs/answer-card/answer-card.md`). Hoje só existe a versão 1, e `readSheet` usa sempre o
+`ANSWER_CARD` atual: quem criar a versão 2 precisa também fazer a leitura escolher a geometria
+por este campo. Uma folha gravada antes do campo existir é da primeira geometria, a única que
+havia.
 
 ### Correction
 
@@ -298,7 +301,7 @@ gravada antes do campo existir é da primeira geometria, a única que havia.
   discursiveScores: { questionId: string; score: number }[]
   totalScore: number
   notes?: string
-  confirmedAt: Date
+  confirmedAt: Date                     // o site grava a hora de cada gravação; ver "Divergências que restam"
   correctedBy: string                   // teacherId
   isAutomaticallyAssigned: boolean
   clientCorrectionId: string            // obrigatório na Spec; o site gera no servidor
@@ -323,8 +326,8 @@ dado pessoal.**
 {
   id: string
   teacherId?: string           // ausente em evento do sistema
-  type: string                 // valor do grupo em SCREAMING_SNAKE_CASE, ex.: "QR_NOT_RECOGNIZED"
-  entity: string               // ex.: "answer_sheet"
+  type: string                 // valor do grupo em SCREAMING_SNAKE_CASE, ex.: "SHEET_READ_FAILED"
+  entity: string               // ex.: "application"
   entityId?: string
   details?: object             // referência e motivo, sem dado pessoal
   createdAt: Date
@@ -369,13 +372,21 @@ migração de dados.
 | `ExamAssignment` | no contrato, sem uso | vínculo direto versão ↔ aluno |
 | `Correction.studentId` | preenchido quando há identificação | o aluno consultar as próprias correções |
 | `Application.gradesReleased` | em uso | também controla o que o aluno veria |
+| `ExamVersion.publicCode` e `qrCodePayload` | preenchidos na geração com o mesmo valor aleatório, sem uso: o QR impresso e a consulta pública usam `AnswerSheet.code` | acesso por versão, se um app ou a área do aluno precisar |
 
 > ⚠️ **Não apague nenhum destes por parecerem sem uso.** São ponto de extensão deliberado, e
 > removê-los transforma "adicionar a área do aluno" em "migrar o banco".
 
-## Nenhuma divergência em aberto
+## Divergências que restam
 
-Todas as chaves da Spec estão no contrato. Onde o grupo decidiu não construir uma
+**Em aberto: o sentido de `Correction.confirmedAt`.** A Spec descreve o campo como o momento em
+que a correção foi confirmada. O site grava a hora de cada gravação da revisão, na criação e
+em toda edição, inclusive quando o professor salva sem finalizar e a correção fica
+`IN_PROGRESS` (`apps/api/src/services/correction-service.ts`). Falta o grupo decidir qual dos
+dois lados ajustar: gravar o campo só ao finalizar, ou registrar aqui que ele guarda a última
+gravação.
+
+Fora isso, todas as chaves da Spec estão no contrato. Onde o grupo decidiu não construir uma
 funcionalidade, o campo permanece: o site não o trata, mas ele existe.
 
 Isso vale inclusive para `Correction.clientCorrectionId` e `syncStatus`, que a Spec define
@@ -400,8 +411,10 @@ verdade, que toda tabela tem todos os campos deste documento.
 - **`ExamVersion.layout` fica em JSON:** é um retrato gravado uma vez e lido inteiro.
 - **`createdAt` e `updatedAt` técnicos** em toda tabela que muda. Só saem na API os que este
   documento lista.
-- **Remoção é sempre soft**, pelo campo de cada entidade. Nenhuma chave estrangeira apaga em
-  cascata.
+- **Remoção de entidade é sempre soft**, pelo campo de cada entidade. Nenhuma chave estrangeira
+  apaga em cascata. As exceções são regravações: as tabelas filhas ao editar, e as versões e
+  folhas de uma aplicação ao regenerar o PDF, o que só é permitido enquanto nenhuma folha tem
+  correção (RF24).
 - **`Student.email` guarda o texto criptografado** (AES-256-GCM), nunca o endereço.
 - **Campo calculado não vira coluna.** `Class.studentCount` é contado dos alunos a cada listagem;
   o teste de conformidade das tabelas o deixa de fora.
@@ -447,9 +460,12 @@ para o Express da N2**:
 
 ## Como verificar conformidade
 
-Os tipos ficam em [`apps/web/src/types/domain.ts`](../apps/web/src/types/domain.ts) e os
-schemas de validação em [`apps/web/src/lib/schemas/index.ts`](../apps/web/src/lib/schemas/index.ts).
-Os dois devem espelhar este documento campo a campo.
+Os tipos ficam em [`packages/domain/src/domain.ts`](../packages/domain/src/domain.ts) e os
+schemas de validação em [`packages/domain/src/schemas.ts`](../packages/domain/src/schemas.ts),
+usados pelo site e pela API; os caminhos antigos em `apps/web` só reexportam. As entidades que
+só existem no servidor (`AuthCode`, `ActivityLog`, `SheetImage` e `User.emailVerifiedAt`) estão
+em [`apps/api/src/models/tables.ts`](../apps/api/src/models/tables.ts). Todos devem espelhar
+este documento campo a campo.
 
 Ao mexer em qualquer entidade:
 
@@ -459,4 +475,4 @@ Ao mexer em qualquer entidade:
    trate. Campos sem uso são ponto de extensão, não código morto.
 4. Toda escrita mescla com o registro atual. Nenhuma rota reconstrói a entidade só com o que
    veio do cliente — ver "Atualização parcial" acima.
-4. O schema Zod acompanha o tipo na mesma mudança; os dois são a mesma verdade.
+5. O schema Zod acompanha o tipo na mesma mudança; os dois são a mesma verdade.
