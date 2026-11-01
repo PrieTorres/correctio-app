@@ -19,6 +19,25 @@ export interface ApiClient {
   request: (method: HttpMethod, path: string, options?: RequestOptions) => Promise<unknown>
 }
 
+/** A file the API served, with the name it gave the file, when the response says it. */
+export interface DownloadedFile {
+  blob: Blob
+  filename?: string
+}
+
+/**
+ * Files rather than JSON: the PDF of an application coming down, the photo of
+ * a sheet going up. Both travel with the same token, since they carry the
+ * names and the handwriting of the students and have no public address.
+ * Apart from `ApiClient` because only the applications and the grading move
+ * files.
+ */
+export interface FileClient {
+  download: (path: string) => Promise<DownloadedFile>
+  /** Posts the file as the request body, with its own type; the answer is JSON, validated by the caller. */
+  upload: (path: string, file: Blob) => Promise<unknown>
+}
+
 export interface ApiClientOptions {
   /** From `apiBaseUrl()`, already without the trailing slash. */
   baseUrl: string
@@ -117,32 +136,66 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+/**
+ * The name in `Content-Disposition`. Express quotes it only when it must, so
+ * `res.attachment('prova-2026-10-05.pdf')` arrives as `filename=prova-2026-10-05.pdf`.
+ */
+const ATTACHMENT_NAME = /filename="?([^";]+)"?/
+
+function filenameOf(response: Response): string | undefined {
+  return ATTACHMENT_NAME.exec(response.headers.get('Content-Disposition') ?? '')?.[1]
+}
+
 export function createApiClient({
   baseUrl,
   getToken,
   onUnauthorized,
   fetchFn = (input, init) => fetch(input, init),
-}: ApiClientOptions): ApiClient {
+}: ApiClientOptions): ApiClient & FileClient {
+  async function fetchOrFail(url: string, init: RequestInit): Promise<Response> {
+    try {
+      return await fetchFn(url, init)
+    } catch (cause) {
+      throw new StorageError(GENERIC_FAILURE, 'failure', { cause })
+    }
+  }
+
+  async function send(method: HttpMethod, path: string, { query, body }: RequestOptions = {}): Promise<Response> {
+    const headers = await requestHeaders(getToken, body !== undefined)
+    return fetchOrFail(`${baseUrl}${path}${toQueryString(query)}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  }
+
+  /** A failed answer becomes the error the screens handle, whatever was asked for: the API answers errors as JSON. */
+  async function refusal(response: Response): Promise<StorageError> {
+    const payload = await readJson(response)
+    if (response.status === 401) onUnauthorized()
+    return toStorageError(response.status, payload)
+  }
+
   return {
-    async request(method, path, { query, body } = {}) {
-      const headers = await requestHeaders(getToken, body !== undefined)
+    async request(method, path, options) {
+      const response = await send(method, path, options)
+      if (!response.ok) throw await refusal(response)
+      return readJson(response)
+    },
 
-      let response: Response
-      try {
-        response = await fetchFn(`${baseUrl}${path}${toQueryString(query)}`, {
-          method,
-          headers,
-          body: body === undefined ? undefined : JSON.stringify(body),
-        })
-      } catch (cause) {
-        throw new StorageError(GENERIC_FAILURE, 'failure', { cause })
-      }
+    async download(path) {
+      const response = await send('GET', path)
+      if (!response.ok) throw await refusal(response)
+      return { blob: await response.blob(), filename: filenameOf(response) }
+    },
 
-      const payload = await readJson(response)
-      if (response.ok) return payload
-
-      if (response.status === 401) onUnauthorized()
-      throw toStorageError(response.status, payload)
+    /** The type the file declares travels along, but the API decides by the file's own bytes. */
+    async upload(path, file) {
+      const headers = await requestHeaders(getToken, false)
+      headers.set('Content-Type', file.type === '' ? 'application/octet-stream' : file.type)
+      const response = await fetchOrFail(`${baseUrl}${path}`, { method: 'POST', headers, body: file })
+      if (!response.ok) throw await refusal(response)
+      return readJson(response)
     },
   }
 }

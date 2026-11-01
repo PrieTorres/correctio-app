@@ -54,15 +54,6 @@ describe('createHttpExamRepository', () => {
     expect(request).toHaveBeenNthCalledWith(2, 'PATCH', '/exams/e1/restore')
   })
 
-  /** While the application is generated in the browser, the screen tells the server the exam was applied. */
-  it('marks an exam as ready through PATCH /exams/:id/ready', async () => {
-    const { api, request } = fakeApi(() => Promise.resolve(undefined))
-
-    await createHttpExamRepository(api).markReady('e 1')
-
-    expect(request).toHaveBeenCalledWith('PATCH', '/exams/e%201/ready')
-  })
-
   it('draws on the server and checks each question with the bank schema', async () => {
     const { api, request } = fakeApi(() => Promise.resolve({ questions: [QUESTION], shortfall: { multipleChoice: 2, openEnded: 0 } }))
     const body = { tags: ['Limites'], multipleChoiceCount: 2, openEndedCount: 1, excludeIds: ['q9'] }

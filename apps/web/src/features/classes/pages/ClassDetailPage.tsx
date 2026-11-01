@@ -1,13 +1,17 @@
 import { useId, useState, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Archive, ArrowLeft, Pencil, RotateCcw, ShieldOff, Trash2, Upload, UserPlus } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Archive, Pencil, RotateCcw, ShieldOff, Trash2, Upload, UserPlus } from 'lucide-react'
 import {
+  BackLink,
   Badge,
   Button,
   Card,
   ClassesIllustration,
   ConfirmDialog,
   EmptyState,
+  ErrorState,
+  LoadingState,
+  NotFoundState,
   PageHeader,
   QueryBoundary,
   SearchIllustration,
@@ -19,6 +23,7 @@ import { matchesSearch } from '@/lib/utils'
 import type { Class, Student } from '@/types/domain'
 import { useArchiveClass, useClass, useStudentAction, useStudents, type StudentAction } from '../hooks/useClasses'
 import { ArchiveClassDialog } from '../components/ArchiveClassDialog'
+import { ClassApplications } from '../components/ClassApplications'
 import { ClassFormModal } from '../components/ClassFormModal'
 import { StudentFormModal } from '../components/StudentFormModal'
 import { ImportStudentsDialog } from '../components/ImportStudentsDialog'
@@ -78,12 +83,12 @@ export function ClassDetailPage() {
 /** Also what a class of another teacher looks like: the API answers 404, never 403, and the screen does not tell them apart. */
 function ClassNotFound() {
   return (
-    <Card className="p-6">
-      <p className="text-body text-ink-muted">Turma não encontrada.</p>
-      <Link to={ROUTES.classes} className="mt-3 inline-block text-label text-primary underline">
-        Voltar para turmas
-      </Link>
-    </Card>
+    <NotFoundState
+      title="Turma não encontrada"
+      description="A turma pode ter sido apagada, ou o endereço está errado."
+      backTo={ROUTES.classes}
+      backLabel="Voltar para turmas"
+    />
   )
 }
 
@@ -112,13 +117,7 @@ function ClassDetail({ schoolClass }: Readonly<{ schoolClass: Class }>) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        to={ROUTES.classes}
-        className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-      >
-        <ArrowLeft size={16} aria-hidden />
-        Turmas
-      </Link>
+      <BackLink to={ROUTES.classes}>Turmas</BackLink>
 
       <PageHeader
         help
@@ -160,6 +159,8 @@ function ClassDetail({ schoolClass }: Readonly<{ schoolClass: Class }>) {
           onAction={(action, student) => setDialog({ kind: 'student-action', action, student })}
         />
       </Card>
+
+      <ClassApplications classId={schoolClass.id} />
 
       <ClassDialogs schoolClass={schoolClass} dialog={dialog} onClose={close} />
 
@@ -316,16 +317,10 @@ function StudentSection({
   onAction: (action: StudentAction, student: Student) => void
 }>) {
   if (error !== null) {
-    return (
-      <div role="alert" className="flex flex-col items-start gap-3 px-5 py-6">
-        <p className="text-body text-danger">Não foi possível carregar os alunos.</p>
-        <p className="text-caption text-ink-muted">{error.message}</p>
-        <Button onClick={onRetry}>Tentar de novo</Button>
-      </div>
-    )
+    return <ErrorState framed={false} title="Não foi possível carregar os alunos" description={error.message} onRetry={onRetry} />
   }
 
-  if (isPending) return <p className="px-5 py-6 text-body text-ink-muted">Carregando alunos…</p>
+  if (isPending) return <LoadingState compact label="Carregando alunos…" />
 
   if (students.length === 0) {
     return (
@@ -423,6 +418,10 @@ function StudentActionDialog({
   )
 }
 
+/**
+ * One student of P5. The two buttons name the student after the visible word,
+ * so a screen reader tells apart the "Remover" of each row (#145).
+ */
 function StudentRow({
   student,
   onAction,
@@ -450,6 +449,7 @@ function StudentRow({
           <Button
             variant="ghost"
             icon={<ShieldOff size={16} aria-hidden />}
+            aria-label={`Anonimizar ${student.fullName}`}
             onClick={() => onAction('anonymize')}
           >
             Anonimizar
@@ -457,6 +457,7 @@ function StudentRow({
           <Button
             variant="ghost"
             icon={<Trash2 size={16} aria-hidden />}
+            aria-label={`Remover ${student.fullName} da turma`}
             onClick={() => onAction('remove')}
           >
             Remover

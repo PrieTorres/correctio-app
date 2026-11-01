@@ -15,7 +15,7 @@ import {
   studentSchema,
 } from '@correctio/domain'
 import { sql, type Kysely } from 'kysely'
-import type { AnyZodObject, ZodEffects, ZodTypeAny } from 'zod'
+import type { ZodObject } from 'zod'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { Database } from '../../models/tables'
 import { createDatabase } from '../connection'
@@ -31,9 +31,9 @@ if (serverUrl === undefined && process.env.CI !== undefined) {
   throw new Error('DATABASE_TEST_URL is required in CI')
 }
 
-function fieldsOf(schema: ZodTypeAny): string[] {
-  const object = 'innerType' in schema ? (schema as ZodEffects<AnyZodObject>).innerType() : (schema as AnyZodObject)
-  return Object.keys(object.shape as Record<string, unknown>)
+/** A refinement keeps an object schema an object, so `questionSchema` exposes its shape like the others. */
+function fieldsOf(schema: ZodObject): string[] {
+  return Object.keys(schema.shape)
 }
 
 function without(fields: string[], ...childTables: string[]): string[] {
@@ -42,13 +42,15 @@ function without(fields: string[], ...childTables: string[]): string[] {
 
 /**
  * Every field of the contract, read from the same schemas the web app and the
- * API validate with. A list stored as a child table is checked in that table.
+ * API validate with. A list stored as a child table is checked in that table,
+ * and `Class.studentCount`, counted from the students whenever the classes are
+ * listed (#146), has no column at all.
  */
 const CONTRACT: Readonly<Record<string, string[]>> = {
   users: [...fieldsOf(authenticatedUserSchema), 'passwordHash'],
   refresh_tokens: ['id', 'userId', 'tokenHash', 'deviceInfo', 'issuedAt', 'expiresAt', 'revokedAt'],
   auth_codes: ['id', 'userId', 'purpose', 'codeHash', 'expiresAt', 'usedAt', 'createdAt'],
-  classes: fieldsOf(classSchema),
+  classes: without(fieldsOf(classSchema), 'studentCount'),
   students: fieldsOf(studentSchema),
   class_enrollments: fieldsOf(classEnrollmentSchema),
   questions: without(fieldsOf(questionSchema), 'alternatives', 'tags'),

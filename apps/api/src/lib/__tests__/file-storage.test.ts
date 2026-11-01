@@ -87,21 +87,29 @@ describe('createLocalFileStorage', () => {
   })
 })
 
-/** An in-memory bucket with the three calls the storage makes, answering a missing object as Cloud Storage does. */
-function fakeBucket() {
+/**
+ * An in-memory bucket with the calls the storage makes, answering 404 as Cloud
+ * Storage does: for a missing object, and for anything at all when the bucket
+ * itself was never created.
+ */
+function fakeBucket({ created = true }: { created?: boolean } = {}) {
   const objects = new Map<string, { data: Buffer; contentType: string }>()
   const notFound = Object.assign(new Error('No such object'), { code: 404 })
+  const noBucket = Object.assign(new Error('The specified bucket does not exist.'), { code: 404 })
   const bucket: StorageBucket = {
+    exists: () => Promise.resolve([created]),
     file: (name) => ({
-      save: (data, { contentType }) => Promise.resolve(objects.set(name, { data, contentType })),
+      save: (data, { contentType }) =>
+        created ? Promise.resolve(objects.set(name, { data, contentType })) : Promise.reject(noBucket),
       download: () => {
         const stored = objects.get(name)
+        if (!created) return Promise.reject(noBucket)
         return stored === undefined ? Promise.reject(notFound) : Promise.resolve([stored.data])
       },
       delete: () => Promise.resolve(objects.delete(name)),
     }),
   }
-  return { bucket, objects }
+  return { bucket, objects, noBucket }
 }
 
 describe('createBucketFileStorage', () => {
@@ -121,9 +129,53 @@ describe('createBucketFileStorage', () => {
     await expect(createBucketFileStorage(() => bucket).read('applications/a1/none.pdf')).resolves.toBeNull()
   })
 
+  /**
+   * Cloud Storage answers 404 for a bucket that was never created too. Taken
+   * for a missing file, it made the screen say to generate the exam again,
+   * which cannot work: the new PDF would have nowhere to go either.
+   */
+  it('tells a bucket that does not exist apart from a missing file, keeping the cause', async () => {
+    const { bucket, noBucket } = fakeBucket({ created: false })
+    const storage = createBucketFileStorage(() => bucket)
+
+    const reading = storage.read('applications/a1/exam.pdf')
+    await expect(reading).rejects.toBeInstanceOf(ApiError)
+    await expect(reading).rejects.toMatchObject({
+      code: 'failure',
+      message: 'O armazenamento de arquivos do servidor não está disponível.',
+      cause: noBucket,
+    })
+    await expect(storage.save('applications/a1/exam.pdf', PDF, 'application/pdf')).rejects.toMatchObject({
+      code: 'failure',
+      message: 'O armazenamento de arquivos do servidor não está disponível.',
+    })
+  })
+
+  /** The bucket is asked about only after a 404, so a normal download costs one call. */
+  it('does not ask whether the bucket exists when the file is there', async () => {
+    const { bucket } = fakeBucket()
+    const exists = vi.spyOn(bucket, 'exists')
+    const storage = createBucketFileStorage(() => bucket)
+    await storage.save('a/exam.pdf', PDF, 'application/pdf')
+
+    await storage.read('a/exam.pdf')
+
+    expect(exists).not.toHaveBeenCalled()
+  })
+
+  /** An account without `storage.buckets.get` cannot ask; the missing file must still read as missing. */
+  it('keeps the missing file a missing file when asking about the bucket is denied', async () => {
+    const { bucket } = fakeBucket()
+    const denied = Object.assign(new Error('Permission denied'), { code: 403 })
+    const storage = createBucketFileStorage(() => ({ ...bucket, exists: () => Promise.reject(denied) }))
+
+    await expect(storage.read('applications/a1/none.pdf')).resolves.toBeNull()
+  })
+
   it('passes on any other failure of the bucket', async () => {
     const denied = Object.assign(new Error('Permission denied'), { code: 403 })
     const bucket: StorageBucket = {
+      exists: () => Promise.resolve([true]),
       file: () => ({
         save: () => Promise.resolve(),
         download: () => Promise.reject(denied),

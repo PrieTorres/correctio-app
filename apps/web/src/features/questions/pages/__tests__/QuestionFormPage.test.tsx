@@ -96,6 +96,52 @@ describe('QuestionFormPage', () => {
     expect((await saved()).items[0]?.maxScore).toBe(2.5)
   })
 
+  /** Each refusal of #184 shows its reason on the field, and nothing is saved. */
+  describe('inputs the database cannot store as typed (#184)', () => {
+    async function saveOpenEnded(user: ReturnType<typeof userEvent.setup>, maxScore: string) {
+      await user.click(screen.getByLabelText('Discursiva'))
+      await user.type(statement(), 'Explique o teorema fundamental do cálculo')
+      await user.type(screen.getByLabelText('Nota máxima'), maxScore)
+      await user.click(screen.getByRole('button', { name: /Salvar questão/ }))
+    }
+
+    it('refuses a max score with a third decimal instead of rounding it to zero', async () => {
+      clearAllCollections()
+      const user = userEvent.setup()
+      renderWithProviders(<QuestionFormPage />)
+
+      await saveOpenEnded(user, '0.001')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('A nota máxima aceita no máximo 2 casas decimais')
+      expect((await saved()).items).toHaveLength(0)
+    })
+
+    it('refuses a max score above 9999,99, saying the ceiling', async () => {
+      clearAllCollections()
+      const user = userEvent.setup()
+      renderWithProviders(<QuestionFormPage />)
+
+      await saveOpenEnded(user, '10000')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('A nota máxima pode ser no máximo 9999,99')
+      expect((await saved()).items).toHaveLength(0)
+    })
+
+    it('refuses a statement of only spaces, like an empty one', async () => {
+      clearAllCollections()
+      const user = userEvent.setup()
+      renderWithProviders(<QuestionFormPage />)
+
+      await user.type(statement(), '     ')
+      await user.type(screen.getByLabelText('Texto da alternativa A'), 'uma')
+      await user.type(screen.getByLabelText('Texto da alternativa B'), 'outra')
+      await user.click(screen.getByRole('button', { name: /Salvar questão/ }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Informe o enunciado')
+      expect((await saved()).items).toHaveLength(0)
+    })
+  })
+
   it('stores the alternative the teacher actually marked', async () => {
     clearAllCollections()
     const user = userEvent.setup()
@@ -150,5 +196,40 @@ describe('QuestionFormPage, editing an existing question', () => {
     expect(question?.alternatives).toBeUndefined()
     expect(question?.correctAlternativeId).toBeUndefined()
     expect(question?.maxScore).toBe(3)
+  })
+
+  /**
+   * A browser kept the bank with no key on the tags, so a question stored
+   * before #184 may carry two spellings of one tag. Editing it says which,
+   * under the tags, instead of refusing the save in silence.
+   */
+  it('says which stored tags repeat each other, and saves once one is removed', async () => {
+    clearAllCollections()
+    const created = await createTeacherRepositories(TEST_TEACHER_ID).questions.create({
+      type: 'discursiva',
+      statement: 'Questão com tags repetidas',
+      tags: ['Integrais', 'integrais'],
+      maxScore: 2,
+      allowShuffleAlternatives: true,
+    })
+    const user = userEvent.setup()
+
+    renderWithProviders(
+      <Routes>
+        <Route path={ROUTES.questionDetail} element={<QuestionFormPage />} />
+      </Routes>,
+      { path: `/questoes/${created.id}` },
+    )
+
+    await screen.findByDisplayValue('Questão com tags repetidas')
+    await user.click(screen.getByRole('button', { name: /Salvar questão/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('"Integrais" e "integrais" são a mesma tag: deixe só uma')
+
+    await user.click(screen.getByRole('button', { name: 'Remover tag integrais' }))
+
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    await user.click(screen.getByRole('button', { name: /Salvar questão/ }))
+    await waitFor(async () => expect((await saved()).items[0]?.tags).toEqual(['Integrais']))
   })
 })

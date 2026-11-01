@@ -16,6 +16,8 @@ export type QuestionSort = 'newest' | 'statement'
 export interface QuestionListParams extends ListParams {
   type?: QuestionType
   tags?: string[]
+  /** `true` keeps a question carrying any of `tags`, as the automatic exam draws; otherwise every tag, as P6 filters. */
+  anyTag?: boolean
   onlyUntagged?: boolean
   sort?: QuestionSort
 }
@@ -65,7 +67,8 @@ export function createLocalQuestionRepository(teacherId: string): QuestionReposi
       if (params.type !== undefined && item.type !== params.type) return false
 
       if (params.tags !== undefined && params.tags.length > 0) {
-        if (!params.tags.every((tag) => item.tags.includes(tag))) return false
+        const carries = (tag: string) => item.tags.includes(tag)
+        if (!(params.anyTag === true ? params.tags.some(carries) : params.tags.every(carries))) return false
       }
 
       if (params.onlyUntagged === true && item.tags.length > 0) return false

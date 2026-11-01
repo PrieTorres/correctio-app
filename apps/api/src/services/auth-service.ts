@@ -57,7 +57,17 @@ export interface AuthService {
   requestPasswordReset: (input: ForgotPasswordInput) => Promise<void>
   resetPassword: (input: ResetPasswordRequest) => Promise<void>
   currentUser: (userId: string) => Promise<AuthenticatedUser>
+  anonymize: (userId: string) => Promise<void>
 }
+
+/**
+ * What takes the place of the teacher's name and e-mail (RF05; Spec, Feature
+ * 1.1). The name is the one the demo writes; the address carries the whole id
+ * because the column is unique, and the `.invalid` domain can never receive
+ * mail (RFC 2606).
+ */
+export const ANONYMIZED_TEACHER_NAME = 'Professor anonimizado'
+export const anonymizedTeacherEmail = (userId: string) => `anon-${userId}@removido.invalid`
 
 function sessionEnded(): ApiError {
   return new ApiError(API_ERROR_CODE.UNAUTHORIZED, SESSION_ENDED)
@@ -184,6 +194,25 @@ export function createAuthService({
       const user = await users.findById(userId)
       if (!isActiveAccount(user)) throw sessionEnded()
       return toAuthenticatedUser(user)
+    },
+
+    /**
+     * RF05: the name and the e-mail go, the password stops working and every
+     * session ends. Classes, exams, applications and corrections keep pointing
+     * at the same id, so the statistics of every application stay as they
+     * were. The password becomes the hash of a secret nobody ever holds, a
+     * hash like any other, so signing in with it fails the ordinary way. An
+     * account already anonymized has no session to answer to.
+     */
+    async anonymize(userId) {
+      const anonymized = await users.anonymize(userId, {
+        fullName: ANONYMIZED_TEACHER_NAME,
+        email: anonymizedTeacherEmail(userId),
+        passwordHash: await hashPassword(createOpaqueToken()),
+        at: new Date(),
+      })
+      if (!anonymized) throw sessionEnded()
+      await refreshTokens.revokeAllForUser(userId)
     },
   }
 }

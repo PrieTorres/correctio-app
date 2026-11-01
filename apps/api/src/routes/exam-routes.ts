@@ -10,9 +10,6 @@ import { createExamService } from '../services/exam-service'
  * Exams (P8 to P10) and the automatic draw (P9b, RF16). The draw stores
  * nothing: the selection only becomes part of an exam when the teacher saves
  * it. Its path is matched before `/:id`, so `draw` is never read as an id.
- * `ready` takes no body: it only moves a draft to `ready`, and the screen
- * calls it after generating an application. It goes away with #46, once the
- * application is generated on the server and the service marks the exam there.
  */
 export function examRoutes(db: Kysely<Database>): Router {
   const exams = createExamController(createExamService({ exams: createExamRepository(db), questions: new QuestionRepository(db) }))
@@ -25,6 +22,5 @@ export function examRoutes(db: Kysely<Database>): Router {
   router.patch('/:id', exams.update)
   router.patch('/:id/archive', exams.archive)
   router.patch('/:id/restore', exams.restore)
-  router.patch('/:id/ready', exams.markReady)
   return router
 }

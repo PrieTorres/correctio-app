@@ -62,6 +62,20 @@ describe('renderExamPdf', () => {
     expect(pdf).toMatch(/\/BaseFont \/[A-Z]{6}\+DejaVuSans/)
   })
 
+  /**
+   * A statement longer than a page used to be cut, and its score opened a page
+   * the plan never counted, so the sheet ended on an odd page. The whole PDF is
+   * refused instead, naming the question.
+   */
+  it('refuses a question taller than a page instead of printing past it', async () => {
+    const endless = multipleChoice('q-endless', 'Um enunciado que não termina nunca. '.repeat(300), ['Sim', 'Não'])
+    const questions = printedQuestions([[endless, 1]])
+    const version = versionOf(questions, { id: 'v1', versionNumber: 1, questionOrder: [endless.id] })
+    const job = sampleJob({ questions, versions: [version], sheets: [sheetOf(1, 'v1')] })
+
+    await expect(renderExamPdf(job)).rejects.toMatchObject({ name: 'QuestionTooTallError', questionId: 'q-endless' })
+  })
+
   it('refuses an application with nothing to print', async () => {
     await expect(renderExamPdf(sampleJob({ sheets: [] }))).rejects.toThrow(/no sheets/)
   })

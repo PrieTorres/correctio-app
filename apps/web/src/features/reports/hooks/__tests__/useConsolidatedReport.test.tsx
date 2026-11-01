@@ -1,85 +1,44 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { act, waitFor } from '@testing-library/react'
-import { createTeacherRepositories } from '@/lib/repositories'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { waitFor } from '@testing-library/react'
+import { createTeacherRepositories, type ReportRepository } from '@/lib/repositories'
+import type { ConsolidatedReportRow } from '@/lib/reports'
 import { clearAllCollections } from '@/lib/storage/collection'
 import { renderHookWithProviders, TEST_TEACHER_ID } from '@/test-utils'
 import { seedApplicationChain } from '@/test-fixtures'
-import { useGenerateApplication } from '@/features/applications/hooks/useApplications'
-import { useReadSheets } from '@/features/grading/hooks/useGrading'
 import { useConsolidatedReport } from '../useConsolidatedReport'
 
-const GENERATE = {
-  versionCount: 1,
-  shuffleQuestions: false,
-  shuffleAlternatives: false,
-  withStudentIdentification: true,
+const ROW: ConsolidatedReportRow = {
+  applicationId: 'a1',
+  examTitle: 'Cálculo I',
+  classId: 'class-a',
+  className: 'Turma A',
+  subject: 'Matemática',
+  term: '2026/2',
+  date: '2026-10-05T12:00:00.000Z',
+  summary: { count: 2, mean: 7, median: 7, standardDeviation: 1, lowest: 6, highest: 8 },
+}
+
+function withConsolidated(consolidated: ReportRepository['consolidated']) {
+  const repositories = createTeacherRepositories(TEST_TEACHER_ID)
+  return { repositories: { ...repositories, reports: { ...repositories.reports, consolidated } } }
 }
 
 describe('useConsolidatedReport', () => {
   beforeEach(clearAllCollections)
+
+  /** One request instead of two per application (#50); the filters of P19 then read the fields each row carries. */
+  it('reads the rows in a single request, with what the filters read', async () => {
+    const consolidated = vi.fn(() => Promise.resolve([ROW]))
+    const { result } = renderHookWithProviders(() => useConsolidatedReport(), withConsolidated(consolidated))
+
+    await waitFor(() => expect(result.current.data).toEqual([ROW]))
+    expect(consolidated).toHaveBeenCalledTimes(1)
+  })
 
   it('lists nothing before anything is corrected', async () => {
     await seedApplicationChain()
     const { result } = renderHookWithProviders(() => useConsolidatedReport())
 
     await waitFor(() => expect(result.current.data).toEqual([]), { timeout: 8000 })
-  })
-
-  /** An application with no corrections is not a row with zeros; it is not a row. */
-  it('leaves out an application that was generated but never corrected', async () => {
-    const seeded = await seedApplicationChain()
-    const { result: generate } = renderHookWithProviders(() => useGenerateApplication())
-    await act(() => generate.current.mutateAsync({ id: seeded.applicationId, options: GENERATE }))
-
-    const { result } = renderHookWithProviders(() => useConsolidatedReport())
-
-    await waitFor(() => expect(result.current.data).toEqual([]), { timeout: 8000 })
-  })
-
-  it('includes an application once a sheet has been corrected', async () => {
-    const seeded = await seedApplicationChain()
-    const { result: generate } = renderHookWithProviders(() => useGenerateApplication())
-    await act(() => generate.current.mutateAsync({ id: seeded.applicationId, options: GENERATE }))
-
-    const sheets = await createTeacherRepositories(TEST_TEACHER_ID).printing.listSheets(
-      seeded.applicationId,
-    )
-    const { result: read } = renderHookWithProviders(() => useReadSheets())
-    await act(() =>
-      read.current.mutateAsync({
-        applicationId: seeded.applicationId,
-        sheetIds: [sheets[0]?.id ?? ''],
-      }),
-    )
-
-    const { result } = renderHookWithProviders(() => useConsolidatedReport())
-
-    await waitFor(() => expect(result.current.data).toHaveLength(1), { timeout: 8000 })
-    expect(result.current.data?.[0]?.examTitle).toBe('Prova de teste')
-    expect(result.current.data?.[0]?.scores).toHaveLength(1)
-  })
-
-  /** What the filters of the consolidated report (P19) match against. */
-  it('carries the class, subject and term of each row', async () => {
-    const seeded = await seedApplicationChain()
-    const { result: generate } = renderHookWithProviders(() => useGenerateApplication())
-    await act(() => generate.current.mutateAsync({ id: seeded.applicationId, options: GENERATE }))
-    const sheets = await createTeacherRepositories(TEST_TEACHER_ID).printing.listSheets(
-      seeded.applicationId,
-    )
-    const { result: read } = renderHookWithProviders(() => useReadSheets())
-    await act(() =>
-      read.current.mutateAsync({ applicationId: seeded.applicationId, sheetIds: [sheets[0]?.id ?? ''] }),
-    )
-
-    const { result } = renderHookWithProviders(() => useConsolidatedReport())
-
-    await waitFor(() => expect(result.current.data).toHaveLength(1), { timeout: 8000 })
-    expect(result.current.data?.[0]).toMatchObject({
-      classId: seeded.classId,
-      className: 'Turma',
-      subject: 'Matemática',
-      term: '2026/2',
-    })
   })
 })

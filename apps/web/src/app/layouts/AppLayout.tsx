@@ -16,6 +16,7 @@ import { ROUTES } from '@/app/routes';
 import { DEMO_MODE } from '@/lib/app-mode';
 import { requestTour } from '@/lib/tour';
 import { useCurrentUser, useSignOut } from '@/features/auth';
+import { BackgroundJobsNotice } from '@/components/BackgroundJobsNotice';
 
 /**
  * Only the Pages build has sample data to load or clear. Loaded on demand, so
@@ -41,6 +42,11 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: ROUTES.reports, label: 'Relatórios', Icon: BarChart3 },
 ];
 
+/**
+ * The frame of every signed-in screen: the side menu, which becomes a drawer on
+ * a phone, and the content. Every control of the menu is 44 px tall, "Sair"
+ * and the privacy notice included, which were the height of their text (#145).
+ */
 export function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = () => setDrawerOpen(false);
@@ -126,7 +132,7 @@ export function AppLayout() {
               <button
                 type="button"
                 onClick={() => signOut.mutate()}
-                className="shrink-0 text-label text-primary hover:underline"
+                className="touch-target inline-flex shrink-0 items-center justify-center rounded-[var(--radius-control)] px-2 text-label text-primary hover:underline"
               >
                 Sair
               </button>
@@ -147,7 +153,7 @@ export function AppLayout() {
           </button>
           <NavLink
             to={ROUTES.privacy}
-            className="px-2 text-caption text-ink-subtle hover:text-primary"
+            className="link-target px-2 text-caption text-ink-subtle hover:text-primary"
           >
             Aviso de privacidade
           </NavLink>
@@ -156,6 +162,7 @@ export function AppLayout() {
 
       <main id="main" className="p-4 md:ml-64 md:p-8">
         <div className="mx-auto max-w-[1280px]">
+          <BackgroundJobsNotice />
           <Outlet />
         </div>
       </main>

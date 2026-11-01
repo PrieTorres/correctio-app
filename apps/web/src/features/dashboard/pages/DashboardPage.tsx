@@ -13,7 +13,8 @@ import { useCurrentUser } from '@/features/auth'
 import { applicationListPath, APPLICATION_FILTER } from '@/features/applications/application-filter'
 import { firstName, formatDate } from '@/lib/utils'
 import { GradingShortcut } from '../components/GradingShortcut'
-import { EMPTY_SUMMARY, useDashboardSummary, type DashboardSummary, type RecentActivity } from '../hooks/useDashboard'
+import type { DashboardActivity, DashboardSummary } from '@/lib/reports'
+import { EMPTY_SUMMARY, useDashboardSummary } from '../hooks/useDashboard'
 
 /**
  * Every main action within three clicks of here, which is what RNF06 asks.
@@ -86,7 +87,7 @@ function SummaryCards({ summary }: Readonly<{ summary: DashboardSummary }>) {
   )
 }
 
-function RecentActivityCard({ recent }: Readonly<{ recent: readonly RecentActivity[] }>) {
+function RecentActivityCard({ recent }: Readonly<{ recent: readonly DashboardActivity[] }>) {
   return (
     <Card data-tour="recent">
       <div className="border-b border-line px-5 py-4">
@@ -120,7 +121,7 @@ function RecentActivityCard({ recent }: Readonly<{ recent: readonly RecentActivi
   )
 }
 
-function QuickActions({ gradable }: Readonly<{ gradable: readonly RecentActivity[] }>) {
+function QuickActions({ gradable }: Readonly<{ gradable: readonly DashboardActivity[] }>) {
   return (
     <Card data-tour="quick-actions" className="flex h-fit flex-col gap-2 p-5">
       <h2 className="text-title text-primary">Ações rápidas</h2>

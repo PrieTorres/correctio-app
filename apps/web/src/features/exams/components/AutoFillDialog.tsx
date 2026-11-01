@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2 } from 'lucide-react';
-import { Button, Modal, NumberInput, Tour } from '@/components/ui';
+import { Button, CheckboxField, Modal, NumberInput, Spinner, Tour } from '@/components/ui';
 import { useQuestionCount, useQuestionTags } from '@/features/questions';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { DrawResult } from '@/lib/exams';
@@ -63,7 +63,7 @@ function useAvailability(tags: readonly string[]) {
  * does not have, and the draw waits, since its filters were never checked.
  */
 function availabilityLabel({ objectives, openEnded, includeOpenEnded, remainingSlots }: Availability): string {
-  if (objectives.isPending || openEnded.isPending) return 'Carregando o banco de questões…';
+  if (objectives.isPending || openEnded.isPending) return 'Contando as questões do banco…';
   if (objectives.isError || openEnded.isError) {
     return 'Não foi possível contar as questões do banco agora. Mude um filtro ou tente de novo em instantes.';
   }
@@ -138,19 +138,30 @@ export function AutoFillDialog({
     );
   };
 
-  const swap = (question: Question) => {
+  /**
+   * The replacement keeps the content of the question going out: it is drawn
+   * from the selected tags that question carries, so swapping does not undo
+   * the balance of the draw. Only when that content has nothing else does it
+   * take from any selected tag.
+   */
+  const swap = (question: Question, fromTags: readonly string[] = tags.filter((tag) => question.tags.includes(tag))) => {
     if (preview === null) return;
     const objective = question.type === 'objetiva';
+    const narrowed = fromTags.length > 0 && fromTags.length < tags.length;
 
     draw.mutate(
       {
-        tags,
+        tags: fromTags.length > 0 ? [...fromTags] : tags,
         multipleChoiceCount: objective ? 1 : 0,
         openEndedCount: objective ? 0 : 1,
         excludeIds: [...alreadyInExam, ...preview.map((item) => item.id)],
       },
       {
         onSuccess: ({ questions: [replacement] }) => {
+          if (replacement === undefined && narrowed) {
+            swap(question, tags);
+            return;
+          }
           if (replacement === undefined) {
             setNotice(NO_REPLACEMENT);
             return;
@@ -170,9 +181,10 @@ export function AutoFillDialog({
         {knownTags.length > 0 && (
           <fieldset data-tour="filters" className="flex flex-col gap-2">
             <legend className="mb-1 text-label text-ink-muted">Tags de conteúdo</legend>
+            <p className="text-caption text-ink-subtle">Entram as questões com pelo menos uma das tags marcadas.</p>
             <div className="flex flex-wrap gap-2">
               {knownTags.map((tag) => (
-                <label key={tag} className="cursor-pointer">
+                <label key={tag} className="inline-flex min-h-11 cursor-pointer items-center">
                   <input
                     type="checkbox"
                     checked={tags.includes(tag)}
@@ -200,15 +212,11 @@ export function AutoFillDialog({
           onChange={setMultipleChoiceCount}
         />
 
-        <label className="flex cursor-pointer items-center gap-3">
-          <input
-            type="checkbox"
-            checked={includeOpenEnded}
-            onChange={(event) => setIncludeOpenEnded(event.target.checked)}
-            className="size-4 accent-[var(--color-primary)]"
-          />
-          <span className="text-body text-ink">Incluir discursivas</span>
-        </label>
+        <CheckboxField
+          label="Incluir discursivas"
+          checked={includeOpenEnded}
+          onChange={(event) => setIncludeOpenEnded(event.target.checked)}
+        />
 
         {includeOpenEnded && (
           <CountField
@@ -218,8 +226,15 @@ export function AutoFillDialog({
           />
         )}
 
-        <p className="text-caption text-ink-subtle" aria-live="polite">
-          {availabilityLabel({ objectives, openEnded, includeOpenEnded, remainingSlots })}
+        <p className="flex min-h-5 items-center gap-2 text-caption text-ink-subtle" aria-live="polite">
+          {counting ? (
+            <>
+              <Spinner size="sm" />
+              <span className="sr-only">{availabilityLabel({ objectives, openEnded, includeOpenEnded, remainingSlots })}</span>
+            </>
+          ) : (
+            availabilityLabel({ objectives, openEnded, includeOpenEnded, remainingSlots })
+          )}
         </p>
 
         <Button variant="secondary" onClick={generate} disabled={busy}>

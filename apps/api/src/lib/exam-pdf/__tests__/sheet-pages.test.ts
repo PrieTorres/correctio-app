@@ -1,6 +1,26 @@
 import { describe, expect, it } from 'vitest'
 import type { PrintedQuestionContent } from '../sheet-content'
-import { measureQuestion, planSheetPages, QUESTION, STYLE, TEXT_WIDTH, USABLE_HEIGHT, type Measure, type MeasuredQuestion } from '../sheet-pages'
+import {
+  measureQuestion,
+  planSheetPages,
+  QUESTION,
+  QuestionTooTallError,
+  STYLE,
+  TEXT_WIDTH,
+  USABLE_HEIGHT,
+  type Measure,
+  type MeasuredQuestion,
+} from '../sheet-pages'
+
+/** What `run` throws, so the test can look at the error's fields as well as its class. */
+function thrownBy(run: () => unknown): unknown {
+  try {
+    run()
+  } catch (error) {
+    return error
+  }
+  return undefined
+}
 
 /** Every text is one line of 10 points tall, whatever it says: enough to check how the parts add up. */
 const oneLine: Measure = () => 10
@@ -85,10 +105,19 @@ describe('planSheetPages', () => {
     expect(kinds(planSheetPages([question('a', 100), question('b', 100)]))).toEqual(['COVER', ['a', 'b']])
   })
 
-  it('keeps a question taller than a page on a page of its own, instead of dropping it', () => {
-    const pages = planSheetPages([question('a', USABLE_HEIGHT * 2), question('b', 10)])
+  /** Paper cannot scroll: printed anyway, the statement would be cut and the rest would open a page the plan never counted. */
+  it('refuses a question taller than a page, naming it', () => {
+    const error = thrownBy(() => planSheetPages([question('a', 100), question('b', USABLE_HEIGHT + QUESTION.spacing + 1), question('c', 10)]))
 
-    expect(kinds(pages)).toEqual(['COVER', ['a'], ['b'], 'BLANK'])
+    expect(error).toBeInstanceOf(QuestionTooTallError)
+    expect(error).toMatchObject({ questionId: 'b' })
+  })
+
+  /** The space after a question only separates it from the next one, so it never makes a question too tall. */
+  it('prints a question that fills a page exactly', () => {
+    const pages = planSheetPages([question('a', USABLE_HEIGHT + QUESTION.spacing)])
+
+    expect(kinds(pages)).toEqual(['COVER', ['a']])
   })
 
   it('prints the cover and its blank page for an exam with no questions', () => {

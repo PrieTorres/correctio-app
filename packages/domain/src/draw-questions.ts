@@ -1,7 +1,12 @@
 import type { Question } from './domain'
 
 export interface DrawCriteria {
-  /** A question qualifies when it carries every tag listed. Empty means any. */
+  /**
+   * A question qualifies when it carries at least one of the tags listed, so
+   * choosing more tags widens the draw instead of narrowing it to the rare
+   * question that has them all, and the draw spreads the questions over the
+   * tags as evenly as the bank allows. Empty means any.
+   */
   tags: string[]
   multipleChoiceCount: number
   openEndedCount: number
@@ -27,7 +32,7 @@ export interface DrawResult<Drawn extends DrawableQuestion = Question> {
 export type RandomSource = () => number
 
 function matchesCriteria(question: DrawableQuestion, tags: readonly string[]): boolean {
-  return question.deletedAt === undefined && tags.every((tag) => question.tags.includes(tag))
+  return question.deletedAt === undefined && (tags.length === 0 || tags.some((tag) => question.tags.includes(tag)))
 }
 
 /**
@@ -50,8 +55,62 @@ function takeRandom<Drawn extends DrawableQuestion>(pool: readonly Drawn[], coun
   return taken
 }
 
+/** One item of a non-empty list, at random. */
+function pickOne<Item>(items: readonly Item[], random: RandomSource): Item {
+  const index = Math.min(Math.floor(random() * items.length), items.length - 1)
+  return items[index] as Item
+}
+
+/** How many of the questions chosen so far carry each tag asked, shared by every pick of one draw. */
+type TagCoverage = Map<string, number>
+
 /**
- * Builds an exam selection from the bank.
+ * The tag the selection covers least among those the pool can still supply,
+ * ties broken at random, so no content waits while another gets a second
+ * question.
+ */
+function leastCoveredTag(pool: readonly DrawableQuestion[], tags: readonly string[], coverage: TagCoverage, random: RandomSource): string {
+  const available = tags.filter((tag) => pool.some((question) => question.tags.includes(tag)))
+  const least = Math.min(...available.map((tag) => coverage.get(tag) ?? 0))
+  return pickOne(
+    available.filter((tag) => (coverage.get(tag) ?? 0) === least),
+    random,
+  )
+}
+
+/**
+ * Picks `count` questions spread over the tags asked: each pick goes to the
+ * least covered content, so every tag gets a question before any gets a
+ * second, and the exam mixes the contents chosen instead of piling on the tag
+ * with the most questions. A question counts for every asked tag it carries.
+ * Without tags it is a plain random pick.
+ */
+function takeBalanced<Drawn extends DrawableQuestion>(
+  pool: readonly Drawn[],
+  count: number,
+  { tags, coverage, random }: { tags: readonly string[]; coverage: TagCoverage; random: RandomSource },
+): Drawn[] {
+  if (tags.length === 0) return takeRandom(pool, count, random)
+
+  const remaining = [...pool]
+  const taken: Drawn[] = []
+  while (taken.length < count && remaining.length > 0) {
+    const tag = leastCoveredTag(remaining, tags, coverage, random)
+    const picked = pickOne(
+      remaining.filter((question) => question.tags.includes(tag)),
+      random,
+    )
+    remaining.splice(remaining.indexOf(picked), 1)
+    taken.push(picked)
+    for (const covered of tags.filter((item) => picked.tags.includes(item))) coverage.set(covered, (coverage.get(covered) ?? 0) + 1)
+  }
+  return taken
+}
+
+/**
+ * Builds an exam selection from the bank, balanced over the tags asked. The
+ * multiple-choice questions are drawn first and the open-ended ones go on
+ * from the same coverage, so they favour the contents left out.
  *
  * Asking for more questions than the bank holds is not an error: the draw
  * returns what it found and reports the gap, so the teacher sees a partial
@@ -63,15 +122,17 @@ export function drawQuestions<Drawn extends DrawableQuestion>(
   random: RandomSource = Math.random,
 ): DrawResult<Drawn> {
   const eligible = bank.filter((question) => matchesCriteria(question, criteria.tags))
-  const multipleChoice = takeRandom(
+  const coverage: TagCoverage = new Map()
+  const balance = { tags: criteria.tags, coverage, random }
+  const multipleChoice = takeBalanced(
     eligible.filter((question) => question.type === 'objetiva'),
     criteria.multipleChoiceCount,
-    random,
+    balance,
   )
-  const openEnded = takeRandom(
+  const openEnded = takeBalanced(
     eligible.filter((question) => question.type === 'discursiva'),
     criteria.openEndedCount,
-    random,
+    balance,
   )
 
   const missingMultipleChoice = criteria.multipleChoiceCount - multipleChoice.length

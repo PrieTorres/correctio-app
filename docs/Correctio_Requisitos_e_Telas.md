@@ -127,6 +127,8 @@ Formato exigido pela professora: cada RF descreve uma ação que pode ser feita 
 | RF47 | O sistema deve corrigir automaticamente as questões objetivas de uma prova que também contenha discursivas, deixando a correção com status "em andamento" até que o professor lance a nota de cada discursiva. | Correção |
 | RF48 | O sistema deve indicar, na lista de correções de uma aplicação, quais estão em andamento por dependerem de nota de questão discursiva. | Correção |
 
+**Colunas da exportação (RF36).** Enquanto o cliente não valida as colunas (#69), a exportação segue a decisão da PM de 30/10: o relatório da aplicação sai com uma linha por aluno corrigido, com nome, matrícula, versão, a nota de cada questão na coluna da questão da prova (Q1 é a questão 1 da prova, qualquer que seja a versão do aluno) e o total; a folha ainda sem aluno sai como "Folha N", com a matrícula vazia. O consolidado sai com uma linha por aplicação e as colunas da tela (prova, turma, data, corrigidas, média, menor e maior), só com as linhas dos filtros aplicados. As colunas podem mudar quando a #69 for respondida.
+
 **Minimização (RF07).** O e-mail do aluno é coletado hoje sem nenhuma finalidade no sistema: não existe área do aluno e nada é enviado a ele por e-mail. Coletar dado pessoal sem finalidade contraria o princípio da necessidade (LGPD, Art. 6º, III). Levar ao cliente: o campo tem uso previsto? Se não tiver, sai do cadastro e da importação.
 
 ## 4. Requisitos Não-Funcionais (RNF) — com métrica
@@ -516,6 +518,10 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 - Trocar tab → alterna campos
 - “Salvar” (válido) → P6
+- Validação, com a mensagem no próprio campo: enunciado só com espaços conta como vazio; tag de
+  até 80 caracteres (a mais longa fica no campo para encurtar); tag que só muda maiúscula ou
+  acento de outra já escolhida vira a mesma; nota máxima entre 0,01 e 9999,99, com até 2 casas
+  decimais (#184)
 
 #### P8. Provas (lista)
 
@@ -564,9 +570,10 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Conteúdo e elementos:**
 
 - Formulário: tags de conteúdo (multi-select), nº de questões objetivas, toggle “Incluir discursivas” + quantidade, pontuação padrão por questão (opcional, distribui igualmente)
+- Entram as questões com **pelo menos uma** das tags marcadas, e o sorteio **equilibra os conteúdos**: cobre o máximo de tags marcadas e distribui as questões entre elas por igual, enquanto o banco tiver
 - Contador de questões disponíveis no banco para os filtros escolhidos
 - Botão “Gerar seleção”
-- Prévia: lista das questões sorteadas, com botão “Trocar” por linha (sorteia outra com os mesmos filtros) e “Remover”
+- Prévia: lista das questões sorteadas, com botão “Trocar” por linha (sorteia outra do mesmo conteúdo da que sai; só sem outra desse conteúdo vale qualquer tag marcada) e “Remover”
 - Botão “Usar esta seleção”
 
 **Ações e fluxo:**
@@ -650,7 +657,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Cabeçalho: prova + turma, status, menu (Regenerar PDF, Arquivar)
 - Card “PDF”: “Baixar PDF”, data de geração
 - Tabela “Versões”: nº, embaralhamentos, gabarito publicado?, botão “Publicar gabarito” por linha; botão “Publicar todos”
-- Tabela “Alunos e versões” (se identificada)
+- Tabela “Alunos e versões” (se identificada). O aluno removido da turma depois de gerar continua com o nome (RF09, #161); o anonimizado aparece só como “Aluno anonimizado” (RF38)
 - Card “Correção”: progresso X/N alunos, botões “Corrigir provas” (→ P15) e “Ver relatório” (→ P18), e link “Pendentes de atribuição (N)” (→ P17) quando houver correção sem aluno
 - Controle do que o aluno vê ao escanear o QR, em dois níveis independentes (RF46): “Publicar gabarito” por versão, e “Liberar notas” para a aplicação inteira. Liberar a nota sem o gabarito publicado é bloqueado, com texto explicando o motivo
 

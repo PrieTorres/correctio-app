@@ -32,6 +32,13 @@ export interface CardPoint {
  * `docs/answer-card/answer-card.md`.
  */
 export const ANSWER_CARD = Object.freeze({
+  /**
+   * Which geometry this is. Every sheet records the one it was printed with
+   * (`AnswerSheet.answerCardVersion`), and the reading of #78 picks the
+   * geometry by the sheet it read, so moving any number below means a new
+   * version: a sheet already handed out keeps being read where its marks are.
+   */
+  version: 1,
   page: Object.freeze({ width: 210, height: 297 }),
   /** The outline drawn around the card, from the left margin to the right one. */
   frame: Object.freeze({ x: 15, y: 112, width: 180, height: 170 }),

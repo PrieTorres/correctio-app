@@ -4,8 +4,11 @@ import type { TourScreen } from './content'
  * Outside the `correctio:v1:` prefix of the collections on purpose:
  * `clearAllCollections` wipes that prefix, and a tour the teacher already
  * skipped or finished must not come back because sample data was cleared.
+ *
+ * Exported for the end-to-end suite, which marks every tour seen before a
+ * spec about something the tour would sit on top of.
  */
-const KEY = 'correctio:tour-seen'
+export const TOUR_SEEN_KEY = 'correctio:tour-seen'
 
 /**
  * Which screens have already shown their tour: finished, skipped, closed on
@@ -19,7 +22,7 @@ const KEY = 'correctio:tour-seen'
  */
 function read(): string[] {
   try {
-    const raw = window.localStorage.getItem(KEY)
+    const raw = window.localStorage.getItem(TOUR_SEEN_KEY)
     return raw === null ? [] : (JSON.parse(raw) as string[])
   } catch {
     return []
@@ -38,6 +41,6 @@ export function markTourSeen(screen: TourScreen): void {
   try {
     const seen = read()
     if (seen.includes(screen)) return
-    window.localStorage.setItem(KEY, JSON.stringify([...seen, screen]))
+    window.localStorage.setItem(TOUR_SEEN_KEY, JSON.stringify([...seen, screen]))
   } catch {}
 }

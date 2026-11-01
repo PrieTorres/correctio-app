@@ -21,6 +21,14 @@ export interface NewUser {
   emailVerifiedAt: Date | null
 }
 
+/** What anonymizing an account writes in place of the person (RF05). */
+export interface AnonymizedUser {
+  fullName: string
+  email: string
+  passwordHash: string
+  at: Date
+}
+
 export interface UserRepository {
   /** The column's collation compares without case, so `Ana@X` and `ana@x` are the same account. */
   findByEmail: (email: string) => Promise<UserRecord | null>
@@ -29,6 +37,8 @@ export interface UserRepository {
   create: (user: NewUser) => Promise<UserRecord | null>
   /** Records proof of the inbox and, in the same write, the password that goes with it. */
   verifyEmail: (id: string, passwordHash: string) => Promise<void>
+  /** `false` when the account was already anonymized: the first anonymization is the one that stays. */
+  anonymize: (id: string, markers: AnonymizedUser) => Promise<boolean>
 }
 
 const COLUMNS = ['id', 'role', 'fullName', 'email', 'passwordHash', 'createdAt', 'anonymizedAt', 'emailVerifiedAt'] as const
@@ -66,6 +76,16 @@ export function createUserRepository(db: Kysely<Database>): UserRepository {
 
     async verifyEmail(id, passwordHash) {
       await db.updateTable('users').set({ passwordHash, emailVerifiedAt: new Date() }).where('id', '=', id).execute()
+    },
+
+    async anonymize(id, { fullName, email, passwordHash, at }) {
+      const result = await db
+        .updateTable('users')
+        .set({ fullName, email, passwordHash, anonymizedAt: at })
+        .where('id', '=', id)
+        .where('anonymizedAt', 'is', null)
+        .executeTakeFirst()
+      return result.numUpdatedRows === 1n
     },
   }
 }

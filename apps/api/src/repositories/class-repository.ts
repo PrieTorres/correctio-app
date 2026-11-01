@@ -13,7 +13,10 @@ export interface ClassClash {
 }
 
 export interface ClassRepository {
-  /** Active or archived classes, searched by name and subject, ordered by name. */
+  /**
+   * Active or archived classes, searched by name and subject, ordered by name,
+   * each with its `studentCount` (#146).
+   */
   list: (teacherId: string, request: PageRequest) => Promise<Page<Class>>
   findById: (teacherId: string, id: string) => Promise<Class | undefined>
   /** Another class of the teacher with the same name and term, archived ones included. */
@@ -31,6 +34,25 @@ export interface ClassRepository {
 export function createClassRepository(db: Kysely<Database>): ClassRepository {
   const owned = (teacherId: string) => db.selectFrom('classes').where('teacherId', '=', teacherId)
 
+  /**
+   * The students of each class of a page, in one grouped query rather than one
+   * per card. A removed student left the class (RF09) and does not count; an
+   * anonymized one is still enrolled, with the grades (RF38), and does, which
+   * is how P5 counts them. A class with no student has no row, and counts 0.
+   */
+  async function countStudents(classIds: readonly string[]): Promise<Map<string, number>> {
+    if (classIds.length === 0) return new Map()
+    const rows = await db
+      .selectFrom('students')
+      .select('classId')
+      .select((eb) => eb.fn.countAll<number>().as('students'))
+      .where('classId', 'in', classIds)
+      .where('removedAt', 'is', null)
+      .groupBy('classId')
+      .execute()
+    return new Map(rows.map((row) => [row.classId, Number(row.students)]))
+  }
+
   return {
     async list(teacherId, { search, archived, page, pageSize }) {
       const filtered = owned(teacherId)
@@ -40,7 +62,8 @@ export function createClassRepository(db: Kysely<Database>): ClassRepository {
       const { total } = await filtered.select((eb) => eb.fn.countAll<number>().as('total')).executeTakeFirstOrThrow()
       const { limit, offset } = pageWindow({ page, pageSize })
       const items = await filtered.select(CLASS_COLUMNS).orderBy(byText('name')).orderBy('id').limit(limit).offset(offset).execute()
-      return { items, total: Number(total) }
+      const counts = await countStudents(items.map((item) => item.id))
+      return { items: items.map((item) => ({ ...item, studentCount: counts.get(item.id) ?? 0 })), total: Number(total) }
     },
 
     findById: (teacherId, id) => owned(teacherId).select(CLASS_COLUMNS).where('id', '=', id).executeTakeFirst(),

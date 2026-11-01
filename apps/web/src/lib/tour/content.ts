@@ -12,8 +12,9 @@ export interface TourStep {
 }
 
 /**
- * The tour text, copied from `docs/Tour_Guiado.md`, with each step tied to the
- * element it talks about.
+ * The tour text, with each step tied to the element it talks about. This is
+ * the source `docs/Tour_Guiado.md` repeats (#177), and a test keeps the two
+ * the same.
  *
  * It lives here rather than inside the screens so the wording is reviewed in
  * one place, and so the two limits the document sets — at most four steps per
@@ -77,12 +78,12 @@ export const TOUR_STEPS = {
     { text: 'Liberar as notas faz cada aluno ver a dele ao escanear o próprio QR.', target: 'release' },
   ],
   grading: [
-    { text: 'No celular fotografe as folhas; no computador, arraste os arquivos.', target: 'upload' },
-    { text: 'Marque quais folhas ler e clique no botão para o sistema corrigir.', target: 'list' },
-    { text: 'Nada vira nota sem você confirmar. Revise cada folha antes.', target: 'confirm' },
+    { text: 'Fotografe cada folha: o sistema acha a folha pelo QR e lê as marcações.', target: 'upload' },
+    { text: 'Sem foto boa? Escolha a folha e lance a correção à mão.', target: 'manual' },
+    { text: 'Nada vira nota sem você confirmar. Abra "Revisar" em cada folha.', target: 'list' },
   ],
   gradingSheet: [
-    { text: 'À esquerda a folha lida; compare com o que o sistema entendeu.', target: 'image' },
+    { text: 'À esquerda a foto da folha; compare com o que o sistema leu.', target: 'image' },
     { text: 'Clique na letra para trocar a alternativa lida. A nota recalcula na hora.', target: 'questions' },
     { text: 'Lance a nota de cada discursiva: o sistema não corrige essas sozinho.', target: 'score' },
   ],

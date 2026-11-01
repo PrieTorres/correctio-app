@@ -105,6 +105,45 @@ describe('TagField', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Limites' })).toBeNull())
   })
 
+  /** The database keys a question's tags ignoring case and accents, so the pair failed the save (#184). */
+  it('keeps one tag when the next differs only in case or accents from one already chosen', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<Harness />)
+
+    await user.type(input(), 'Integrais{Enter}')
+    await user.type(input(), 'integrais{Enter}')
+    await user.type(input(), 'Função{Enter}')
+    await user.type(input(), 'funcao{Enter}')
+
+    await waitFor(() => expect(chosen()).toEqual(['Integrais', 'Função']))
+    expect(input()).toHaveValue('')
+  })
+
+  /** `question_tags.tag` holds 80 characters; a longer one failed the save with a 500 (#184). */
+  it('refuses a tag longer than 80 characters, saying why and keeping it to shorten', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<Harness />)
+    const long = 'a'.repeat(81)
+
+    await user.type(input(), `${long}{Enter}`)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cada tag pode ter no máximo 80 caracteres')
+    expect(chosen()).toEqual([])
+    expect(input()).toHaveValue(long)
+    expect(input()).toHaveAttribute('aria-invalid', 'true')
+
+    await user.type(input(), '{Backspace}{Enter}')
+
+    await waitFor(() => expect(chosen()).toEqual(['a'.repeat(80)]))
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('shows what the form refused about the chosen tags', () => {
+    renderWithProviders(<TagField value={['Limites']} onChange={() => undefined} error="Uma tag repetida" />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Uma tag repetida')
+  })
+
   it('removes a chosen tag', async () => {
     const user = userEvent.setup()
     renderWithProviders(<Harness />)

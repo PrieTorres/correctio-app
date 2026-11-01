@@ -1,7 +1,25 @@
 import { useState, type KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
+import { collationKey } from '@correctio/domain'
+import { questionTagSchema } from '@/lib/schemas'
 import { normalize } from '@/lib/utils'
 import { useQuestionTags } from '../hooks/useQuestions'
+
+/**
+ * The spelling a typed tag is added with: the one already chosen in this
+ * form, else the one the bank already has, else the one typed.
+ *
+ * "calculo" and "Cálculo" are the same topic to a teacher and two different
+ * filters to the exam builder, which is how a pool quietly halves. Matching
+ * before adding fixes it where it starts. The chosen tags count too, because
+ * the database keys a question's tags ignoring case and accents, and
+ * "Integrais" beside "integrais" failed the save (#184). The comparison is the
+ * one the API refuses with, so the field never adds what the save would refuse.
+ */
+function spellingOf(tag: string, chosen: readonly string[], known: readonly string[]): string {
+  const sameTag = (item: string) => collationKey(item) === collationKey(tag)
+  return chosen.find(sameTag) ?? known.find(sameTag) ?? tag
+}
 
 /**
  * Free-text tags with suggestions drawn from what the bank already uses.
@@ -13,31 +31,40 @@ import { useQuestionTags } from '../hooks/useQuestions'
  * Keeping focus on the input stops its blur handler from committing the half-
  * typed draft on the way to this click, which would add "Cál" beside the
  * "Cálculo" being chosen.
+ *
+ * A tag the column cannot hold stays in the input with the reason under it,
+ * so the teacher shortens it instead of losing it. `error` is what the form
+ * refused about the tags already chosen.
  */
 export function TagField({
   value,
   onChange,
-}: Readonly<{ value: string[]; onChange: (tags: string[]) => void }>) {
+  error,
+}: Readonly<{ value: string[]; onChange: (tags: string[]) => void; error?: string }>) {
   const [draft, setDraft] = useState('')
+  const [draftError, setDraftError] = useState<string>()
   const { data: known = [] } = useQuestionTags()
 
-  /**
-   * Typing a tag the bank already has adopts the existing spelling.
-   *
-   * "calculo" and "Cálculo" are the same topic to a teacher and two different
-   * filters to the exam builder, which is how a pool quietly halves. Matching
-   * before adding fixes it where it starts, rather than leaving both in the
-   * bank for someone to reconcile later.
-   */
-  const add = (tag: string) => {
-    const clean = tag.trim()
-    if (clean === '') return
+  const add = (typed: string) => {
+    if (typed.trim() === '') return
 
-    const existing = known.find((item) => normalize(item) === normalize(clean)) ?? clean
+    const checked = questionTagSchema.safeParse(typed)
+    if (!checked.success) {
+      setDraftError(checked.error.issues[0]?.message)
+      return
+    }
+
+    const tag = spellingOf(checked.data, value, known)
     setDraft('')
-    if (value.includes(existing)) return
-    onChange([...value, existing])
+    if (!value.includes(tag)) onChange([...value, tag])
   }
+
+  const changeDraft = (next: string) => {
+    setDraft(next)
+    setDraftError(undefined)
+  }
+
+  const message = draftError ?? error
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' || event.key === ',') {
@@ -89,13 +116,21 @@ export function TagField({
         <input
           id="tag-input"
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => changeDraft(event.target.value)}
           onKeyDown={onKeyDown}
           onBlur={() => add(draft)}
+          aria-invalid={message === undefined ? undefined : true}
+          aria-describedby={message === undefined ? undefined : 'tag-error'}
           placeholder={value.length === 0 ? 'Digite e pressione Enter' : ''}
           className="min-w-32 flex-1 bg-transparent px-1 py-1 text-body focus:outline-none"
         />
       </div>
+
+      {message !== undefined && (
+        <p id="tag-error" role="alert" className="text-caption text-danger">
+          {message}
+        </p>
+      )}
 
       {suggestions.length > 0 && (
         <div className="flex flex-wrap items-center gap-2" aria-live="polite">

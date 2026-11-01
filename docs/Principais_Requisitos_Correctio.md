@@ -140,4 +140,4 @@ Separar os dois é o que permite ter um número curto legível no papel sem torn
 ## Fora do escopo / em discussão
 
 - **Fora:** app mobile; área do aluno com login; editor manual de layout do PDF.
-- **Em discussão:** versionamento A/B/C de questões (provas realmente diferentes por aluno).
+- **Fora do MVP:** versionamento A/B/C de questões (provas realmente diferentes por aluno). A professora respondeu na #83, em 26/10/2026, que o embaralhamento atende o escopo e que questões diferentes por aluno são um extra opcional.

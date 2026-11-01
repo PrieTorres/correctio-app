@@ -102,7 +102,7 @@ O motivo é específico deste projeto e é o **único ponto verdadeiramente irre
 
 Três restrições que definem o que a N1 pode fazer:
 
-**Cerca de 5 MB, e síncrono — não cabe foto de folha de resposta.** Uma foto de celular convertida para texto ocupa de 3 a 7 MB: estoura a cota em **uma única imagem**. Na N1, as telas de correção usam um conjunto fixo de imagens de demonstração e a leitura é simulada com atraso artificial. Upload real fica para a N2.
+**Cerca de 5 MB, e síncrono — não cabe foto de folha de resposta.** Uma foto de celular convertida para texto ocupa de 3 a 7 MB: estoura a cota em **uma única imagem**. Na N1, as telas de correção usavam um conjunto fixo de imagens de demonstração e a leitura era simulada. Desde a N2 a foto vai para a API, que a guarda no Storage e a lê numa worker thread ([ADR-007](adr/ADR-007-sheet-reading-on-api-worker.md)); o demo do Pages lê a foto no próprio navegador e a guarda só na memória, sem `localStorage`.
 
 **É por navegador.** O cliente e a professora abrindo o link veem os dados semeados, não o que a equipe demonstrou. Por isso é obrigatório um conjunto de dados de demonstração realista — turmas, alunos, questões, provas, aplicações e correções já preenchidas — carregado no primeiro acesso, mais um botão "Restaurar dados de demonstração". Sem isso, quem abrir o link vê 25 telas vazias.
 
@@ -157,6 +157,8 @@ Estrutura por funcionalidade, com `index.ts` como interface pública de cada pas
 - **Modelar apenas estados válidos.** O domínio pede união discriminada: questão é objetiva **ou** discursiva (não um campo de tipo com campos opcionais que combinam em estados impossíveis); prova é rascunho, pronta ou arquivada; correção vem de imagem ou de digitação; a página pública tem estados mutuamente exclusivos (código inválido, nota não liberada, gabarito não publicado, liberado) — nunca três booleanos soltos.
 - **Validar dado externo na fronteira**, com a mesma definição de schema dos dois lados.
 - **Acessibilidade não é etapa final.** O RNF11 exige alvos de toque de 44 px e nota mínima em auditoria de acessibilidade; primitives acessíveis entregam gestão de foco e ARIA sem reimplementação.
+- **Um controle de cada vez.** Ação que leva a outra tela com cara de botão é o `ButtonLink` de `components/ui`, que é o próprio link desenhado com as classes do `Button`. Botão com link dentro, ou link com botão dentro, só navegava pelo texto e parava duas vezes no Tab (#141).
+- **44 px resolvidos no componente, não na tela.** O link de voltar é o `BackLink`, a caixa de marcar com texto é o `CheckboxField` e o campo de número é o `NumberInput`, todos de `components/ui` e todos com 44 px de altura. Botão que se repete em cada item de uma lista ("Remover", "Arquivar", "Revisar") tem nome acessível que começa pelo texto visível e depois diz o item, como "Remover Ana Beatriz Moreira da turma" (#145, WCAG 2.5.3).
 
 ---
 
@@ -167,6 +169,8 @@ Estrutura por funcionalidade, com `index.ts` como interface pública de cada pas
 Gerar PDF, ler folhas, importar e exportar não devolvem o resultado — devolvem **um job**. A tela confirma em menos de 1 segundo, o professor volta a trabalhar, e a notificação chega quando o resultado existe.
 
 No front isso é um padrão único e reutilizável: iniciar job → registrar o id → acompanhar o estado → avisar. Nenhuma tela implementa isso do seu jeito, e nenhuma mostra spinner bloqueante.
+
+O padrão está em `apps/web/src/lib/background-jobs` (#82): cada job é uma mutation do TanStack Query sob a chave `background-job`, com o tipo do `BackgroundJob` (`EXPORT`, `GENERATE_PDF`, `READ_SHEETS`, `IMPORT`). O cache guarda o job depois que a tela que o iniciou sai, e o aviso do layout (`BackgroundJobsNotice`) lê todos de lá: mostra "em andamento" no clique, oferece o arquivo quando fica pronto, em qualquer tela, e some quando o professor fecha ou quando a sessão termina. A exportação de relatórios é o primeiro uso; gerar PDF e importar usam os mesmos hooks (`useBackgroundJob`, `useBackgroundJobs`).
 
 A leitura de imagem é intensiva em CPU e **não pode** rodar na thread principal do servidor — travaria a API inteira. É o mesmo motivo, visto do outro lado.
 

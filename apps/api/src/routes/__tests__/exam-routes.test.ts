@@ -223,7 +223,8 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('exam routes (real MySQL)', () =
     /** RF42, and `ready` is history rather than a state to hand back: a restored exam is a draft. */
     it('archives as closed and restores to draft, even an exam that was ready', async () => {
       const exam = await created()
-      await ana().patch(`/exams/${exam.id}/ready`)
+      const service = createExamService({ exams: createExamRepository(db), questions: new QuestionRepository(db) })
+      await service.markReady('ana', exam.id)
 
       expect((await ana().patch(`/exams/${exam.id}/archive`)).status).toBe(204)
       expect((await ana().get(`/exams/${exam.id}`)).body.status).toBe('closed')
@@ -231,28 +232,18 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('exam routes (real MySQL)', () =
       expect((await ana().get(`/exams/${exam.id}`)).body.status).toBe('draft')
     })
 
-    /** Applying an exam makes it `ready`; it never brings a closed exam back, and asking twice changes nothing. */
-    it('marks only a draft as ready, through the route the screen calls after generating', async () => {
+    /** Applying an exam (#46) makes it `ready`; it never brings a closed exam back. */
+    it('marks only a draft as ready', async () => {
       const draft = await created()
       const closed = await created({ ...FORM, title: 'Arquivada' })
       await ana().patch(`/exams/${closed.id}/archive`)
-
-      expect((await ana().patch(`/exams/${draft.id}/ready`)).status).toBe(204)
-      expect((await ana().patch(`/exams/${draft.id}/ready`)).status).toBe(204)
-      expect((await ana().patch(`/exams/${closed.id}/ready`)).status).toBe(204)
-
-      expect((await ana().get(`/exams/${draft.id}`)).body.status).toBe('ready')
-      expect((await ana().get(`/exams/${closed.id}`)).body.status).toBe('closed')
-    })
-
-    /** The service is what generation on the server (#46) will call, with the same rule as the route. */
-    it('marks a draft as ready from the service too', async () => {
-      const draft = await created()
       const service = createExamService({ exams: createExamRepository(db), questions: new QuestionRepository(db) })
 
       await service.markReady('ana', draft.id)
+      await service.markReady('ana', closed.id)
 
       expect((await ana().get(`/exams/${draft.id}`)).body.status).toBe('ready')
+      expect((await ana().get(`/exams/${closed.id}`)).body.status).toBe('closed')
     })
   })
 
@@ -265,6 +256,15 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('exam routes (real MySQL)', () =
       expect(response.status).toBe(200)
       expect(ids).toEqual(['q-continuity', 'q-essay', 'q-limits'])
       expect(response.body.shortfall).toEqual({ multipleChoice: 3, openEnded: 0 })
+    })
+
+    /** No question carries both tags, so a draw that wanted all of them would say the bank is empty. */
+    it('draws the questions carrying any of the tags asked, not only those with all of them', async () => {
+      const response = await ana().post('/exams/draw', { tags: ['Derivadas', 'Limites'], multipleChoiceCount: 5, openEndedCount: 1 })
+
+      const ids = (response.body.questions as { id: string }[]).map((item) => item.id).sort()
+      expect(ids).toEqual(['q-continuity', 'q-derivative', 'q-essay', 'q-limits'])
+      expect(response.body.shortfall).toEqual({ multipleChoice: 2, openEnded: 0 })
     })
 
     it('leaves out the questions already in the exam or on screen', async () => {
@@ -305,10 +305,9 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('exam routes (real MySQL)', () =
       bia().patch(`/exams/${exam.id}`, { title: 'Minha' }),
       bia().patch(`/exams/${exam.id}/archive`),
       bia().patch(`/exams/${exam.id}/restore`),
-      bia().patch(`/exams/${exam.id}/ready`),
     ])
 
-    expect(responses.map((response) => response.status)).toEqual([404, 404, 404, 404, 404])
+    expect(responses.map((response) => response.status)).toEqual([404, 404, 404, 404])
     expect((await bia().get('/exams')).body.total).toBe(0)
     expect((await ana().get(`/exams/${exam.id}`)).body.title).toBe(FORM.title)
     expect((await request(app).get('/exams')).status).toBe(401)

@@ -96,10 +96,15 @@ describe('tour guiado', () => {
    * The tour opens only once the list has arrived, and listens for Esc only
    * while open. With the classes on the API that takes longer than the visit,
    * so a key pressed right away reaches a screen with no tour yet.
+   *
+   * Even once the panel is visible, the listener comes a moment later, in the
+   * effect that runs after the paint, and a slow CI machine pressed Esc in
+   * between. That effect also gives the panel focus, so waiting for the focus
+   * waits for the listener.
    */
   it('fecha pelo Escape', () => {
     cy.visit('/turmas')
-    tour().should('be.visible')
+    tour().should('be.visible').and('have.focus')
 
     cy.get('body').type('{esc}')
 
@@ -227,7 +232,10 @@ describe('tour guiado', () => {
 
   /** Six screens had a help button that opened nothing; the detail of an application was one of them. */
   it('reabre pelo ícone de ajuda no detalhe da aplicação', () => {
-    cy.visit('/aplicacoes/application-calculus-midterm')
+    cy.visit('/aplicacoes')
+    tour().contains('button', 'Pular').click()
+    cy.contains('a', 'Cálculo I — Prova 1').click()
+    cy.contains('h2', 'Versões').should('be.visible')
     tour().contains('button', 'Pular').click()
 
     cy.get('button[aria-label="Ver o tour desta tela"]').click()

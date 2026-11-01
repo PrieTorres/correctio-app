@@ -36,7 +36,7 @@ const tokenResponseSchema = z.object({ id_token: z.string().min(1) })
 
 /** Only an address Google itself verified may sign in to the account that has it. */
 const profileSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   email_verified: z.literal(true),
   name: z.string().trim().min(1).optional(),
 })

@@ -30,12 +30,7 @@ export interface ExamService {
   restore: (teacherId: string, id: string) => Promise<void>
   /** The automatic exam (RF16): a selection from the bank, which nothing stores until the teacher saves the exam. */
   draw: (teacherId: string, body: unknown) => Promise<DrawResult<QuestionRecord>>
-  /**
-   * Records that the exam was applied, and only ever moves a draft to `ready`.
-   * While the application is still generated in the browser, the screen calls
-   * it through `PATCH /exams/:id/ready`; once generation runs on the server
-   * (#46), the service calls it there.
-   */
+  /** Records that the exam was applied: generating an application (#46) calls this, never a route. */
   markReady: (teacherId: string, id: string) => Promise<void>
 }
 
@@ -131,13 +126,13 @@ export function createExamService({ exams, questions }: ExamServiceDependencies)
     },
 
     /**
-     * Draws from the active questions of the teacher carrying every tag asked,
+     * Draws from the active questions of the teacher carrying any of the tags asked,
      * leaving out the ones already in the exam or on screen, with the same
      * function the screens used to run (`@correctio/domain`).
      */
     async draw(teacherId, body) {
       const { tags, excludeIds, ...counts } = parseRequest(drawRequestSchema, body)
-      const { items } = await questions.findMany(teacherId, { tags, archived: false, page: 1, pageSize: MAX_PAGE_SIZE })
+      const { items } = await questions.findMany(teacherId, { tags, anyTag: true, archived: false, page: 1, pageSize: MAX_PAGE_SIZE })
       const excluded = new Set(excludeIds)
       return drawQuestions(
         items.filter((question) => !excluded.has(question.id)),

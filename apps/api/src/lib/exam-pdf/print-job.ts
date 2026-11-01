@@ -1,8 +1,15 @@
 import type { AnswerSheet, ExamVersion, Question } from '@correctio/domain'
 
+/**
+ * What the PDF reads of a question: its statement and, for an objective one,
+ * its alternatives. The contract's `Question` fits, and so does the record the
+ * API loads from the database.
+ */
+export type PrintableQuestion = Pick<Question, 'id' | 'statement' | 'alternatives'>
+
 /** A question as the exam prints it: the question itself and what it is worth in this exam. */
 export interface PrintedQuestion {
-  question: Question
+  question: PrintableQuestion
   score: number
 }
 

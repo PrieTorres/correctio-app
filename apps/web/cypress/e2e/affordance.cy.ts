@@ -36,9 +36,10 @@ describe('o que é clicável se comporta como clicável', () => {
 
   it('põe o ponteiro no rótulo da caixa de seleção, que é onde se clica', () => {
     cy.visit('/aplicacoes')
-    cy.contains('a', 'Cálculo I — Prova 1').click()
+    cy.contains('a', 'Física II — Teste rápido').click()
+    cy.contains('a', 'Gerar PDF').click()
 
-    cy.contains('label', 'Liberar a consulta de nota')
+    cy.contains('label', 'Imprimir o nome do aluno em cada folha')
       .should('have.css', 'cursor', 'pointer')
       .find('input')
       .should('have.css', 'cursor', 'pointer')

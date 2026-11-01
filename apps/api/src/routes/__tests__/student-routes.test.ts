@@ -158,6 +158,37 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('student routes (real MySQL)', (
       expect(namesIn(await ana().get(studentsOf()).query({ search: 'beatriz' }))).toEqual(['Ana Beatriz'])
       expect(namesIn(await ana().get(studentsOf()).query({ search: '002' }))).toEqual(['Bruno Lima'])
     })
+
+    /** The sheets and grades of an application name everyone who sat it, the removed included (RF09, #161). */
+    it('adds the removed students when asked, marked by removedAt', async () => {
+      const removed = await add({ fullName: 'Aluno Alfa Um', registration: '1001' })
+      await add({ fullName: 'Bruno Lima', registration: '1002' })
+      await ana().delete(studentPath(removed.id))
+
+      const everyone = await ana().get(studentsOf()).query({ includeRemoved: 'true' })
+
+      expect(everyone.body.total).toBe(2)
+      expect(namesIn(everyone)).toEqual(['Aluno Alfa Um', 'Bruno Lima'])
+      expect(itemsIn(everyone)[0]?.removedAt).toEqual(expect.any(String))
+      expect(await listedNames()).toEqual(['Bruno Lima'])
+      expect(namesIn(await ana().get(studentsOf()).query({ includeRemoved: 'false' }))).toEqual(['Bruno Lima'])
+    })
+
+    /** RF38 outlives the removal: the list never brings back the name anonymization erased. */
+    it('lists a removed student who was anonymized under the anonymized name only', async () => {
+      const removed = await add()
+      await ana().delete(studentPath(removed.id))
+      await ana().post(`${studentPath(removed.id)}/anonymize`)
+
+      expect(namesIn(await ana().get(studentsOf()).query({ includeRemoved: 'true' }))).toEqual(['Aluno anonimizado'])
+    })
+
+    it('refuses an includeRemoved that is not true or false', async () => {
+      const response = await ana().get(studentsOf()).query({ includeRemoved: 'yes' })
+
+      expect(response.status).toBe(400)
+      expect(response.body).toEqual({ code: 'invalid', message: 'Parâmetro de lista inválido: includeRemoved.' })
+    })
   })
 
   describe('POST /classes/:id/students/import', () => {

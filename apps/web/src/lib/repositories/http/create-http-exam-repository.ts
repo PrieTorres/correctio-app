@@ -14,20 +14,14 @@ const drawResponseSchema = z.object({
 
 /**
  * The HTTP version of the exam repository, backed by `/exams` (#45). The draw
- * runs on the server, over the teacher's whole bank, and `markReady` calls
- * `PATCH /exams/:id/ready` while the application is still generated in the
- * browser. `markReady` and its route go away with #46, once the application
- * is generated on the server.
+ * runs on the server, over the teacher's whole bank. Nothing here marks an
+ * exam `ready`: the API does that when it generates an application (#46).
  */
 export function createHttpExamRepository(api: ApiClient): ExamRepository {
   const base = createHttpOwnedRepository<Exam, ExamInput>({ api, resource: '/exams', schema: examSchema })
 
   return {
     ...base,
-
-    async markReady(id) {
-      await api.request('PATCH', `/exams/${encodeURIComponent(id)}/ready`)
-    },
 
     async draw(request) {
       const parsed = drawResponseSchema.safeParse(await api.request('POST', '/exams/draw', { body: request }))

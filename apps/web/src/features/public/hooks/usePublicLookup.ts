@@ -16,11 +16,10 @@ export const publicLookupKeys = {
  * Nothing is cached: a grade released a minute ago must show on the next scan,
  * and the page is public, so nothing of it stays behind.
  *
- * While the lookup still reads this browser's data, which belongs to whoever is
- * signed in here, it waits for the session to be restored: asked earlier, it
- * searched nobody's data and called a real code invalid.
- *
- * Issue #148 removes this wait, once the lookup reads from the API.
+ * Where the lookup reads this browser's data, as in the demo, that data belongs
+ * to whoever is signed in here, so it waits for the session to be restored:
+ * asked earlier, it searched nobody's data and called a real code invalid. On
+ * the API it asks at once, since a student has no session to wait for.
  */
 export function usePublicLookup(code: string | undefined) {
   const { publicLookup } = useServices();
@@ -28,7 +27,7 @@ export function usePublicLookup(code: string | undefined) {
 
   return useQuery<PublicLookup>({
     queryKey: publicLookupKeys.byCode(code ?? ''),
-    enabled: code !== undefined && !session.isPending,
+    enabled: code !== undefined && !(publicLookup.readsThisBrowser === true && session.isPending),
     retry: false,
     staleTime: 0,
     gcTime: 0,

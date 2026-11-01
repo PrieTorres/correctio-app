@@ -83,7 +83,7 @@ export function NewPasswordPage() {
         )}
       </Card>
 
-      <Link to={ROUTES.passwordReset} className="text-center text-label text-primary underline">
+      <Link to={ROUTES.passwordReset} className="link-target justify-center text-label text-primary underline">
         Pedir um link novo
       </Link>
     </div>

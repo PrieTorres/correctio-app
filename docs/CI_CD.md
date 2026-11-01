@@ -20,7 +20,7 @@ O portão de qualidade transforma isso em algo automático, em vez de depender d
 | 2 | **Lint** (regras de `tooling/eslint/`, mais o idioma dos comentários) | houver erro de ESLint, função acima dos limites de complexidade ou comentário que não seja JSDoc |
 | 3 | **Verificação de tipos** (`tsc --noEmit`) | houver erro de tipo |
 | 4 | **Testes unitários + cobertura** (inclui os testes das regras de lint e do backup, com `node:test`, e os da API contra um MySQL de verdade, que aplicam as migrations num banco vazio) | algum teste falhar ou a cobertura de código novo ficar abaixo de 80% |
-| 5 | **Build de produção** | o build quebrar |
+| 5 | **Build de produção**, conferido por `scripts/check-firebase-bundle.mjs` (#51) | o build quebrar, ou o pacote do Firebase trouxer texto que só existe no demo (`teacher-demo`, `seeded-at`, `Dados de demonstração`, `demo-sheets`, `prova-exemplo`). O "2. Release" faz a mesma conferência antes de publicar |
 | 6 | **Testes E2E (Cypress)** | algum fluxo principal falhar |
 | 7 | **Auditoria de dependências** (`scripts/audit-dependencies.mjs`) | houver vulnerabilidade alta ou crítica fora da lista de exceções |
 | 8 | **SonarCloud** | o portão de qualidade reprovar |
@@ -131,10 +131,8 @@ o `npm audit --audit-level=high`, mas aceita os que estão em
 `scripts/dependency-audit/allowed-advisories.mjs`. Cada exceção diz o motivo e a issue que a remove,
 e a lista só diminui. Quando a exceção não encontra mais o alerta, a auditoria avisa que ela pode sair.
 
-Hoje a lista tem uma exceção:
-- o GHSA-mrhx-c7xc-m3w5, do zod, corrigido só no zod 4;
-- o risco é baixo, porque o corpo de toda requisição passa pelo limite de 100 KB antes do zod;
-- a migração está na #164, e a exceção foi aprovada pela PM em 27/10.
+Hoje a lista está vazia. A última exceção, o GHSA-mrhx-c7xc-m3w5 do zod, saiu com a migração para
+o zod 4 (#164), que corrige o alerta.
 
 **Node fixado em um lugar só.** A versão vem do `.nvmrc` e o CI lê de lá. Duas fontes divergem em algumas semanas, e aí o build passa na máquina de alguém e falha no CI.
 

@@ -12,4 +12,6 @@ export {
   withDefaultDiscursiveScores,
 } from '@correctio/domain'
 export type { GradedObjectives, MarkedAnswer } from '@correctio/domain'
-export { readSheet, DEMO_SHEET_IMAGES } from './read-sheet'
+export { answersOf } from './stored-answers'
+export { readPhotoInBrowser } from './read-photo-in-browser'
+export type { PhotoReading, ReadingContext } from './read-photo-in-browser'

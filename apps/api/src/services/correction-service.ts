@@ -22,9 +22,11 @@ import type { ApplicationRepository } from '../repositories/application-reposito
 import { CORRECTION_INDEX, type CorrectionRepository } from '../repositories/correction-repository'
 import type { GradingExam, GradingQuestion, GradingRepository } from '../repositories/grading-repository'
 import type { PrintingRepository } from '../repositories/printing-repository'
+import type { SheetImageRepository } from '../repositories/sheet-image-repository'
 import { requireApplication } from './application-service'
 
 const NOT_FOUND = 'Correção não encontrada.'
+const IMAGE_NOT_FOUND = 'Foto não encontrada.'
 const SHEET_NOT_FOUND = 'Folha não encontrada.'
 const SHEET_ALREADY_CORRECTED = 'Esta folha já tem correção. Edite a correção existente.'
 const ALREADY_SENT = 'Esta correção já foi enviada.'
@@ -41,7 +43,7 @@ const scoreAboveMaximum = (maximum: number) => `Uma nota de discursiva passa do 
 const MAX_ENTRIES = 100
 
 const answerSchema = z.object({ questionId: z.string().min(1), selectedAlternativeId: z.string().min(1).optional() })
-const discursiveScoreSchema = z.object({ questionId: z.string().min(1), score: z.number().finite().nonnegative() })
+const discursiveScoreSchema = z.object({ questionId: z.string().min(1), score: z.number().nonnegative() })
 
 /**
  * What the teacher decided on the review screen (P16), and nothing else. The
@@ -60,19 +62,21 @@ const reviewShape = {
 
 const createSchema = z.object(
   {
-    answerSheetId: z.string({ message: 'Informe a folha.' }).min(1, 'Informe a folha.'),
+    answerSheetId: z.string({ error: 'Informe a folha.' }).min(1, 'Informe a folha.'),
     answers: reviewShape.answers.default([]),
     discursiveScores: reviewShape.discursiveScores.default([]),
     notes: reviewShape.notes.optional(),
     studentId: reviewShape.studentId.optional(),
     reportedStudentName: reviewShape.reportedStudentName.optional(),
     reportedStudentRegistration: reviewShape.reportedStudentRegistration.optional(),
-    finalize: z.boolean({ message: 'Informe se a correção fica finalizada.' }),
+    finalize: z.boolean({ error: 'Informe se a correção fica finalizada.' }),
+    /** The photo the review was made from (#47); left out for a correction typed without one (RF30). */
+    imageId: z.string().min(1).max(64).optional(),
     /** Sent by an app migrating onto this API, and kept; the site leaves both out. */
     clientCorrectionId: z.string().min(1).max(64).optional(),
     syncStatus: reviewShape.syncStatus.optional(),
   },
-  { message: 'Dados inválidos.' },
+  { error: 'Dados inválidos.' },
 )
 
 const updateSchema = z.object(
@@ -86,7 +90,7 @@ const updateSchema = z.object(
     finalize: z.boolean().optional(),
     syncStatus: reviewShape.syncStatus.optional(),
   },
-  { message: 'Dados inválidos.' },
+  { error: 'Dados inválidos.' },
 )
 
 /** The filters of P15 and P17. */
@@ -110,6 +114,7 @@ export interface CorrectionServiceDependencies {
   printing: PrintingRepository
   grading: GradingRepository
   corrections: CorrectionRepository
+  sheetImages: SheetImageRepository
   /** Injected so a test can tell the moment of a confirmation apart. */
   now?: () => Date
 }
@@ -182,11 +187,23 @@ function conflictOf(error: unknown): unknown {
  * application's teacher, so every call starts from an application of the
  * teacher of the token: a correction of someone else is a 404, never a 403.
  */
-export function createCorrectionService({ applications, printing, grading, corrections, now = () => new Date() }: CorrectionServiceDependencies): CorrectionService {
+export function createCorrectionService({ applications, printing, grading, corrections, sheetImages, now = () => new Date() }: CorrectionServiceDependencies): CorrectionService {
   async function requireSheet(applicationId: string, sheetId: string): Promise<AnswerSheet> {
     const sheet = await printing.findSheet(applicationId, sheetId)
     if (sheet === undefined) throw new ApiError(API_ERROR_CODE.NOT_FOUND, SHEET_NOT_FOUND)
     return sheet
+  }
+
+  /**
+   * Where the correction came from: the photo it was reviewed from, which must
+   * be one of this application's, or the teacher's typing (RF30). `imageUrl`
+   * keeps the key of the stored file, never a link that expires (ADR-004).
+   */
+  async function originOf(applicationId: string, imageId: string | undefined): Promise<Pick<Correction, 'source' | 'imageUrl'>> {
+    if (imageId === undefined) return { source: CORRECTION_SOURCE.MANUAL }
+    const image = await sheetImages.find(applicationId, imageId)
+    if (image === undefined) throw new ApiError(API_ERROR_CODE.NOT_FOUND, IMAGE_NOT_FOUND)
+    return { source: CORRECTION_SOURCE.IMAGE_UPLOAD, imageUrl: image.storageKey }
   }
 
   async function requireCorrection(applicationId: string, id: string): Promise<Correction> {
@@ -225,11 +242,12 @@ export function createCorrectionService({ applications, printing, grading, corre
       return requireCorrection(applicationId, correctionId)
     },
 
-    /** A review without a photo is `MANUAL` (RF30); the photo upload arrives with the reading of #78. */
+    /** A review made from a photo is `IMAGE_UPLOAD` and keeps the photo; one typed without it is `MANUAL` (RF30). */
     async create(teacherId, applicationId, body) {
       const application = await requireApplication(applications, teacherId, applicationId)
-      const { answerSheetId, finalize, answers, discursiveScores, studentId, clientCorrectionId, syncStatus, ...reported } = parseRequest(createSchema, body)
+      const { answerSheetId, finalize, answers, discursiveScores, studentId, clientCorrectionId, syncStatus, imageId, ...reported } = parseRequest(createSchema, body)
       const sheet = await requireSheet(applicationId, answerSheetId)
+      const origin = await originOf(applicationId, imageId)
       const id = randomUUID()
 
       const correction: Correction = {
@@ -243,7 +261,7 @@ export function createCorrectionService({ applications, printing, grading, corre
         correctedBy: teacherId,
         clientCorrectionId: clientCorrectionId ?? randomUUID(),
         syncStatus: syncStatus ?? 'synced',
-        source: CORRECTION_SOURCE.MANUAL,
+        ...origin,
       }
       await corrections.create(correction).catch((error: unknown) => {
         throw conflictOf(error)

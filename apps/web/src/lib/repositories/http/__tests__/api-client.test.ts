@@ -140,3 +140,91 @@ describe('toStorageError', () => {
     expect(toStorageError(401, undefined).message).toBe('Faça login para continuar.')
   })
 })
+
+describe('download', () => {
+  /** What Express sends for `res.attachment(...).send(buffer)`. */
+  function respondWithFile(headers: Record<string, string>) {
+    return vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response('%PDF-1.7', { status: 200, headers: { 'Content-Type': 'application/pdf', ...headers } })),
+    )
+  }
+
+  it('answers the file and the name the API gave it, asking with the token', async () => {
+    const fetchFn = respondWithFile({ 'Content-Disposition': 'attachment; filename=prova-2026-10-05.pdf' })
+
+    const file = await clientWith(fetchFn).api.download('/applications/a1/pdf')
+
+    expect(file.filename).toBe('prova-2026-10-05.pdf')
+    expect(await file.blob.text()).toBe('%PDF-1.7')
+    const { url, init } = requestOf(fetchFn)
+    expect([url, init.method]).toEqual(['/api/applications/a1/pdf', 'GET'])
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer token-ana')
+  })
+
+  it('reads a quoted name too, as a name with spaces arrives', async () => {
+    const fetchFn = respondWithFile({ 'Content-Disposition': 'attachment; filename="prova de cálculo.pdf"' })
+
+    expect((await clientWith(fetchFn).api.download('/applications/a1/pdf')).filename).toBe('prova de cálculo.pdf')
+  })
+
+  it('leaves the name out when the response does not give one', async () => {
+    const file = await clientWith(respondWithFile({})).api.download('/applications/a1/pdf')
+
+    expect(file.filename).toBeUndefined()
+  })
+
+  it('turns a refusal into the error the screens show, with the message of the API', async () => {
+    const fetchFn = respondWith(404, { code: 'not-found', message: 'O PDF desta aplicação ainda não foi gerado.' })
+
+    const error = await failureOf(clientWith(fetchFn).api.download('/applications/a1/pdf'))
+
+    expect([error.code, error.message]).toEqual(['not-found', 'O PDF desta aplicação ainda não foi gerado.'])
+  })
+
+  it('tells the app when the session ended', async () => {
+    const { api, onUnauthorized } = clientWith(respondWith(401, { code: 'unauthorized', message: 'Sessão expirada.' }))
+
+    await failureOf(api.download('/applications/a1/pdf'))
+
+    expect(onUnauthorized).toHaveBeenCalledOnce()
+  })
+})
+
+describe('upload', () => {
+  const photo = new Blob([Uint8Array.of(0xff, 0xd8, 0xff)], { type: 'image/jpeg' })
+
+  it('posts the file as the body, with its own type and the token, and answers the JSON', async () => {
+    const fetchFn = respondWith(201, { imageId: 'i1', status: 'QR_NOT_RECOGNIZED' })
+
+    const answer = await clientWith(fetchFn).api.upload('/applications/a1/sheet-images', photo)
+
+    expect(answer).toEqual({ imageId: 'i1', status: 'QR_NOT_RECOGNIZED' })
+    const { url, init } = requestOf(fetchFn)
+    expect([url, init.method, init.body]).toEqual(['/api/applications/a1/sheet-images', 'POST', photo])
+    const headers = new Headers(init.headers)
+    expect([headers.get('Content-Type'), headers.get('Authorization')]).toEqual(['image/jpeg', 'Bearer token-ana'])
+  })
+
+  /** A file the browser could not type still goes, and the API decides by its bytes. */
+  it('sends a file without a type as plain bytes', async () => {
+    const fetchFn = respondWith(201, {})
+
+    await clientWith(fetchFn).api.upload('/applications/a1/sheet-images', new Blob([Uint8Array.of(1)]))
+
+    expect(new Headers(requestOf(fetchFn).init.headers).get('Content-Type')).toBe('application/octet-stream')
+  })
+
+  it('turns a refusal into the error the screens show', async () => {
+    const fetchFn = respondWith(400, { code: 'invalid', message: 'Envie a foto em JPG, PNG ou WebP.' })
+
+    const error = await failureOf(clientWith(fetchFn).api.upload('/applications/a1/sheet-images', photo))
+
+    expect([error.code, error.message]).toEqual(['invalid', 'Envie a foto em JPG, PNG ou WebP.'])
+  })
+
+  it('turns a network failure into a generic failure', async () => {
+    const fetchFn = vi.fn<typeof fetch>(() => Promise.reject(new TypeError('Failed to fetch')))
+
+    expect((await failureOf(clientWith(fetchFn).api.upload('/applications/a1/sheet-images', photo))).code).toBe('failure')
+  })
+})

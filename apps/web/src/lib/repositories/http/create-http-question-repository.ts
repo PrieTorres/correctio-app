@@ -10,13 +10,14 @@ const tagsResponseSchema = z.object({ tags: z.array(z.string()) })
 
 /**
  * The query `GET /questions` reads. Every key carries the same name the server
- * uses — `type`, `tags`, `onlyUntagged`, `sort` — so what the screen picked
+ * uses — `type`, `tags`, `anyTag`, `onlyUntagged`, `sort` — so what the screen picked
  * travels straight into the URL with no translation in between.
  */
 function questionFilters(params: QuestionListParams) {
   return {
     type: params.type,
     tags: params.tags,
+    anyTag: params.anyTag,
     onlyUntagged: params.onlyUntagged,
     sort: params.sort,
   }
