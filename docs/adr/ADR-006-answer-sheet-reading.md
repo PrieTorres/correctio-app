@@ -1,6 +1,6 @@
 # ADR-006: Leitura da folha no servidor por padrão, com o mesmo leitor no navegador
 
-**Status:** aceito em 15/10/2026, decisão da PM · Onde a leitura roda no servidor foi substituído pelo [ADR-007](ADR-007-sheet-reading-on-api-worker.md) em 30/10/2026 · Issues: #78 (leitura), #46 (cartão impresso), #47 (envio da foto), #48 (telas)
+**Status:** aceito em 15/10/2026, decisão da PM · Substituído em parte pelo [ADR-007](ADR-007-sheet-reading-on-api-worker.md) em 30/10/2026: a leitura no servidor roda na própria API, e o navegador só lê no demo do GitHub Pages, sem o modo "API fora do ar" · Issues: #78 (leitura), #46 (cartão impresso), #47 (envio da foto), #48 (telas)
 
 ## Contexto
 

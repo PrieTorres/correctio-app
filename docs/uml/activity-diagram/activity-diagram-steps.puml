@@ -9,7 +9,7 @@ start
 :Imprimir e aplicar a prova;
 :Aluno preenche a folha de respostas;
 :Enviar as fotos das folhas para a API;
-:Ler o QR Code e corrigir as objetivas;
+:Ler o QR Code e as marcações;
 :Revisar e confirmar a correção;
 :Gravar a correção no banco;
 :Publicar o gabarito e liberar as notas;
@@ -37,13 +37,13 @@ start
 :Enviar as fotos para a API;
 |API|
 :Ler o QR Code e as marcações da foto;
-:Corrigir as objetivas e gravar a leitura no banco;
+:Gravar a foto e o resultado da leitura no banco;
 |Professor|
 :Revisar a leitura e confirmar a correção;
 |Site|
-:Enviar a confirmação para a API;
+:Enviar a revisão para a API;
 |API|
-:Gravar a correção confirmada no banco;
+:Recalcular a nota e gravar a correção;
 |Professor|
 :Publicar o gabarito das versões;
 :Liberar as notas da aplicação;
@@ -92,26 +92,27 @@ start
 :Enviar as fotos para a API;
 |API|
 :Ler o QR Code e as marcações da foto;
+:Gravar a foto e o resultado da leitura no banco;
 if (Leitura reconhecida?) then ([Não])
   |Professor|
-  :Inserir a correção manualmente;
+  :Escolher a folha e marcar as respostas manualmente;
 else ([Sim])
-  |API|
-  :Corrigir as objetivas e gravar a leitura no banco;
-  if (Prova com identificação?) then ([Não])
-    |Professor|
-    :Associar a folha pendente ao aluno;
-  else ([Sim])
-    |API|
-    :Vincular a correção ao aluno;
-  endif
+  |Site|
+  :Abrir a revisão com as marcações lidas;
+endif
+|Professor|
+if (Prova com identificação?) then ([Não])
+  :Escolher o aluno da folha;
+else ([Sim])
+  |Site|
+  :Mostrar o aluno impresso na folha;
 endif
 |Professor|
 :Revisar a leitura e confirmar a correção;
 |Site|
-:Enviar a confirmação para a API;
+:Enviar a revisão para a API;
 |API|
-:Gravar a correção confirmada no banco;
+:Recalcular a nota, vincular o aluno e gravar a correção;
 |Professor|
 :Publicar o gabarito das versões;
 :Liberar as notas da aplicação;
@@ -160,35 +161,32 @@ start
 :Enviar as fotos para a API;
 |API|
 :Ler o QR Code e as marcações da foto;
+:Gravar a foto e o resultado da leitura no banco;
 if (Leitura reconhecida?) then ([Não])
   |Professor|
-  :Inserir a correção manualmente;
+  :Escolher a folha e marcar as respostas manualmente;
 else ([Sim])
-  |API|
-  :Corrigir as objetivas e gravar a leitura no banco;
-  if (Tem discursivas?) then ([Sim])
-    :Deixar a correção em andamento;
-  else ([Não])
-    :Deixar a correção aguardando confirmação;
-  endif
-  if (Prova com identificação?) then ([Não])
-    |Professor|
-    :Associar a folha pendente ao aluno;
-  else ([Sim])
-    |API|
-    :Vincular a correção ao aluno;
-  endif
+  |Site|
+  :Abrir a revisão com as marcações lidas;
+endif
+|Professor|
+if (Prova com identificação?) then ([Não])
+  :Escolher o aluno da folha;
+else ([Sim])
+  |Site|
+  :Mostrar o aluno impresso na folha;
 endif
 |Professor|
 repeat
   :Revisar a leitura e lançar as discursivas, se houver;
-backward:Salvar sem finalizar;
-repeat while (Finalizar?) is ([Não]) not ([Sim])
-:Confirmar a correção;
-|Site|
-:Enviar a confirmação para a API;
+  |Site|
+  :Enviar a revisão para a API, finalizada ou não;
+  |API|
+  :Recalcular a nota, vincular o aluno e gravar a correção;
+backward:Correção em andamento: voltar depois;
+repeat while (Finalizada e com todas as discursivas lançadas?) is ([Não]) not ([Sim])
 |API|
-:Gravar a correção confirmada no banco;
+:Marcar a correção como concluída;
 |Professor|
 :Publicar o gabarito das versões;
 :Liberar as notas da aplicação;

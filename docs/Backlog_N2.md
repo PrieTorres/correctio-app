@@ -5,8 +5,8 @@ checklist de aceite. Este documento é um retrato de 09/10/2026. O estado atual 
 no [GitHub Project 4](https://github.com/users/PrieTorres/projects/4).
 
 > **Situação em 30/10/2026: N2 concluída.** O que faltava entrou de uma vez pelo
-> [PR #189](https://github.com/PrieTorres/correctio-app/pull/189), na release do dia, e sai na
-> versão 2.0.0. Todas as telas estão ligadas ao MySQL e o build do Firebase não tem nenhum dado
+> [PR #189](https://github.com/PrieTorres/correctio-app/pull/189), na release de 30/10, e saiu na
+> versão 2.0.0, publicada em produção em 01/11/2026. Todas as telas estão ligadas ao MySQL e o build do Firebase não tem nenhum dado
 > simulado. O que ainda depende de pessoa está no fim do PR: vídeos, prints da #79, QA
 > exploratórios e a conferência da seção 14 do README.
 

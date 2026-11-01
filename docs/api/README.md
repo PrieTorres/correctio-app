@@ -2,7 +2,9 @@
 
 As rotas da API Express (`apps/api`), como os arquivos de `apps/api/src/routes` as montam. Em
 produção a API responde no mesmo endereço do front, sob `/api`
-(`https://correctio-app.web.app/api/...`); localmente, em `http://localhost:3000/api`.
+(`https://correctio-app.web.app/api/...`). Localmente, a API responde direto em
+`http://localhost:3000`, sem o prefixo `/api`; pelo front em `http://localhost:5173/api`, o Vite
+repassa as chamadas à API tirando o prefixo.
 
 O que vale para todas as rotas:
 
@@ -12,15 +14,21 @@ O que vale para todas as rotas:
 - **Escopo pelo professor:** cada professor só lê e altera o que é dele. Um registro de outro
   professor responde 404, como se não existisse.
 - **Corpo e resposta em JSON**, validados com os schemas de `@correctio/domain`, os mesmos das
-  telas. As exceções são a foto da folha, enviada como o próprio arquivo, e o PDF, devolvido como
-  arquivo.
+  telas. As exceções são a foto da folha, enviada e devolvida como o próprio arquivo; o PDF e os
+  relatórios pedidos com `?format=`, devolvidos como arquivo; e as rotas do Google, que
+  respondem com redirecionamento (302).
 - **`PATCH` mescla:** atualiza só os campos enviados e nunca apaga o que o cliente não conhece.
-- **Listas paginadas** aceitam `page`, `pageSize` e `search`, e devolvem `{ items, total }`.
+- **Listas paginadas** aceitam `page`, `pageSize` e `search`, e devolvem `{ items, total }`. As
+  exceções são `GET /questions/tags`, que devolve `{ tags }`, e `GET /applications/:id/read-failures`,
+  que devolve a lista sem paginar.
 - **Erros** no formato `{ code, message }`, sem stack trace, com o status HTTP que descreve o
-  problema (400, 401, 403, 404, 409, 413, 429). O 429 traz `Retry-After`.
-- **Limites:** por endereço nas rotas públicas e de entrada, por professor nas demais, e um limite
-  menor nas operações caras (gerar PDF, importar alunos, enviar foto). Ver
-  [Seguranca_e_LGPD.md](../Seguranca_e_LGPD.md).
+  problema (400, 401, 404, 409, 429 e 500; o `/health` responde 503 com o banco fora do ar). O
+  429 traz `Retry-After`. Recurso de outro professor é 404, nunca 403, e corpo acima do limite
+  é 400.
+- **Limites:** por endereço na consulta pública e no cadastro, login e redefinição de senha; por
+  professor nas demais (leitura 300/min, escrita 60/min). Gerar PDF, importar alunos e exportar
+  relatório têm 10 por hora. O envio de foto tem cota de 500 fotos e 200 MB por professor em
+  24 horas. Ver [Seguranca_e_LGPD.md](../Seguranca_e_LGPD.md).
 
 O detalhe de cada recurso (regras, códigos de erro e exemplos) está no
 [README da API](../../apps/api/README.md).
@@ -70,7 +78,7 @@ O detalhe de cada recurso (regras, códigos de erro e exemplos) está no
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/questions` | Questões do professor, com filtros de tipo, tag e texto (P6); com várias tags exige todas, ou qualquer uma com `anyTag=true`. |
+| `GET` | `/questions` | Questões do professor, com filtros de tipo, tag e texto (P6); com várias tags exige todas, ou qualquer uma com `anyTag=true`. Aceita também `onlyUntagged`, `archived` e `sort` (`newest` ou `statement`). |
 | `POST` | `/questions` | Cria uma questão objetiva ou discursiva (P7). |
 | `GET` | `/questions/tags` | As tags já usadas, para os filtros e o autocompletar. |
 | `GET` | `/questions/:id` | Uma questão, mesmo excluída, porque a prova aplicada ainda a imprime. |
@@ -97,15 +105,15 @@ O detalhe de cada recurso (regras, códigos de erro e exemplos) está no
 | `GET` | `/applications` | Aplicações do professor, com filtros de situação, turma (`classId`), prova e correção (P11). |
 | `POST` | `/applications` | Aplica uma prova a uma turma numa data (P12). |
 | `GET` | `/applications/:id` | Uma aplicação, com a prova, a turma e o andamento (P14). |
-| `PATCH` | `/applications/:id` | Edita a data da aplicação. |
+| `PATCH` | `/applications/:id` | Edita a aplicação; depois de gerado o PDF, só a data muda. |
 | `PATCH` | `/applications/:id/archive` | Arquiva a aplicação. |
 | `PATCH` | `/applications/:id/restore` | Restaura a aplicação arquivada. |
-| `POST` | `/applications/:id/generate-pdf` | Gera as versões, as folhas com QR Code e o PDF único (P13). Bloqueado depois da primeira correção. |
+| `POST` | `/applications/:id/generate-pdf` | Gera as versões, as folhas com QR Code e o PDF único (P13). Bloqueado depois da primeira correção, com as notas liberadas ou com a aplicação arquivada. |
 | `GET` | `/applications/:id/pdf` | Baixa o PDF gerado. |
 | `GET` | `/applications/:id/versions` | As versões impressas, com a ordem de cada uma (`layout`). |
-| `POST` | `/applications/:id/versions/:versionId/publish-answer-key` | Publica o gabarito de uma versão. |
+| `POST` | `/applications/:id/versions/:versionId/publish-answer-key` | Publica ou despublica o gabarito de uma versão (`{ published }`). |
 | `POST` | `/applications/:id/publish-answer-keys` | Publica o gabarito de todas as versões. |
-| `POST` | `/applications/:id/grades-release` | Libera as notas para a consulta pelo QR Code. |
+| `POST` | `/applications/:id/grades-release` | Libera ou recolhe as notas da consulta pelo QR Code (`{ released }`). |
 | `GET` | `/applications/:id/sheets` | As folhas impressas, uma por aluno ou sem identificação. |
 | `GET` | `/applications/:id/report` | Relatório da aplicação (P18), só com as correções finalizadas; `?format=xlsx`, `csv` ou `pdf` devolve o arquivo (RF36). |
 

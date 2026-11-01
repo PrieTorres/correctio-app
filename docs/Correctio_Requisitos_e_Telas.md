@@ -2,7 +2,7 @@
 
 **Correctio — Sistema de Geração e Correção de Provas · Grupo 2 · Projeto e Arquitetura de Software**
 
-Revisado após a apresentação de 28/08 · atualizado em 04/09/2026 · N1 até 11/09/2026 (faltam 7 dias)
+Revisado após a apresentação de 28/08 · atualizado em 01/11/2026 · N2 concluída na 2.0.0 · N3 em 27/11/2026
 
 ---
 
@@ -44,7 +44,7 @@ Cruza o **Relato do Cliente**, a **Spec SGP Católica** e o retorno da apresenta
 
 **Nome da plataforma:** Correctio.
 
-**Stack:** React + Vite + TypeScript no front (Vue era a preferência da Spec, mas React foi aceito). Backend Node.js + Express + MySQL, conforme a disciplina. Hospedagem: GitHub Pages na N1 (dados simulados em localStorage), migrando para Firebase Hosting nas fases seguintes. **Autenticação (decidida em 14/10/2026, #40 e #83):** login com Google e com e-mail e senha, os dois emitindo o JWT próprio da API, nas rotas `/auth` da Spec. O Firebase Auth saiu do plano. A professora respondeu em 26/10/2026 que a decisão técnica é do grupo.
+**Stack:** React + Vite + TypeScript no front (Vue era a preferência da Spec, mas React foi aceito). Backend Node.js + Express + MySQL, conforme a disciplina. Hospedagem: GitHub Pages na N1 (dados simulados em localStorage); desde a N2 (2.0.0), Firebase Hosting com a API em Cloud Functions e MySQL (`correctio-app.web.app`). O GitHub Pages segue como demonstração, com dados no navegador. **Autenticação (decidida em 14/10/2026, #40 e #83):** login com Google e com e-mail e senha, os dois emitindo o JWT próprio da API, nas rotas `/auth` da Spec. O Firebase Auth saiu do plano. A professora respondeu em 26/10/2026 que a decisão técnica é do grupo.
 
 *As decisões de arquitetura, o desenho de segurança/LGPD, a especificação do tour guiado e o portão de qualidade dos Pull Requests estão detalhados em documentos próprios no repositório (docs/Arquitetura.md, docs/Seguranca_e_LGPD.md, docs/Tour_Guiado.md, docs/CI_CD.md).*
 
@@ -156,7 +156,9 @@ Cada RNF traz um critério mensurável para dizer se foi atendido ou não, como 
 | RNF17 | Auditoria (LGPD, Art. 37) | 100% das operações do RF40 registradas em trilha imutável; a trilha registra a ação e o autor, nunca o conteúdo do dado pessoal. |
 | RNF18 | Endurecimento da API | Cabeçalhos de segurança e CSP ativos em 100% das respostas; CORS restrito a lista de origens conhecidas; payload JSON limitado a 100 KB; 100% das consultas SQL parametrizadas; container executado sem privilégio de root; build reprovado se houver vulnerabilidade alta ou crítica em dependência. |
 | RNF19 | Objetividade do tour | No máximo 4 passos por tela e 90 caracteres por passo; o tour é dispensável em 1 clique e nunca impede o uso da tela; navegável por teclado e anunciado por leitor de tela. |
-| RNF20 | Qualidade contínua | 100% dos Pull Requests executam automaticamente lint, verificação de tipos, testes unitários com cobertura, build e testes E2E; o merge é bloqueado se qualquer verificação falhar, se a cobertura do código novo ficar abaixo de 80%, se a duplicação no código novo passar de 3% ou se o portão do SonarCloud reprovar. Nenhum merge direto na branch principal, e todo PR exige ao menos 1 aprovação. |**Nenhum dado é apagado automaticamente.** Não existe rotina de descarte por prazo: apagar dado que ninguém pediu para apagar é perda de informação, não conformidade. A exclusão acontece sob solicitação (RF38, anonimização de aluno; RF05, anonimização da conta), e tudo que é "excluído" pela interface é soft-delete reversível (RF42). O que protege contra perda é o backup com restauração testada (RNF09).
+| RNF20 | Qualidade contínua | 100% dos Pull Requests executam automaticamente lint, verificação de tipos, testes unitários com cobertura, build e testes E2E; o merge é bloqueado se qualquer verificação falhar, se a cobertura do código novo ficar abaixo de 80%, se a duplicação no código novo passar de 3% ou se o portão do SonarCloud reprovar. Nenhum merge direto na branch principal, e todo PR exige ao menos 1 aprovação. |
+
+**Nenhum dado é apagado automaticamente.** Não existe rotina de descarte por prazo: apagar dado que ninguém pediu para apagar é perda de informação, não conformidade. A exclusão acontece sob solicitação (RF38, anonimização de aluno; RF05, anonimização da conta), e tudo que é "excluído" pela interface é soft-delete reversível (RF42). O que protege contra perda é o backup com restauração testada (RNF09).
 
 ## 5. Regras de negócio
 
@@ -182,7 +184,7 @@ Cada RNF traz um critério mensurável para dizer se foi atendido ou não, como 
 **Provas**
 
 - Até 20 questões; pontuação livre por questão, soma não validada pelo sistema.
-- Estados: rascunho → pronta (automático na 1ª aplicação) → arquivada (manual). Prova arquivada não recebe novas aplicações; as existentes seguem normais.
+- Estados: rascunho → pronta (automático quando o PDF da 1ª aplicação é gerado) → arquivada (manual). Prova arquivada não recebe novas aplicações; as existentes seguem normais.
 - A prova guarda preferências padrão de embaralhamento; a aplicação herda e pode alterar.
 - Duplicar cria uma cópia em rascunho, com as mesmas questões e pontuações.
 
@@ -190,7 +192,7 @@ Cada RNF traz um critério mensurável para dizer se foi atendido ou não, como 
 
 - A mesma prova pode ser aplicada a várias turmas ou reaplicada à mesma (2ª chamada).
 - PDF único consolidado por Aplicação; embaralhamento independente por versão; identificação (com/sem) vale para a Aplicação inteira.
-- Regenerar o PDF é bloqueado assim que existir uma correção confirmada — o professor deve criar nova Aplicação.
+- Regenerar o PDF é bloqueado quando existe uma correção salva (confirmada ou em andamento), quando as notas estão liberadas ou quando a Aplicação está arquivada — o professor deve criar nova Aplicação.
 
 **Correção e notas**
 
@@ -262,17 +264,17 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 ### 8.1 Estrutura de navegação (Web Professor)
 
-- Barra superior: logo/nome do Correctio à esquerda; à direita, botão “Ajuda” (reabre o tour da tela atual, não do sistema inteiro) e avatar do professor com menu (Meu perfil, Sair).
+- Menu lateral com o nome do Correctio no topo e, no rodapé, o nome do professor com “Sair”, “Ajuda desta tela” (reabre o tour da tela atual, não do sistema inteiro) e o link do Aviso de privacidade. Não há barra superior no computador; no celular, um cabeçalho traz o menu e o “?” da ajuda. O acesso a “Meu perfil” (P2) pela interface está pendente.
 - Tour guiado contextual: dispara automaticamente na primeira visita a cada tela, com no máximo 4 passos por tela e 90 caracteres por passo (RF37, RNF19); dispensável em 1 clique e nunca bloqueia o uso da tela.
 - Menu lateral, com ícone + texto: Painel · Turmas · Banco de Questões · Provas · Aplicações · Relatórios. Item ativo destacado.
-- Rodapé em todas as telas, com link para PUB2 (Aviso de privacidade).
-- Modais reutilizáveis: confirmação (arquivar, remover, regenerar, restaurar, anonimizar), importação (upload Excel/JSON com modelo para download e prévia antes de confirmar).
-- **Operação em segundo plano (RF41):** toda ação demorada — gerar PDF, ler folhas, importar em lote, exportar — confirma o início em menos de 1 segundo, informa que a execução ocorre em segundo plano e libera o professor para navegar. A notificação de conclusão aparece na barra superior. Nenhuma tela fica travada esperando.
+- Link para PUB2 (Aviso de privacidade) no menu lateral e na PUB1. Nas telas de acesso (C1, C2 e C3), pendente (#179).
+- Modal reutilizável de confirmação (arquivar, remover, regenerar, restaurar, anonimizar). Importação por arquivo Excel/JSON depende da validação com o cliente (#69); a de alunos é por colagem (P5).
+- **Operação em segundo plano (RF41):** toda ação demorada — gerar PDF, ler folhas, importar em lote, exportar — confirma o início em menos de 1 segundo, informa que a execução ocorre em segundo plano e libera o professor para navegar. Hoje só a exportação de relatórios usa o aviso no topo do conteúdo; gerar o PDF avisa na própria tela que dá para sair dela. Nenhuma tela fica travada esperando.
 - **Restaurar (RF42):** listas que têm filtro de arquivados/excluídos oferecem a ação "Restaurar" por item, com confirmação. Nenhuma exclusão pela interface é definitiva.
 
 **Comportamento em celular (responsivo):**
 
-- Menu lateral vira menu hambúrguer (drawer) na barra superior; a ação primária de cada lista (“+ Nova …”) fica fixa no topo ou como botão flutuante.
+- Menu lateral vira menu hambúrguer (drawer), aberto pelo cabeçalho; a ação primária de cada lista (“+ Nova …”) fica no cabeçalho da tela.
 - Tabelas (alunos, versões, relatórios) viram cards empilhados ou tabela com rolagem horizontal interna — nunca rolagem da página inteira.
 - Layouts de duas colunas (P16: imagem + grade de respostas) empilham verticalmente ou viram abas “Imagem / Respostas”.
 - Reordenar por arrastar (P9) ganha botões subir/descer como alternativa ao toque.
@@ -289,9 +291,10 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 - Card centralizado com logo do Correctio
 - Campo e-mail
-- Campo senha com ícone de mostrar/ocultar
-- Checkbox “Lembrar de mim”
+- Campo senha com ícone de mostrar/ocultar (pendente, #170)
+- Checkbox “Lembrar de mim” (pendente, #170)
 - Botão primário “Entrar”
+- Botão “Entrar com o Google”
 - Link “Esqueci minha senha”
 - Link “Criar conta”
 - Erro inline se credenciais inválidas; aviso de bloqueio temporário após 5 falhas
@@ -310,14 +313,14 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 - Campo nome completo
 - Campo e-mail, com validação inline de formato e de e-mail já cadastrado
-- Campo senha (mín. 8) com indicador de força
+- Campo senha (mín. 8) com indicador de força (indicador pendente, #172)
 - Campo confirmar senha
 - Botão “Criar conta”
 - Link “Já tem conta? Entrar”
 
 **Ações e fluxo:**
 
-- “Criar conta” → P1 Painel, com o tour contextual do Painel iniciado
+- “Criar conta” → P1 Painel (o tour do Painel abre quando já há conteúdo, como em toda tela)
 - “Entrar” → C1
 
 #### C3. Recuperar / redefinir senha
@@ -327,7 +330,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Conteúdo e elementos:**
 
 - Etapa 1: campo e-mail + botão “Enviar link”
-- Confirmação: “Verifique seu e-mail”, com reenviar
+- Confirmação: “Verifique seu e-mail” (reenviar pendente, #169)
 - Etapa 2 (via link do e-mail): nova senha + confirmar + botão “Redefinir senha”
 
 **Ações e fluxo:**
@@ -385,38 +388,38 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Conteúdo e elementos:**
 
 - Saudação “Olá, [nome]”
-- Cards de resumo: Turmas ativas · Provas · Aplicações · Correções pendentes
-- Lista “Atividade recente” (últimas 5 ações)
-- Atalhos: “+ Nova turma”, “+ Nova prova”, “+ Nova aplicação”, “Corrigir provas”
+- Cards de resumo: Turmas · Questões · Provas · Aplicações · Correções pendentes
+- Lista “Atividade recente”: as 5 aplicações mais recentes
+- Atalhos: “Nova questão”, “Nova prova”, “Nova aplicação”, “Minhas turmas” e “Corrigir folhas”
 - Tour guiado contextual desta tela na primeira visita (RF37): até 4 passos destacando cards e atalhos, com “Pular” e “Próximo” — como em todas as telas
 
 **Ações e fluxo:**
 
 - Card Turmas → P3
+- Card Questões → P6
 - Card Provas → P8
 - Card Aplicações → P11
 - Card Correções pendentes → P11 filtrada por “correção em andamento”
-- “+ Nova turma” → P4
-- “+ Nova prova” → P9
-- “+ Nova aplicação” → P12
-- “Corrigir provas” (na tela, “Corrigir folhas”) → P15 da aplicação gerada. Com mais de uma aplicação gerada, um diálogo lista prova, turma e data, da mais recente para a mais antiga, e a escolha leva à P15 dela. Sem nenhuma, o diálogo explica que as folhas saem de uma aplicação gerada e oferece “+ Nova aplicação” (→ P12)
+- “Nova questão” → P7
+- “Nova prova” → P9
+- “Nova aplicação” → P12
+- “Minhas turmas” → P3
+- “Corrigir folhas” → P15 da aplicação gerada. Com mais de uma aplicação gerada, um diálogo lista prova, turma e data, da mais recente para a mais antiga, e a escolha leva à P15 dela. Sem nenhuma, o diálogo explica que as folhas saem de uma aplicação gerada e oferece “+ Nova aplicação” (→ P12)
 
 #### P2. Meu perfil
 
-*Acesso: Menu do avatar*
+*Acesso: `/perfil` (o link na interface está pendente)*
 
 **Conteúdo e elementos:**
 
 - Nome, e-mail (leitura), tipo (Professor)
 - Botão “Sair de todos os dispositivos”
-- Botão “Rever tour guiado” — zera o estado de "já visto" de todas as telas, fazendo o tour contextual voltar a disparar em cada uma
 - Zona de risco: “Anonimizar minha conta” com aviso de irreversibilidade
 
 **Ações e fluxo:**
 
-- “Sair de todos” → confirmação → C1
-- “Rever tour” → confirmação → zera o estado de todas as telas → P1 com o tour do Painel ativo
-- “Anonimizar” → modal com “digite ANONIMIZAR” → C1
+- “Sair de todos” → C1
+- “Anonimizar” → campo “Digite ANONIMIZAR para confirmar”, na própria tela → C1
 
 #### P3. Turmas (lista)
 
@@ -462,7 +465,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Cabeçalho: nome, disciplina/período, status, menu (Editar, Arquivar)
 - Seção “Alunos”: tabela (nome, matrícula, e-mail), busca, botão “+ Adicionar aluno”, botão “Importar alunos”, ícone remover por linha
 - Modal “Adicionar aluno”: nome, matrícula, e-mail opcional
-- Modal “Importar alunos”: upload Excel/JSON, link “baixar modelo”, prévia das linhas com validação (matrícula duplicada, campo vazio), botão “Confirmar importação” — a importação confirma o início em menos de 1 s e processa em segundo plano, notificando ao concluir (RF41)
+- Painel “Importar alunos”: colar as linhas da planilha (nome, matrícula, e-mail opcional, separados por vírgula, `;` ou tab), prévia com as linhas inválidas e as matrículas que a turma já tem, botão “Importar N alunos” e o resultado no próprio painel. Arquivo Excel/JSON depende da #69
 - Seção “Aplicações desta turma”: lista resumida (prova, data, status de correção)
 - Aviso de privacidade ao adicionar ou importar alunos, informando que o professor é responsável pelos dados de terceiros que insere (RF39)
 - Ação “Anonimizar dados do aluno” por linha, com confirmação de irreversibilidade (RF38)
@@ -471,7 +474,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Ações e fluxo:**
 
 - “+ Adicionar aluno” → modal → salva e atualiza tabela
-- “Importar alunos” → modal de importação → prévia → confirma → atualiza tabela
+- “Importar alunos” → painel → prévia → “Importar N alunos” → atualiza tabela
 - Remover → confirmação → remove (mantém notas)
 - Clique em uma aplicação → P14
 - Editar → P4 · Arquivar → confirmação → P3
@@ -484,8 +487,8 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 **Conteúdo e elementos:**
 
-- Cabeçalho + botões “+ Nova questão” e “Importar questões”
-- Filtros: tipo, tags (multi), busca por enunciado, alternância Ativas / Excluídas
+- Cabeçalho + botões “+ Nova questão” e “Importar questões” (desabilitado: entra com a #69, RF14)
+- Filtros: tipo, tags (multi), “Sem tag”, busca por enunciado, alternância Ativas / Excluídas, ordenação Recentes / A–Z
 - Lista: enunciado truncado, badge de tipo, chips de tags, nº de alternativas ou nota máxima, ícone se “embaralhar alternativas” está desligado
 - Menu por item: Editar · Duplicar · Excluir (ou **Restaurar**, quando o filtro está em Excluídas)
 - Estado vazio com Nova / Importar
@@ -493,9 +496,9 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Ações e fluxo:**
 
 - “+ Nova questão” → P7
-- “Importar questões” → modal de importação (Excel/JSON) → prévia → confirma o início em menos de 1 s e processa em segundo plano, notificando ao concluir (RF41)
+- “Importar questões” → pendente (#69)
 - Clique/Editar → P7 (edição)
-- Duplicar → P7 pré-preenchida como nova
+- Duplicar → cria a cópia “… (cópia)” no banco e ela aparece na lista
 - Excluir → confirmação → soft-delete
 - Restaurar → confirmação → questão volta ao banco (RF42)
 
@@ -506,8 +509,8 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Conteúdo e elementos:**
 
 - Tabs de tipo: Objetiva / Discursiva
-- Enunciado (markdown básico, botão “Visualizar”)
-- Inserir imagem no enunciado, com prévia e possibilidade de remover (RF45)
+- Enunciado (markdown básico, botão “Visualizar” — pendente, #105)
+- Inserir imagem no enunciado, com prévia e possibilidade de remover (RF45 — pendente, #105)
 - Tags (chips; sugestão de tags já usadas; recomendação de ao menos 1)
 - Objetiva: 2 a 5 alternativas com marcador “correta”; “+ Alternativa”; remover
 - Toggle “Permitir embaralhar alternativas” (padrão ligado) — é o padrão da questão; pode ser ajustado por prova em P9
@@ -529,10 +532,10 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 **Conteúdo e elementos:**
 
-- Cabeçalho + botões “+ Nova prova”, “Gerar automaticamente”, “Importar prova”
-- Filtros: status (Rascunho/Pronta/Arquivada), tag, busca por título
-- Lista: título, nº de questões, pontuação total, tags predominantes, status
-- Menu por item: Ver detalhes · Editar · Duplicar · Exportar (Excel/JSON) · Arquivar (ou **Restaurar**, quando o filtro está em Arquivada)
+- Cabeçalho + botões “+ Nova prova”, “Gerar automaticamente” e “Importar prova” (pendente, RF19, #69)
+- Filtros: Ativas / Arquivadas e busca por título (filtro por status e por tag pendente, #106)
+- Lista: título, nº de questões, pontuação total, status (tags predominantes pendentes, #106)
+- Menu por item: Duplicar · Arquivar (ou **Restaurar**, quando o filtro está em Arquivadas). Exportar (Excel/JSON) pendente (RF19, #69)
 
 **Ações e fluxo:**
 
@@ -541,7 +544,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - “Importar prova” → modal de importação → confirma o início em menos de 1 s e processa em segundo plano (RF41) → cria prova em rascunho → P10
 - Clique → P10 · Editar → P9 · Duplicar → cria cópia em rascunho → P9 da cópia
 - Exportar → confirma o início e notifica quando o arquivo fica pronto para download (RF41)
-- Arquivar → confirmação · Restaurar → confirmação → prova volta para Rascunho/Pronta (RF42)
+- Arquivar → confirmação · Restaurar → confirmação → prova volta como Rascunho (RF42)
 
 #### P9. Prova — Criar/Editar
 
@@ -552,7 +555,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Campos: título, descrição
 - Seção “Preferências padrão de aplicação”: toggles “Embaralhar questões” e “Embaralhar alternativas” (herdáveis pela aplicação)
 - Lista arrastável de questões: enunciado, tipo, pontuação editável, toggle “embaralhar alternativas” desta questão nesta prova (vem do padrão da questão), remover
-- Botões “+ Adicionar do banco” (painel lateral com filtros e checkbox) e “Preencher automaticamente” (→ P9b)
+- Botões “+ Adicionar do banco” (painel lateral com busca por texto e checkbox; filtros por tipo e tag pendentes, #107) e “Preencher automaticamente” (→ P9b)
 - Indicador “Pontuação total: X” (ao vivo) + “X/20 questões”
 - Botões “Cancelar” / “Salvar”
 
@@ -569,7 +572,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 **Conteúdo e elementos:**
 
-- Formulário: tags de conteúdo (multi-select), nº de questões objetivas, toggle “Incluir discursivas” + quantidade, pontuação padrão por questão (opcional, distribui igualmente)
+- Formulário: tags de conteúdo (multi-select), nº de questões objetivas, toggle “Incluir discursivas” + quantidade. Pontuação padrão por questão pendente (#107): hoje toda questão entra valendo 1
 - Entram as questões com **pelo menos uma** das tags marcadas, e o sorteio **equilibra os conteúdos**: cobre o máximo de tags marcadas e distribui as questões entre elas por igual, enquanto o banco tiver
 - Contador de questões disponíveis no banco para os filtros escolhidos
 - Botão “Gerar seleção”
@@ -589,15 +592,15 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 **Conteúdo e elementos:**
 
-- Cabeçalho: título, status, menu (Editar, Duplicar, Exportar, Arquivar)
+- Cabeçalho: título, status, “Duplicar” e “Editar” (Exportar pendente, RF19, #69; Arquivar fica na P8)
 - Preferências padrão de embaralhamento (leitura)
 - Lista somente-leitura das questões
-- Seção “Aplicações desta prova” + botão “+ Nova aplicação com esta prova”
+- Seção “Aplicações desta prova” (pendente, #107) + botão “+ Nova aplicação com esta prova”
 
 **Ações e fluxo:**
 
 - Editar → P9 · Duplicar → P9 da cópia · Exportar → confirma o início e notifica quando o arquivo fica pronto (RF41) · Arquivar → confirmação
-- “+ Nova aplicação” → P12 (prova pré-selecionada)
+- “+ Nova aplicação” → P12 (prova pré-selecionada pendente, #107)
 - Clique em aplicação → P14
 
 #### P11. Aplicações (lista)
@@ -607,14 +610,14 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Conteúdo e elementos:**
 
 - Cabeçalho + “+ Nova aplicação”
-- Filtros: turma, prova, status do PDF (Rascunho/Gerado), status de correção (Não iniciada / Em andamento / Concluída)
+- Filtros: Ativas / Arquivadas / Correção em andamento, turma, prova, situação do PDF (A gerar / Gerada, só em Ativas) e busca por data, guardados na URL
 - Lista: prova, turma, data, PDF gerado?, gabarito publicado?, progresso de correção (X/N)
-- Menu por item: Ver detalhes · Gerar/Regenerar PDF · Corrigir provas
+- Menu “Ações” por item: Ver detalhes · Gerar/Regenerar PDF · Corrigir folhas, com o motivo quando algo está bloqueado
 
 **Ações e fluxo:**
 
 - “+ Nova aplicação” → P12
-- Clique → P14 · Gerar PDF → P13 · Corrigir → P15
+- Clique → P14 · Gerar PDF → P13 · Corrigir folhas → P15
 
 #### P12. Aplicação — Criar
 
@@ -624,11 +627,12 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 - Dropdown “Prova” (só Rascunho/Pronta)
 - Dropdown “Turma” (só ativas)
-- Botão “Criar aplicação”
+- Campo “Data da aplicação”
+- Botão “Salvar e gerar”
 
 **Ações e fluxo:**
 
-- “Criar aplicação” → P13
+- “Salvar e gerar” → P13. A mesma prova, na mesma turma, no mesmo dia, é recusada com o motivo
 
 #### P13. Aplicação — Gerar PDF
 
@@ -641,12 +645,12 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Alternância “Com identificação” / “Sem identificação” (para a Aplicação inteira), com texto de ajuda
 - Nota de paginação, em leitura: cada questão sai inteira em uma página, e a prova recebe uma folha em branco ao final se terminar em número ímpar de páginas (RF43, RF44)
 - Banner se já existe PDF: “Regenerar substitui versões e invalida QR Codes”
-- Banner de bloqueio se já existe correção confirmada: “Crie uma nova aplicação”
+- Banner de bloqueio se já existe correção (confirmada ou em andamento), se as notas estão liberadas ou se a aplicação está arquivada: “Crie uma nova aplicação”
 - Botão “Gerar PDF”
 
 **Ações e fluxo:**
 
-- “Gerar PDF” → confirma o início em menos de 1 segundo, informa que a execução ocorre em segundo plano e libera o professor para navegar (RF41); notifica quando o PDF fica pronto → P14 com PDF disponível. A tela nunca fica travada esperando
+- “Gerar PDF” → mostra “Gerando…” e avisa que dá para sair da tela e voltar depois (RF41); ao concluir, abre a P14 com o PDF disponível. A tela nunca fica travada esperando
 
 #### P14. Aplicação — Detalhe
 
@@ -654,7 +658,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 **Conteúdo e elementos:**
 
-- Cabeçalho: prova + turma, status, menu (Regenerar PDF, Arquivar)
+- Cabeçalho: prova + turma + data, status, menu “Ações” (Editar data, Gerar/Regenerar PDF, Arquivar/Restaurar)
 - Card “PDF”: “Baixar PDF”, data de geração
 - Tabela “Versões”: nº, embaralhamentos, gabarito publicado?, botão “Publicar gabarito” por linha; botão “Publicar todos”
 - Tabela “Alunos e versões” (se identificada). O aluno removido da turma depois de gerar continua com o nome (RF09, #161); o anonimizado aparece só como “Aluno anonimizado” (RF38)
@@ -664,10 +668,10 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Ações e fluxo:**
 
 - “Baixar PDF” → download
-- “Regenerar PDF” → P13 (bloqueado se houver correção confirmada)
+- “Regenerar PDF” → P13 (bloqueado se houver correção, confirmada ou não, com as notas liberadas ou com a aplicação arquivada)
 - “Publicar gabarito” → confirmação → publica
 - “Corrigir provas” → P15 · “Ver relatório” → P18 · “Pendentes de atribuição” → P17
-- “Liberar notas” → confirmação → PUB1 passa a exibir a nota junto do gabarito. Indisponível enquanto o gabarito da versão não estiver publicado
+- “Liberar notas” → confirmação → PUB1 passa a exibir a nota junto do gabarito. Indisponível enquanto houver versão sem gabarito publicado. “Despublicar gabarito” e “Recolher notas” desfazem
 - Arquivar → confirmação · Restaurar → confirmação → aplicação volta à lista ativa (RF42)
 
 #### P15. Correção — Enviar folhas de respostas
@@ -677,19 +681,17 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Conteúdo e elementos:**
 
 - Cabeçalho: prova + turma, progresso X/N
-- Área de upload (arrastar/soltar) para múltiplas imagens ou PDF escaneado
-- No celular: botão “Fotografar folha” abre a câmera direto, permitindo capturar uma folha por vez em sequência
+- Botões “Fotografar folha” (no celular, abre a câmera direto, uma folha por vez em sequência) e “Escolher arquivos” (várias imagens JPG, PNG ou WebP, até 10 MB cada). Arrastar/soltar e PDF escaneado pendentes
 - Lista de arquivos com status: Processando · Lido · QR não reconhecido · Falha na leitura
 - Por item lido: miniatura, aluno identificado (ou “Versão 2 — sem identificação”), nota prévia, marcação de “em andamento” quando faltar nota de discursiva (RF48), botão “Revisar”
 - Botão “Inserir correção manualmente” (sem imagem)
-- Botão “Confirmar todas as leituras sem pendência”
+- Botão “Confirmar todas as leituras sem pendência” (pendente)
 
 **Ações e fluxo:**
 
-- Upload → confirma o início em menos de 1 segundo, informa que a leitura ocorre em segundo plano e libera o professor para navegar (RF41); notifica quando cada folha fica pronta e atualiza a lista. A tela nunca fica travada esperando
+- Envio → cada foto vai sozinha para a API e volta com a leitura, que atualiza a lista; a tela continua utilizável enquanto as outras seguem
 - “Revisar” → P16 daquele item
-- “Inserir manualmente” → P16 vazio, escolhendo versão e aluno
-- “Confirmar todas” → confirmação → registra correções → P14 atualizado
+- “Inserir manualmente” → P16 vazio, escolhendo a folha (a folha define a versão)
 - Item com falha → “Revisar” abre P16 para digitação manual
 
 #### P16. Correção — Revisar e confirmar
@@ -703,30 +705,28 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Campos de nota por questão discursiva (com nota máxima ao lado), destacados enquanto estiverem em branco — são eles que seguram a correção em andamento (RF47)
 - Nota total ao vivo no topo, indicando se ainda é parcial por haver discursiva sem nota
 - Se sem identificação: campo “Associar aluno” (busca por nome/matrícula) ou “Deixar pendente”
-- Campo “Observações”
-- Botões “Confirmar correção”, “Salvar e próxima folha”, “Descartar leitura”
+- Botões “Cancelar”, “Salvar sem finalizar” e “Confirmar correção”. Campo “Observações”, “Salvar e próxima folha” e “Descartar leitura” pendentes
 
 **Ações e fluxo:**
 
 - Alterar seletor → recalcula nota
 - “Confirmar” → registra (source = imagem ou manual) → volta a P15
-- “Salvar e próxima” → confirma e abre o próximo item pendente de P15
-- “Descartar” → confirmação → remove a leitura, mantém o aluno pendente
+- “Salvar sem finalizar” → grava a correção em andamento, para voltar depois
 
 #### P17. Correções pendentes de atribuição
 
-*Acesso: Link em P14 (card Correção) e em P18*
+*Acesso: Link em P14 (card Correção) e em P15*
 
 **Conteúdo e elementos:**
 
-- Lista de correções confirmadas sem aluno (provas sem identificação): versão, nota, nome/matrícula anotados, data
-- Busca de aluno da turma por nome/matrícula
-- Aviso quando já existe correção para o aluno na mesma versão (conflito)
+- Lista de correções sem aluno (provas sem identificação): folha e nota. Versão, data e nome/matrícula anotados pendentes
+- “Associar aluno” abre a P16, que tem o seletor de aluno da turma
+- Aviso quando já existe correção para o aluno na mesma versão (conflito): a API recusa a segunda
 
 **Ações e fluxo:**
 
-- “Atribuir” → modal de busca → associa → sai da lista
-- Conflito → escolher qual correção manter
+- “Associar aluno” → P16 → escolhe o aluno → sai da lista
+- Conflito → a P16 mostra o motivo; escolher qual correção manter fica pendente
 
 #### P18. Relatório da aplicação
 
@@ -734,17 +734,17 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 **Conteúdo e elementos:**
 
-- Cabeçalho: prova + turma, nº corrigidos/total, link para pendentes (P17)
+- Cabeçalho: prova + turma, nº corrigidos/total (link para pendentes, P17, pendente)
 - Tabela de notas por aluno (nome, matrícula, nota, versão), ordenável
 - Cards: média, mediana, desvio padrão, maior/menor nota
 - Gráfico de distribuição de notas (histograma)
-- Seção “Por questão”: % de acerto e gráfico de barras com a alternativa mais marcada em cada questão
+- Seção “Por questão”: % de acerto e a alternativa mais marcada em cada questão, em texto (gráfico de barras pendente)
 - Seção “Por categoria (tag)”: % de acerto por tag de conteúdo — localiza os temas com mais erro
 - Botões “Exportar Excel”, “Exportar CSV”, “Exportar PDF”
 
 **Ações e fluxo:**
 
-- Clique em aluno → P16 daquela correção (leitura)
+- Clique em aluno → P16 daquela correção (pendente)
 - Exportar → confirma o início em menos de 1 s e notifica quando o arquivo fica pronto para download (RF41)
 
 #### P19. Relatório consolidado
@@ -755,7 +755,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 - Filtros: turma, disciplina, período, intervalo de datas
 - Tabela: aplicação, turma, data, média, nº corrigidos
-- Gráfico de médias por aplicação
+- Gráfico de médias por aplicação (pendente)
 - Botões de exportação
 
 **Ações e fluxo:**
@@ -767,13 +767,13 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 Mudanças em relação às entidades da Spec, decorrentes do novo escopo:
 
-- **User:** só professor. Sai o role “estudante”.
-- **Student (novo):** { id, classId, fullName, registration, email? } — registro da turma, sem senha, sem login. Substitui ClassEnrollment + User aluno.
-- **Question:** + allowShuffleAlternatives: boolean (padrão true) — padrão da questão. As imagens do enunciado (RF45) entram como markdown dentro do próprio `statement`, apontando para o arquivo enviado — não é campo novo, e por isso não altera a forma que a Spec define.
+- **User:** só professor autentica; o role “estudante” continua no contrato, reservado (`docs/Modelo_de_Dados.md`, "Reservado para escopo futuro").
+- **Student (novo):** { id, classId, fullName, registration, email? } — registro da turma, sem senha, sem login. `ClassEnrollment` continua no contrato, sem uso.
+- **Question:** + allowShuffleAlternatives: boolean (padrão true) — padrão da questão. As imagens do enunciado (RF45, ainda não implementadas, #105) entram como markdown dentro do próprio `statement`, apontando para o arquivo enviado — não é campo novo, e por isso não altera a forma que a Spec define.
 - **Exam:** + defaultShuffleQuestions, defaultShuffleAlternatives (herdados por Application); em questions[], + allowShuffleAlternatives por questão desta prova, sobrescrevendo o padrão da questão.
 - **Application:** + gradesReleased: boolean (libera consulta em PUB1). Estado closed ganha endpoint de arquivar.
-- **AnswerSheet (novo):** { id, applicationId, examVersionId, studentId?, sheetNumber, code } — uma por cartão-resposta impresso. sheetNumber é o número curto e legível impresso para o professor organizar as pilhas de papel; code é o token aleatório opaco de no mínimo 128 bits que vai dentro do QR Code e é a única chave de consulta pública. Os dois nunca se confundem. Substitui ExamAssignment e dispensa a separação qrCodePayload/publicCode da Spec — ver 6.1.
-- **Correction:** passa a apontar para answerSheetId (a folha), não só para a versão; objectiveResults ganha selectedAlternativeId; + source: “IMAGE_UPLOAD” | “MANUAL”; + imageUrl?; + status: “IN_PROGRESS” | “DONE”, que distingue a correção que ainda espera nota de discursiva (RF47). O status é derivado das discursivas sem nota e gravado junto, para a listagem não precisar consultar a prova a cada linha. Saem clientCorrectionId e syncStatus (não há app/offline).
+- **AnswerSheet (novo):** { id, applicationId, examVersionId, studentId?, sheetNumber, code } — uma por cartão-resposta impresso. sheetNumber é o número curto e legível impresso para o professor organizar as pilhas de papel; code é o token aleatório opaco de no mínimo 128 bits que vai dentro do QR Code e é a única chave de consulta pública. Os dois nunca se confundem. Faz o papel que a Spec dá ao ExamAssignment, que continua no contrato sem uso; `qrCodePayload` e `publicCode` da versão também continuam, preenchidos e sem uso — ver 6.1.
+- **Correction:** passa a apontar para answerSheetId (a folha), não só para a versão; objectiveResults ganha selectedAlternativeId; + source: “IMAGE_UPLOAD” | “MANUAL”; + imageUrl?; + status: “IN_PROGRESS” | “DONE”, que distingue a correção que ainda espera nota de discursiva (RF47). O status é derivado das discursivas sem nota e gravado junto, para a listagem não precisar consultar a prova a cada linha. `clientCorrectionId` e `syncStatus` continuam obrigatórios, como na Spec: o servidor gera o primeiro e grava `"synced"`.
 - **Endpoints novos:** import (alunos, questões, provas), export de prova, duplicar prova, gerar prova automática, upload/leitura de folha, liberar notas, página pública por código.
 
 **Student:** o campo email está pendente de validação — hoje é coletado sem finalidade no sistema (ver nota do RF07).
@@ -789,20 +789,12 @@ Mudanças em relação às entidades da Spec, decorrentes do novo escopo:
 - **Fora:** app mobile; editor manual de layout do PDF / exportar .doc; área do aluno com login; versionamento A/B/C de questões (provas realmente diferentes por aluno), extra opcional se sobrar tempo — ver 6.3.
 - **Depende de validação:** importação/exportação Excel, retorno do cartão-resposta, finalidade do e-mail do aluno, existência de alunos menores de idade — ver seção 7.
 
-## 11. Como seguir — até a N1 (11/09)
+## 11. Situação
 
-### Esta semana
-
-- Levar ao cliente as validações da seção 7 (agora com dois itens novos: finalidade do e-mail do aluno e existência de alunos menores de idade)
-- ~~Levar à professora a dúvida da seção 6.3 (versionamento A/B/C) e o uso de Firebase Auth~~ — respondido em 26/10/2026 (seções 1, 6.3 e 7)
-- Reorganizar as Issues do GitHub Project pela lista atual de 42 RFs, agrupando por área
-- PDF de telas para validação com o cliente — confirmar se já foi entregue; é item obrigatório do checklist da N1 e a base textual é a seção 8 (agora com PUB2)
-
-### Até 11/09
-
-- Construir a fundação do código (build, publicação, portão de qualidade, tipos e schemas do domínio, camada de repositórios, dados de demonstração, componentes compartilhados) antes de dividir as telas entre as cinco pessoas
-- Construir as telas navegáveis com dados simulados e publicar no GitHub Pages, na ordem de prioridade já definida: C1 → P1 → P3/P5 → P6/P7 → P8/P9 → P11/P13/P14 → P15/P16 → PUB1
-- Diário individual atualizado a cada aula com prints de commit/PR — 50% da nota da N1
+- **N1:** entregue na 1.0.0 (11/09/2026), com as 25 telas navegáveis sobre dados simulados no GitHub Pages.
+- **N2:** concluída na 2.0.0 (#189), publicada em produção em 01/11/2026: todas as telas ligadas à API e ao MySQL, sem dado simulado no build do Firebase.
+- **Pendente:** as validações da seção 7 com o cliente (#69) e as lacunas de tela marcadas como pendentes na seção 8.
+- **N3 (27/11/2026):** escopo completo com validações e casos de borda (`docs/Versionamento.md`).
 
 ## 12. Rastreabilidade — pontos do chat de 28/08
 
@@ -814,14 +806,14 @@ Cada ponto levantado no grupo após a apresentação e onde ele está neste docu
 | Escaneamento para autocorrigir provas | RF26–RF32; P15, P16, P17; RNF07 |
 | PDF com todas as telas e o que cada uma faz | Seção 11; base textual = seção 8 |
 | Tags de categoria por questão, para melhores análises | RF11; P7; RF35 e P18 (% de acerto por tag) |
-| RFs escritos em forma de ação | Seção 3 (42 RFs) |
+| RFs escritos em forma de ação | Seção 3 (48 RFs) |
 | RNFs com métrica verificável | Seção 4 (20 RNFs) |
 | Minimalismo medido por quantidade de cliques | RNF06 |
 | Requisitos de confiabilidade | RNF07 |
 | Cypress e afins | RNF08 |
 | GitHub Project 4 (quem fez o quê e quando) | Seção 2 |
-| Diminuir tempo de cadastro de alunos; importar alunos, provas, questões via Excel/JSON | RF08, RF14, RF19; modais de importação em P5, P6, P8 |
-| Tour guiado | RF37; P1; P2 (rever tour) |
+| Diminuir tempo de cadastro de alunos; importar alunos, provas, questões via Excel/JSON | RF08, RF14, RF19; importação por colagem em P5; P6 e P8 dependem da #69 |
+| Tour guiado | RF37; P1; ajuda de cada tela (seção 8.1) |
 | Formulário para montar prova automaticamente (tags, discursivas, quantidade) | RF16; P9b |
 | Salvar embaralhamento na prova, ativável/desativável na aplicação | RF17; P9 (preferências); P13 (herdadas, editáveis) |
 | Duplicar provas | RF18; P8; P10 |

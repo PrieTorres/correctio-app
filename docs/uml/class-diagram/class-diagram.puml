@@ -11,6 +11,7 @@ class User {
   +passwordHash: String
   +createdAt: Date
   +anonymizedAt?: Date
+  +emailVerifiedAt?: Date <<acréscimo>>
 }
 
 class RefreshToken {
@@ -83,7 +84,7 @@ class ExamAssignment {
   +studentId: String
   +qrCodePayload: String
 }
-note right of ExamAssignment: só quando withStudentIdentification = true
+note right of ExamAssignment: reservada para a área do aluno; no escopo atual a folha é AnswerSheet
 
 class Application {
   +id: String
@@ -117,6 +118,7 @@ class AnswerSheet <<acréscimo>> {
   +studentId?: String
   +sheetNumber: Number
   +code: String
+  +answerCardVersion: Number
 }
 
 class Correction {
@@ -140,6 +142,28 @@ class Correction {
   +imageUrl?: String <<acréscimo>>
 }
 
+class AuthCode <<acréscimo>> {
+  +id: String
+  +userId: String
+  +purpose: "PASSWORD_RESET" | "GOOGLE_SIGN_IN"
+  +codeHash: String
+  +expiresAt: Date
+  +usedAt?: Date
+  +createdAt: Date
+}
+
+class SheetImage <<acréscimo>> {
+  +id: String
+  +applicationId: String
+  +teacherId: String
+  +storageKey: String
+  +contentType: "image/jpeg" | "image/png" | "image/webp"
+  +byteSize: Number
+  +status: "READ" | "QR_NOT_RECOGNIZED" | "READ_FAILED"
+  +answerSheetId?: String
+  +createdAt: Date
+}
+
 class ActivityLog <<acréscimo>> {
   +id: String
   +teacherId?: String
@@ -154,17 +178,21 @@ User "1" -- "*" RefreshToken : has
 User "1" -- "*" Class : teaches
 User "1" -- "*" Question : creates
 User "1" -- "*" Exam : creates
-User "1" -- "0..1" Student : maps_to
+User "0..1" -- "*" Student : maps_to
 User "1" -- "*" Application : manages (teacherId)
 User "0..1" -- "*" ActivityLog : logs
+User "1" -- "*" AuthCode : has
+User "1" -- "*" SheetImage : uploads
+Application "1" -- "*" SheetImage : receives
+AnswerSheet "0..1" -- "*" SheetImage : read_as
 Class "1" -- "*" Student : contains
 Class "1" -- "*" ClassEnrollment : contains
-Student "1" -- "*" ClassEnrollment : enrolls
+User "1" -- "*" ClassEnrollment : enrolls
 Exam "1" -- "*" Application : applied_as
 Class "1" -- "*" Application : receives
 Application "1" -- "*" ExamVersion : generates
 ExamVersion "1" -- "*" ExamAssignment : assigns_to
-Student "1" -- "*" ExamAssignment : assigned_via
+User "1" -- "*" ExamAssignment : assigned_via
 Application "1" -- "*" AnswerSheet : prints
 ExamVersion "1" -- "*" AnswerSheet : prints
 Student "0..1" -- "*" AnswerSheet : answers

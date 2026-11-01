@@ -19,13 +19,15 @@ O portão de qualidade transforma isso em algo automático, em vez de depender d
 | 1 | **Instalação** (`npm ci`, Node fixado) | o lockfile estiver inconsistente |
 | 2 | **Lint** (regras de `tooling/eslint/`, mais o idioma dos comentários) | houver erro de ESLint, função acima dos limites de complexidade ou comentário que não seja JSDoc |
 | 3 | **Verificação de tipos** (`tsc --noEmit`) | houver erro de tipo |
-| 4 | **Testes unitários + cobertura** (inclui os testes das regras de lint e do backup, com `node:test`, e os da API contra um MySQL de verdade, que aplicam as migrations num banco vazio) | algum teste falhar ou a cobertura de código novo ficar abaixo de 80% |
+| 4 | **Testes unitários + cobertura** (inclui os testes das regras de lint e do backup, com `node:test`, e os da API contra um MySQL de verdade, que aplicam as migrations num banco vazio) | algum teste falhar ou a cobertura de algum workspace ficar abaixo de 80% (thresholds do Vitest; a cobertura do código novo é do Sonar) |
 | 5 | **Build de produção**, conferido por `scripts/check-firebase-bundle.mjs` (#51) | o build quebrar, ou o pacote do Firebase trouxer texto que só existe no demo (`teacher-demo`, `seeded-at`, `Dados de demonstração`, `demo-sheets`, `prova-exemplo`). O "2. Release" faz a mesma conferência antes de publicar |
 | 6 | **Testes E2E (Cypress)** | algum fluxo principal falhar |
 | 7 | **Auditoria de dependências** (`scripts/audit-dependencies.mjs`) | houver vulnerabilidade alta ou crítica fora da lista de exceções |
 | 8 | **SonarCloud** | o portão de qualidade reprovar |
+| 9 | **Issue, checklist and video** (`delivery-rules.yml`) | faltar `Closes #N`, houver item desmarcado no PR ou na issue ligada, ou faltar o vídeo (dispensado com label `docs`, `infra`, `process`, `qa`, `ux` ou `po`) |
+| — | **Journey video** | não bloqueia sozinho: grava a jornada e escreve o link no PR, que é o que o check 9 procura |
 
-Os passos 2 a 4 rodam em paralelo — não faz sentido esperar o lint para descobrir que um teste quebrou. O E2E depende do build, então vem depois.
+Os passos 1 a 5 e a auditoria rodam em sequência num único job, *Lint, tipos, testes e build*. Quando ele passa, três jobs rodam em paralelo: *Cypress* (que refaz o build e sobe MySQL e API), *Journey video* e *SonarCloud*.
 
 ### Portão do SonarCloud
 
@@ -35,7 +37,7 @@ Avaliado sobre **código novo** (o que o PR adiciona ou altera), não sobre o re
 |---|---|
 | Cobertura | 80% |
 | Linhas duplicadas | ≤ 3% |
-| Problemas novos de severidade alta | 0 |
+| Security Hotspots revisados | 100% |
 | Confiabilidade, segurança e manutenibilidade | nota A |
 
 ---
@@ -46,10 +48,9 @@ Configuração no GitHub, sem a qual o portão acima é decorativo — bastaria 
 
 - Merge em `main` **somente por Pull Request**, e no dia a dia só o da release do dia (`release/AAAA-MM-DD`), mergeado pela PM
 - As branches `release/**` têm a mesma proteção: PR, aprovação da PM e todas as verificações
-- Pelo menos **1 aprovação** de outra pessoa do grupo
+- Pelo menos **1 aprovação**, que precisa ser da PM: ela é code owner de todo o repositório (`.github/CODEOWNERS`). Push novo descarta a aprovação, e toda conversa do review precisa estar resolvida
 - **Todas as verificações precisam passar** antes do botão de merge liberar
 - Push direto em `main` **bloqueado para todos**
-- Branch atualizada com a `main` antes do merge
 
 Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual exige (C4) passam a existir naturalmente, com as verificações visíveis no próprio PR.
 
@@ -64,7 +65,7 @@ Efeito colateral bem-vindo: os prints de PR aprovado que o diário individual ex
 | PR mergeado na release do dia | "Release pull request" (`release-pr.yml`) atualiza o PR da release com o `Closes #N` de cada PR do dia |
 | Merge da release do dia em `main`, pela PM | publica só o front no **GitHub Pages** (`pages.yml`), como demo: build com `VITE_DEMO_MODE`, sem API nem banco, com dados de exemplo; fecha as issues do dia |
 | "1. Pre-release: publish to pre-production" (`preview.yml`), sob demanda | a **pré-versão do dia**: publica a `release/AAAA-MM-DD` no link fixo da **pré-produção** (`https://correctio-app-preview.web.app`), depois da aprovação da PM. Outra branch, pelo nome ou pelo número do PR, ganha um link próprio que expira em 7 dias e é comentado no PR; ficam só os 10 mais recentes |
-| "2. Release: publish to production" (`release.yml`) | a **versão oficial**: portão completo; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
+| "2. Release: publish to production" (`release.yml`) | a **versão oficial**: só da `main`; recusa versão já lançada; roda de novo lint, tipos, testes, build e a conferência do bundle; **publicação em produção** (projeto `correctio-app`) depois da aprovação da PM; tag e notas só com a produção respondendo |
 | A cada 6 horas (`keep-alive.yml`) | chama o `/api/health` da produção, para o banco ter atividade. O plano gratuito do Aiven pode desligar o banco por inatividade, sem prazo definido, e a produção cai junto; isso reduz o risco, mas não o elimina (ADR-001). Uma execução que falha avisa por e-mail que a produção está respondendo 503 |
 | Todo dia, às 06:23 UTC (`database-backup.yml`) | dump da produção no bucket privado `correctio-app-db-backups`, guardado por 30 dias (seção 8). Uma execução que falha avisa por e-mail que o dia ficou sem backup |
 | Dia 1 de cada mês (`database-restore-test.yml`) | restaura o backup mais recente num MySQL descartável da própria execução, roda as migrations por cima e registra o resultado (seção 8) |
@@ -114,10 +115,9 @@ porque quem os cobre é o Cypress.
 **O Cypress precisa da aplicação servida.** Não adianta rodar contra o código-fonte: sobe o build de produção, espera a porta responder, roda os testes, derruba. Rodar contra o servidor de desenvolvimento esconde justamente os problemas que só aparecem no build. Os jobs do Cypress e da jornada também sobem um MySQL e a API (`.github/actions/start-api`), e o `vite preview` encaminha `/api` para ela, como o Hosting faz no Firebase.
 
 **Cada teste do Cypress entra como um professor novo.** O `cypress/support/e2e.ts` cadastra um
-professor na API antes de cada teste e prepara os dados de exemplo para ele, então o build testado é
-o mesmo de produção, sem demo. O que já vive na API é criado nela: as turmas e os alunos de exemplo
-são cadastrados pelas rotas da #41, e o resto do exemplo, ainda no navegador, aponta para os ids que
-a API devolveu (`signInAsNewTeacher`, em `cypress/support/commands.ts`). Como cada teste usa um
+professor na API antes de cada teste e cria para ele, pela própria API, todo o exemplo: turmas,
+alunos, questões, provas e aplicações, uma delas já gerada (`signInAsNewTeacher`, em
+`cypress/support/commands.ts`). O build testado é o mesmo de produção, sem demo. Como cada teste usa um
 professor próprio, os limites da API contados por professor, como o de 10 importações por hora, nunca
 se acumulam entre testes. O demo do GitHub Pages tem um build próprio e um spec próprio
 (`cypress/demo`), que o job de E2E roda em seguida com `npm run test:e2e:demo`.
@@ -158,7 +158,7 @@ antes do Express, com limite próprio de 10 MB, e o `express.json` não reaplica
 | Ambientes `production` e `preview` do GitHub, secrets | `DATABASE_URL` e `DATABASE_CA_CERT` do banco daquele ambiente, usados pelas migrations |
 | Ambientes `production` e `preview` do GitHub, variáveis | `FIREBASE_PROJECT_ID`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_DEPLOY_SERVICE_ACCOUNT` |
 | Ambiente `backup` do GitHub | secrets `DATABASE_URL` e `DATABASE_CA_CERT` da produção, só para o dump; variáveis `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_BACKUP_SERVICE_ACCOUNT` e `BACKUP_BUCKET` |
-| Secret Manager de cada projeto Firebase | `DATABASE_URL`, `DATABASE_CA_CERT`, `DATA_ENCRYPTION_KEY`, lidos pela API em execução |
+| Secret Manager de cada projeto Firebase | `DATABASE_URL`, `DATABASE_CA_CERT`, `DATA_ENCRYPTION_KEY`, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `GMAIL_APP_PASSWORD`, declarados em `apps/api/src/function.ts` e lidos pela API em execução. O deploy falha se faltar algum no projeto |
 
 O mesmo nome em cada ambiente: o job declara `environment: production` ou `environment: preview`
 e recebe o conjunto certo. O ambiente `production` só aceita execuções da `main` e exige a
@@ -173,7 +173,7 @@ rodar sozinho todo dia.
 |---|---|
 | **N1** | Lint, tipos, testes unitários com cobertura, build, Sonar e publicação no GitHub Pages. O Cypress entra assim que houver fluxo navegável para testar. |
 | **N2** | Mesmo fluxo, mais os testes do back-end e as migrações do banco. Publicação passa a incluir a API, no Firebase: produção a cada release, pré-produção sob demanda. |
-| **N3** | Acrescenta verificação de acessibilidade automatizada (RNF11) e auditoria de dependências como bloqueio, não como aviso. |
+| **N3** | Acrescenta verificação de acessibilidade automatizada (RNF11). A auditoria de dependências já bloqueia o merge desde a N2 (passo 7 da seção 2). |
 
 ---
 
@@ -194,7 +194,7 @@ na interface do GitHub, que nenhum arquivo versionado consegue ligar:
 | Bucket `correctio-app-db-backups` (us-west1, privado, apaga o que passa de 30 dias em `production/`) | Google Cloud, projeto `correctio-app` | ✅ |
 | Conta de serviço `github-db-backup`, só no bucket do backup, e provedor `correctio-backup` do Workload Identity Federation, só para o ambiente `backup` vindo da `main` | Google Cloud, IAM | ✅ |
 | Ambiente `backup` (só `main`, sem revisora) com as variáveis do backup | Settings → Environments | ✅ |
-| Secrets `DATABASE_URL` e `DATABASE_CA_CERT` no ambiente `backup` | Settings → Environments | ⏳ pendente |
+| Secrets `DATABASE_URL` e `DATABASE_CA_CERT` no ambiente `backup` | Settings → Environments | ✅ |
 | Tags de versão `v*` não podem ser movidas nem apagadas (só a admin passa por cima) | Settings → Rules, "release tags" | ✅ |
 | Branches `release/**` com a proteção da `main` (PR, aprovação da PM e verificações) | Settings → Rules, "release branches" | ✅ |
 | GitHub Pages publicando o front da `main`, para teste | Settings → Pages, fonte GitHub Actions | ✅ |

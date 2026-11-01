@@ -37,7 +37,7 @@ letra que o cartão não tem.
 ## O que o QR Code carrega
 
 O endereço da consulta pública da folha, `<PUBLIC_APP_URL>/r/<code>`, por exemplo
-`https://correctio-app.web.app/r/K7M2QX9RT4BV8NC3HW6PJ5DZ2A`.
+`https://correctio-app.web.app/r/K7M2QXZRT4BVANC3HW6PJ5DZ2A`.
 
 - O `code` é o `AnswerSheet.code`, de 26 caracteres, a única chave da folha
   (`docs/Seguranca_e_LGPD.md`, seção 3).
@@ -88,7 +88,9 @@ pode ter mudado depois.
 - Mudar uma medida muda o PDF e a leitura ao mesmo tempo, mas não muda o papel já impresso. Por
   isso cada folha grava com qual geometria saiu, em `AnswerSheet.answerCardVersion`, que a
   geração preenche com `ANSWER_CARD.version`. Quem muda uma medida aumenta essa versão e mantém
-  a geometria anterior para a leitura das folhas que já estão com os alunos.
+  a geometria anterior para a leitura das folhas que já estão com os alunos. Hoje só existe a
+  versão 1, e `readSheet` usa sempre o `ANSWER_CARD` atual: a mesma mudança precisa fazer a
+  leitura escolher a geometria pelo `answerCardVersion` da folha.
 - `packages/domain/src/__tests__/answer-card.test.ts` confere que o cartão cabe na página, que as
   bolinhas não se encostam e ficam dentro dos marcadores, e que o QR Code nunca cobre uma bolinha.
 

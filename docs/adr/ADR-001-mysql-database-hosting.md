@@ -49,7 +49,7 @@ Alternativas avaliadas:
 - **Limites do plano gratuito:** 1 CPU, 1 GB de RAM, 1 GB de disco, até 76 conexões, sem pool de conexões, sem IP fixo e sem VPC ([Aiven, MySQL free tier](https://aiven.io/docs/products/mysql/concepts/mysql-free-tier)). Cabe com folga no volume de uma disciplina.
 - **O serviço pode ser desligado por inatividade.**
   - O Aiven reserva o direito de desligar serviços gratuitos sem "atividade contínua", sem dizer depois de quanto tempo, e avisa por e-mail antes.
-  - O serviço foi desligado em 13/10, o que motivou o workflow `keep-alive.yml`, que consulta o banco a cada 6 horas. Foi desligado de novo em 15/10, já com o keep-alive rodando. Quando isso acontece, produção e pré respondem 503 até alguém clicar em "Power on" no console do Aiven.
+  - O serviço foi desligado em 13/10, o que motivou o workflow `keep-alive.yml`, que consulta o banco a cada 6 horas. Foi desligado de novo em 15/10, já com o keep-alive rodando. Quando isso acontece, o `/health` de produção e de pré responde 503, e as outras rotas respondem 500 ("Erro inesperado"), até alguém clicar em "Power on" no console do Aiven.
   - O único plano que nunca desliga é o Developer, de US$ 5 a 8 por mês ([Aiven, planos gratuitos](https://aiven.io/blog/free-plans-postgresql-mysql-redis)). Em 20/10 a PM decidiu ficar no gratuito e aceitar esse risco (ver "Revisão de 21/10/2026").
 - **O backup do plano gratuito não atende o RNF09, e o projeto faz o seu.**
   - O Aiven guarda um único backup, só para recuperação de desastre ([Aiven, preços do MySQL](https://aiven.io/pricing/mysql)), que o projeto não consegue baixar nem restaurar. O RNF09 pede backup diário com 30 dias de retenção, restauração testada todo mês e perda máxima de 24 horas.
