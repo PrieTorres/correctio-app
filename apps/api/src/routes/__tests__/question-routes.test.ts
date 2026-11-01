@@ -348,7 +348,8 @@ describe.runIf(serverUrl !== undefined)('question routes (real MySQL)', () => {
         .set('Authorization', 'Bearer token-ana')
 
       expect(res.status).toBe(200)
-      expect(res.body.items.map((item: { statement: string }) => item.statement).sort()).toEqual(['A', 'B'])
+      const { items } = res.body as { items: { statement: string }[] }
+      expect(items.map((item) => item.statement).sort()).toEqual(['A', 'B'])
     })
 
     it('filters by onlyUntagged', async () => {
