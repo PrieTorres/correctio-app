@@ -240,7 +240,7 @@ describe('ExamFormPage, the automatic draw', () => {
     const dialog = await screen.findByRole('dialog')
 
     expect(within(dialog).getByRole('button', { name: /Gerar seleção/ })).toBeDisabled()
-    expect(within(dialog).getByText(/Carregando o banco/)).toBeVisible()
+    expect(within(dialog).getByText(/Contando as questões do banco/)).toBeInTheDocument()
   })
 
   it('offers the draw once the bank is there', async () => {

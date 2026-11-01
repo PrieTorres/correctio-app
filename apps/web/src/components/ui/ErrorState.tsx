@@ -17,16 +17,16 @@ export function ErrorState({
 }: Readonly<{ title?: string; description?: string; onRetry?: () => void; framed?: boolean }>) {
   const content = (
     <div role="alert" className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-danger-surface text-on-danger-surface">
-          <AlertTriangle size={28} aria-hidden />
-        </span>
-        <div className="flex flex-col gap-2">
-          <h2 className="text-title text-primary">{title}</h2>
-          <p className="max-w-prose text-body text-ink-muted">{description}</p>
-        </div>
-        <Button icon={<RotateCw size={16} aria-hidden />} onClick={onRetry ?? (() => window.location.reload())}>
-          Tentar de novo
-        </Button>
+      <span className="flex size-14 items-center justify-center rounded-full bg-danger-surface text-on-danger-surface">
+        <AlertTriangle size={28} aria-hidden />
+      </span>
+      <div className="flex flex-col gap-2">
+        <h2 className="text-title text-primary">{title}</h2>
+        <p className="max-w-prose text-body text-ink-muted">{description}</p>
+      </div>
+      <Button icon={<RotateCw size={16} aria-hidden />} onClick={onRetry ?? (() => window.location.reload())}>
+        Tentar de novo
+      </Button>
     </div>
   )
   return framed ? <Card>{content}</Card> : content
