@@ -111,11 +111,18 @@ describe('toStorageError', () => {
     expect(error.message).toBe('Já existe uma turma com estes dados.')
   })
 
-  it('shows the server message of a 429 as a failure', () => {
+  it('keeps the server message of a 429 under its own code', () => {
     const error = toStorageError(429, { code: 'too-many-requests', message: 'Muitas requisições. Espere um minuto.' })
 
-    expect(error.code).toBe('failure')
+    expect(error.code).toBe('rate-limited')
     expect(error.message).toBe('Muitas requisições. Espere um minuto.')
+  })
+
+  it('still tells a 429 without a body to wait', () => {
+    const error = toStorageError(429, undefined)
+
+    expect(error.code).toBe('rate-limited')
+    expect(error.message).toContain('Aguarde')
   })
 
   it('hides a server error behind a generic message', () => {
