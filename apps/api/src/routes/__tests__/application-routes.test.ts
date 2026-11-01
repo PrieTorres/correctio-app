@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { Application, ExamVersionLayout } from '@correctio/domain'
+import type { Application, ApplicationOverview, ClassStatus, CorrectionStatus, ExamStatus, ExamVersionLayout } from '@correctio/domain'
 import type { Express } from 'express'
 import type { Insertable, Kysely } from 'kysely'
 import request, { type Response } from 'supertest'
@@ -10,7 +10,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createTestDatabase, DATABASE_TEST_URL, type TestDatabase } from '../../__tests__/test-database'
 import { createApp } from '../../app'
 import { loadEnv } from '../../config/env'
-import { createLocalFileStorage, type FileStorage } from '../../lib/file-storage'
+import { createBucketFileStorage, createLocalFileStorage, type FileStorage, type StorageBucket } from '../../lib/file-storage'
 import { createLogger } from '../../lib/logger'
 import type { VerifyToken } from '../../middlewares/require-auth'
 import type { ApplicationsTable, Database, ExamVersionsTable } from '../../models/tables'
@@ -49,6 +49,9 @@ const examOf = (id: string, teacherId: string) => ({
 /** Noon UTC of the day, which is how the form of the web app stores a date. */
 const day = (isoDay: string) => new Date(`${isoDay}T12:00:00.000Z`)
 
+/** The progress of an application nothing was printed for. */
+const NO_PROGRESS = { versions: 0, publishedAnswerKeys: 0, sheets: 0, correctedSheets: 0, corrections: 0 }
+
 const itemsIn = (response: Response) => (response.body as { items: { id: string }[] }).items.map((item) => item.id)
 
 describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)', () => {
@@ -86,8 +89,9 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
     await rm(folder, { recursive: true, force: true })
   })
 
-  /** Sheets first, then versions, so no foreign key blocks the delete. */
+  /** Corrections first, then sheets and versions, so no foreign key blocks the delete. */
   beforeEach(async () => {
+    await db.deleteFrom('corrections').execute()
     await db.deleteFrom('answer_sheets').execute()
     await db.deleteFrom('exam_versions').execute()
     await db.deleteFrom('applications').execute()
@@ -144,16 +148,56 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
     return id
   }
 
+  /** Leaves `answerCardVersion` to the column default, which is the first geometry. */
   async function insertSheet(applicationId: string, examVersionId: string, sheetNumber: number, studentId?: string) {
     const sheet = { id: randomUUID(), applicationId, examVersionId, sheetNumber, code: randomBytes(13).toString('hex').toUpperCase() }
     await db
       .insertInto('answer_sheets')
       .values({ ...sheet, studentId: studentId ?? null })
       .execute()
-    return sheet
+    return { ...sheet, answerCardVersion: 1 }
+  }
+
+  /** A correction of the sheet with only what the counts read; grading itself is in `correction-routes.test.ts`. */
+  async function insertCorrection(sheet: { id: string; examVersionId: string }, status: CorrectionStatus) {
+    await db
+      .insertInto('corrections')
+      .values({
+        id: randomUUID(),
+        examVersionId: sheet.examVersionId,
+        studentId: null,
+        reportedStudentName: null,
+        reportedStudentRegistration: null,
+        totalScore: 0,
+        notes: null,
+        confirmedAt: new Date(),
+        correctedBy: 'ana',
+        isAutomaticallyAssigned: false,
+        clientCorrectionId: randomUUID(),
+        syncStatus: 'synced',
+        answerSheetId: sheet.id,
+        source: 'MANUAL',
+        status,
+        imageUrl: null,
+      })
+      .execute()
+  }
+
+  /** An exam of Ana's of its own, for a test that archives it without touching the others. */
+  async function insertExam(status: ExamStatus = 'ready'): Promise<string> {
+    const id = randomUUID()
+    await db.insertInto('exams').values({ ...examOf(id, 'ana'), status }).execute()
+    return id
+  }
+
+  async function insertClass(status: ClassStatus = 'active'): Promise<string> {
+    const id = randomUUID()
+    await db.insertInto('classes').values({ ...classOf(id, 'ana'), status }).execute()
+    return id
   }
 
   const storedApplication = (id: string) => db.selectFrom('applications').selectAll().where('id', '=', id).executeTakeFirstOrThrow()
+  const applicationCount = async () => (await db.selectFrom('applications').select('id').execute()).length
   const storedVersion = (id: string) =>
     db.selectFrom('exam_versions').select(['answerKeyPublished', 'answerKeyPublishedAt']).where('id', '=', id).executeTakeFirstOrThrow()
 
@@ -161,21 +205,217 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
     const id = randomUUID()
     const responses = await Promise.all([
       request(app).get('/applications'),
+      request(app).post('/applications'),
       request(app).get(`/applications/${id}`),
+      request(app).patch(`/applications/${id}`),
       request(app).patch(`/applications/${id}/archive`),
       request(app).patch(`/applications/${id}/restore`),
       request(app).post(`/applications/${id}/grades-release`),
       request(app).get(`/applications/${id}/pdf`),
       request(app).get(`/applications/${id}/versions`),
       request(app).post(`/applications/${id}/versions/${id}/publish-answer-key`),
+      request(app).post(`/applications/${id}/publish-answer-keys`),
       request(app).get(`/applications/${id}/sheets`),
     ])
 
     for (const response of responses) expect(response.status).toBe(401)
   })
 
+  describe('POST /applications', () => {
+    const sitting = { examId: 'exam-ana', classId: 'class-ana', date: '2026-11-03T12:00:00.000Z' }
+
+    it('creates a draft with the grades withheld, owned by the teacher of the token', async () => {
+      const response = await ana().post('/applications', { ...sitting, teacherId: 'bia', status: 'generated', gradesReleased: true })
+
+      expect(response.status).toBe(201)
+      const created = response.body as ApplicationOverview
+      expect(created).toEqual({
+        id: expect.any(String) as string,
+        ...sitting,
+        teacherId: 'ana',
+        status: 'draft',
+        gradesReleased: false,
+        examTitle: 'exam-ana',
+        className: 'class-ana',
+        progress: NO_PROGRESS,
+      })
+      expect((await ana().get(`/applications/${created.id}`)).body).toEqual(created)
+    })
+
+    it('answers 404, never 403, for an exam or a class of another teacher, creating nothing', async () => {
+      const otherExam = await ana().post('/applications', { ...sitting, examId: 'exam-bia' })
+      const otherClass = await ana().post('/applications', { ...sitting, classId: 'class-bia' })
+
+      expect([otherExam.status, otherExam.body]).toEqual([404, { code: 'not-found', message: 'Prova não encontrada.' }])
+      expect([otherClass.status, otherClass.body]).toEqual([404, { code: 'not-found', message: 'Turma não encontrada.' }])
+      expect(await applicationCount()).toBe(0)
+    })
+
+    it('refuses an archived exam and an archived class, which take no new application (RF20)', async () => {
+      const archivedExam = await ana().post('/applications', { ...sitting, examId: await insertExam('closed') })
+      const archivedClass = await ana().post('/applications', { ...sitting, classId: await insertClass('archived') })
+
+      expect(archivedExam.status).toBe(409)
+      expect((archivedExam.body as { message: string }).message).toBe('Esta prova está arquivada. Restaure a prova antes de aplicá-la.')
+      expect(archivedClass.status).toBe(409)
+      expect((archivedClass.body as { message: string }).message).toBe('Esta turma está arquivada. Restaure a turma antes de aplicar uma prova a ela.')
+      expect(await applicationCount()).toBe(0)
+    })
+
+    it('refuses the same exam, class and day at any hour, and points at an archived twin', async () => {
+      const { id } = (await ana().post('/applications', sitting)).body as Application
+
+      const sameDay = await ana().post('/applications', { ...sitting, date: '2026-11-03T23:30:00.000Z' })
+      expect([sameDay.status, (sameDay.body as { message: string }).message]).toEqual([409, 'Já existe uma aplicação com estes dados.'])
+
+      await ana().patch(`/applications/${id}/archive`)
+      const archivedTwin = await ana().post('/applications', sitting)
+      expect([archivedTwin.status, (archivedTwin.body as { message: string }).message]).toEqual([
+        409,
+        'Já existe uma aplicação arquivada com estes dados. Restaure em vez de criar outra.',
+      ])
+    })
+
+    it('takes another day, another class or another exam as another sitting', async () => {
+      await ana().post('/applications', sitting)
+
+      const responses = await Promise.all([
+        ana().post('/applications', { ...sitting, date: '2026-11-04T12:00:00.000Z' }),
+        ana().post('/applications', { ...sitting, classId: 'class-ana-2' }),
+        ana().post('/applications', { ...sitting, examId: 'exam-ana-2' }),
+      ])
+
+      expect(responses.map((response) => response.status)).toEqual([201, 201, 201])
+    })
+
+    it('says which field is missing, in words the form can show', async () => {
+      const responses = await Promise.all([
+        ana().post('/applications', { classId: 'class-ana', date: sitting.date }),
+        ana().post('/applications', { examId: 'exam-ana', date: sitting.date }),
+        ana().post('/applications', { examId: 'exam-ana', classId: 'class-ana', date: '03/11/2026' }),
+      ])
+
+      expect(responses.map((response) => [response.status, (response.body as { message: string }).message])).toEqual([
+        [400, 'Escolha a prova'],
+        [400, 'Escolha a turma'],
+        [400, 'Informe a data da aplicação'],
+      ])
+    })
+
+    /**
+     * A double click on "Salvar e gerar": each request alone finds no twin, so
+     * only the lock of the exam row keeps both from passing. Repeated on a new
+     * day each round, since a race does not show on every run.
+     */
+    it('never stores the same sitting twice when both requests arrive together', async () => {
+      for (let round = 1; round <= 15; round++) {
+        const sameSitting = { ...sitting, date: `2026-12-${String(round).padStart(2, '0')}T12:00:00.000Z` }
+
+        const responses = await Promise.all([ana().post('/applications', sameSitting), ana().post('/applications', sameSitting)])
+
+        expect(responses.map((response) => response.status).sort()).toEqual([201, 409])
+      }
+      expect(await applicationCount()).toBe(15)
+    })
+  })
+
+  describe('PATCH /applications/:id', () => {
+    const edit = (id: string, body: object) => ana().patch(`/applications/${id}`).send(body)
+
+    it('moves the date and keeps what the body did not carry', async () => {
+      const id = await insertApplication({ status: 'generated' })
+
+      const response = await edit(id, { date: '2026-10-07T12:00:00.000Z', status: 'draft', teacherId: 'bia' })
+
+      expect(response.status).toBe(200)
+      expect(response.body).toMatchObject({
+        id,
+        examId: 'exam-ana',
+        classId: 'class-ana',
+        teacherId: 'ana',
+        status: 'generated',
+        date: '2026-10-07T12:00:00.000Z',
+        examTitle: 'exam-ana',
+        progress: NO_PROGRESS,
+      })
+      expect(await storedApplication(id)).toMatchObject({ examId: 'exam-ana', status: 'generated', date: day('2026-10-07') })
+    })
+
+    it('changes the exam and the class of an application nothing was printed for', async () => {
+      const id = await insertApplication()
+
+      const response = await edit(id, { examId: 'exam-ana-2', classId: 'class-ana-2' })
+
+      expect(response.status).toBe(200)
+      expect(response.body).toMatchObject({ examTitle: 'exam-ana-2', className: 'class-ana-2' })
+      expect(await storedApplication(id)).toMatchObject({ examId: 'exam-ana-2', classId: 'class-ana-2', date: day('2026-10-05') })
+    })
+
+    it('only lets the date move once versions were printed, since the sheets belong to that exam and that class', async () => {
+      const id = await insertApplication({ status: 'generated' })
+      await insertVersion(id, 1)
+
+      const otherExam = await edit(id, { examId: 'exam-ana-2' })
+      const otherClass = await edit(id, { classId: 'class-ana-2' })
+      const otherDay = await edit(id, { date: '2026-10-09T12:00:00.000Z' })
+
+      expect([otherExam.status, otherClass.status, otherDay.status]).toEqual([409, 409, 200])
+      expect((otherExam.body as { message: string }).message).toContain('as folhas impressas são desta prova e desta turma')
+      expect(await storedApplication(id)).toMatchObject({ examId: 'exam-ana', classId: 'class-ana', date: day('2026-10-09') })
+    })
+
+    it('still moves the date when the exam was archived after the application was created (RF20)', async () => {
+      const examId = await insertExam()
+      const id = await insertApplication({ examId })
+      await db.updateTable('exams').set({ status: 'closed' }).where('id', '=', examId).execute()
+
+      expect((await edit(id, { date: '2026-10-08T12:00:00.000Z' })).status).toBe(200)
+      expect((await edit(id, { examId: 'exam-ana' })).status).toBe(200)
+      expect((await edit(id, { examId })).status).toBe(409)
+    })
+
+    it('refuses editing an archived application until it is restored', async () => {
+      const id = await insertApplication({ status: 'closed' })
+
+      const response = await edit(id, { date: '2026-10-08T12:00:00.000Z' })
+
+      expect([response.status, (response.body as { message: string }).message]).toEqual([
+        409,
+        'Esta aplicação está arquivada. Restaure a aplicação antes de editá-la.',
+      ])
+    })
+
+    it('refuses moving onto the sitting of another application', async () => {
+      await insertApplication({ date: day('2026-10-06') })
+      const id = await insertApplication()
+
+      const response = await edit(id, { date: '2026-10-06T08:00:00.000Z' })
+
+      expect([response.status, (response.body as { message: string }).message]).toEqual([409, 'Já existe uma aplicação com estes dados.'])
+      expect(await storedApplication(id)).toMatchObject({ date: day('2026-10-05') })
+    })
+
+    it('refuses clearing a field, which the form needs', async () => {
+      const id = await insertApplication()
+
+      const response = await edit(id, { examId: null })
+
+      expect([response.status, (response.body as { message: string }).message]).toEqual([400, 'Escolha a prova'])
+    })
+
+    it('answers 404 to another teacher, and for an exam of another teacher, changing nothing', async () => {
+      const id = await insertApplication()
+
+      const asBia = await bia().patch(`/applications/${id}`).send({ date: '2026-10-08T12:00:00.000Z' })
+      const otherExam = await edit(id, { examId: 'exam-bia' })
+
+      expect([asBia.status, otherExam.status]).toEqual([404, 404])
+      expect(await storedApplication(id)).toMatchObject({ examId: 'exam-ana', date: day('2026-10-05') })
+    })
+  })
+
   describe('GET /applications', () => {
-    it('lists only the applications of the teacher, the oldest first, with the fields of the contract', async () => {
+    it('lists only the applications of the teacher, the most recent first, with the fields of the contract', async () => {
       const later = await insertApplication({ date: day('2026-12-01') })
       const earlier = await insertApplication({ date: day('2026-03-01'), status: 'generated', pdfUrl: 'applications/earlier/prova.pdf' })
       await insertApplication({ teacherId: 'bia', examId: 'exam-bia', classId: 'class-bia' })
@@ -187,6 +427,18 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
         total: 2,
         items: [
           {
+            id: later,
+            examId: 'exam-ana',
+            classId: 'class-ana',
+            teacherId: 'ana',
+            status: 'draft',
+            date: '2026-12-01T12:00:00.000Z',
+            gradesReleased: false,
+            examTitle: 'exam-ana',
+            className: 'class-ana',
+            progress: NO_PROGRESS,
+          },
+          {
             id: earlier,
             examId: 'exam-ana',
             classId: 'class-ana',
@@ -195,18 +447,76 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
             pdfUrl: `/applications/${earlier}/pdf`,
             date: '2026-03-01T12:00:00.000Z',
             gradesReleased: false,
-          },
-          {
-            id: later,
-            examId: 'exam-ana',
-            classId: 'class-ana',
-            teacherId: 'ana',
-            status: 'draft',
-            date: '2026-12-01T12:00:00.000Z',
-            gradesReleased: false,
+            examTitle: 'exam-ana',
+            className: 'class-ana',
+            progress: NO_PROGRESS,
           },
         ],
       })
+    })
+
+    it('answers the names the screens show and how far each application has gone, for the whole page at once', async () => {
+      const printed = await insertApplication({ status: 'generated', date: day('2026-10-07') })
+      const first = await insertVersion(printed, 1, { answerKeyPublished: true, answerKeyPublishedAt: day('2026-10-06') })
+      const second = await insertVersion(printed, 2)
+      const done = await insertSheet(printed, first, 1)
+      const waiting = await insertSheet(printed, second, 2)
+      await insertSheet(printed, first, 3)
+      await insertCorrection(done, 'DONE')
+      await insertCorrection(waiting, 'IN_PROGRESS')
+      const draft = await insertApplication({ date: day('2026-10-06'), examId: 'exam-ana-2', classId: 'class-ana-2' })
+
+      const { items } = (await ana().get('/applications')).body as { items: ApplicationOverview[] }
+
+      expect(items.map(({ id, examTitle, className, progress }) => ({ id, examTitle, className, progress }))).toEqual([
+        {
+          id: printed,
+          examTitle: 'exam-ana',
+          className: 'class-ana',
+          progress: { versions: 2, publishedAnswerKeys: 1, sheets: 3, correctedSheets: 1, corrections: 2 },
+        },
+        { id: draft, examTitle: 'exam-ana-2', className: 'class-ana-2', progress: NO_PROGRESS },
+      ])
+      expect((await ana().get(`/applications/${printed}`)).body).toMatchObject({ progress: items[0]?.progress })
+    })
+
+    it('names the exam and the class even after they were archived, since the application still happened', async () => {
+      const examId = await insertExam('closed')
+      const classId = await insertClass('archived')
+      await insertApplication({ examId, classId })
+
+      expect((await ana().get('/applications')).body.items).toMatchObject([{ examTitle: examId, className: classId }])
+    })
+
+    /**
+     * A sheet nobody read (an absent student) never gets a correction, so
+     * `DONE` is about the corrections that exist, not about every sheet.
+     */
+    it('filters by where the correction stands, before paging', async () => {
+      const notStarted = await insertApplication({ status: 'generated', date: day('2026-10-01') })
+      await insertSheet(notStarted, await insertVersion(notStarted, 1), 1)
+      const waiting = await insertApplication({ status: 'generated', date: day('2026-10-02') })
+      const waitingVersion = await insertVersion(waiting, 1)
+      await insertCorrection(await insertSheet(waiting, waitingVersion, 1), 'DONE')
+      await insertCorrection(await insertSheet(waiting, waitingVersion, 2), 'IN_PROGRESS')
+      const done = await insertApplication({ status: 'generated', date: day('2026-10-03') })
+      const doneVersion = await insertVersion(done, 1)
+      await insertCorrection(await insertSheet(done, doneVersion, 1), 'DONE')
+      await insertSheet(done, doneVersion, 2)
+      const draft = await insertApplication({ date: day('2026-10-04') })
+      const inStage = async (correction: string) => itemsIn(await ana().get('/applications').query({ correction }))
+
+      expect(await inStage('NOT_STARTED')).toEqual([draft, notStarted])
+      expect(await inStage('IN_PROGRESS')).toEqual([waiting])
+      expect(await inStage('DONE')).toEqual([done])
+      expect((await ana().get('/applications').query({ correction: 'NOT_STARTED', pageSize: 1 })).body.total).toBe(2)
+    })
+
+    it('refuses a correction stage that does not exist, naming the parameter', async () => {
+      const response = await ana().get('/applications').query({ correction: 'in-progress' })
+
+      expect(response.status).toBe(400)
+      expect(response.body).toEqual({ code: 'invalid', message: 'Parâmetro de lista inválido: correction.' })
     })
 
     /** The column keeps where the file is stored, which is nobody's business outside the API. */
@@ -221,7 +531,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       const draft = await insertApplication({ date: day('2026-10-06') })
       const generated = await insertApplication({ date: day('2026-10-07'), status: 'generated' })
 
-      expect(itemsIn(await ana().get('/applications'))).toEqual([draft, generated])
+      expect(itemsIn(await ana().get('/applications'))).toEqual([generated, draft])
       expect(itemsIn(await ana().get('/applications').query({ archived: 'true' }))).toEqual([archived])
     })
 
@@ -230,14 +540,14 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       const otherClass = await insertApplication({ date: day('2026-10-02'), classId: 'class-ana-2', status: 'generated' })
       const otherExam = await insertApplication({ date: day('2026-10-03'), examId: 'exam-ana-2', status: 'generated' })
 
-      expect(itemsIn(await ana().get('/applications').query({ classId: 'class-ana' }))).toEqual([first, otherExam])
-      expect(itemsIn(await ana().get('/applications').query({ examId: 'exam-ana' }))).toEqual([first, otherClass])
-      expect(itemsIn(await ana().get('/applications').query({ status: 'generated' }))).toEqual([otherClass, otherExam])
+      expect(itemsIn(await ana().get('/applications').query({ classId: 'class-ana' }))).toEqual([otherExam, first])
+      expect(itemsIn(await ana().get('/applications').query({ examId: 'exam-ana' }))).toEqual([otherClass, first])
+      expect(itemsIn(await ana().get('/applications').query({ status: 'generated' }))).toEqual([otherExam, otherClass])
       expect(itemsIn(await ana().get('/applications').query({ classId: 'class-ana', status: 'generated' }))).toEqual([otherExam])
 
       const paged = await ana().get('/applications').query({ status: 'generated', pageSize: 1, page: 2 })
       expect(paged.body.total).toBe(2)
-      expect(itemsIn(paged)).toEqual([otherExam])
+      expect(itemsIn(paged)).toEqual([otherClass])
     })
 
     it('matches nothing for a class of another teacher', async () => {
@@ -255,7 +565,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       expect(await search('05/10')).toEqual([october])
       expect(await search('2026-10-05')).toEqual([october])
       expect(await search('2026-11')).toEqual([november])
-      expect(await search('/2026')).toEqual([october, november])
+      expect(await search('/2026')).toEqual([november, october])
       expect(await search('calculo')).toEqual([])
     })
 
@@ -272,6 +582,25 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       expect(response.status).toBe(400)
       expect(response.body).toEqual({ code: 'invalid', message: 'Parâmetro de lista inválido: status.' })
     })
+
+    /** Each status lives on one side of the archive; asking across it used to answer an empty list that read as "none". */
+    it('refuses a status from the other side of the archive, and lists the archived ones by their status', async () => {
+      const archived = await insertApplication({ status: 'closed' })
+      await insertApplication({ date: day('2026-10-06') })
+
+      const closedAmongActive = await ana().get('/applications').query({ status: 'closed' })
+      expect(closedAmongActive.status).toBe(400)
+      expect(closedAmongActive.body).toEqual({
+        code: 'invalid',
+        message: 'A situação closed só existe entre as aplicações arquivadas: use archived=true.',
+      })
+
+      const draftAmongArchived = await ana().get('/applications').query({ status: 'draft', archived: 'true' })
+      expect(draftAmongArchived.status).toBe(400)
+      expect(draftAmongArchived.body).toEqual({ code: 'invalid', message: 'Entre as aplicações arquivadas, a única situação é closed.' })
+
+      expect(itemsIn(await ana().get('/applications').query({ status: 'closed', archived: 'true' }))).toEqual([archived])
+    })
   })
 
   describe('GET /applications/:id', () => {
@@ -286,6 +615,9 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
         status: 'draft',
         date: '2026-10-05T12:00:00.000Z',
         gradesReleased: true,
+        examTitle: 'exam-ana',
+        className: 'class-ana',
+        progress: NO_PROGRESS,
       })
     })
 
@@ -406,6 +738,19 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       })
     })
 
+    it('answers the geometry of the answer card each sheet was printed with', async () => {
+      const id = await insertApplication({ status: 'generated' })
+      const version = await insertVersion(id, 1)
+      const first = await insertSheet(id, version, 1)
+      const second = await insertSheet(id, version, 2)
+      await db.updateTable('answer_sheets').set({ answerCardVersion: 2 }).where('id', '=', second.id).execute()
+
+      const response = await ana().get(`/applications/${id}/sheets`)
+
+      expect(itemsIn(response)).toEqual([first.id, second.id])
+      expect((response.body as { items: { answerCardVersion: number }[] }).items.map((sheet) => sheet.answerCardVersion)).toEqual([1, 2])
+    })
+
     it('answers 404 to another teacher', async () => {
       const id = await insertApplication()
       await insertSheet(id, await insertVersion(id, 1), 1)
@@ -467,6 +812,23 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       expect((await storedVersion(version)).answerKeyPublished).toBe(false)
     })
 
+    it('refuses publishing in an archived application until it is restored, and still lets a key be taken back', async () => {
+      const id = await insertApplication({ status: 'closed' })
+      const unpublished = await insertVersion(id, 1)
+      const published = await insertVersion(id, 2, { answerKeyPublished: true, answerKeyPublishedAt: day('2026-10-01') })
+
+      const publish = await ana().post(publishPath(id, unpublished), { published: true })
+      const takeBack = await ana().post(publishPath(id, published), { published: false })
+
+      expect([publish.status, publish.body]).toEqual([
+        409,
+        { code: 'conflict', message: 'Esta aplicação está arquivada. Restaure a aplicação antes de publicar o gabarito.' },
+      ])
+      expect(takeBack.status).toBe(204)
+      expect((await storedVersion(unpublished)).answerKeyPublished).toBe(false)
+      expect((await storedVersion(published)).answerKeyPublished).toBe(false)
+    })
+
     it('answers 404 for a version of another application, and to another teacher', async () => {
       const id = await insertApplication({ status: 'generated' })
       const version = await insertVersion(id, 1)
@@ -482,6 +844,56 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       expect(fromBia.body.message).toBe('Aplicação não encontrada.')
       expect((await storedVersion(version)).answerKeyPublished).toBe(false)
       expect((await storedVersion(otherVersion)).answerKeyPublished).toBe(false)
+    })
+  })
+
+  describe('POST /applications/:id/publish-answer-keys', () => {
+    const publishAllPath = (id: string) => `/applications/${id}/publish-answer-keys`
+
+    it('publishes every answer key still unpublished, keeping the moment of the ones published before', async () => {
+      const id = await insertApplication({ status: 'generated' })
+      const earlier = await insertVersion(id, 1, { answerKeyPublished: true, answerKeyPublishedAt: day('2026-10-01') })
+      const later = [await insertVersion(id, 2), await insertVersion(id, 3)]
+      const otherApplication = await insertApplication({ status: 'generated', date: day('2026-10-06') })
+      const otherVersion = await insertVersion(otherApplication, 1)
+      const before = Date.now()
+
+      expect((await ana().post(publishAllPath(id))).status).toBe(204)
+
+      expect(await storedVersion(earlier)).toEqual({ answerKeyPublished: true, answerKeyPublishedAt: day('2026-10-01') })
+      for (const version of later) {
+        const stored = await storedVersion(version)
+        expect(stored.answerKeyPublished).toBe(true)
+        expect(stored.answerKeyPublishedAt?.getTime()).toBeGreaterThanOrEqual(before - 1000)
+      }
+      expect((await storedVersion(otherVersion)).answerKeyPublished).toBe(false)
+      expect((await ana().post(`/applications/${id}/grades-release`, { released: true })).status).toBe(200)
+    })
+
+    it('refuses an application with nothing printed, and an archived one until it is restored', async () => {
+      const draft = await insertApplication()
+      const archived = await insertApplication({ status: 'closed', date: day('2026-10-06') })
+      const version = await insertVersion(archived, 1)
+
+      const nothingPrinted = await ana().post(publishAllPath(draft))
+      const closed = await ana().post(publishAllPath(archived))
+
+      expect([nothingPrinted.status, nothingPrinted.body]).toEqual([409, { code: 'conflict', message: 'Gere a prova antes de publicar o gabarito.' }])
+      expect([closed.status, closed.body]).toEqual([
+        409,
+        { code: 'conflict', message: 'Esta aplicação está arquivada. Restaure a aplicação antes de publicar o gabarito.' },
+      ])
+      expect((await storedVersion(version)).answerKeyPublished).toBe(false)
+    })
+
+    it('answers 404 to another teacher, publishing nothing', async () => {
+      const id = await insertApplication({ status: 'generated' })
+      const version = await insertVersion(id, 1)
+
+      const response = await bia().post(publishAllPath(id))
+
+      expect([response.status, response.body]).toEqual([404, { code: 'not-found', message: 'Aplicação não encontrada.' }])
+      expect((await storedVersion(version)).answerKeyPublished).toBe(false)
     })
   })
 
@@ -518,7 +930,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       const response = await ana().post(releasePath(id), { released: true })
 
       expect(response.status).toBe(200)
-      expect(response.body).toEqual<Application>({
+      expect(response.body).toEqual<ApplicationOverview>({
         id,
         examId: 'exam-ana',
         classId: 'class-ana',
@@ -526,8 +938,28 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
         status: 'generated',
         date: '2026-10-05T12:00:00.000Z',
         gradesReleased: true,
+        examTitle: 'exam-ana',
+        className: 'class-ana',
+        progress: { ...NO_PROGRESS, versions: 2, publishedAnswerKeys: 2 },
       })
       expect((await storedApplication(id)).gradesReleased).toBe(true)
+    })
+
+    it('refuses releasing the grades of an archived application until it is restored, and still lets them be taken back', async () => {
+      const id = await insertApplication({ status: 'closed' })
+      await insertVersion(id, 1, { answerKeyPublished: true, answerKeyPublishedAt: day('2026-10-06') })
+
+      const release = await ana().post(releasePath(id), { released: true })
+
+      expect([release.status, release.body]).toEqual([
+        409,
+        { code: 'conflict', message: 'Esta aplicação está arquivada. Restaure a aplicação antes de liberar as notas.' },
+      ])
+      expect((await storedApplication(id)).gradesReleased).toBe(false)
+
+      await db.updateTable('applications').set({ gradesReleased: true }).where('id', '=', id).execute()
+      expect((await ana().post(releasePath(id), { released: false })).status).toBe(200)
+      expect((await storedApplication(id)).gradesReleased).toBe(false)
     })
 
     it('always lets the grades be taken back', async () => {
@@ -628,6 +1060,22 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
 
       expect(response.status).toBe(404)
       expect(response.body.message).toBe('Aplicação não encontrada.')
+    })
+
+    /** A bucket that was never created looked like a lost file, and the message sent the teacher to generate again for nothing. */
+    it('answers that the storage is unavailable, without saying to generate again, when the bucket does not exist', async () => {
+      const noBucket = Object.assign(new Error('The specified bucket does not exist.'), { code: 404 })
+      const bucket: StorageBucket = {
+        exists: () => Promise.resolve([false]),
+        file: () => ({ save: () => Promise.reject(noBucket), download: () => Promise.reject(noBucket), delete: () => Promise.resolve() }),
+      }
+      const withoutBucket = createApp({ env, logger: createLogger('silent'), db, verifyToken, fileStorage: createBucketFileStorage(() => bucket) })
+      const id = await insertApplication({ status: 'generated', pdfUrl: 'applications/x/prova.pdf' })
+
+      const response = await request(withoutBucket).get(pdfPath(id)).set({ Authorization: 'Bearer token-ana' })
+
+      expect(response.status).toBe(500)
+      expect(response.body).toEqual({ code: 'failure', message: 'O armazenamento de arquivos do servidor não está disponível.' })
     })
 
     /** `bootstrapApi` always passes a storage; an app built without one must say so instead of serving nothing. */

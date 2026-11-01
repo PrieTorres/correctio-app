@@ -13,12 +13,12 @@ import {
   clearDemoData,
   hasDemoData,
   resetDemoData,
+  sampleApplications,
   sampleClasses,
   sampleExams,
   sampleQuestions,
   seedIfEmpty,
   writeDemoData,
-  type RemoteRoster,
 } from '../demo-data'
 
 const classes = () => createCollection('classes', classSchema).readAll()
@@ -313,16 +313,9 @@ describe('sampleClasses', () => {
   })
 })
 
-/** The roster the suite builds after creating the sample on the API, with ids the API would give. */
-function rosterFromApi(): RemoteRoster {
-  const samples = sampleClasses()
-  const classIds = Object.fromEntries(samples.map((sample) => [sample.sampleId, `api-${sample.sampleId}`]))
-  const remoteStudents = samples.flatMap((sample) =>
-    sample.students.map((student) => ({ ...student, id: `api-student-${student.registration}`, classId: `api-${sample.sampleId}` })),
-  )
-  const questionIds = Object.fromEntries(sampleQuestions().map((sample) => [sample.sampleId, `api-${sample.sampleId}`]))
-  const examIds = Object.fromEntries(sampleExams(questionIds).map((sample) => [sample.sampleId, `api-${sample.sampleId}`]))
-  return { classIds, students: remoteStudents, questionIds, examIds }
+/** The ids the API would give each sample record, so a test can tell them from the sample ids. */
+function idsOnTheApi(sampleIds: readonly string[]): Record<string, string> {
+  return Object.fromEntries(sampleIds.map((sampleId) => [sampleId, `api-${sampleId}`]))
 }
 
 describe('sampleQuestions', () => {
@@ -342,7 +335,7 @@ describe('sampleQuestions', () => {
 })
 
 describe('sampleExams', () => {
-  const questionIds = Object.fromEntries(sampleQuestions().map((sample) => [sample.sampleId, `api-${sample.sampleId}`]))
+  const questionIds = idsOnTheApi(sampleQuestions().map((sample) => sample.sampleId))
 
   /** The API gives the exam its id and its owner; the questions have to point at the ids the API gave them. */
   it('hands every sample exam over in the shape the API takes, pointing at the questions on the API', () => {
@@ -354,7 +347,7 @@ describe('sampleExams', () => {
     expect(entries.every((entry) => entry.questionId.startsWith('api-question-'))).toBe(true)
   })
 
-  /** The API creates drafts only, so the suite needs to know which ones to mark ready or archive afterwards. */
+  /** The API creates drafts only, so the suite needs to know which ones to archive, and which ones its generation makes ready. */
   it('says which status each exam has to reach, including a ready and an archived one', () => {
     const statuses = sampleExams(questionIds).map((sample) => sample.status)
 
@@ -368,61 +361,50 @@ describe('sampleExams', () => {
   })
 })
 
-describe('writeDemoData with the classes, questions and exams on the API', () => {
-  beforeEach(() => window.localStorage.clear())
+describe('sampleApplications', () => {
+  const classIds = idsOnTheApi(sampleClasses().map((sample) => sample.sampleId))
+  const examIds = idsOnTheApi(sampleExams(idsOnTheApi(sampleQuestions().map((sample) => sample.sampleId))).map((sample) => sample.sampleId))
 
-  it('writes no class, student, question or exam to this browser, since they live on the API', () => {
-    writeDemoData('teacher-from-the-api', rosterFromApi())
+  /** The API gives the application its id, owner and status; the input is what the form of P12 sends. */
+  it('hands every sample application over in the shape the API takes, pointing at the classes and exams on the API', () => {
+    const samples = sampleApplications(classIds, examIds)
 
-    expect(classes()).toEqual([])
-    expect(students()).toEqual([])
-    expect(questions()).toEqual([])
-    expect(exams()).toEqual([])
-    expect(applications().length).toBeGreaterThan(0)
+    expect(samples.map((sample) => sample.sampleId)).toEqual(['application-calculus-midterm', 'application-physics-quiz'])
+    expect(samples.every((sample) => Object.keys(sample.input).sort().join() === 'classId,date,examId')).toBe(true)
+    expect(samples.map((sample) => `${sample.input.examId}|${sample.input.classId}`)).toEqual([
+      'api-exam-calculus-midterm|api-class-calculus-1',
+      'api-exam-physics-quiz|api-class-physics-2',
+    ])
   })
 
-  /** A printed version pointing at a sample id would show none of its questions, since the API knows them by its own ids. */
-  it('points every printed version at the ids the API gave the questions', () => {
-    writeDemoData('teacher-from-the-api', rosterFromApi())
+  /** The suite asks the API for the paper the demo prints in this browser, so both start from the same sheets. */
+  it('generates only the application the demo shows printed, with the versions the demo prints', () => {
+    window.localStorage.clear()
+    writeDemoData('teacher-demo')
+    const printedInTheDemo = versions().map(({ shuffleQuestions, shuffleAlternatives }) => ({ shuffleQuestions, shuffleAlternatives }))
 
-    const printedIds = versions().flatMap((version) => version.layout.questionOrder)
-    expect(printedIds.length).toBeGreaterThan(0)
-    expect(printedIds.every((id) => id.startsWith('api-question-'))).toBe(true)
+    const generated = sampleApplications(classIds, examIds).filter((sample) => sample.generation !== undefined)
+
+    expect(generated.map((sample) => sample.sampleId)).toEqual(['application-calculus-midterm'])
+    expect(generated[0]?.generation).toEqual({ versions: printedInTheDemo, withStudentIdentification: true })
   })
 
-  it('points every application at the ids the API gave its class and its exam', () => {
-    writeDemoData('teacher-from-the-api', rosterFromApi())
+  /** The API marks an exam ready only when one of its applications is generated, so no other route is left to call. */
+  it('generates an application of every exam the sample has ready', () => {
+    const ready = sampleExams(idsOnTheApi(sampleQuestions().map((sample) => sample.sampleId)))
+      .filter((sample) => sample.status === 'ready')
+      .map((sample) => examIds[sample.sampleId])
+    const generatedExams = sampleApplications(classIds, examIds)
+      .filter((sample) => sample.generation !== undefined)
+      .map((sample) => sample.input.examId)
 
-    expect(applications().map((item) => item.classId).sort()).toEqual(['api-class-calculus-1', 'api-class-physics-2'])
-    expect(applications().map((item) => item.examId).sort()).toEqual(['api-exam-calculus-midterm', 'api-exam-physics-quiz'])
+    expect(ready.length).toBeGreaterThan(0)
+    expect(generatedExams).toEqual(ready)
   })
 
-  it('stops when a sample exam is missing from the roster, instead of pointing at nothing', () => {
-    expect(() => writeDemoData('teacher-from-the-api', { ...rosterFromApi(), examIds: {} })).toThrow('exam-')
-  })
-
-  /** A sheet that names a student the API does not have would show a blank name on every grading screen. */
-  it('prints one sheet per student the API holds for the applied class', () => {
-    writeDemoData('teacher-from-the-api', rosterFromApi())
-
-    const sheetStudents = sheets().map((item) => item.studentId).sort()
-    const enrolled = rosterFromApi()
-      .students.filter((item) => item.classId === 'api-class-calculus-1')
-      .map((item) => item.id)
-      .sort()
-    expect(sheetStudents).toEqual(enrolled)
-  })
-
-  it('stops when a sample class is missing from the roster, instead of pointing at nothing', () => {
-    const { students: remoteStudents } = rosterFromApi()
-
-    expect(() => writeDemoData('teacher-from-the-api', { ...rosterFromApi(), classIds: {}, students: remoteStudents })).toThrow(
-      'class-calculus-1',
-    )
-  })
-
-  it('stops when a sample question is missing from the roster, instead of pointing at nothing', () => {
-    expect(() => writeDemoData('teacher-from-the-api', { ...rosterFromApi(), questionIds: {} })).toThrow('question-')
+  it('stops when a sample class or exam is missing from the API ids, instead of pointing at nothing', () => {
+    expect(() => sampleApplications({}, examIds)).toThrow('class-calculus-1')
+    expect(() => sampleApplications(classIds, {})).toThrow('exam-calculus-midterm')
   })
 })
 

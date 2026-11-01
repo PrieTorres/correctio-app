@@ -1,58 +1,80 @@
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { Archive, Plus, RotateCcw } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import {
   ApplicationsIllustration,
   ArchiveIllustration,
-  Badge,
   Button,
+  ButtonLink,
   Card,
   EmptyState,
   PageHeader,
+  Pagination,
   QueryBoundary,
   SearchIllustration,
-  SearchInput,
-  SegmentedControl,
   Tour,
+  useDebouncedValue,
 } from '@/components/ui';
-import { buildPath, ROUTES } from '@/app/routes';
-import { formatDate } from '@/lib/utils';
-import { useClassList } from '@/features/classes';
-import { useExamList } from '@/features/exams';
-import type { Application, ApplicationStatus } from '@/types/domain';
+import { ROUTES } from '@/app/routes';
+import type { ApplicationOverview } from '@/types/domain';
 import { APPLICATION_FILTER, type ApplicationFilter } from '../application-filter';
+import { ApplicationFiltersBar } from '../components/ApplicationFiltersBar';
+import { ApplicationRow } from '../components/ApplicationRow';
 import { ArchiveApplicationDialog } from '../components/ArchiveApplicationDialog';
 import { useApplicationFilter } from '../hooks/useApplicationFilter';
+import { useApplicationListFilters } from '../hooks/useApplicationListFilters';
+import { useApplicationFilterChoices } from '../hooks/useApplications';
 import { useVisibleApplications } from '../hooks/useVisibleApplications';
+import { APPLICATION_PAGE_SIZE, effectiveFilters, hasApplicationListFilters } from '../list-filters';
 
-const FILTERS = [
-  { value: APPLICATION_FILTER.ACTIVE, label: 'Ativas' },
-  { value: APPLICATION_FILTER.ARCHIVED, label: 'Arquivadas' },
-  { value: APPLICATION_FILTER.IN_PROGRESS, label: 'Correção em andamento' },
-] as const satisfies readonly { value: ApplicationFilter; label: string }[];
+const NO_CHOICES = { classes: [], exams: [] };
 
-const STATUS: Record<ApplicationStatus, { label: string; tone: 'neutral' | 'success' }> = {
-  draft: { label: 'A gerar', tone: 'neutral' },
-  generated: { label: 'Gerada', tone: 'success' },
-  closed: { label: 'Arquivada', tone: 'neutral' },
-};
+/**
+ * What the list shows: the situation and the filters, kept in the URL, the
+ * search, read once typing pauses, and the page.
+ *
+ * The page belongs to the filters and search it was chosen under, and goes
+ * back to 1 as soon as any of them changes: page 3 of another search may not
+ * exist. Keeping them together derives that without an effect, as the class
+ * list does.
+ */
+function useApplicationListView() {
+  const [filter, setFilter] = useApplicationFilter();
+  const { filters, setFilter: setListFilter, clear } = useApplicationListFilters();
+  const [search, setSearch] = useState('');
+  const settledSearch = useDebouncedValue(search);
+  const listKey = [filter, settledSearch, filters.classId, filters.examId, filters.pdf].join('|');
+  const [paging, setPaging] = useState({ listKey, page: 1 });
+
+  return {
+    filter,
+    setFilter,
+    filters,
+    setListFilter,
+    clear,
+    search,
+    setSearch,
+    settledSearch,
+    page: paging.listKey === listKey ? paging.page : 1,
+    setPage: (page: number) => setPaging({ listKey, page }),
+  };
+}
 
 export function ApplicationListPage() {
-  const [filter, setFilter] = useApplicationFilter();
-  const [search, setSearch] = useState('');
-  const [pendingArchive, setPendingArchive] = useState<Application | null>(null);
+  const view = useApplicationListView();
+  const [pendingArchive, setPendingArchive] = useState<ApplicationOverview | null>(null);
+  const { data: choices = NO_CHOICES } = useApplicationFilterChoices();
 
-  const { applications, isPending, isError } = useVisibleApplications(filter, search);
-  const { data: exams } = useExamList(false, '');
-  const { data: classes } = useClassList(false, '');
-
-  const examTitle = new Map((exams?.items ?? []).map((item) => [item.id, item.title]));
-  const className = new Map((classes?.items ?? []).map((item) => [item.id, item.name]));
+  const { applications, total, isPending, isError } = useVisibleApplications({
+    filter: view.filter,
+    filters: view.filters,
+    search: view.settledSearch,
+    page: view.page,
+  });
 
   const newApplicationButton = (
-    <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
-      <Link to={ROUTES.newApplication}>Nova aplicação</Link>
-    </Button>
+    <ButtonLink variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create" to={ROUTES.newApplication}>
+      Nova aplicação
+    </ButtonLink>
   );
 
   return (
@@ -64,51 +86,47 @@ export function ApplicationListPage() {
         actions={newApplicationButton}
       />
 
-      <div data-tour="filters" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          label="Buscar aplicações"
-          placeholder="Buscar pela data"
-        />
-        <SegmentedControl
-          segments={FILTERS}
-          value={filter}
-          onChange={setFilter}
-          label="Filtrar por situação"
-        />
-      </div>
+      <ApplicationFiltersBar
+        filter={view.filter}
+        onFilterChange={view.setFilter}
+        search={view.search}
+        onSearchChange={view.setSearch}
+        filters={view.filters}
+        onFiltersChange={view.setListFilter}
+        onClear={view.clear}
+        choices={choices}
+      />
 
       <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando aplicações…">
         {applications.length === 0 ? (
           <Card>
             <EmptyApplicationList
-              searching={search.trim() !== ''}
-              filter={filter}
-              onClearSearch={() => setSearch('')}
+              searching={view.search.trim() !== ''}
+              filtering={hasApplicationListFilters(effectiveFilters(view.filter, view.filters))}
+              filter={view.filter}
+              onClearSearch={() => view.setSearch('')}
+              onClearFilters={view.clear}
               createButton={newApplicationButton}
             />
           </Card>
         ) : (
-          <ul data-tour="list" className="flex flex-col gap-3">
-            {applications.map((application) => (
-              <li key={application.id}>
-                <ApplicationRow
-                  application={application}
-                  examTitle={examTitle.get(application.examId)}
-                  className={className.get(application.classId)}
-                  onArchive={() => setPendingArchive(application)}
-                />
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-col gap-4">
+            <ul data-tour="list" className="flex flex-col gap-3">
+              {applications.map((application) => (
+                <li key={application.id}>
+                  <ApplicationRow application={application} onArchive={() => setPendingArchive(application)} />
+                </li>
+              ))}
+            </ul>
+            <Pagination page={view.page} pageSize={APPLICATION_PAGE_SIZE} total={total} onPageChange={view.setPage} />
+          </div>
         )}
       </QueryBoundary>
 
       {pendingArchive !== null && (
         <ArchiveApplicationDialog
           application={pendingArchive}
-          restoring={filter === APPLICATION_FILTER.ARCHIVED}
+          restoring={view.filter === APPLICATION_FILTER.ARCHIVED}
           onClose={() => setPendingArchive(null)}
         />
       )}
@@ -118,65 +136,19 @@ export function ApplicationListPage() {
   );
 }
 
-function ApplicationRow({
-  application,
-  examTitle,
-  className,
-  onArchive,
-}: Readonly<{
-  application: Application;
-  examTitle: string | undefined;
-  className: string | undefined;
-  onArchive: () => void;
-}>) {
-  const archived = application.status === 'closed';
-  const status = STATUS[application.status];
-
-  return (
-    <Card
-      interactive
-      className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between"
-    >
-      <div className="min-w-0 flex-1">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <Badge tone={status.tone}>{status.label}</Badge>
-          {application.gradesReleased && <Badge tone="info">Notas liberadas</Badge>}
-        </div>
-
-        <Link
-          to={buildPath(ROUTES.applicationDetail, { id: application.id })}
-          className="card-link text-title text-primary group-hover:underline"
-        >
-          {examTitle ?? 'Prova removida'}
-        </Link>
-
-        <p className="mt-1 text-caption text-ink-subtle">
-          {className ?? 'Turma removida'} · {formatDate(application.date)}
-        </p>
-      </div>
-
-      <div className="above-card-link flex shrink-0 gap-1">
-        <Button
-          variant="ghost"
-          icon={archived ? <RotateCcw size={16} aria-hidden /> : <Archive size={16} aria-hidden />}
-          onClick={onArchive}
-        >
-          {archived ? 'Restaurar' : 'Arquivar'}
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
 function EmptyApplicationList({
   searching,
+  filtering,
   filter,
   onClearSearch,
+  onClearFilters,
   createButton,
 }: Readonly<{
   searching: boolean;
+  filtering: boolean;
   filter: ApplicationFilter;
   onClearSearch: () => void;
+  onClearFilters: () => void;
   createButton: ReactNode;
 }>) {
   if (searching) {
@@ -188,6 +160,21 @@ function EmptyApplicationList({
         action={
           <Button variant="secondary" onClick={onClearSearch}>
             Limpar busca
+          </Button>
+        }
+      />
+    );
+  }
+
+  if (filtering) {
+    return (
+      <EmptyState
+        illustration={<SearchIllustration />}
+        title="Nenhuma aplicação com esses filtros"
+        description="Nenhuma aplicação desta lista é da turma, da prova ou da situação do PDF escolhidas. Mude um filtro ou limpe todos."
+        action={
+          <Button variant="secondary" onClick={onClearFilters}>
+            Limpar filtros
           </Button>
         }
       />

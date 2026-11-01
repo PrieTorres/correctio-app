@@ -381,6 +381,79 @@ describe.runIf(serverUrl !== undefined)('question routes (real MySQL)', () => {
     })
   })
 
+  /**
+   * Each input of #184 failed with a 500, or was stored rounded and then broke
+   * the bank on the front. Now each one answers 400 with the message the form
+   * shows, and nothing is written.
+   */
+  describe('inputs the database cannot store as typed (#184)', () => {
+    const openEnded = (maxScore: number) => ({
+      type: 'discursiva' as const,
+      statement: 'Explique o teorema.',
+      tags: [],
+      maxScore,
+      allowShuffleAlternatives: true,
+    })
+
+    const storedQuestions = () => db.selectFrom('questions').selectAll().execute()
+
+    async function expectRefused(body: object, message: string) {
+      const res = await post('token-ana', body)
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({ code: 'invalid', message })
+      expect(await storedQuestions()).toHaveLength(0)
+    }
+
+    it('refuses a max score with a third decimal instead of storing it as zero', async () => {
+      await expectRefused(openEnded(0.001), 'A nota máxima aceita no máximo 2 casas decimais')
+    })
+
+    it('refuses two tags that differ only in case or accents', async () => {
+      await expectRefused({ ...makeQuestion(), tags: ['Integrais', 'integrais'] }, '"Integrais" e "integrais" são a mesma tag: deixe só uma')
+      await expectRefused({ ...makeQuestion(), tags: ['Função', 'Funcao'] }, '"Função" e "Funcao" são a mesma tag: deixe só uma')
+    })
+
+    /** "ß" and "ss" differ to the schema and are one tag to the collation: the key refuses them, and the API says why. */
+    it('answers 400 for tags only the database finds equal', async () => {
+      await expectRefused({ ...makeQuestion(), tags: ['Straße', 'Strasse'] }, 'Duas tags são a mesma para o banco de questões: deixe só uma')
+    })
+
+    it('refuses a tag longer than 80 characters, and saves one of 80', async () => {
+      await expectRefused({ ...makeQuestion(), tags: ['a'.repeat(81)] }, 'Cada tag pode ter no máximo 80 caracteres')
+
+      const saved = await post('token-ana', { ...makeQuestion(), tags: ['a'.repeat(80)] })
+      expect(saved.status).toBe(201)
+    })
+
+    it('refuses a max score above 9999.99, and saves 9999.99 as typed', async () => {
+      await expectRefused(openEnded(10000), 'A nota máxima pode ser no máximo 9999,99')
+
+      const saved = await post('token-ana', openEnded(9999.99))
+      expect(saved.status).toBe(201)
+      expect(saved.body.maxScore).toBe(9999.99)
+    })
+
+    it('refuses a statement of only spaces', async () => {
+      await expectRefused({ ...makeQuestion(), statement: '   ' }, 'Informe o enunciado')
+    })
+
+    it('refuses the same inputs on an edit, keeping the question as it was', async () => {
+      const created = await post('token-ana', openEnded(2))
+      const patch = (body: object) =>
+        request(app).patch(`/questions/${created.body.id}`).set('Authorization', 'Bearer token-ana').send(body)
+
+      const rounded = await patch({ maxScore: 0.001 })
+      const repeated = await patch({ tags: ['Straße', 'Strasse'] })
+
+      expect(rounded.status).toBe(400)
+      expect(rounded.body.message).toBe('A nota máxima aceita no máximo 2 casas decimais')
+      expect(repeated.status).toBe(400)
+      expect(repeated.body.message).toBe('Duas tags são a mesma para o banco de questões: deixe só uma')
+      const [stored] = await storedQuestions()
+      expect(Number(stored?.maxScore)).toBe(2)
+    })
+  })
+
   describe('not-found paths', () => {
     it('PATCH /questions/:id returns 404 for an unknown id', async () => {
       const res = await request(app)

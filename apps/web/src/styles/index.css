@@ -303,4 +303,15 @@
     min-height: 2.75rem;
     min-width: 2.75rem;
   }
+
+  /*
+    The same 44px height for a text link, without the minimum width: a link is
+    as wide as its words, and a square target would push the lines around it
+    apart. Padding would grow the underline, so the height comes from the box.
+  */
+  .link-target {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
 }

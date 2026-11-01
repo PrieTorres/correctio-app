@@ -21,6 +21,8 @@ export interface AuthProvider {
   signIn: (email: string, password: string) => Promise<AuthenticatedUser>
   signUp: (fullName: string, email: string, password: string) => Promise<AuthenticatedUser>
   signOut: () => Promise<void>
+  /** P2: the account of the session as the server has it now (`GET /me`), with its name, e-mail and type. */
+  loadAccount: () => Promise<AuthenticatedUser>
   /** RF04: ends the session on every device, this one included. */
   signOutEverywhere: () => Promise<void>
   /** RF03: answers the same whether or not the address has an account. */
@@ -58,6 +60,7 @@ export const DEMO_TEACHER: AuthenticatedUser = {
 }
 
 const NO_GOOGLE = 'O login com o Google não está disponível na demonstração.'
+const SIGNED_OUT = 'Faça login para continuar.'
 
 /**
  * The demo of the GitHub Pages build (`lib/app-mode.ts`), which has no API.
@@ -94,6 +97,11 @@ export function createLocalAuthProvider(): AuthProvider {
     signUp: (fullName, email) => Promise.resolve(persist({ ...DEMO_TEACHER, fullName, email })),
     signOut,
     signOutEverywhere: signOut,
+
+    loadAccount() {
+      const user = getCurrentUser()
+      return user === null ? Promise.reject(new StorageError(SIGNED_OUT, 'unauthorized')) : Promise.resolve(user)
+    },
     requestPasswordReset: () => Promise.resolve(),
     resetPassword: () => Promise.resolve(),
     offersGoogle: false,

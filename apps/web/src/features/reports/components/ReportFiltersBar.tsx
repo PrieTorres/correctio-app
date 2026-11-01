@@ -1,8 +1,6 @@
-import { useId } from 'react'
-import { Button, TextField } from '@/components/ui'
+import { Button, FilterSelect, TextField } from '@/components/ui'
 import { compareByLocale } from '@/lib/utils'
-import { hasReportFilters, type ReportFilters } from '@/lib/reports'
-import type { ConsolidatedRow } from '../hooks/useConsolidatedReport'
+import { hasReportFilters, type ConsolidatedReportRow, type ReportFilters } from '@/lib/reports'
 
 interface Option {
   value: string
@@ -13,8 +11,8 @@ interface Option {
  * Only values that exist in the report are offered, taken from its rows: a
  * filter option that leads to an empty table is a filter that looks broken.
  */
-function optionsOf(rows: readonly ConsolidatedRow[]) {
-  const distinct = (pick: (row: ConsolidatedRow) => string): Option[] =>
+function optionsOf(rows: readonly ConsolidatedReportRow[]) {
+  const distinct = (pick: (row: ConsolidatedReportRow) => string): Option[] =>
     [...new Set(rows.map(pick).filter((value) => value !== ''))]
       .toSorted(compareByLocale)
       .map((value) => ({ value, label: value }))
@@ -28,36 +26,6 @@ function optionsOf(rows: readonly ConsolidatedRow[]) {
   }
 }
 
-function FilterSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: Readonly<{ label: string; value: string; options: readonly Option[]; onChange: (value: string) => void }>) {
-  const id = useId()
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-label text-ink-muted">
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="touch-target w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-body focus:outline-none focus-visible:border-primary"
-      >
-        <option value="">Todas</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
-}
-
 /** The class, subject, term and date range filters of the consolidated report (P19). */
 export function ReportFiltersBar({
   rows,
@@ -65,7 +33,7 @@ export function ReportFiltersBar({
   onChange,
   onClear,
 }: Readonly<{
-  rows: readonly ConsolidatedRow[]
+  rows: readonly ConsolidatedReportRow[]
   filters: ReportFilters
   onChange: (key: keyof ReportFilters, value: string) => void
   onClear: () => void

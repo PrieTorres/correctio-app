@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui'
 import { buildPath, ROUTES } from '@/app/routes'
 import { formatDate } from '@/lib/utils'
 import { GRADING_SHORTCUT, gradingShortcut } from '../grading-shortcut'
-import type { RecentActivity } from '../hooks/useDashboard'
+import type { DashboardActivity } from '@/lib/reports'
 
 const LABEL = 'Corrigir folhas'
 
@@ -14,7 +14,7 @@ const ACTION_CLASSES =
   'touch-target mt-2 flex w-full items-center gap-3 rounded-[var(--radius-control)] bg-accent px-3 text-label text-on-accent hover:bg-accent-hover'
 
 /** One application the photos may belong to, by exam, class and day, as the teacher tells them apart. */
-function ApplicationChoice({ application }: Readonly<{ application: RecentActivity }>) {
+function ApplicationChoice({ application }: Readonly<{ application: DashboardActivity }>) {
   return (
     <li>
       <Link
@@ -56,7 +56,7 @@ function NothingToGrade() {
  * The list is the panel's own (`useDashboardSummary`), so choosing costs no
  * extra request.
  */
-export function GradingShortcut({ gradable }: Readonly<{ gradable: readonly RecentActivity[] }>) {
+export function GradingShortcut({ gradable }: Readonly<{ gradable: readonly DashboardActivity[] }>) {
   const [open, setOpen] = useState(false)
   const shortcut = gradingShortcut(gradable)
 

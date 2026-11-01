@@ -1,8 +1,10 @@
 import { Router, type RequestHandler } from 'express'
 import type { Kysely } from 'kysely'
+import type { Logger } from 'pino'
 import type { AuthController } from '../controllers/auth-controller'
 import type { FieldCipher } from '../lib/field-encryption'
 import type { FileStorage } from '../lib/file-storage'
+import type { PhotoReader } from '../lib/sheet-reading/photo-reader'
 import type { AuthLimits } from '../middlewares/rate-limit'
 import type { Database } from '../models/tables'
 import type { HealthService } from '../services/health-service'
@@ -13,6 +15,7 @@ import { examRoutes } from './exam-routes'
 import { healthRoutes } from './health-routes'
 import { publicRoutes } from './public-routes'
 import { questionRoutes } from './question-routes'
+import { createReports, dashboardRoutes, reportRoutes } from './report-routes'
 
 export interface RouteDependencies {
   healthService: HealthService
@@ -28,6 +31,11 @@ export interface RouteDependencies {
   teacherLimit: RequestHandler
   /** The expensive tier, per teacher, which each costly route applies on its own. */
   expensiveLimit: RequestHandler
+  /** The origin of the web app, which the PDF prints in every QR code (`PUBLIC_APP_URL`). */
+  publicAppUrl: string
+  /** Reads the photo of a sheet sent for correction (#47, ADR-007). */
+  readPhoto: PhotoReader
+  logger: Logger
   /** Absent in tests that exercise only the gate, which then answers every route as before #40. */
   auth?: { controller: AuthController; limits: AuthLimits }
 }
@@ -48,6 +56,9 @@ export function createRouter({
   requireAuth,
   teacherLimit,
   expensiveLimit,
+  publicAppUrl,
+  readPhoto,
+  logger,
   auth,
 }: RouteDependencies): Router {
   const router = Router()
@@ -62,10 +73,13 @@ export function createRouter({
     router.use('/auth', signedInAuthRoutes(auth.controller))
     router.use('/me', meRoutes(auth.controller))
   }
+  const reports = createReports(db)
+  router.use('/dashboard', dashboardRoutes(reports))
+  router.use('/reports', reportRoutes(reports, expensiveLimit))
   router.use('/questions', questionRoutes(db))
   router.use('/classes', classRoutes({ db, fieldCipher, expensiveLimit }))
   router.use('/exams', examRoutes(db))
-  router.use('/applications', applicationRoutes({ db, fileStorage }))
+  router.use('/applications', applicationRoutes({ db, fileStorage, expensiveLimit, publicAppUrl, readPhoto, logger, reports }))
 
   return router
 }

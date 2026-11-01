@@ -40,6 +40,7 @@ export type AuthController = Record<
   | 'forgotPassword'
   | 'resetPassword'
   | 'me'
+  | 'anonymize'
   | 'googleStart'
   | 'googleCallback'
   | 'googleExchange',
@@ -103,6 +104,12 @@ export function createAuthController({ auth, google, cookie }: AuthControllerDep
 
     async me(_req, res) {
       res.json(await auth.currentUser(currentTeacherId(res)))
+    },
+
+    /** Ends this browser's session too, like `logout-all`: the account is no one's to sign in to any more. */
+    async anonymize(_req, res) {
+      await auth.anonymize(currentTeacherId(res))
+      endSession(res)
     },
 
     async googleStart(req, res) {

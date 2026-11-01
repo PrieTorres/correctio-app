@@ -57,7 +57,7 @@ export function PasswordResetPage() {
         </Card>
       )}
 
-      <Link to={ROUTES.signIn} className="text-center text-label text-primary underline">
+      <Link to={ROUTES.signIn} className="link-target justify-center text-label text-primary underline">
         Voltar para entrar
       </Link>
     </div>

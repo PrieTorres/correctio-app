@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { LogOut, UserX } from 'lucide-react'
 import { Button, Card, PageHeader, QueryBoundary, SaveError, TextField } from '@/components/ui'
-import { useAnonymizeAccount, useCurrentUser, useSignOutEverywhere } from '@/features/auth'
+import { useAccount, useAnonymizeAccount, useSignOutEverywhere } from '@/features/auth'
+import type { UserRole } from '@/types/domain'
 
 const CONFIRMATION = 'ANONIMIZAR'
+
+/** The type of account as P2 names it; only teachers sign in while the student area is out of scope. */
+const ROLE_LABEL: Readonly<Record<UserRole, string>> = { professor: 'Professor', estudante: 'Estudante' }
 
 /**
  * Typing the word rather than ticking a box: anonymising cannot be undone, and
@@ -12,9 +16,12 @@ const CONFIRMATION = 'ANONIMIZAR'
  *
  * Neither way of leaving navigates by itself: once the session is gone, the
  * guard of the private screens takes the browser to the sign-in.
+ *
+ * The account is read from the API (`GET /me`), so the screen shows what the
+ * server has now; the e-mail is for reading only, as P2 defines.
  */
 export function ProfilePage() {
-  const { data: user, isPending, isError } = useCurrentUser()
+  const { data: user, isPending, isError } = useAccount()
   const signOutEverywhere = useSignOutEverywhere()
   const anonymize = useAnonymizeAccount()
 
@@ -35,6 +42,10 @@ export function ProfilePage() {
             <div>
               <dt className="text-label text-ink-muted">E-mail</dt>
               <dd className="text-body text-ink">{user?.email ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-label text-ink-muted">Tipo</dt>
+              <dd className="text-body text-ink">{user === undefined ? '—' : ROLE_LABEL[user.role]}</dd>
             </div>
           </dl>
         </Card>
@@ -72,9 +83,7 @@ export function ProfilePage() {
             variant="danger"
             icon={<UserX size={18} aria-hidden />}
             disabled={typed !== CONFIRMATION || anonymize.isPending}
-            onClick={() =>
-              anonymize.mutate()
-            }
+            onClick={() => anonymize.mutate()}
           >
             {anonymize.isPending ? 'Anonimizando…' : 'Anonimizar minha conta'}
           </Button>

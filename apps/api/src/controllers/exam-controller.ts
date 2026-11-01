@@ -12,7 +12,6 @@ export interface ExamController {
   update: RequestHandler<ExamParams>
   archive: RequestHandler<ExamParams>
   restore: RequestHandler<ExamParams>
-  markReady: RequestHandler<ExamParams>
   draw: RequestHandler
 }
 
@@ -42,11 +41,6 @@ export function createExamController(service: ExamService): ExamController {
 
     async restore(req, res) {
       await service.restore(currentTeacherId(res), req.params.id)
-      res.status(204).end()
-    },
-
-    async markReady(req, res) {
-      await service.markReady(currentTeacherId(res), req.params.id)
       res.status(204).end()
     },
 

@@ -1,8 +1,8 @@
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, UserCheck } from 'lucide-react'
-import { Button, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration, Tour } from '@/components/ui'
+import { useParams } from 'react-router-dom'
+import { UserCheck } from 'lucide-react'
+import { BackLink, ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, SearchIllustration, Tour } from '@/components/ui'
 import { buildPath, ROUTES } from '@/app/routes'
-import { useGradingOverview } from '../hooks/useGrading'
+import { useGradingOverview, useUnassignedCorrections } from '../hooks/useGrading'
 
 /**
  * The corrections that cannot become a grade yet.
@@ -10,27 +10,25 @@ import { useGradingOverview } from '../hooks/useGrading'
  * A sheet printed without identification is read like any other, but it belongs
  * to nobody until somebody says so — and a grade with no owner is the one thing
  * that cannot be released. Gathering them here is what stops them being
- * discovered at the end.
+ * discovered at the end. The server filters them (`assigned=false`, #48); the
+ * sheets only give each one its printed number.
  */
 export function UnassignedCorrectionsPage() {
   const { id } = useParams<{ id: string }>()
-  const { data, isPending, isError } = useGradingOverview(id)
+  const overview = useGradingOverview(id)
+  const pending = useUnassignedCorrections(id)
 
-  const sheetById = new Map((data?.sheets ?? []).map((sheet) => [sheet.id, sheet]))
-  const unassigned = (data?.corrections ?? []).filter(
-    (correction) => correction.studentId === undefined,
-  )
+  const sheetById = new Map((overview.data?.sheets ?? []).map((sheet) => [sheet.id, sheet]))
+  const unassigned = pending.data ?? []
 
   return (
-    <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando pendências…">
+    <QueryBoundary
+      isPending={overview.isPending || pending.isPending}
+      isError={overview.isError || pending.isError}
+      pendingLabel="Carregando pendências…"
+    >
       <div className="flex flex-col gap-6">
-        <Link
-          to={buildPath(ROUTES.grading, { id: id ?? '' })}
-          className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-        >
-          <ArrowLeft size={16} aria-hidden />
-          Folhas
-        </Link>
+        <BackLink to={buildPath(ROUTES.grading, { id: id ?? '' })}>Folhas</BackLink>
 
         <PageHeader help
           title="Pendentes de atribuição"
@@ -60,16 +58,12 @@ export function UnassignedCorrectionsPage() {
                         nota {correction.totalScore}
                       </span>
                     </span>
-                    <Button variant="secondary">
-                      <Link
-                        to={buildPath(ROUTES.gradingSheet, {
-                          id: id ?? '',
-                          sheetId: correction.answerSheetId,
-                        })}
-                      >
-                        Associar aluno
-                      </Link>
-                    </Button>
+                    <ButtonLink
+                      to={buildPath(ROUTES.gradingSheet, { id: id ?? '', sheetId: correction.answerSheetId })}
+                      aria-label={`Associar aluno à folha ${sheet?.sheetNumber ?? '—'}`}
+                    >
+                      Associar aluno
+                    </ButtonLink>
                   </li>
                 )
               })}

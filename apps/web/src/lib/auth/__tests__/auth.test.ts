@@ -37,6 +37,21 @@ describe('local auth provider', () => {
   })
 })
 
+describe('loadAccount', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('answers the demo teacher signed in', async () => {
+    const auth = createLocalAuthProvider()
+    await auth.signIn('ana@exemplo.edu.br', 'senha123')
+
+    await expect(auth.loadAccount()).resolves.toMatchObject({ email: 'ana@exemplo.edu.br', role: 'professor' })
+  })
+
+  it('refuses without a session, as the API would', async () => {
+    await expect(createLocalAuthProvider().loadAccount()).rejects.toMatchObject({ code: 'unauthorized' })
+  })
+})
+
 describe('anonymize', () => {
   beforeEach(() => window.localStorage.clear())
 

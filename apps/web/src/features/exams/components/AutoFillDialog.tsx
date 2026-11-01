@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2 } from 'lucide-react';
-import { Button, Modal, NumberInput, Tour } from '@/components/ui';
+import { Button, CheckboxField, Modal, NumberInput, Tour } from '@/components/ui';
 import { useQuestionCount, useQuestionTags } from '@/features/questions';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { DrawResult } from '@/lib/exams';
@@ -172,7 +172,7 @@ export function AutoFillDialog({
             <legend className="mb-1 text-label text-ink-muted">Tags de conteúdo</legend>
             <div className="flex flex-wrap gap-2">
               {knownTags.map((tag) => (
-                <label key={tag} className="cursor-pointer">
+                <label key={tag} className="inline-flex min-h-11 cursor-pointer items-center">
                   <input
                     type="checkbox"
                     checked={tags.includes(tag)}
@@ -200,15 +200,11 @@ export function AutoFillDialog({
           onChange={setMultipleChoiceCount}
         />
 
-        <label className="flex cursor-pointer items-center gap-3">
-          <input
-            type="checkbox"
-            checked={includeOpenEnded}
-            onChange={(event) => setIncludeOpenEnded(event.target.checked)}
-            className="size-4 accent-[var(--color-primary)]"
-          />
-          <span className="text-body text-ink">Incluir discursivas</span>
-        </label>
+        <CheckboxField
+          label="Incluir discursivas"
+          checked={includeOpenEnded}
+          onChange={(event) => setIncludeOpenEnded(event.target.checked)}
+        />
 
         {includeOpenEnded && (
           <CountField

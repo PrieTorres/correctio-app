@@ -122,36 +122,106 @@ com as mesmas regras das telas, sem cópia.
 | `POST /classes/:id/students/:studentId/anonymize` | Anonimização irreversível do aluno (RF38) |
 | `POST /exams/draw` | Geração automática de prova (RF16) |
 | `POST /applications/:id/grades-release` | Libera ou recolhe as notas, com `{ released }`. Responde a aplicação |
+| `POST /applications/:id/publish-answer-keys` | "Publicar todos" da P14: publica o gabarito de todas as versões de uma vez |
 | `GET /applications/:id/sheets` | Folhas impressas, por `sheetNumber`. Faz o papel do `GET /applications/:id/students` da Spec, porque a `AnswerSheet` substituiu o `ExamAssignment` (`docs/Modelo_de_Dados.md`) |
 | `GET /applications/:id/pdf` | Baixa o PDF consolidado. É o endereço que o `pdfUrl` da aplicação traz |
 | `POST /applications/:id/corrections` | Grava a revisão de uma folha (RF28, RF30). A Spec só lista e edita as correções |
 | `GET /applications/:id/corrections/:correctionId` | Uma correção, para a tela de revisão (P16) |
+| `POST /applications/:id/sheet-images` | Recebe a foto de uma folha (#47) e devolve a leitura. Ver "Fotos das folhas" |
+| `GET /applications/:id/sheet-images/:imageId` | Entrega a foto, só ao professor da aplicação |
+| `GET /applications/:id/read-failures` | As fotos cuja leitura falhou, do `ActivityLog`, para a P15 listar |
+| `GET /dashboard` | Os números e a atividade recente do painel (P1), numa requisição só (#50). Ver "Painel, perfil e relatórios" |
+| `GET /applications/:id/report?format=` | Arquivo do relatório da aplicação (RF36, #82). A Spec define a rota sem `format`; o parâmetro segue o do `GET /reports/consolidated` |
 | `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49). Sem login, com limite de 30 requisições por minuto por IP. Código desconhecido responde `200` com `{ status: "INVALID_CODE" }`, igual a um código que existe mas não leva a nada, para quem tenta adivinhar não distinguir os dois. Responde `X-Robots-Tag: noindex` |
+
+### Alunos
+
+`GET /classes/:id/students` deixa de fora o aluno removido da turma (RF09). Com
+`includeRemoved=true`, lista todos que a turma já teve, cada removido com `removedAt`: é assim que
+as folhas, a correção e o relatório de uma aplicação continuam com o nome dele (#161). O
+anonimizado (RF38) sai só com o nome anonimizado, removido ou não. A consulta pública não usa
+essa lista e continua escondendo o aluno removido.
 
 ### Aplicações
 
-As rotas de aplicação trabalham, por enquanto, sobre aplicações que já existem. Criar, editar e
-gerar (`POST /applications`, `PATCH /applications/:id` e `POST /applications/:id/generate-pdf`)
-leem a prova e chegam junto com as provas da #45.
+`GET` e `POST /applications`, `GET` e `PATCH /applications/:id`, arquivar e restaurar, a geração
+(`POST /applications/:id/generate-pdf`), as versões, as folhas, o gabarito, as notas e o PDF.
 
-- **Lista:** além dos parâmetros de lista, aceita `classId`, `examId` e `status`, da mais antiga
-  para a mais recente. A busca procura o dia, escrito como a tela mostra (`05/10/2026`) ou como
-  ISO (`2026-10-05`), inteiro ou em parte.
+- **Resumo:** toda resposta que traz uma aplicação (lista, detalhe, criar, editar e liberar as
+  notas) traz também o título da prova (`examTitle`) e o nome da turma (`className`), mesmo que
+  estejam arquivadas, e o `progress`: `versions`, `publishedAnswerKeys`, `sheets`,
+  `correctedSheets` (só as correções concluídas) e `corrections` (todas, que impedem gerar de novo).
+  Tudo sai numa consulta só por página, para a P11 não pedir uma aplicação por vez. É um valor
+  calculado, que o `Modelo_de_Dados.md` não guarda.
+- **Lista:** além dos parâmetros de lista, aceita `classId`, `examId`, `status` e `correction`, da
+  mais recente para a mais antiga. A busca procura o dia, escrito como a tela mostra (`05/10/2026`)
+  ou como ISO (`2026-10-05`), inteiro ou em parte. Cada `status` fica de um lado só do `archived`:
+  `closed` só entre as arquivadas, `draft` e `generated` só entre as ativas. Pedir um `status` do
+  outro lado responde 400, em vez de uma lista vazia que pareceria "não há nenhuma".
+- **Situação da correção (`correction`):** `NOT_STARTED` é a aplicação sem nenhuma folha corrigida;
+  `IN_PROGRESS`, a que tem correção esperando a nota de uma discursiva (RF48), as mesmas que o
+  painel conta como pendentes; `DONE`, a que tem correções e todas concluídas. A folha de quem
+  faltou nunca é corrigida, então `DONE` não espera todas as folhas.
+- **Criar:** `POST /applications` recebe `{ examId, classId, date }` e a aplicação nasce `draft`,
+  com as notas recolhidas. Prova ou turma de outro professor responde 404; arquivada responde 409
+  (RF20). A mesma prova, para a mesma turma, no mesmo dia, é a mesma aplicação, contando as
+  arquivadas, e responde 409 com as mensagens das telas. A conferência roda com a linha da prova
+  travada, então dois cliques não gravam a mesma aplicação duas vezes.
+- **Editar:** `PATCH /applications/:id` mescla e grava só o que veio. Depois de gerar, só a data
+  muda, porque as folhas impressas são daquela prova e daquela turma. Aplicação arquivada não é
+  editada até ser restaurada. Só o que muda é conferido: uma aplicação cuja prova foi arquivada
+  depois continua mudando de data.
 - **Restaurar** devolve a aplicação arquivada como `draft`, nunca como `generated`; uma que não
   está arquivada fica como está.
+- **Gerar (RF22 a RF24):** `POST /applications/:id/generate-pdf` recebe
+  `{ versions: [{ shuffleQuestions, shuffleAlternatives }], withStudentIdentification }`, de 1 a 6
+  versões, e usa o limite das rotas caras (10 por hora por professor).
+  - Lê a prova pelo serviço de provas, as questões pelo id, inclusive as excluídas do banco depois
+    de entrar na prova, e os alunos da turma que não foram removidos nem anonimizados, em ordem de
+    nome.
+  - Monta as versões, com o `layout`, e uma folha por aluno, com o `code` feito no servidor e o
+    `answerCardVersion` da geometria do cartão. Responde `{ versions, sheets }`.
+  - Desenha e guarda o PDF antes de mexer no banco. Depois, numa transação com a aplicação e as
+    folhas travadas, confere de novo se pode gerar, troca versões e folhas, marca a aplicação como
+    `generated` e aponta o `pdfUrl` para o PDF novo. O PDF anterior é apagado depois do commit, e a
+    prova vira `ready`.
+  - Responde 409 para aplicação arquivada, folha já corrigida (RF24), notas liberadas (as versões
+    novas nascem com o gabarito despublicado), prova sem questão, turma sem aluno ativo e questão
+    maior que uma página, com o número dela na prova.
 - **Versões e folhas** são listas `{ items, total }`, por `versionNumber` e `sheetNumber`.
 - **Gabarito e notas (RF46):** `POST /applications/:id/versions/:versionId/publish-answer-key`
   recebe `{ published }`. Liberar as notas exige o gabarito de todas as versões publicado, e o
   gabarito não pode ser despublicado com as notas liberadas, porque a nota nunca aparece sem
   ele. Publicar de novo não muda o `answerKeyPublishedAt`.
+- **Publicar todos:** `POST /applications/:id/publish-answer-keys`, sem corpo, publica numa
+  instrução só todas as versões que ainda não estavam publicadas, então uma falha não deixa metade
+  publicada. Aplicação sem nada gerado responde 409. Despublicar continua versão por versão.
+- **Aplicação arquivada:** publicar o gabarito (uma versão ou todas), liberar as notas, gerar e
+  editar respondem 409, pedindo para restaurar antes. Despublicar o gabarito e recolher as notas
+  continuam liberados, porque só escondem.
 - **PDF:** o `pdfUrl` aparece só quando há PDF e traz o endereço da rota de download, relativo à
   raiz da API. O arquivo contém o nome dos alunos quando a aplicação é identificada, então
   não existe link público: o front baixa com o token, como qualquer outra chamada.
 
+### Questões
+
+`GET` e `POST /questions`, `GET /questions/tags`, `GET` e `PATCH /questions/:id`,
+`DELETE /questions/:id` (soft) e `PATCH /questions/:id/restore`.
+
+- **Validação:** o corpo passa pelo `questionInputSchema` de `@correctio/domain`, o mesmo do
+  formulário, e a recusa responde 400 com a mensagem dele. Os limites são os das colunas, para o
+  banco nunca arredondar nem recusar em silêncio (#184): enunciado só com espaços conta como
+  vazio; tag de até 80 caracteres (`VARCHAR(80)`); nota máxima entre 0,01 e 9999,99, com até
+  2 casas (`DECIMAL(6, 2)`).
+- **Tags iguais:** duas tags que só mudam maiúscula ou acento são a mesma para a chave de
+  `question_tags`, e o corpo que traz as duas responde 400. O schema compara como a colação
+  compara; o raro par que ele deixa passar (como "ß" e "ss") a chave recusa, e a API responde
+  400 também, nunca 500.
+
 ### Provas
 
-`GET` e `POST /exams`, `GET` e `PATCH /exams/:id`, `PATCH /exams/:id/archive`,
-`PATCH /exams/:id/restore` e `PATCH /exams/:id/ready`, mais o sorteio `POST /exams/draw`.
+`GET` e `POST /exams`, `GET` e `PATCH /exams/:id`, `PATCH /exams/:id/archive` e
+`PATCH /exams/:id/restore`, mais o sorteio `POST /exams/draw`.
 
 - **Questões da prova:** cada prova traz `questions`, na ordem, com `order`, `score` e
   `allowShuffleAlternatives`, que as versões herdam na geração (#46). O servidor recusa mais de 20
@@ -160,12 +230,10 @@ leem a prova e chegam junto com as provas da #45.
   precisa continuar salvando.
 - **Título único**, comparado sem acento e sem maiúscula, contando as arquivadas, com as mesmas
   mensagens das telas.
-- **Status é do servidor:** nasce `draft` e vira `ready` quando a primeira aplicação é gerada.
-  - Enquanto a geração ainda roda no navegador, a tela chama `PATCH /exams/:id/ready`, sem corpo.
-    A rota só passa `draft` para `ready` e não mexe em prova arquivada. Quando a geração for para o
-    servidor (#46), o serviço chama o mesmo `markReady` por dentro.
-  - Arquivar grava `closed`, e restaurar volta para `draft`, nunca para `ready`.
-  - O `PATCH` mescla e ignora `status`, `id` e `teacherId`.
+- **Status é do servidor:** nasce `draft` e vira `ready` quando a primeira aplicação é gerada:
+  o `POST /applications/:id/generate-pdf` chama o `markReady` do serviço depois do commit, que só
+  passa `draft` para `ready` e não mexe em prova arquivada. Arquivar grava `closed`, e restaurar
+  volta para `draft`, nunca para `ready`. O `PATCH` mescla e ignora `status`, `id` e `teacherId`.
 - **Sorteio (RF16):** `POST /exams/draw` recebe `{ tags, multipleChoiceCount, openEndedCount,
   excludeIds }` e responde `{ questions, shortfall }`. Sorteia entre as questões ativas do
   professor que têm todas as tags pedidas, deixando de fora `excludeIds` (as que já estão na prova
@@ -198,6 +266,97 @@ As correções ficam debaixo da aplicação: `GET` e `POST /applications/:id/cor
   API guarda; a mesma chave duas vezes responde 409.
 - **Lista:** na ordem das folhas, com os filtros `assigned` (`false` lista as pendentes de
   atribuição, P17) e `status` (`IN_PROGRESS`, RF48).
+- **Origem:** a correção revisada a partir de uma foto manda o `imageId` que o envio devolveu, e
+  grava `source: "IMAGE_UPLOAD"` com a chave da foto em `imageUrl` (ADR-004). Sem `imageId`, é
+  `MANUAL` (RF30). Foto de outra aplicação responde 404.
+
+### Painel, perfil e relatórios
+
+As três telas de números leem rotas próprias, calculadas no servidor com as funções de
+`@correctio/domain` (`summarise`, `distribute`, `accuracyOf`, `accuracyByTag`, `totalScore` e
+`buildApplicationReport`), as mesmas que a demonstração usa no navegador (#50).
+
+- **`GET /dashboard`** (P1): turmas ativas, questões não excluídas, provas e aplicações não
+  arquivadas, `pendingCorrections`, `recent` e `gradable`. `pendingCorrections` conta, nas
+  aplicações não arquivadas, a correção em andamento (RF48) ou sem aluno (RF31), uma vez cada
+  (#93). `recent` são as 5 aplicações não arquivadas mais recentes pela data, ordenadas no banco,
+  com o título da prova e o nome da turma; `gradable`, as que têm folhas impressas (`generated`),
+  para o "Corrigir folhas".
+- **`GET /applications/:id/report`** (P18): `summary` (corrigidas, média, mediana, desvio padrão,
+  menor e maior), `distribution`, `questions` (acerto e letra da alternativa mais marcada, na
+  ordem da prova), `tags`, `students` (nome, matrícula, versão, total e a nota de cada questão na
+  coluna da questão da prova) e, à parte, `inProgress` e `sheets`.
+- **`GET /reports/consolidated`** (P19): uma linha por aplicação não arquivada que tem ao menos uma
+  correção finalizada, da mais recente para a mais antiga, com `classId`, `subject`, `term` e
+  `date`, que os filtros da tela leem, e o `summary` da linha.
+
+Regras dos três:
+
+- **Só correção `DONE` entra na nota.** A correção em andamento ainda não tem a nota das
+  discursivas (requisitos, seção 5) e aparece só na contagem `inProgress`.
+- **O que foi arquivado depois continua com nome.** Prova, turma e questão são lidas pelo id, sem
+  filtrar `status` nem `deletedAt`: a prova arquivada nomeia a linha, e a tag da questão excluída
+  do banco continua no acerto por conteúdo. O aluno removido da turma continua com o nome (#161).
+- Aplicação de outro professor responde **404**.
+
+#### Exportação (RF36, #82)
+
+`GET /applications/:id/report` e `GET /reports/consolidated` com `?format=xlsx|csv|pdf` respondem
+o arquivo, com `Content-Disposition: attachment`; sem `format`, o JSON das telas. O arquivo sai dos
+mesmos números da tela, então nunca discorda dela. Formato desconhecido responde 400.
+
+- **Colunas** (decisão da PM de 30/10, enquanto a #69 espera o cliente; podem mudar quando ela for
+  respondida): por aplicação, uma linha por correção finalizada, com aluno, matrícula, versão,
+  `Q1`…`Qn` e total. `Q1` é a questão 1 da prova pela `order`, qualquer que seja a versão do aluno,
+  e a folha sem aluno sai como "Folha N", com a matrícula vazia. O consolidado tem as colunas da
+  tela: prova, turma, data, corrigidas, média, menor e maior.
+- **Filtros do consolidado:** `class`, `subject`, `term`, `from` e `to` (`yyyy-MM-dd`), os mesmos
+  nomes que a P19 guarda no endereço, aplicados pela mesma função da tela (`filterReportRows`), para o
+  arquivo trazer as linhas que estão na tela. Valem também no JSON.
+- **CSV:** UTF-8 com BOM, separado por `;` e com vírgula decimal, como o Excel em português lê. Célula
+  que começaria com `=`, `+`, `-`, `@`, tabulação ou retorno ganha um apóstrofo na frente e não vira
+  fórmula (injeção por CSV).
+- **Excel:** `write-excel-file` (dependência só da API), com toda célula de texto gravada como texto,
+  o que já impede a fórmula, o cabeçalho em negrito e fixo na rolagem.
+- **PDF:** `pdfkit` com as fontes DejaVu da prova (`registerFonts`), A4 deitado, com o cabeçalho da
+  tabela repetido em cada página.
+- **Nome do arquivo:** `relatorio-aplicacao-<data da aplicação>` ou `relatorio-consolidado-<hoje>`,
+  nunca o nome de um aluno.
+- **Limite:** só com `format`, a camada cara por professor (`expensiveLimit`: 10 por hora, a mesma do
+  PDF da prova). A tela lendo o mesmo relatório sem `format` não conta.
+- O arquivo é montado durante a requisição, em menos de um segundo para uma turma. O segundo plano do
+  RF41 fica no front: a exportação é um job do TanStack Query, com aviso no topo da tela. Uma fila de
+  verdade, para arquivos que passem do tempo da hospedagem, é da N3.
+
+`GET /me` responde nome, e-mail e tipo da conta do token (P2). `POST /me/anonymize` (RF05; Spec,
+Feature 1.1) troca o nome por "Professor anonimizado" e o e-mail por
+`anon-<id>@removido.invalid`, troca a senha pelo hash de um segredo que ninguém guarda, preenche
+`anonymizedAt` e revoga todos os `RefreshToken`, como o `logout-all`. Turmas, provas, aplicações e
+correções continuam apontando para o mesmo id. O e-mail antigo fica livre para um cadastro novo, e
+a conta anonimizada não entra mais. O token de acesso já emitido vale até expirar (15 minutos),
+como no `logout-all`.
+
+### Fotos das folhas
+
+`POST /applications/:id/sheet-images` recebe **uma** foto por requisição, como corpo da própria
+requisição (não é multipart): a P15 envia uma de cada vez.
+
+- **Tipo real:** só JPEG, PNG ou WebP, conferidos pelos primeiros bytes do arquivo, nunca pela
+  extensão nem pelo `Content-Type` (`docs/Seguranca_e_LGPD.md`, seção 7). Até 10 MB (RNF16).
+  Fora disso, responde 400 com `code: "invalid"`.
+- **Guarda privada:** o arquivo vai para o Storage em `answer-sheets/<aplicação>/<id>.<ext>`
+  (ADR-004), e a tabela `sheet_images` guarda a chave, o tipo, o tamanho e o resultado da leitura.
+  A foto só sai por `GET /applications/:id/sheet-images/:imageId`, para o professor da aplicação.
+- **Leitura:** a API lê o QR Code e as marcações com o `@correctio/sheet-reader`, numa worker
+  thread (ADR-007), e responde `{ imageId, status, answerSheetId?, answers? }`, com `status`
+  `READ`, `QR_NOT_RECOGNIZED` ou `READ_FAILED`. **Nada vira `Correction` aqui:** a leitura volta
+  para a tela, e a correção só nasce quando o professor confirma a revisão (RF28).
+- **Falhas:** toda leitura que não termina em `READ` vai para o `ActivityLog`
+  (`SHEET_READ_FAILED`), com o id da foto e da folha e sem dado pessoal, e aparece em
+  `GET /applications/:id/read-failures`.
+- **Limite:** 500 fotos e 200 MB por professor em 24 horas (`docs/Seguranca_e_LGPD.md`, seção
+  4), contados no banco. Passou disso, responde 429.
+- **Aplicação sem PDF gerado** responde 409: não há folha para reconhecer.
 - Por enquanto toda correção é `MANUAL`. A correção que vem de uma foto (`IMAGE_UPLOAD`), com a
   `imageUrl`, chega com o envio das fotos (#47, segunda parte).
 
@@ -205,6 +364,16 @@ As correções ficam debaixo da aplicação: `GET` e `POST /applications/:id/cor
 Spec, a mesma rota matricula por e-mail um aluno que já tem conta, mas aqui o aluno não tem conta
 (`docs/Arquitetura.md`, seção 9). Pelo mesmo motivo, as rotas de código de convite da Spec
 (`/classes/:id/invite-code` e `/classes/join-by-code`) não existem.
+
+`GET /classes` traz em cada turma o `studentCount` (#146), contado numa consulta agrupada por
+página: o aluno anonimizado conta, o removido não, como "Alunos (N)" na P5. É o único lugar que
+traz o campo; a turma lida por id, criada ou editada vem sem ele.
+
+Turma arquivada não recebe aluno novo (decisão da PM na #144): `POST /classes/:id/students` e
+`POST /classes/:id/students/import` respondem 409, pedindo para restaurar a turma. Editar, remover
+e anonimizar os alunos que ela já tem continuam liberados. A importação pula a matrícula que já
+está na turma pela mesma regra da prévia no web (`registrationKey`, em `@correctio/domain`): sem
+acento e sem diferenciar maiúscula, como o índice único da tabela.
 
 ## Variáveis de ambiente
 
@@ -231,7 +400,10 @@ encaminha `/api/**` para ela, então em produção as rotas respondem em
 - Os PDFs vão para o bucket padrão do Firebase Storage de cada projeto, criado em `us-west1` e
   privado, com as regras do Storage negando todo acesso vindo do navegador (ADR-004). A função
   usa a própria conta de serviço, sem chave salva em lugar nenhum. Enquanto o bucket não existir,
-  a API sobe normalmente e só as rotas de arquivo respondem com erro.
+  a API sobe normalmente e só as rotas de arquivo respondem com erro: 500, com a mensagem "O
+  armazenamento de arquivos do servidor não está disponível.", registrado no log com a causa. O
+  Cloud Storage responde 404 tanto para o bucket que não existe quanto para o arquivo que sumiu,
+  e por isso a API pergunta se o bucket existe antes de tratar o 404 como arquivo perdido.
 - A função também responde no endereço direto do Google, sem passar pelo Hosting, e ali o
   `X-Forwarded-For` pode ser forjado: os limites por endereço valem para quem usa o site, não para
   quem chama a função direto. Os limites por professor não dependem do endereço.

@@ -8,6 +8,8 @@ type ApplicationParams = { id: string }
 export interface ApplicationController {
   list: RequestHandler
   get: RequestHandler<ApplicationParams>
+  create: RequestHandler
+  update: RequestHandler<ApplicationParams>
   archive: RequestHandler<ApplicationParams>
   restore: RequestHandler<ApplicationParams>
   releaseGrades: RequestHandler<ApplicationParams>
@@ -23,6 +25,14 @@ export function createApplicationController(service: ApplicationService): Applic
 
     async get(req, res) {
       res.json(await service.get(currentTeacherId(res), req.params.id))
+    },
+
+    async create(req, res) {
+      res.status(201).json(await service.create(currentTeacherId(res), req.body))
+    },
+
+    async update(req, res) {
+      res.json(await service.update(currentTeacherId(res), req.params.id, req.body))
     },
 
     async archive(req, res) {

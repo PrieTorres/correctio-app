@@ -13,6 +13,11 @@ describe('dados de demonstração', () => {
     cy.contains('Cálculo I — Noturno').should('be.visible')
   })
 
+  /** #146: without a server the count comes from the students of this browser, the same number the API gives. */
+  it('mostra quantos alunos tem cada turma', () => {
+    cy.contains('li', 'Cálculo I — Noturno').should('contain', '12 alunos')
+  })
+
   it('limpa os dados e revela o estado vazio', () => {
     cy.contains('button', 'Limpar').click()
 

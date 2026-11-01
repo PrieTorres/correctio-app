@@ -239,9 +239,47 @@ describe('createHttpAuthProvider', () => {
     })
   })
 
-  it('says anonymizing is not available yet instead of pretending', async () => {
-    const { auth } = setup([])
+  describe('account (P2)', () => {
+    it('reads the account from the server with the access token', async () => {
+      const renamed = { ...USER, fullName: 'Ana Lima Souza' }
+      const { auth, fetchFn } = setup([json(200, sessionBody('token-ana')), json(200, renamed)])
+      await auth.signIn('ana@exemplo.edu.br', 'senha-forte-1')
 
-    await expect(auth.anonymize()).rejects.toMatchObject({ code: 'failure' })
+      expect(await auth.loadAccount()).toEqual(renamed)
+      const { url, headers, init } = requestOf(fetchFn, 1)
+      expect(url).toBe('/api/me')
+      expect(init?.method).toBe('GET')
+      expect(headers.get('Authorization')).toBe('Bearer token-ana')
+    })
+
+    it('needs a session to read the account', async () => {
+      const { auth, fetchFn } = setup([])
+
+      await expect(auth.loadAccount()).rejects.toMatchObject({ code: 'unauthorized' })
+      expect(fetchFn).not.toHaveBeenCalled()
+    })
+
+    /** RF05: the server writes the markers and ends every session; this browser follows. */
+    it('anonymizes on the server and then ends the session here', async () => {
+      const { auth, fetchFn } = setup([json(200, sessionBody('token-ana')), json(204)])
+      await auth.signIn('ana@exemplo.edu.br', 'senha-forte-1')
+
+      await auth.anonymize()
+
+      const { url, headers, init } = requestOf(fetchFn, 1)
+      expect(url).toBe('/api/me/anonymize')
+      expect(init?.method).toBe('POST')
+      expect(headers.get('Authorization')).toBe('Bearer token-ana')
+      expect(auth.getCurrentUser()).toBeNull()
+    })
+
+    /** A refusal leaves the teacher signed in to try again, never signed out with the account untouched. */
+    it('keeps the session when the server did not anonymize', async () => {
+      const { auth } = setup([json(200, sessionBody()), json(500, { code: 'failure', message: 'x' })])
+      await auth.signIn('ana@exemplo.edu.br', 'senha-forte-1')
+
+      await expect(auth.anonymize()).rejects.toMatchObject({ code: 'failure' })
+      expect(auth.getCurrentUser()).toEqual(USER)
+    })
   })
 })

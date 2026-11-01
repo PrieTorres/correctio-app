@@ -91,7 +91,7 @@ export function QuestionPickerDrawer({
           <ul className="flex flex-col gap-1">
             {available.map((question) => (
               <li key={question.id}>
-                <label className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-control)] p-2 hover:bg-surface-muted">
+                <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-[var(--radius-control)] p-2 hover:bg-surface-muted">
                   <input
                     type="checkbox"
                     aria-label={question.statement}

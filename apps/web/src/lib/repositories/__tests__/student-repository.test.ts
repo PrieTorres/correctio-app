@@ -38,6 +38,18 @@ describe('student repository', () => {
     expect(await repository.listByClass('c1')).toHaveLength(3)
   })
 
+  /** The demo compares as the API's unique index does, so it skips what production skips. */
+  it('treats registrations that differ only in case or accents as the same', async () => {
+    const repository = createLocalStudentRepository()
+    await repository.add('c1', { fullName: 'Ana', registration: 'AB1' })
+
+    await expect(repository.add('c1', { fullName: 'Outra Ana', registration: 'áb1' })).rejects.toThrow(/já existe/i)
+    await expect(repository.importMany('c1', [{ fullName: 'Ana de novo', registration: 'ab1' }])).resolves.toEqual({
+      created: 0,
+      skipped: 1,
+    })
+  })
+
   it('erases personal data but keeps the record when anonymizing', async () => {
     const repository = createLocalStudentRepository()
     const student = await repository.add('c1', { ...ana, email: 'ana@example.br' })
@@ -57,6 +69,32 @@ describe('student repository', () => {
     await repository.remove('c1', student.id)
 
     expect(await repository.listByClass('c1')).toHaveLength(0)
+  })
+
+  /** Removing keeps the record, as the API does, so the sheets of an application keep the name (RF09, #161). */
+  it('keeps a removed student, marked, in the list of everyone the class had', async () => {
+    const repository = createLocalStudentRepository()
+    const student = await repository.add('c1', ana)
+    const bruno = await repository.add('c1', { fullName: 'Bruno Lima', registration: '2026002' })
+
+    await repository.remove('c1', student.id)
+
+    expect(await repository.listByClass('c1')).toEqual([bruno])
+    expect(await repository.listWithRemoved('c1')).toEqual([
+      { ...student, removedAt: expect.any(String) },
+      bruno,
+    ])
+  })
+
+  it('keeps the date of the first removal', async () => {
+    const repository = createLocalStudentRepository()
+    const student = await repository.add('c1', ana)
+    await repository.remove('c1', student.id)
+    const [first] = await repository.listWithRemoved('c1')
+
+    await repository.remove('c1', student.id)
+
+    expect((await repository.listWithRemoved('c1'))[0]?.removedAt).toBe(first?.removedAt)
   })
 
   /** The API reaches a student only through its class; the local version keeps the same rule. */
@@ -107,6 +145,16 @@ describe('HTTP student repository', () => {
     expect(students).toHaveLength(total)
     expect(request).toHaveBeenCalledTimes(3)
     expect(request).toHaveBeenLastCalledWith('GET', '/classes/c1/students', { query: { page: 3, pageSize: STUDENTS_PER_PAGE } })
+  })
+
+  it('asks for the removed students too when listing everyone the class had', async () => {
+    const removed = { ...STUDENT, removedAt: '2026-10-29T12:00:00.000Z' }
+    const { repository, request } = httpRepository(() => Promise.resolve({ items: [removed], total: 1 }))
+
+    await expect(repository.listWithRemoved('c1')).resolves.toEqual([removed])
+    expect(request).toHaveBeenCalledWith('GET', '/classes/c1/students', {
+      query: { page: 1, pageSize: STUDENTS_PER_PAGE, includeRemoved: true },
+    })
   })
 
   it('reads an empty class without asking twice', async () => {

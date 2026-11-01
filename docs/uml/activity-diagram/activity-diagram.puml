@@ -32,11 +32,9 @@ start
 :Enviar as fotos para a API;
 |API|
 :Ler o QR Code e as marcações da foto;
-if <<planned>> (Leitura reconhecida?\n<i>previsto (#48 e #78)</i>) then ([Não])
-  -[dashed]->
+if (Leitura reconhecida?) then ([Não])
   |Professor|
-  :Inserir a correção manualmente (#48); <<planned>>
-  -[dashed]->
+  :Inserir a correção manualmente;
 else ([Sim])
   |API|
   :Corrigir as objetivas e gravar a leitura no banco;
@@ -69,12 +67,10 @@ repeat while (Finalizar?) is ([Não]) not ([Sim])
 |Site|
 :Enviar a publicação e a liberação para a API;
 |API|
-if <<planned>> (Gabarito publicado?\n<i>previsto (#46)</i>) then ([Sim])
+if (Gabarito publicado?) then ([Sim])
   :Gravar a publicação e a liberação no banco;
 else ([Não])
-  -[dashed]->
-  :Recusar a liberação das notas (#46); <<planned>>
-  -[dashed]->
+  :Recusar a liberação das notas;
 endif
 |Aluno|
 :Escanear o QR Code da folha;
@@ -84,12 +80,10 @@ endif
 if (Código válido?) then ([Sim])
   if (Gabarito da versão publicado?) then ([Sim])
     if (Notas liberadas e folha corrigida?) then ([Sim])
-      if <<planned>> (Correção confirmada e concluída?\n<i>previsto (#47)</i>) then ([Sim])
+      if (Correção confirmada e concluída?) then ([Sim])
         :Devolver gabarito, nota e acertos;
       else ([Não])
-        -[dashed]->
-        :Devolver só o gabarito (#47); <<planned>>
-        -[dashed]->
+        :Devolver só o gabarito;
       endif
     else ([Não])
       :Devolver só o gabarito;

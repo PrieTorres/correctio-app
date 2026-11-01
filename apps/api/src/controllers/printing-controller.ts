@@ -11,6 +11,7 @@ export interface PrintingController {
   listVersions: RequestHandler<ApplicationParams>
   listSheets: RequestHandler<ApplicationParams>
   publishAnswerKey: RequestHandler<VersionParams>
+  publishAllAnswerKeys: RequestHandler<ApplicationParams>
 }
 
 /** Versions and sheets live under their application in every path, as students do under their class. */
@@ -27,6 +28,11 @@ export function createPrintingController(service: PrintingService): PrintingCont
     async publishAnswerKey(req, res) {
       const path = { applicationId: req.params.id, versionId: req.params.versionId }
       await service.publishAnswerKey(currentTeacherId(res), path, req.body)
+      res.status(204).end()
+    },
+
+    async publishAllAnswerKeys(req, res) {
+      await service.publishAllAnswerKeys(currentTeacherId(res), req.params.id)
       res.status(204).end()
     },
   }

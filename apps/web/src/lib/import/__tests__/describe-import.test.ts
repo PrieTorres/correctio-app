@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describeImport, describeReady, studentCount } from '../describe-import'
+import { describeAlreadyInClass, describeImport, describeReady, studentCount } from '../describe-import'
 
 describe('studentCount', () => {
   it('counts one student in the singular and any other number in the plural', () => {
@@ -13,6 +13,13 @@ describe('describeReady', () => {
   it('agrees the adjective with the count', () => {
     expect(describeReady(1)).toBe('1 aluno pronto para importar')
     expect(describeReady(3)).toBe('3 alunos prontos para importar')
+  })
+})
+
+describe('describeAlreadyInClass', () => {
+  it('says how many students the preview leaves out, in the singular and the plural', () => {
+    expect(describeAlreadyInClass(1)).toBe('1 aluno já está na turma e não será importado')
+    expect(describeAlreadyInClass(3)).toBe('3 alunos já estão na turma e não serão importados')
   })
 })
 

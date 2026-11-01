@@ -83,6 +83,14 @@ describe('parseStudents', () => {
     expect(problems[0]?.reason).toContain('repetida')
   })
 
+  /** The API would skip the second row as the same registration, so the preview reports it now. */
+  it('reports as repeated a registration that differs only in case or accents', () => {
+    const { students, problems } = parseStudents('Ana,AB1\nBruno,áb1')
+
+    expect(students).toHaveLength(1)
+    expect(problems[0]?.reason).toContain('repetida')
+  })
+
   it('reads nothing from nothing, without failing', () => {
     expect(parseStudents('')).toEqual({ students: [], problems: [] })
   })

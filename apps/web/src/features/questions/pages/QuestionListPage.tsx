@@ -5,6 +5,7 @@ import {
   ArchiveIllustration,
   Badge,
   Button,
+  ButtonLink,
   Card,
   ConfirmDialog,
   EmptyState,
@@ -19,6 +20,7 @@ import {
   useDebouncedValue,
 } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
+import { excerpt } from '@/lib/utils';
 import { isMultipleChoice, type Question, type QuestionType } from '@/types/domain';
 import {
   QUESTION_PAGE_SIZE,
@@ -92,11 +94,9 @@ export function QuestionListPage() {
   const filtering = view.filters.search.trim() !== '' || view.type !== 'all' || view.tags.length > 0 || view.onlyUntagged;
 
   const newQuestionButton = (
-    <Link to={ROUTES.newQuestion}>
-      <Button variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create">
-        Nova questão
-      </Button>
-    </Link>
+    <ButtonLink variant="primary" icon={<Plus size={18} aria-hidden />} data-tour="create" to={ROUTES.newQuestion}>
+      Nova questão
+    </ButtonLink>
   );
 
   const clearFilters = () => {
@@ -405,12 +405,19 @@ function TagFilter({
   );
 }
 
+/**
+ * One question of P6. Its repeated buttons name the question after the
+ * visible word, by the opening of its statement, since the whole statement
+ * would be too long to hear as the name of a button (#145).
+ */
 function QuestionRow({
   question,
   onDelete,
   onDuplicate,
 }: Readonly<{ question: Question; onDelete: () => void; onDuplicate: () => void }>) {
   const deleted = question.deletedAt !== undefined;
+  const deleteLabel = deleted ? 'Restaurar' : 'Excluir';
+  const statement = excerpt(question.statement);
 
   return (
     <Card
@@ -436,16 +443,22 @@ function QuestionRow({
 
       <div className="above-card-link flex shrink-0 gap-1">
         {!deleted && (
-          <Button variant="ghost" icon={<Copy size={16} aria-hidden />} onClick={onDuplicate}>
+          <Button
+            variant="ghost"
+            icon={<Copy size={16} aria-hidden />}
+            aria-label={`Duplicar a questão ${statement}`}
+            onClick={onDuplicate}
+          >
             Duplicar
           </Button>
         )}
         <Button
           variant="ghost"
           icon={deleted ? <RotateCcw size={16} aria-hidden /> : <Trash2 size={16} aria-hidden />}
+          aria-label={`${deleteLabel} a questão ${statement}`}
           onClick={onDelete}
         >
-          {deleted ? 'Restaurar' : 'Excluir'}
+          {deleteLabel}
         </Button>
       </div>
     </Card>

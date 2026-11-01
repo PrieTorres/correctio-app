@@ -1,4 +1,8 @@
-import { TEST_PASSWORD, uniqueEmail } from '../support/commands'
+import { TEST_PASSWORD, uniqueEmail, type SignedInTeacher } from '../support/commands'
+
+/** The refresh cookie of the API and the only path it is sent to (`apps/api/src/lib/session-cookie.ts`). */
+const SESSION_COOKIE = '__session'
+const SESSION_COOKIE_PATH = '/api/auth'
 
 /**
  * Screens C1, C2 and C3 against the API (#40): real accounts, real passwords,
@@ -138,6 +142,34 @@ describe('autenticação', () => {
     })
   })
 
+  /**
+   * RF04: "Sair de todos os dispositivos" ends the sessions of other devices
+   * too, which leaving this browser alone would not prove. The other device is
+   * a session signed in through the API, whose refresh cookie is set aside
+   * before this browser signs in, and offered again once everything ended.
+   */
+  it('encerra também a sessão de outro aparelho ao sair de todos os dispositivos', () => {
+    cy.get<SignedInTeacher>('@teacher').then(({ email }) => {
+      cy.request('POST', '/api/auth/login', { email, password: TEST_PASSWORD })
+      cy.getCookie(SESSION_COOKIE).then((cookie) => {
+        const otherDevice = cookie?.value
+        if (otherDevice === undefined) throw new Error('O login pela API não deixou a sessão no cookie.')
+        cy.clearCookies()
+
+        cy.visit('/entrar')
+        signInThroughForm(email, TEST_PASSWORD)
+        cy.location('pathname').should('eq', '/painel')
+        cy.visit('/perfil')
+        cy.contains('button', 'Sair de todos os dispositivos').click()
+        cy.location('pathname').should('eq', '/entrar')
+
+        cy.setCookie(SESSION_COOKIE, otherDevice, { path: SESSION_COOKIE_PATH, httpOnly: true, sameSite: 'strict' })
+        cy.getCookie(SESSION_COOKIE).should('have.property', 'value', otherDevice)
+        cy.request({ method: 'POST', url: '/api/auth/refresh', failOnStatusCode: false }).its('status').should('eq', 401)
+      })
+    })
+  })
+
   /** Whoever signs in next on the same computer may be someone else, so the page the last person left from is forgotten. */
   it('depois de sair de propósito, entrar de novo leva ao painel e não à tela de onde saiu', () => {
     cy.get<{ email: string }>('@teacher').then(({ email }) => {
@@ -164,6 +196,26 @@ describe('autenticação', () => {
 
     cy.contains('a', 'Entrar').click()
     cy.location('pathname').should('eq', '/entrar')
+  })
+
+  /** RNF11: a link is as wide as its words, but the finger needs 44 px of height to land on it. */
+  function expectTouchHeight(label: string): void {
+    cy.contains('a', label)
+      .should('be.visible')
+      .invoke('outerHeight')
+      .should('be.gte', 44)
+  }
+
+  it('dá 44 px de altura aos links das telas de acesso', () => {
+    cy.visit('/entrar')
+    expectTouchHeight('Esqueci minha senha')
+    expectTouchHeight('Criar conta')
+
+    cy.visit('/criar-conta')
+    expectTouchHeight('Entrar')
+
+    cy.visit('/recuperar-senha')
+    expectTouchHeight('Voltar para entrar')
   })
 
   describe('com o Google', () => {
@@ -225,5 +277,72 @@ describe('autenticação', () => {
 
       cy.contains('As senhas não coincidem').should('be.visible')
     })
+
+    it('recusa um e-mail malformado sem dizer que enviou o link', () => {
+      cy.visit('/recuperar-senha')
+      cy.findByLabel('E-mail').type('ana@')
+      cy.contains('button', 'Enviar link de recuperação').click()
+
+      cy.contains('Informe um e-mail válido').should('be.visible')
+      cy.contains('[role="status"]', 'Se houver uma conta com esse e-mail').should('not.exist')
+    })
+
+    it('exige ao menos 8 caracteres na senha nova', () => {
+      cy.visit('/redefinir-senha?codigo=qualquer')
+      cy.findByLabel('Senha nova').type('curta12')
+      cy.findByLabel('Confirmar senha nova').type('curta12')
+      cy.contains('button', 'Redefinir senha').click()
+
+      cy.contains('A senha precisa ter ao menos 8 caracteres').should('be.visible')
+      cy.location('pathname').should('eq', '/redefinir-senha')
+    })
+
+    /**
+     * A valid code only exists in the e-mail, and the suite has no inbox to
+     * read it from, so the API's answer is stubbed: the screen still has to
+     * send the code of its link with the new password, and confirm on the
+     * sign-in. The real API refusing a used or unknown link is the scenario
+     * above.
+     */
+    it('envia o código do link com a senha nova e confirma no login', () => {
+      cy.intercept('POST', '/api/auth/reset-password', { statusCode: 204 }).as('reset')
+      cy.visit('/redefinir-senha?codigo=codigo-do-email')
+      cy.findByLabel('Senha nova').type('senha-nova-123')
+      cy.findByLabel('Confirmar senha nova').type('senha-nova-123')
+      cy.contains('button', 'Redefinir senha').click()
+
+      cy.wait('@reset').its('request.body').should('deep.equal', { code: 'codigo-do-email', password: 'senha-nova-123' })
+      cy.location('pathname').should('eq', '/entrar')
+      cy.contains('Senha redefinida. Entre com a senha nova.').should('be.visible')
+    })
+  })
+})
+
+/**
+ * The page shown while the session is restored, before any screen exists: the
+ * brand in the middle of the page and what is happening, never a line of text
+ * in the corner of an empty page. The restore is slowed down, or refused by
+ * the server, so the page stays long enough to be seen.
+ */
+describe('abrindo a sessão', () => {
+  it('mostra a marca e o aviso no meio da tela enquanto a sessão abre', () => {
+    cy.intercept('POST', '/api/auth/refresh', (req) => {
+      req.on('response', (res) => {
+        res.setDelay(1500)
+      })
+    })
+    cy.visit('/painel')
+
+    cy.contains('[role="status"]', 'Abrindo sua sessão…').should('be.visible')
+    cy.contains('p', 'Correctio').should('be.visible')
+    cy.contains('h1', 'Painel', { timeout: 10000 }).should('be.visible')
+  })
+
+  it('diz quando não conseguiu abrir a sessão e oferece tentar de novo', () => {
+    cy.intercept('POST', '/api/auth/refresh', { statusCode: 500, body: { code: 'FAILURE', message: 'Erro inesperado.' } })
+    cy.visit('/painel')
+
+    cy.contains('[role="alert"]', 'Não foi possível abrir sua sessão', { timeout: 20000 }).should('be.visible')
+    cy.contains('button', 'Tentar de novo').should('be.visible')
   })
 })

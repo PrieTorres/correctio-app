@@ -1,3 +1,4 @@
+import { registrationKey } from '@correctio/domain'
 import { studentInputSchema } from '@/lib/schemas'
 
 export interface ParsedStudent {
@@ -47,7 +48,7 @@ export function parseStudents(raw: string): ParseResult {
       problems.push({ line: index + 1, reason: reading.reason })
       return
     }
-    seen.add(reading.student.registration)
+    seen.add(registrationKey(reading.student.registration))
     students.push(reading.student)
   })
 
@@ -79,7 +80,7 @@ function checkStudent(student: ParsedStudent, seen: ReadonlySet<string>): LineRe
   const result = studentInputSchema.safeParse(student)
   if (!result.success) return problem(`${result.error.issues[0]?.message ?? 'Linha inválida'}.`)
 
-  if (seen.has(student.registration)) return problem(`Matrícula ${student.registration} repetida na lista.`)
+  if (seen.has(registrationKey(student.registration))) return problem(`Matrícula ${student.registration} repetida na lista.`)
   return { student }
 }
 

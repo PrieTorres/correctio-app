@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import {
+  BackLink,
   Button,
+  ButtonLink,
   Card,
   EmptyState,
   PageHeader,
@@ -15,7 +17,7 @@ import {
   TextField,
   Tour,
 } from '@/components/ui';
-import { questionInputSchema, type QuestionInput } from '@/lib/schemas';
+import { MAX_SCORE, questionInputSchema, type QuestionInput } from '@/lib/schemas';
 import { createId } from '@/lib/utils';
 import { fieldArrayMessage } from '@/lib/forms';
 import { ROUTES } from '@/app/routes';
@@ -125,7 +127,7 @@ function QuestionFormBody({
     reset,
     setValue,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isSubmitted },
   } = form;
 
   /**
@@ -160,13 +162,7 @@ function QuestionFormBody({
 
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        to={ROUTES.questions}
-        className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-      >
-        <ArrowLeft size={16} aria-hidden />
-        Banco de questões
-      </Link>
+      <BackLink to={ROUTES.questions}>Banco de questões</BackLink>
 
       <PageHeader
         help
@@ -185,7 +181,11 @@ function QuestionFormBody({
 
           <StatementField register={register} error={errors.statement?.message} />
 
-          <TagField value={tags} onChange={(next) => setValue('tags', next)} />
+          <TagField
+            value={tags}
+            onChange={(next) => setValue('tags', next, { shouldValidate: isSubmitted })}
+            error={fieldArrayMessage(errors.tags)}
+          />
 
           <TypeFields
             type={type}
@@ -307,8 +307,9 @@ function DiscursiveField({
         <TextField
           label="Nota máxima"
           type="number"
-          step="0.1"
-          min="0"
+          step="0.01"
+          min="0.01"
+          max={MAX_SCORE}
           error={error}
           {...register('maxScore', {
             setValueAs: (value: string) => (value === '' ? undefined : Number(value)),
@@ -328,13 +329,7 @@ function DiscursiveField({
 function QuestionNotFound() {
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        to={ROUTES.questions}
-        className="inline-flex w-fit items-center gap-2 text-label text-ink-muted hover:text-primary"
-      >
-        <ArrowLeft size={16} aria-hidden />
-        Banco de questões
-      </Link>
+      <BackLink to={ROUTES.questions}>Banco de questões</BackLink>
 
       <Card>
         <EmptyState
@@ -342,9 +337,9 @@ function QuestionNotFound() {
           title="Questão não encontrada"
           description="Esta questão não existe ou pertence a outro professor."
           action={
-            <Link to={ROUTES.questions}>
-              <Button variant="primary">Voltar ao banco de questões</Button>
-            </Link>
+            <ButtonLink variant="primary" to={ROUTES.questions}>
+              Voltar ao banco de questões
+            </ButtonLink>
           }
         />
       </Card>
@@ -454,7 +449,7 @@ function AlternativesField({
 
 function ShuffleToggle({ form }: Readonly<{ form: ReturnType<typeof useForm<QuestionInput>> }>) {
   return (
-    <label data-tour="shuffle" className="flex cursor-pointer items-start gap-3">
+    <label data-tour="shuffle" className="flex min-h-11 cursor-pointer items-start gap-3">
       <input
         type="checkbox"
         className="mt-1 size-4 accent-[var(--color-primary)]"

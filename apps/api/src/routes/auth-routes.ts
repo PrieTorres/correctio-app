@@ -29,8 +29,10 @@ export function signedInAuthRoutes(controller: AuthController): Router {
   return router
 }
 
+/** The account of the token: who it is (P2) and the anonymization of RF05. */
 export function meRoutes(controller: AuthController): Router {
   const router = Router()
   router.get('/', controller.me)
+  router.post('/anonymize', controller.anonymize)
   return router
 }

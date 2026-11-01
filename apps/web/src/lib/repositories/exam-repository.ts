@@ -7,17 +7,22 @@ import { StorageError } from '@/lib/storage/errors'
 import { archiveByStatus, createOwnedRepository } from './create-owned-repository'
 import type { OwnedRepository } from './types'
 
-/**
- * `markReady` records that the exam has been applied at least once. It is a
- * fact about its history rather than something the form can set.
- */
 export interface ExamRepository extends OwnedRepository<Exam, ExamInput> {
-  markReady: (id: string) => Promise<void>
   /**
    * The automatic exam (RF16): a selection from the teacher's active questions,
    * leaving out `excludeIds`. Nothing is stored until the teacher saves the exam.
    */
   draw: (request: DrawRequest) => Promise<DrawResult>
+}
+
+/**
+ * The browser version also records that the exam was applied at least once,
+ * when the demo generates an application. It is a fact about the history of
+ * the exam rather than something the form can set, and the API records it on
+ * its own when it generates (#46).
+ */
+export interface LocalExamRepository extends ExamRepository {
+  markReady: (id: string) => Promise<void>
 }
 
 /**
@@ -27,7 +32,7 @@ export interface ExamRepository extends OwnedRepository<Exam, ExamInput> {
  * its history rather than a state to hand back; an exam coming out of the
  * archive has no application waiting for it.
  */
-export function createLocalExamRepository(teacherId: string): ExamRepository {
+export function createLocalExamRepository(teacherId: string): LocalExamRepository {
   const collection = createCollection('exams', examSchema)
 
   const base = createOwnedRepository<Exam, ExamInput>({

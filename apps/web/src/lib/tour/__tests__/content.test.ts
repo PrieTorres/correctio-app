@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import tourGuide from '../../../../../../docs/Tour_Guiado.md?raw'
 import { stepsOf, TOUR_LIMITS, TOUR_STEPS, type TourScreen } from '../content'
 
 const screens = Object.keys(TOUR_STEPS) as TourScreen[]
@@ -74,5 +75,18 @@ describe('tour content', () => {
       .filter((target) => target !== undefined && !/^[a-z][a-z-]*$/.test(target))
 
     expect(odd).toEqual([])
+  })
+})
+
+/**
+ * `docs/Tour_Guiado.md` repeats the steps the screens show, and the code is
+ * the source (#177): a step changed on one side only fails here, so the
+ * document the team reviews never drifts from what the teacher reads.
+ */
+describe('the tour guide document', () => {
+  const documented = [...tourGuide.matchAll(/^\d+\. `(.+)`$/gm)].map(([, text]) => text)
+
+  it('lists every step the screens show, word for word, and nothing else', () => {
+    expect([...documented].sort()).toEqual(everyStep.map((step) => step.text).sort())
   })
 })

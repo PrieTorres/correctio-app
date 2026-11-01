@@ -15,6 +15,7 @@ import {
   useSaveClass,
   useStudentAction,
   useStudents,
+  useStudentsWithRemoved,
 } from '../useClasses'
 
 const input = { name: 'Cálculo I', subject: 'Matemática', term: '2026/2' }
@@ -37,6 +38,18 @@ describe('classKeys', () => {
   it('scopes detail and students under the same root as the list', () => {
     expect(classKeys.detail('1')[0]).toBe(classKeys.all[0])
     expect(classKeys.students('1')[0]).toBe(classKeys.all[0])
+  })
+
+  /** Invalidating the students of a class reaches the list with the removed ones by prefix. */
+  it('keeps the list with removed students under the students of the class', () => {
+    expect(classKeys.studentsWithRemoved('1').slice(0, 3)).toEqual([...classKeys.students('1')])
+    expect(classKeys.studentsWithRemoved('1')).not.toEqual(classKeys.students('1'))
+  })
+
+  /** Invalidating `lists` has to reach every page of every filter, and nothing else. */
+  it('groups every listing, and only the listings, under `lists`', () => {
+    expect(classKeys.list(true, 'a', 3).slice(0, classKeys.lists.length)).toEqual([...classKeys.lists])
+    expect(classKeys.students('1').slice(0, classKeys.lists.length)).not.toEqual([...classKeys.lists])
   })
 })
 
@@ -224,6 +237,31 @@ describe('student data hooks', () => {
     expect(result.current.other.data).toEqual([])
   })
 
+  /** #146: the cards of P3 count the students, so adding or removing one refreshes them at once. */
+  it('keeps the count of the class list in step with its students', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      save: useSaveClass(),
+      list: useClassList(false, ''),
+    }))
+    const created = await act(() => result.current.save.mutateAsync({ input }))
+    await waitFor(() => expect(result.current.list.data?.items[0]?.studentCount).toBe(0))
+
+    const students = renderHookWithProviders(() => ({
+      add: useAddStudent(created.id),
+      act: useStudentAction(created.id),
+      list: useClassList(false, ''),
+    }))
+    const added = await act(() => students.result.current.add.mutateAsync(student))
+    await waitFor(() => expect(students.result.current.list.data?.items[0]?.studentCount).toBe(1))
+
+    await act(() => students.result.current.act.mutateAsync({ id: added.id, action: 'anonymize' }))
+    await waitFor(() => expect(students.result.current.list.isFetching).toBe(false))
+    expect(students.result.current.list.data?.items[0]?.studentCount).toBe(1)
+
+    await act(() => students.result.current.act.mutateAsync({ id: added.id, action: 'remove' }))
+    await waitFor(() => expect(students.result.current.list.data?.items[0]?.studentCount).toBe(0))
+  })
+
   it('anonymizes a student without removing the record', async () => {
     const { result } = renderHookWithProviders(() => ({
       add: useAddStudent('class-1'),
@@ -239,5 +277,40 @@ describe('student data hooks', () => {
     await waitFor(() => expect(result.current.list.data?.[0]?.anonymizedAt).toBeDefined())
     expect(result.current.list.data).toHaveLength(1)
     expect(result.current.list.data?.[0]?.fullName).not.toBe('Ana Beatriz')
+  })
+
+  /** The sheets of an application keep naming a student removed after they were printed (RF09, #161). */
+  it('keeps a removed student, by name, in the list that names who sat an application', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      add: useAddStudent('class-1'),
+      act: useStudentAction('class-1'),
+      list: useStudents('class-1'),
+      everyone: useStudentsWithRemoved('class-1'),
+    }))
+
+    const added = await act(() => result.current.add.mutateAsync(student))
+    await waitFor(() => expect(result.current.everyone.data).toHaveLength(1))
+
+    await act(() => result.current.act.mutateAsync({ id: added.id, action: 'remove' }))
+
+    await waitFor(() => expect(result.current.list.data).toHaveLength(0))
+    await waitFor(() => expect(result.current.everyone.data?.[0]?.removedAt).toBeDefined())
+    expect(result.current.everyone.data?.[0]?.fullName).toBe('Ana Beatriz')
+  })
+
+  /** RF38 outlives the removal: anonymizing the removed student replaces the name there as well. */
+  it('shows only the anonymized name of a removed student who was anonymized', async () => {
+    const { result } = renderHookWithProviders(() => ({
+      add: useAddStudent('class-1'),
+      act: useStudentAction('class-1'),
+      everyone: useStudentsWithRemoved('class-1'),
+    }))
+
+    const added = await act(() => result.current.add.mutateAsync(student))
+    await act(() => result.current.act.mutateAsync({ id: added.id, action: 'remove' }))
+    await act(() => result.current.act.mutateAsync({ id: added.id, action: 'anonymize' }))
+
+    await waitFor(() => expect(result.current.everyone.data?.[0]?.anonymizedAt).toBeDefined())
+    expect(result.current.everyone.data?.[0]?.fullName).toBe('Aluno anonimizado')
   })
 })

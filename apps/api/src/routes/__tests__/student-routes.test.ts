@@ -158,6 +158,37 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('student routes (real MySQL)', (
       expect(namesIn(await ana().get(studentsOf()).query({ search: 'beatriz' }))).toEqual(['Ana Beatriz'])
       expect(namesIn(await ana().get(studentsOf()).query({ search: '002' }))).toEqual(['Bruno Lima'])
     })
+
+    /** The sheets and grades of an application name everyone who sat it, the removed included (RF09, #161). */
+    it('adds the removed students when asked, marked by removedAt', async () => {
+      const removed = await add({ fullName: 'Aluno Alfa Um', registration: '1001' })
+      await add({ fullName: 'Bruno Lima', registration: '1002' })
+      await ana().delete(studentPath(removed.id))
+
+      const everyone = await ana().get(studentsOf()).query({ includeRemoved: 'true' })
+
+      expect(everyone.body.total).toBe(2)
+      expect(namesIn(everyone)).toEqual(['Aluno Alfa Um', 'Bruno Lima'])
+      expect(itemsIn(everyone)[0]?.removedAt).toEqual(expect.any(String))
+      expect(await listedNames()).toEqual(['Bruno Lima'])
+      expect(namesIn(await ana().get(studentsOf()).query({ includeRemoved: 'false' }))).toEqual(['Bruno Lima'])
+    })
+
+    /** RF38 outlives the removal: the list never brings back the name anonymization erased. */
+    it('lists a removed student who was anonymized under the anonymized name only', async () => {
+      const removed = await add()
+      await ana().delete(studentPath(removed.id))
+      await ana().post(`${studentPath(removed.id)}/anonymize`)
+
+      expect(namesIn(await ana().get(studentsOf()).query({ includeRemoved: 'true' }))).toEqual(['Aluno anonimizado'])
+    })
+
+    it('refuses an includeRemoved that is not true or false', async () => {
+      const response = await ana().get(studentsOf()).query({ includeRemoved: 'yes' })
+
+      expect(response.status).toBe(400)
+      expect(response.body).toEqual({ code: 'invalid', message: 'Parâmetro de lista inválido: includeRemoved.' })
+    })
   })
 
   describe('POST /classes/:id/students/import', () => {
@@ -357,6 +388,50 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('student routes (real MySQL)', (
 
       expect((await ana().post(`${studentPath(student.id)}/anonymize`)).status).toBe(204)
       expect((await storedStudent(student.id)).fullName).toBe('Aluno anonimizado')
+    })
+  })
+
+  /** Decided by the PM in #144: an archived class takes no new student, and keeps every right over the ones it has. */
+  describe('an archived class', () => {
+    const archive = () => ana().patch(`/classes/${classId}/archive`)
+    const ARCHIVED = {
+      code: 'conflict',
+      message: 'Esta turma está arquivada. Restaure a turma para adicionar ou importar alunos.',
+    }
+
+    it('refuses a new student, saying to restore the class first', async () => {
+      await archive()
+      const response = await ana().post(studentsOf(), ANA)
+
+      expect(response.status).toBe(409)
+      expect(response.body).toEqual(ARCHIVED)
+      expect(await listedNames()).toEqual([])
+    })
+
+    it('refuses an import and writes none of its rows', async () => {
+      await archive()
+      const response = await importRows([ANA, { fullName: 'Bruno', registration: '2' }])
+
+      expect(response.status).toBe(409)
+      expect(response.body).toEqual(ARCHIVED)
+      expect(await listedNames()).toEqual([])
+    })
+
+    it('still edits, removes and anonymizes the students it already has', async () => {
+      const student = await add()
+      const bruno = await add({ fullName: 'Bruno Lima', registration: '2026002' })
+      await archive()
+
+      expect((await ana().patch(studentPath(student.id), { fullName: 'Ana B.' })).status).toBe(200)
+      expect((await ana().delete(studentPath(bruno.id))).status).toBe(204)
+      expect((await ana().post(`${studentPath(student.id)}/anonymize`)).status).toBe(204)
+    })
+
+    it('takes new students again once restored', async () => {
+      await archive()
+      await ana().patch(`/classes/${classId}/restore`)
+
+      expect((await ana().post(studentsOf(), ANA)).status).toBe(201)
     })
   })
 

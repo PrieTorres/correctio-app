@@ -55,4 +55,4 @@ Alternativas avaliadas:
   - `docs/Arquitetura.md`, seção 3: a autenticação deixa de ser Firebase Auth;
   - `docs/Seguranca_e_LGPD.md`, regras 2 e 3 da seção 2: o token é validado pela própria API, e nenhum token fica em `localStorage`;
   - `docs/Modelo_de_Dados.md`: o `AuthCode` e o `User.emailVerifiedAt`.
-- **Fica aberto validar com a professora.** A #83 segue aberta para as versões A/B/C. Se ela exigir outra forma de autenticação, este ADR é substituído por um novo, que o referencia.
+- **Validado com a professora em 26/10/2026 (#83).** Ela respondeu que a decisão técnica da autenticação é do grupo e que o principal é entregar o MVP funcionando. Se ela passar a exigir outra forma de autenticação, este ADR é substituído por um novo, que o referencia.
