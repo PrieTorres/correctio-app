@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ImageOff, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
-import { BackLink, Badge, Button, Card, NumberInput, PageHeader, QueryBoundary, SaveError, Tour } from '@/components/ui';
+import { BackLink, Badge, Button, Card, LoadingState, NotFoundState, NumberInput, PageHeader, QueryBoundary, SaveError, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import {
   clampDiscursiveScore,
@@ -66,12 +66,12 @@ function reviewSourcesOf(data: ReturnType<typeof useGradingOverview>['data'], sh
 
 function SheetNotFound({ applicationId }: Readonly<{ applicationId: string }>) {
   return (
-    <Card className="p-6">
-      <p className="text-body text-ink-muted">Folha não encontrada.</p>
-      <Link to={buildPath(ROUTES.grading, { id: applicationId })} className="mt-3 link-target text-label text-primary underline">
-        Voltar para as folhas
-      </Link>
-    </Card>
+    <NotFoundState
+      title="Folha não encontrada"
+      description="A folha pode ser de uma aplicação gerada de novo, ou o endereço está errado."
+      backTo={buildPath(ROUTES.grading, { id: applicationId })}
+      backLabel="Voltar para as folhas"
+    />
   );
 }
 
@@ -238,7 +238,7 @@ function PhotoContent({
 }: Readonly<{ photoId: string | undefined; photo: ReturnType<typeof useSheetPhoto>; alt: string; transform: { scale: string; rotate: string } }>) {
   if (photoId === undefined) return <NoPhoto text="Correção digitada, sem foto." />;
   if (photo.isError) return <NoPhoto text="A foto não pôde ser carregada. A correção continua valendo." />;
-  if (photo.data === undefined) return <p className="text-caption text-ink-subtle">Carregando a foto…</p>;
+  if (photo.data === undefined) return <LoadingState compact label="Carregando a foto…" />;
   return <BlobImage blob={photo.data} alt={alt} style={transform} />;
 }
 
@@ -260,9 +260,11 @@ function BlobImage({ blob, alt, style }: Readonly<{ blob: Blob; alt: string; sty
 
 /**
  * Who a sheet printed without a name belongs to (RF31). On a correction
- * already stored the choice is saved at once; on a new one it goes with the
- * review. A student who already has a sheet of this version comes back as a
- * conflict, shown here.
+ * already stored the choice is saved at once, and it also goes with the
+ * review: a confirm right after choosing sends a second write, and without
+ * the student in it that write could land last and leave the sheet without
+ * an owner. A student who already has a sheet of this version comes back as
+ * a conflict, shown here.
  */
 function StudentCard({
   applicationId,
@@ -272,11 +274,11 @@ function StudentCard({
   onChoose,
 }: Readonly<{ applicationId: string; students: Student[]; correction: Correction | undefined; chosen: string | undefined; onChoose: (studentId: string | undefined) => void }>) {
   const assignStudent = useAssignStudent();
-  const value = correction?.studentId ?? chosen ?? '';
+  const value = chosen ?? correction?.studentId ?? '';
 
   const choose = (studentId: string) => {
-    if (correction === undefined) onChoose(studentId === '' ? undefined : studentId);
-    else if (studentId !== '') assignStudent.mutate({ applicationId, correctionId: correction.id, studentId });
+    onChoose(studentId === '' ? undefined : studentId);
+    if (correction !== undefined && studentId !== '') assignStudent.mutate({ applicationId, correctionId: correction.id, studentId });
   };
 
   return (

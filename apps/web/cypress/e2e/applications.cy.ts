@@ -727,7 +727,8 @@ describe('isolamento entre professoras', () => {
       cy.visit(pathname)
     })
 
-    cy.contains('Aplicação não encontrada.').should('be.visible')
+    cy.contains('h3', 'Aplicação não encontrada').should('be.visible')
+    cy.contains('a', 'Voltar para aplicações').should('be.visible')
     cy.contains('h2', 'Versões').should('not.exist')
   })
 })

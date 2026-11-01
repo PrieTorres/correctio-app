@@ -20,12 +20,14 @@ describe('PublicLookupPage', () => {
     renderPage(vi.fn().mockRejectedValue(new StorageError('x', 'rate-limited')))
 
     expect(await screen.findByText(/Aguarde um minuto/)).toBeVisible()
-    expect(screen.queryByText(/Recarregue a página/)).toBeNull()
+    expect(screen.queryByText(/recarregue a página/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Tentar de novo' })).toBeNull()
   })
 
   it('keeps the generic message for any other failure', async () => {
     renderPage(vi.fn().mockRejectedValue(new StorageError('x', 'failure')))
 
-    expect(await screen.findByText(/Recarregue a página/)).toBeVisible()
+    expect(await screen.findByText(/recarregue a página/i)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeVisible()
   })
 })

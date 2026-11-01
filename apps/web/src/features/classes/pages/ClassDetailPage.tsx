@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Archive, Pencil, RotateCcw, ShieldOff, Trash2, Upload, UserPlus } from 'lucide-react'
 import {
   BackLink,
@@ -9,6 +9,9 @@ import {
   ClassesIllustration,
   ConfirmDialog,
   EmptyState,
+  ErrorState,
+  LoadingState,
+  NotFoundState,
   PageHeader,
   QueryBoundary,
   SearchIllustration,
@@ -80,12 +83,12 @@ export function ClassDetailPage() {
 /** Also what a class of another teacher looks like: the API answers 404, never 403, and the screen does not tell them apart. */
 function ClassNotFound() {
   return (
-    <Card className="p-6">
-      <p className="text-body text-ink-muted">Turma não encontrada.</p>
-      <Link to={ROUTES.classes} className="mt-3 link-target text-label text-primary underline">
-        Voltar para turmas
-      </Link>
-    </Card>
+    <NotFoundState
+      title="Turma não encontrada"
+      description="A turma pode ter sido apagada, ou o endereço está errado."
+      backTo={ROUTES.classes}
+      backLabel="Voltar para turmas"
+    />
   )
 }
 
@@ -314,16 +317,10 @@ function StudentSection({
   onAction: (action: StudentAction, student: Student) => void
 }>) {
   if (error !== null) {
-    return (
-      <div role="alert" className="flex flex-col items-start gap-3 px-5 py-6">
-        <p className="text-body text-danger">Não foi possível carregar os alunos.</p>
-        <p className="text-caption text-ink-muted">{error.message}</p>
-        <Button onClick={onRetry}>Tentar de novo</Button>
-      </div>
-    )
+    return <ErrorState framed={false} title="Não foi possível carregar os alunos" description={error.message} onRetry={onRetry} />
   }
 
-  if (isPending) return <p className="px-5 py-6 text-body text-ink-muted">Carregando alunos…</p>
+  if (isPending) return <LoadingState compact label="Carregando alunos…" />
 
   if (students.length === 0) {
     return (

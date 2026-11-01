@@ -1,6 +1,6 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Copy, Pencil, Plus } from 'lucide-react';
-import { BackLink, Badge, Button, ButtonLink, Card, PageHeader, QueryBoundary } from '@/components/ui';
+import { BackLink, Badge, Button, ButtonLink, Card, NotFoundState, PageHeader, QueryBoundary } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { totalScore } from '@/lib/exams';
 import { useQuestionsByIds } from '@/features/questions';
@@ -23,12 +23,12 @@ export function ExamDetailPage() {
   return (
     <QueryBoundary isPending={isPending || questionsPending} isError={isError} pendingLabel="Carregando prova…">
       {exam === null || exam === undefined ? (
-        <Card className="p-6">
-          <p className="text-body text-ink-muted">Prova não encontrada.</p>
-          <Link to={ROUTES.exams} className="mt-3 link-target text-label text-primary underline">
-            Voltar para provas
-          </Link>
-        </Card>
+        <NotFoundState
+          title="Prova não encontrada"
+          description="A prova pode ter sido apagada, ou o endereço está errado."
+          backTo={ROUTES.exams}
+          backLabel="Voltar para provas"
+        />
       ) : (
         <div className="flex flex-col gap-6">
           <BackLink to={ROUTES.exams}>Provas</BackLink>

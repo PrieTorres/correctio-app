@@ -179,7 +179,8 @@ describe('turmas', () => {
         cy.visit(String(href))
       })
 
-    cy.contains('Turma não encontrada.').should('be.visible')
+    cy.contains('h3', 'Turma não encontrada').should('be.visible')
+    cy.contains('a', 'Voltar para turmas').should('be.visible')
   })
 })
 
@@ -408,7 +409,7 @@ describe('turmas: erros da API na tela', () => {
     cy.intercept({ method: 'GET', pathname: /^\/api\/classes\/[^/]+\/students$/ }, FAILURE)
     openClass('Cálculo I — Noturno')
 
-    cy.contains('Não foi possível carregar os alunos.').should('be.visible')
+    cy.contains('[role="alert"]', 'Não foi possível carregar os alunos').should('be.visible')
     cy.contains('button', 'Tentar de novo').should('be.visible')
     cy.contains('Nenhum aluno ainda').should('not.exist')
   })
@@ -532,7 +533,8 @@ describe('aplicações desta turma', () => {
   it('diz quando nada foi aplicado à turma', () => {
     openClass('Álgebra Linear')
 
-    cy.contains('Nenhuma prova aplicada a esta turma ainda').should('be.visible')
+    cy.contains('h3', 'Nenhuma prova aplicada ainda').should('be.visible')
+    cy.contains('a', 'Nova aplicação').should('be.visible')
     applicationsOfTheClass().should('not.exist')
   })
 })
