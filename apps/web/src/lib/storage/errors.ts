@@ -4,6 +4,7 @@ export type StorageErrorCode =
   | 'conflict'
   | 'quota-exceeded'
   | 'unauthorized'
+  | 'rate-limited'
   | 'failure'
 
 /** Single error shape, matching what the HTTP API will return. */
