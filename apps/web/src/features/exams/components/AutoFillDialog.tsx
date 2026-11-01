@@ -138,19 +138,30 @@ export function AutoFillDialog({
     );
   };
 
-  const swap = (question: Question) => {
+  /**
+   * The replacement keeps the content of the question going out: it is drawn
+   * from the selected tags that question carries, so swapping does not undo
+   * the balance of the draw. Only when that content has nothing else does it
+   * take from any selected tag.
+   */
+  const swap = (question: Question, fromTags: readonly string[] = tags.filter((tag) => question.tags.includes(tag))) => {
     if (preview === null) return;
     const objective = question.type === 'objetiva';
+    const narrowed = fromTags.length > 0 && fromTags.length < tags.length;
 
     draw.mutate(
       {
-        tags,
+        tags: fromTags.length > 0 ? [...fromTags] : tags,
         multipleChoiceCount: objective ? 1 : 0,
         openEndedCount: objective ? 0 : 1,
         excludeIds: [...alreadyInExam, ...preview.map((item) => item.id)],
       },
       {
         onSuccess: ({ questions: [replacement] }) => {
+          if (replacement === undefined && narrowed) {
+            swap(question, tags);
+            return;
+          }
           if (replacement === undefined) {
             setNotice(NO_REPLACEMENT);
             return;
@@ -170,6 +181,7 @@ export function AutoFillDialog({
         {knownTags.length > 0 && (
           <fieldset data-tour="filters" className="flex flex-col gap-2">
             <legend className="mb-1 text-label text-ink-muted">Tags de conteúdo</legend>
+            <p className="text-caption text-ink-subtle">Entram as questões com pelo menos uma das tags marcadas.</p>
             <div className="flex flex-wrap gap-2">
               {knownTags.map((tag) => (
                 <label key={tag} className="inline-flex min-h-11 cursor-pointer items-center">

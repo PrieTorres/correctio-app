@@ -248,7 +248,7 @@ describe('useQuestionsByIds', () => {
 describe('useQuestionCount', () => {
   beforeEach(clearAllCollections)
 
-  it('counts the active questions of one type carrying every tag asked', async () => {
+  it('counts the active questions of one type carrying any of the tags asked', async () => {
     const { result } = renderHookWithProviders(() => ({
       save: useSaveQuestion(),
       objectives: useQuestionCount([], 'objetiva'),
@@ -256,6 +256,7 @@ describe('useQuestionCount', () => {
       derivatives: useQuestionCount(['Derivadas'], 'objetiva'),
       limitsObjectives: useQuestionCount(['Limites'], 'objetiva'),
       limitsOpenEnded: useQuestionCount(['Limites'], 'discursiva'),
+      eitherTag: useQuestionCount(['Derivadas', 'Limites'], 'objetiva'),
     }))
     await act(() => result.current.save.mutateAsync({ input: objective }))
     await act(() => result.current.save.mutateAsync({ input: essay }))
@@ -265,5 +266,6 @@ describe('useQuestionCount', () => {
     await waitFor(() => expect(result.current.derivatives.data).toBe(1))
     await waitFor(() => expect(result.current.limitsObjectives.data).toBe(0))
     await waitFor(() => expect(result.current.limitsOpenEnded.data).toBe(1))
+    await waitFor(() => expect(result.current.eitherTag.data).toBe(1))
   })
 })

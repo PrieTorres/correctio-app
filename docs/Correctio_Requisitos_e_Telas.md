@@ -570,9 +570,10 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Conteúdo e elementos:**
 
 - Formulário: tags de conteúdo (multi-select), nº de questões objetivas, toggle “Incluir discursivas” + quantidade, pontuação padrão por questão (opcional, distribui igualmente)
+- Entram as questões com **pelo menos uma** das tags marcadas, e o sorteio **equilibra os conteúdos**: cobre o máximo de tags marcadas e distribui as questões entre elas por igual, enquanto o banco tiver
 - Contador de questões disponíveis no banco para os filtros escolhidos
 - Botão “Gerar seleção”
-- Prévia: lista das questões sorteadas, com botão “Trocar” por linha (sorteia outra com os mesmos filtros) e “Remover”
+- Prévia: lista das questões sorteadas, com botão “Trocar” por linha (sorteia outra do mesmo conteúdo da que sai; só sem outra desse conteúdo vale qualquer tag marcada) e “Remover”
 - Botão “Usar esta seleção”
 
 **Ações e fluxo:**

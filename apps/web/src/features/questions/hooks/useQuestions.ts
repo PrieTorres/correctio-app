@@ -106,10 +106,12 @@ export function useRememberQuestions() {
 }
 
 /**
- * How many active questions of one type carry every tag asked, counted by the
- * server: the `total` of a one-item page, so the automatic exam shows what is
- * available without loading the bank. Counted per type because the draw asks
- * for each type apart, and a type it will not draw must not count (#178).
+ * How many active questions of one type carry any of the tags asked, counted
+ * by the server: the `total` of a one-item page, so the automatic exam shows
+ * what is available without loading the bank. Any tag, not every one, because
+ * that is what the draw takes: counting only the questions with every tag
+ * said the bank was short when it was not. Counted per type because the draw
+ * asks for each type apart, and a type it will not draw must not count (#178).
  */
 export function useQuestionCount(tags: readonly string[], type: QuestionType) {
   const { repositories } = useServices();
@@ -121,6 +123,7 @@ export function useQuestionCount(tags: readonly string[], type: QuestionType) {
         archived: false,
         type,
         tags: tags.length > 0 ? [...tags] : undefined,
+        anyTag: true,
         pageSize: 1,
       });
       return page.total;

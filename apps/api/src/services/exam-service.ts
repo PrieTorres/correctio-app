@@ -126,13 +126,13 @@ export function createExamService({ exams, questions }: ExamServiceDependencies)
     },
 
     /**
-     * Draws from the active questions of the teacher carrying every tag asked,
+     * Draws from the active questions of the teacher carrying any of the tags asked,
      * leaving out the ones already in the exam or on screen, with the same
      * function the screens used to run (`@correctio/domain`).
      */
     async draw(teacherId, body) {
       const { tags, excludeIds, ...counts } = parseRequest(drawRequestSchema, body)
-      const { items } = await questions.findMany(teacherId, { tags, archived: false, page: 1, pageSize: MAX_PAGE_SIZE })
+      const { items } = await questions.findMany(teacherId, { tags, anyTag: true, archived: false, page: 1, pageSize: MAX_PAGE_SIZE })
       const excluded = new Set(excludeIds)
       return drawQuestions(
         items.filter((question) => !excluded.has(question.id)),
