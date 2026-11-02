@@ -37,6 +37,5 @@ body:
       value: |
         - [ ] Corrigido e reproduzido de novo sem o erro
         - [ ] Cenário do bug coberto por teste
-        - [ ] Vídeo do reteste anexado no PR
     validations:
       required: true

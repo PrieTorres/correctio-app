@@ -183,7 +183,7 @@ jobs:
       # by hand once the link is in the body.
       - name: Link the video in the pull request
         if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           VIDEO_URL: ${{ steps.journey-video.outputs.artifact-url }}
         with:
