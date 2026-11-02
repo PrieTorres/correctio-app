@@ -546,7 +546,7 @@ conferência dele no PR desta seção antes do merge.
 - Diagramas de classe e de sequência: [#95](https://github.com/PrieTorres/correctio-app/pull/95), [#102](https://github.com/PrieTorres/correctio-app/pull/102).
 - CRUD do banco de questões na API, com filtros no servidor: [#103](https://github.com/PrieTorres/correctio-app/pull/103). Telas do banco de questões na API: [#108](https://github.com/PrieTorres/correctio-app/pull/108).
 - Revisão de UX do banco de questões e das provas ([#61](https://github.com/PrieTorres/correctio-app/issues/61)), que abriu as melhorias [#105](https://github.com/PrieTorres/correctio-app/issues/105), [#106](https://github.com/PrieTorres/correctio-app/issues/106) e [#107](https://github.com/PrieTorres/correctio-app/issues/107).
-- Testes Cypress do banco de questões e das provas contra a API: [#155](https://github.com/PrieTorres/correctio-app/pull/155) (aberto, não entrou na versão 2.0.0).
+- Testes Cypress do banco de questões e das provas contra a API: [#155](https://github.com/PrieTorres/correctio-app/pull/155) (fechado sem merge; a cobertura da #63 entrou na `main` pelo [#189](https://github.com/PrieTorres/correctio-app/pull/189)).
 
 ### Fabricio da Silva
 
