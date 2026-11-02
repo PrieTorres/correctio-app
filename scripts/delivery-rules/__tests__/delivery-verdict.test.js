@@ -8,7 +8,7 @@ const VIDEO = 'https://github.com/PrieTorres/correctio-app/actions/runs/41350735
 const pullRequestBody = (closes, video = VIDEO) => `## Issue
 Closes #${closes}
 
-## Vídeo do teste
+## Test video
 <!-- journey-video:start -->
 ${video}
 <!-- journey-video:end -->
