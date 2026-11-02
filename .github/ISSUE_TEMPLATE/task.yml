@@ -14,11 +14,10 @@ body:
     id: checklist
     attributes:
       label: Checklist de aceite
-      description: Cada item é conferido no vídeo do teste. Sem checklist a issue recebe o label missing-checklist.
+      description: Cada item é conferido no vídeo do teste. O que só se cumpre depois do merge vai sob um título "Depois do merge", que o check do PR não cobra. Sem checklist a issue recebe o label missing-checklist.
       value: |
         - [ ] 
         - [ ] Testes automatizados do caso principal
-        - [ ] Vídeo do teste anexado no PR
     validations:
       required: true
   - type: input

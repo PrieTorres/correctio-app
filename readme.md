@@ -430,7 +430,7 @@ Depois, no GitHub:
 
 1. **Branch, commits e título do PR em inglês** (`feat/...`, `fix/...`). Nada direto na `main`.
 2. **Use o template do PR,** com `Closes #N` apontando a issue da tarefa, e a release do dia (`release/AAAA-MM-DD`) como base.
-3. **Vá marcando os checklists conforme entrega,** o do PR e o da issue ligada. O check *Issue, checklist and video* barra o merge enquanto houver item desmarcado em qualquer um dos dois. Marque só o que já está feito de verdade, e anexe a evidência na issue.
+3. **Vá marcando o checklist da issue conforme entrega.** O check *Issue, checklist and video* barra o merge enquanto houver item desmarcado nela. Não contam o vídeo anexado no PR, que o próprio check confere, a evidência anexada na issue e o que estiver sob um título "Depois do merge". Marque só o que já está feito de verdade. O checklist do PR é lembrete e não barra.
 4. **O vídeo vem sozinho.** O job *Journey video* grava a jornada completa no Cypress, sobe o vídeo como artifact e escreve o link na seção "Vídeo do teste" do PR. Feature nova precisa entrar na jornada (`apps/web/cypress/journey/journey.cy.ts`). PRs com label `docs`, `infra`, `process`, `qa`, `ux` ou `po` dispensam o vídeo.
 5. **Aprovação da PM e merge.** O ruleset exige a aprovação dela e todos os checks verdes: lint, tipos, testes e build; Cypress; SonarCloud; e Issue, checklist and video. Só a PM conclui issues.
 
