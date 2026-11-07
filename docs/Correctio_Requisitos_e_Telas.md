@@ -525,6 +525,9 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
   até 80 caracteres (a mais longa fica no campo para encurtar); tag que só muda maiúscula ou
   acento de outra já escolhida vira a mesma; nota máxima entre 0,01 e 9999,99, com até 2 casas
   decimais (#184)
+- Uma tag que o professor já usa em outra questão, escrita com outra maiúscula ou outro acento
+  ("matematica" para "Matemática"), é gravada como ele já escreve, mesmo quando chega sem passar
+  pela sugestão do campo (#199)
 
 #### P8. Provas (lista)
 
@@ -573,7 +576,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Conteúdo e elementos:**
 
 - Formulário: tags de conteúdo (multi-select), nº de questões objetivas, toggle “Incluir discursivas” + quantidade. Pontuação padrão por questão pendente (#107): hoje toda questão entra valendo 1
-- Entram as questões com **pelo menos uma** das tags marcadas, e o sorteio **equilibra os conteúdos**: cobre o máximo de tags marcadas e distribui as questões entre elas por igual, enquanto o banco tiver
+- Entram as questões com **pelo menos uma** das tags marcadas, e o sorteio **equilibra os conteúdos**: cobre o máximo de tags marcadas e distribui as questões entre elas por igual, enquanto o banco tiver. A tag vale sem diferença de maiúscula nem de acento, como no filtro do banco (#199)
 - Contador de questões disponíveis no banco para os filtros escolhidos
 - Botão “Gerar seleção”
 - Prévia: lista das questões sorteadas, com botão “Trocar” por linha (sorteia outra do mesmo conteúdo da que sai; só sem outra desse conteúdo vale qualquer tag marcada) e “Remover”
@@ -739,7 +742,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Cards: média, mediana, desvio padrão, maior/menor nota
 - Gráfico de distribuição de notas (histograma)
 - Seção “Por questão”: % de acerto e a alternativa mais marcada em cada questão, em texto (gráfico de barras pendente)
-- Seção “Por categoria (tag)”: % de acerto por tag de conteúdo — localiza os temas com mais erro
+- Seção “Por categoria (tag)”: % de acerto por tag de conteúdo — localiza os temas com mais erro. Grafias da mesma tag (“Matemática”, “matematica”) somam numa linha só (#199)
 - Botões “Exportar Excel”, “Exportar CSV”, “Exportar PDF”
 
 **Ações e fluxo:**

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2 } from 'lucide-react';
+import { hasTag } from '@correctio/domain';
 import { Button, CheckboxField, Modal, NumberInput, Spinner, Tour } from '@/components/ui';
 import { useQuestionCount, useQuestionTags } from '@/features/questions';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -144,7 +145,7 @@ export function AutoFillDialog({
    * the balance of the draw. Only when that content has nothing else does it
    * take from any selected tag.
    */
-  const swap = (question: Question, fromTags: readonly string[] = tags.filter((tag) => question.tags.includes(tag))) => {
+  const swap = (question: Question, fromTags: readonly string[] = tags.filter((tag) => hasTag(question.tags, tag))) => {
     if (preview === null) return;
     const objective = question.type === 'objetiva';
     const narrowed = fromTags.length > 0 && fromTags.length < tags.length;
