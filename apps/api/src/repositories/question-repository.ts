@@ -221,15 +221,17 @@ export class QuestionRepository {
     }
   }
 
-  async findDistinctTags(teacherId: string): Promise<string[]> {
-    const rows = await this.db
+  /** `exceptQuestionId` leaves one question out, so a question being edited does not vote for its own spelling. */
+  async findDistinctTags(teacherId: string, { exceptQuestionId }: { exceptQuestionId?: string } = {}): Promise<string[]> {
+    let query = this.db
       .selectFrom('question_tags')
       .innerJoin('questions', 'questions.id', 'question_tags.questionId')
       .select('question_tags.tag')
       .distinct()
       .where('questions.teacherId', '=', teacherId)
       .where('questions.deletedAt', 'is', null)
-      .execute()
+    if (exceptQuestionId !== undefined) query = query.where('questions.id', '!=', exceptQuestionId)
+    const rows = await query.execute()
 
     return rows.map((row) => row.tag).sort((a, b) => a.localeCompare(b, 'pt-BR'))
   }

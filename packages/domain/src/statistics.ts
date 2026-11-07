@@ -1,3 +1,5 @@
+import { collationKey, distinctTags } from './collation'
+
 export interface Distribution {
   /** Inclusive lower bound of the band. */
   from: number
@@ -132,26 +134,29 @@ export interface TagAccuracy {
  *
  * A percentage per question says which question was hard; a percentage per tag
  * says which content was not learned, and that is the one a teacher can teach
- * again.
+ * again. Spellings the database takes as one tag ("Matemática", "matematica")
+ * make one line, under the first spelling met (#199).
  */
 export function accuracyByTag(
   results: readonly { questionId: string; correct: boolean }[],
   tagsOf: (questionId: string) => readonly string[],
 ): TagAccuracy[] {
-  const tally = new Map<string, { answered: number; correct: number }>()
+  const tally = new Map<string, { tag: string; answered: number; correct: number }>()
 
   for (const result of results) {
-    for (const tag of tagsOf(result.questionId)) {
-      const current = tally.get(tag) ?? { answered: 0, correct: 0 }
-      tally.set(tag, {
+    for (const tag of distinctTags(tagsOf(result.questionId))) {
+      const key = collationKey(tag)
+      const current = tally.get(key) ?? { tag, answered: 0, correct: 0 }
+      tally.set(key, {
+        tag: current.tag,
         answered: current.answered + 1,
         correct: current.correct + (result.correct ? 1 : 0),
       })
     }
   }
 
-  return [...tally.entries()]
-    .map(([tag, counts]) => ({
+  return [...tally.values()]
+    .map(({ tag, ...counts }) => ({
       tag,
       answered: counts.answered,
       correct: counts.correct,

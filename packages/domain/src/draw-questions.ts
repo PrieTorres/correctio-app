@@ -1,3 +1,4 @@
+import { distinctTags, hasTag } from './collation'
 import type { Question } from './domain'
 
 export interface DrawCriteria {
@@ -32,7 +33,7 @@ export interface DrawResult<Drawn extends DrawableQuestion = Question> {
 export type RandomSource = () => number
 
 function matchesCriteria(question: DrawableQuestion, tags: readonly string[]): boolean {
-  return question.deletedAt === undefined && (tags.length === 0 || tags.some((tag) => question.tags.includes(tag)))
+  return question.deletedAt === undefined && (tags.length === 0 || tags.some((tag) => hasTag(question.tags, tag)))
 }
 
 /**
@@ -70,7 +71,7 @@ type TagCoverage = Map<string, number>
  * question.
  */
 function leastCoveredTag(pool: readonly DrawableQuestion[], tags: readonly string[], coverage: TagCoverage, random: RandomSource): string {
-  const available = tags.filter((tag) => pool.some((question) => question.tags.includes(tag)))
+  const available = tags.filter((tag) => pool.some((question) => hasTag(question.tags, tag)))
   const least = Math.min(...available.map((tag) => coverage.get(tag) ?? 0))
   return pickOne(
     available.filter((tag) => (coverage.get(tag) ?? 0) === least),
@@ -97,12 +98,12 @@ function takeBalanced<Drawn extends DrawableQuestion>(
   while (taken.length < count && remaining.length > 0) {
     const tag = leastCoveredTag(remaining, tags, coverage, random)
     const picked = pickOne(
-      remaining.filter((question) => question.tags.includes(tag)),
+      remaining.filter((question) => hasTag(question.tags, tag)),
       random,
     )
     remaining.splice(remaining.indexOf(picked), 1)
     taken.push(picked)
-    for (const covered of tags.filter((item) => picked.tags.includes(item))) coverage.set(covered, (coverage.get(covered) ?? 0) + 1)
+    for (const covered of tags.filter((item) => hasTag(picked.tags, item))) coverage.set(covered, (coverage.get(covered) ?? 0) + 1)
   }
   return taken
 }
@@ -115,15 +116,19 @@ function takeBalanced<Drawn extends DrawableQuestion>(
  * Asking for more questions than the bank holds is not an error: the draw
  * returns what it found and reports the gap, so the teacher sees a partial
  * selection and the reason rather than an empty screen.
+ *
+ * Tags compare as the database does, without case or accents, and two
+ * spellings of one tag asked together count as one content (#199).
  */
 export function drawQuestions<Drawn extends DrawableQuestion>(
   bank: readonly Drawn[],
   criteria: DrawCriteria,
   random: RandomSource = Math.random,
 ): DrawResult<Drawn> {
-  const eligible = bank.filter((question) => matchesCriteria(question, criteria.tags))
+  const tags = distinctTags(criteria.tags)
+  const eligible = bank.filter((question) => matchesCriteria(question, tags))
   const coverage: TagCoverage = new Map()
-  const balance = { tags: criteria.tags, coverage, random }
+  const balance = { tags, coverage, random }
   const multipleChoice = takeBalanced(
     eligible.filter((question) => question.type === 'objetiva'),
     criteria.multipleChoiceCount,
