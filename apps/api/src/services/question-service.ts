@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { questionInputSchema } from '@correctio/domain'
+import { collationKey, questionInputSchema } from '@correctio/domain'
 import { z } from 'zod'
 import { isDuplicateEntry } from '../db/errors'
 import { API_ERROR_CODE, ApiError } from '../lib/api-error'
@@ -97,11 +97,25 @@ function toWrite(input: ReturnType<typeof questionInputSchema.parse>): QuestionW
 export class QuestionService {
   constructor(private readonly repository: QuestionRepository) {}
 
+  /**
+   * A tag the teacher already uses on another question, spelled another way,
+   * is written as they already spell it (#199). The form suggests the same,
+   * but a write that skips the suggestion (an import, the API itself) must
+   * not split one content into two filters and two lines of the report.
+   */
+  private async inKnownSpelling(teacherId: string, tags: readonly string[], exceptQuestionId?: string): Promise<string[]> {
+    if (tags.length === 0) return []
+    const known = await this.repository.findDistinctTags(teacherId, { exceptQuestionId })
+    const spellings = new Map(known.map((tag) => [collationKey(tag), tag]))
+    return tags.map((tag) => spellings.get(collationKey(tag)) ?? tag)
+  }
+
   /** A refusal answers the schema's own message, so the API says what the form says (#184). */
   async create(teacherId: string, data: unknown) {
     const input = parseRequest(questionInputSchema, data)
+    const tags = await this.inKnownSpelling(teacherId, input.tags)
 
-    return writeQuestion(() => this.repository.create(randomUUID(), teacherId, toWrite(input)))
+    return writeQuestion(() => this.repository.create(randomUUID(), teacherId, { ...toWrite(input), tags }))
   }
 
   async getById(id: string, teacherId: string) {
@@ -168,8 +182,9 @@ export class QuestionService {
     }
 
     const input = parseRequest(questionInputSchema, merged)
+    const tags = await this.inKnownSpelling(teacherId, input.tags, id)
 
-    return writeQuestion(() => this.repository.update(id, teacherId, toWrite(input)))
+    return writeQuestion(() => this.repository.update(id, teacherId, { ...toWrite(input), tags }))
   }
 
   async archive(id: string, teacherId: string) {

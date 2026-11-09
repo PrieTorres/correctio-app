@@ -184,6 +184,21 @@ describe('accuracyByTag', () => {
     expect(accuracyByTag([], tagsOf)).toEqual([])
   })
 
+  /** #199: two spellings of one tag are one content, under the first spelling met. */
+  it('makes one line of the spellings the database takes as one tag', () => {
+    const spelled: Record<string, string[]> = { q1: ['Matemática'], q2: ['matematica'], q3: ['MATEMATICA'] }
+    const byTag = accuracyByTag(
+      [
+        { questionId: 'q1', correct: true },
+        { questionId: 'q2', correct: false },
+        { questionId: 'q3', correct: true },
+      ],
+      (questionId) => spelled[questionId] ?? [],
+    )
+
+    expect(byTag).toEqual([{ tag: 'Matemática', answered: 3, correct: 2, percentage: 66.7 }])
+  })
+
   it('skips a question that carries no tag', () => {
     expect(accuracyByTag([{ questionId: 'untagged', correct: true }], tagsOf)).toEqual([])
   })

@@ -1,3 +1,4 @@
+import { hasTag } from '@correctio/domain'
 import type { Question, QuestionType } from '@/types/domain'
 import type { QuestionInput } from '@/lib/schemas'
 import { questionSchema } from '@/lib/schemas'
@@ -67,7 +68,7 @@ export function createLocalQuestionRepository(teacherId: string): QuestionReposi
       if (params.type !== undefined && item.type !== params.type) return false
 
       if (params.tags !== undefined && params.tags.length > 0) {
-        const carries = (tag: string) => item.tags.includes(tag)
+        const carries = (tag: string) => hasTag(item.tags, tag)
         if (!(params.anyTag === true ? params.tags.some(carries) : params.tags.every(carries))) return false
       }
 
