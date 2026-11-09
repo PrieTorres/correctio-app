@@ -15,6 +15,8 @@ export const EMPTY_SUMMARY: DashboardSummary = {
   pendingCorrections: 0,
   recent: [],
   gradable: [],
+  students: 0,
+  open: [],
 };
 
 /**

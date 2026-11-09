@@ -312,7 +312,11 @@ As três telas de números leem rotas próprias, calculadas no servidor com as f
   aplicações não arquivadas, a correção em andamento (RF48) ou sem aluno (RF31), uma vez cada
   (#93). `recent` são as 5 aplicações não arquivadas mais recentes pela data, ordenadas no banco,
   com o título da prova e o nome da turma; `gradable`, as que têm folhas impressas (`generated`),
-  para o "Corrigir folhas".
+  para o "Corrigir folhas". Para o próximo passo do painel (#202): `students`, os alunos de turmas
+  ativas que recebem folha (nem removidos nem anonimizados, a mesma regra da geração);
+  `classWithoutStudents`, a turma ativa criada por último sem nenhum desses alunos, quando houver;
+  e `open`, as aplicações em aberto (ativas e com as notas não liberadas), até 20, da data mais
+  recente para a mais antiga, cada uma com `status` e o mesmo `progress` da lista (P11).
 - **`GET /applications/:id/report`** (P18): `summary` (corrigidas, média, mediana, desvio padrão,
   menor e maior), `distribution`, `questions` (acerto e letra da alternativa mais marcada, na
   ordem da prova), `tags`, `students` (nome, matrícula, versão, total e a nota de cada questão na

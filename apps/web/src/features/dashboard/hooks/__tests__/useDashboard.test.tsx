@@ -15,6 +15,8 @@ const SUMMARY: DashboardSummary = {
   pendingCorrections: 5,
   recent: [{ id: 'a1', title: 'Cálculo I', detail: 'Turma A', date: '2026-10-05T12:00:00.000Z' }],
   gradable: [],
+  students: 30,
+  open: [],
 }
 
 /** The teacher's repositories with the reports answered by `dashboard`, the one request the panel makes. */
@@ -40,7 +42,8 @@ describe('useDashboardSummary', () => {
 
     await waitFor(() => expect(result.current.data).not.toBeUndefined())
 
-    expect(result.current.data).toMatchObject({ classes: 0, questions: 0, exams: 0, applications: 0, pendingCorrections: 0, recent: [] })
+    expect(result.current.data).toMatchObject({ classes: 0, questions: 0, exams: 0, applications: 0, pendingCorrections: 0, recent: [], students: 0, open: [] })
+    expect(result.current.data).not.toHaveProperty('classWithoutStudents')
   })
 
   it('counts what the teacher has created, in the demo too', async () => {
@@ -51,6 +54,20 @@ describe('useDashboardSummary', () => {
 
     expect(result.current.data).toMatchObject({ questions: 2, exams: 1, applications: 1 })
     expect(result.current.data?.recent[0]).toMatchObject({ title: 'Prova de teste', detail: 'Turma' })
+  })
+
+  /** What the next step (#202) weighs: the students who get a paper and the applications still open, with their progress. */
+  it('reads the students and the open applications for the next step, in the demo too', async () => {
+    await seedApplicationChain()
+    const { result } = renderHookWithProviders(() => useDashboardSummary())
+
+    await waitFor(() => expect(result.current.data?.classes).toBe(1), { timeout: 8000 })
+
+    expect(result.current.data?.students).toBe(2)
+    expect(result.current.data).not.toHaveProperty('classWithoutStudents')
+    expect(result.current.data?.open).toEqual([
+      expect.objectContaining({ title: 'Prova de teste', status: 'draft', progress: expect.objectContaining({ sheets: 0, corrections: 0 }) }),
+    ])
   })
 
   it('surfaces a failure instead of an empty panel', async () => {

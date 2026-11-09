@@ -46,7 +46,7 @@ Os textos abaixo são os que o sistema mostra, copiados de `apps/web/src/lib/tou
 
 **Painel** — 4 passos
 1. `Clique em um destes cartões para abrir a lista que ele resume.`
-2. `Aqui embaixo ficam as últimas aplicações, para retomar de onde parou.`
+2. `Comece por este botão: ele mostra o próximo passo do seu trabalho.`
 3. `Use os atalhos para as quatro ações mais comuns, sem passar pelo menu.`
 4. `O menu segue a ordem do trabalho: turma, questão, prova, aplicação.`
 

@@ -133,5 +133,5 @@ O detalhe de cada recurso (regras, códigos de erro e exemplos) está no
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/dashboard` | O painel (P1): contagens, correções pendentes, aplicações recentes e as que já têm folhas para corrigir. |
+| `GET` | `/dashboard` | O painel (P1): contagens, correções pendentes, aplicações recentes, as que já têm folhas para corrigir e, para o próximo passo (#202), os alunos que recebem folha, a turma sem alunos e as aplicações em aberto com o progresso. |
 | `GET` | `/reports/consolidated` | Relatório consolidado (P19), com os filtros de turma, disciplina, período e datas; `?format=xlsx`, `csv` ou `pdf` devolve o arquivo das linhas filtradas. |

@@ -24,7 +24,7 @@ export interface TourStep {
 export const TOUR_STEPS = {
   dashboard: [
     { text: 'Clique em um destes cartões para abrir a lista que ele resume.', target: 'summary' },
-    { text: 'Aqui embaixo ficam as últimas aplicações, para retomar de onde parou.', target: 'recent' },
+    { text: 'Comece por este botão: ele mostra o próximo passo do seu trabalho.', target: 'next-step' },
     { text: 'Use os atalhos para as quatro ações mais comuns, sem passar pelo menu.', target: 'quick-actions' },
     { text: 'O menu segue a ordem do trabalho: turma, questão, prova, aplicação.', target: 'nav' },
   ],

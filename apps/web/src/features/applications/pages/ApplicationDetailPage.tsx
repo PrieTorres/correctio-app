@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Archive } from 'lucide-react';
-import { ActionMenu, BackLink, Badge, Button, ButtonLink, Card, NotFoundState, PageHeader, QueryBoundary, Tour, type MenuAction } from '@/components/ui';
+import { ActionMenu, BackLink, Badge, Button, ButtonLink, Card, NotFoundState, PageHeader, QueryBoundary, Tour, type MenuAction, useHashTarget } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { canRegenerate } from '@/lib/applications';
 import { useStudentsWithRemoved } from '@/features/classes';
@@ -53,10 +53,14 @@ function NotFound() {
  *
  * The names come from everyone the class has had: a student removed after the
  * sheets were printed still sat the exam, and RF09 keeps the name (#161).
+ *
+ * A link may land on the versions or the grades (`#versoes`, `#notas`, #202),
+ * once the versions arrive and the cards stop moving.
  */
 function ApplicationDetail({ application }: Readonly<{ application: ApplicationOverview }>) {
   const { versions, sheets } = usePrintedPaper(application.id);
   const { data: students = [] } = useStudentsWithRemoved(application.classId);
+  useHashTarget(application.status === 'draft' || versions.length > 0);
   const [dialog, setDialog] = useState<DetailDialog | null>(null);
   const studentName = new Map(students.map((student) => [student.id, student.fullName]));
 

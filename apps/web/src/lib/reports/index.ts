@@ -11,6 +11,8 @@ export type {
   ApplicationReport,
   ConsolidatedReportRow,
   DashboardActivity,
+  DashboardClass,
+  DashboardOpenApplication,
   DashboardSummary,
   ReportQuestion,
   ReportStudentRow,

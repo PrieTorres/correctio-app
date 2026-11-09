@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { ANSWER_CARD, columnLetter } from './answer-card'
 import {
   CORRECTION_STATUS,
+  type ApplicationProgress,
+  type ApplicationStatus,
   type AnswerSheet,
   type Class,
   type Correction,
@@ -13,6 +15,7 @@ import {
   type Student,
 } from './domain'
 import { totalScore } from './exam-score'
+import { applicationProgressSchema } from './schemas'
 import { accuracyByTag, accuracyOf, distribute, summarise, type Distribution, type ScoreSummary, type TagAccuracy } from './statistics'
 
 /**
@@ -32,12 +35,34 @@ export type ReportFormat = (typeof REPORT_FORMAT)[keyof typeof REPORT_FORMAT]
 /** How many applications "Atividade recente" lists on the panel (P1). */
 export const RECENT_ACTIVITY_LIMIT = 5
 
+/**
+ * How many open applications the panel weighs for its next step (#202). A
+ * teacher with more than this many unfinished is past what one button can
+ * sort out, and the list (P11) is there for the rest.
+ */
+export const OPEN_APPLICATION_LIMIT = 20
+
 /** One application as the panel names it: the exam it applied, to which class, on which day. */
 export interface DashboardActivity {
   id: string
   title: string
   detail: string
   date: string
+}
+
+/**
+ * An application still in the teacher's hands: active, with the grades not
+ * released yet. Releasing the grades is the teacher's own "done".
+ */
+export interface DashboardOpenApplication extends DashboardActivity {
+  status: Exclude<ApplicationStatus, 'closed'>
+  progress: ApplicationProgress
+}
+
+/** A class as the panel names it when it points there. */
+export interface DashboardClass {
+  id: string
+  name: string
 }
 
 /** What the panel (P1) shows at a glance. */
@@ -53,6 +78,12 @@ export interface DashboardSummary {
   recent: DashboardActivity[]
   /** What "Corrigir folhas" offers: the applications with printed sheets, the most recent first. */
   gradable: DashboardActivity[]
+  /** The students who get a paper: in an active class, neither removed nor anonymized. */
+  students: number
+  /** The active class created last with no such student, where "Cadastrar os alunos" leads. */
+  classWithoutStudents?: DashboardClass
+  /** The open applications, the most recent day first, at most `OPEN_APPLICATION_LIMIT`. */
+  open: DashboardOpenApplication[]
 }
 
 /** How a class did on one multiple-choice question, with the most marked alternative by the letter of the bank. */
@@ -319,6 +350,11 @@ const scoreSummarySchema = z.object({
 
 const dashboardActivitySchema = z.object({ id: z.string(), title: z.string(), detail: z.string(), date: z.string() })
 
+const dashboardOpenApplicationSchema = dashboardActivitySchema.extend({
+  status: z.enum(['draft', 'generated']),
+  progress: applicationProgressSchema,
+})
+
 /** The answers of the report routes, which the web app validates like every other answer of the API. */
 export const dashboardSummarySchema: z.ZodType<DashboardSummary> = z.object({
   classes: z.number(),
@@ -328,6 +364,9 @@ export const dashboardSummarySchema: z.ZodType<DashboardSummary> = z.object({
   pendingCorrections: z.number(),
   recent: z.array(dashboardActivitySchema),
   gradable: z.array(dashboardActivitySchema),
+  students: z.number(),
+  classWithoutStudents: z.object({ id: z.string(), name: z.string() }).optional(),
+  open: z.array(dashboardOpenApplicationSchema),
 })
 
 const reportQuestionSchema = z.object({
