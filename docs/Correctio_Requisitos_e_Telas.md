@@ -352,8 +352,10 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - A página tem quatro estados mutuamente exclusivos, conforme o que o professor liberou (RF46):
   1. **QR inválido ou expirado** — código desconhecido, ou folha de um PDF que foi regenerado
   2. **Nada liberado** — “O professor ainda não liberou o resultado desta prova”
-  3. **Só gabarito** — alternativa correta por questão, sem nota e sem os acertos do aluno
-  4. **Gabarito e nota** — o gabarito, mais a nota total e os acertos/erros por questão
+  3. **Só gabarito** — a letra da alternativa correta por questão, sem nota e sem o que o aluno marcou
+  4. **Gabarito e nota** — o gabarito, mais a nota total e, por questão, a letra que o aluno marcou (ou "em branco") e se acertou
+- O gabarito usa o número da questão e a letra **como estão impressos na folha daquele aluno** (#203): numa versão embaralhada, a correta pode estar em outra letra, e o id da alternativa não diz nada ao aluno
+- Só as objetivas entram no gabarito. A discursiva fica de fora, mas conta na numeração (o gabarito pode ir de 1 a 3, pulando a 2), para o número bater com o papel. O gabarito das discursivas é uma feature à parte, ainda não feita
 - A nota nunca aparece sem o gabarito: são níveis, não interruptores soltos
 - Sem menu, sem login, layout mobile-first (o aluno abre no celular)
 - noindex e robots.txt bloqueando indexação por buscadores — a página exibe nome e nota de aluno

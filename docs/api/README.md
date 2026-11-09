@@ -38,7 +38,7 @@ O detalhe de cada recurso (regras, códigos de erro e exemplos) está no
 | Método | Rota | Descrição |
 |---|---|---|
 | `GET` | `/health` | Diz se a API e o banco respondem. |
-| `GET` | `/public/sheets/:code` | Consulta do aluno pelo QR Code da folha (PUB1), sem login: gabarito e, se liberada, a nota. |
+| `GET` | `/public/sheets/:code` | Consulta do aluno pelo QR Code da folha (PUB1), sem login: gabarito (número da questão e letra da correta como impressos naquela versão) e, se liberada, a nota com a letra que o aluno marcou. |
 
 ## Acesso
 

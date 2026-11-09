@@ -5,7 +5,7 @@ import { Badge, Card, QueryBoundary } from '@/components/ui';
 import { ROUTES } from '@/app/routes';
 import { formatDate } from '@/lib/utils';
 import { StorageError } from '@/lib/storage/errors';
-import type { PublicLookup, PublicLookupHeader } from '@/types/domain';
+import type { ObjectiveResult, PublicLookup, PublicLookupHeader, ScoredAnswerKeyEntry } from '@/types/domain';
 import { usePublicLookup } from '../hooks/usePublicLookup';
 
 /**
@@ -116,42 +116,65 @@ function Result({ lookup }: Readonly<{ lookup: PublicLookup }>) {
               A nota ainda não foi liberada. O gabarito abaixo já está disponível.
             </p>
           )}
+          <p className="mt-2 text-caption text-ink-subtle">
+            Números e letras como estão na sua prova. As questões discursivas não entram no
+            gabarito.
+          </p>
           <ol className="mt-4 flex flex-col gap-2">
-            {lookup.answerKey.map((entry, index) => {
-              const result =
-                lookup.status === 'ANSWER_KEY_AND_SCORE'
-                  ? lookup.objectiveResults.find((item) => item.questionId === entry.questionId)
-                  : undefined;
-
-              return (
-                <li
-                  key={entry.questionId}
-                  className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-line px-3 py-2"
-                >
-                  <span className="text-body text-ink">Questão {index + 1}</span>
-                  {result === undefined ? (
-                    <Badge>Resposta correta registrada</Badge>
-                  ) : (
-                    <Badge
-                      tone={result.correct ? 'success' : 'danger'}
-                      icon={
-                        result.correct ? (
-                          <CheckCircle2 size={13} aria-hidden />
-                        ) : (
-                          <XCircle size={13} aria-hidden />
-                        )
-                      }
-                    >
-                      {result.correct ? 'Você acertou' : 'Você errou'}
-                    </Badge>
-                  )}
-                </li>
-              );
-            })}
+            {lookup.answerKey.map((entry) => (
+              <AnswerKeyItem
+                key={entry.questionId}
+                entry={entry}
+                result={
+                  lookup.status === 'ANSWER_KEY_AND_SCORE'
+                    ? lookup.objectiveResults.find((item) => item.questionId === entry.questionId)
+                    : undefined
+                }
+              />
+            ))}
           </ol>
         </Card>
       )}
     </>
+  );
+}
+
+/**
+ * One question of the key (#203): its number and the correct letter as the
+ * student's own paper printed them, since a shuffled version puts the right
+ * answer under another letter. Once the grades are out it adds the letter the
+ * student marked, beside whether it was right.
+ */
+function AnswerKeyItem({
+  entry,
+  result,
+}: Readonly<{ entry: ScoredAnswerKeyEntry; result: ObjectiveResult | undefined }>) {
+  return (
+    <li className="flex flex-col gap-1 rounded-[var(--radius-control)] border border-line px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3">
+        <span className="text-label text-ink">Questão {entry.number}</span>
+        <span className="text-body text-ink">
+          Resposta certa: <strong className="text-primary">{entry.correctLetter}</strong>
+        </span>
+      </div>
+      {result !== undefined && <MarkedAnswer markedLetter={entry.markedLetter} correct={result.correct} />}
+    </li>
+  );
+}
+
+function MarkedAnswer({ markedLetter, correct }: Readonly<{ markedLetter: string | undefined; correct: boolean }>) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+      <span className="text-body text-ink-muted">
+        {markedLetter === undefined ? 'Você deixou em branco' : `Você marcou ${markedLetter}`}
+      </span>
+      <Badge
+        tone={correct ? 'success' : 'danger'}
+        icon={correct ? <CheckCircle2 size={13} aria-hidden /> : <XCircle size={13} aria-hidden />}
+      >
+        {correct ? 'Você acertou' : 'Você errou'}
+      </Badge>
+    </div>
   );
 }
 

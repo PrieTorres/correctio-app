@@ -49,7 +49,13 @@ async function seedApplication(db: Kysely<Database>) {
       shuffleQuestions: true,
       shuffleAlternatives: true,
       withStudentIdentification: false,
-      layout: JSON.stringify({ questionOrder: ['q-open', 'q-b', 'q-a'], alternativeOrder: [] }),
+      layout: JSON.stringify({
+        questionOrder: ['q-open', 'q-b', 'q-a'],
+        alternativeOrder: [
+          { questionId: 'q-b', printedOrder: ['q-b-2', 'q-b-1'] },
+          { questionId: 'q-a', printedOrder: ['q-a-2', 'q-a-1'] },
+        ],
+      }),
       answerKeyPublished: false,
       publicCode: 'public-1',
       qrCodePayload: 'payload-1',
@@ -165,15 +171,16 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('public lookup route (real MySQL
     })
   })
 
-  it('lists the answer key in the printed order, leaving out open-ended questions', async () => {
+  /** #203: the number and the letter are the ones on the paper, so the open-ended first question still counts as 1. */
+  it('lists the answer key in the printed order, with the printed number and letter, leaving out open-ended questions', async () => {
     await release({ answerKeyPublished: true })
 
     const result = await lookup(CODE)
 
     expect(result.status).toBe('ANSWER_KEY_ONLY')
     expect(result.status === 'ANSWER_KEY_ONLY' && result.answerKey).toEqual([
-      { questionId: 'q-b', correctAlternativeId: 'q-b-2' },
-      { questionId: 'q-a', correctAlternativeId: 'q-a-1' },
+      { questionId: 'q-b', correctAlternativeId: 'q-b-2', number: 2, correctLetter: 'A' },
+      { questionId: 'q-a', correctAlternativeId: 'q-a-1', number: 3, correctLetter: 'B' },
     ])
   })
 
@@ -192,6 +199,10 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('public lookup route (real MySQL
       status: 'ANSWER_KEY_AND_SCORE',
       header: { identity: { type: 'STUDENT', fullName: 'Bruna Lima' } },
       totalScore: 7.5,
+      answerKey: [
+        { questionId: 'q-b', number: 2, correctLetter: 'A' },
+        { questionId: 'q-a', number: 3, correctLetter: 'B', markedLetter: 'B' },
+      ],
       objectiveResults: [
         { questionId: 'q-a', correct: true, score: 2.5, selectedAlternativeId: 'q-a-1' },
         { questionId: 'q-b', correct: false, score: 0 },

@@ -600,7 +600,9 @@ function releaseGrades(): void {
  * nothing is in flight when the page is replaced.
  *
  * The grades were released in step 11, so the student sees the answer key
- * and the grade the teacher confirmed in step 10, read from the API.
+ * and the grade the teacher confirmed in step 10, read from the API, and, by
+ * each question, the letter printed on the paper beside the one marked (#203):
+ * the photo filled in the first alternative of every objective one, so A.
  */
 function lookUpByQrCode(): void {
   cy.contains('a', EXAM.title).click()
@@ -619,6 +621,7 @@ function lookUpByQrCode(): void {
   cy.contains('h2', 'Sua nota')
     .next()
     .should(($total) => expect($total.text()).to.eq(confirmedTotal))
+  cy.contains('li', 'Resposta certa:').should('contain', 'Você marcou A')
 
   cy.go('back')
   cy.contains('h2', 'Versões').should('be.visible')

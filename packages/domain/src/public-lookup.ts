@@ -1,3 +1,4 @@
+import { ANSWER_CARD } from './answer-card';
 import {
   CORRECTION_STATUS,
   type AnswerKeyEntry,
@@ -7,9 +8,12 @@ import {
   type Correction,
   type Exam,
   type ExamVersion,
+  type ExamVersionLayout,
+  type ObjectiveResult,
   type PublicLookup,
   type PublicLookupHeader,
   type Question,
+  type ScoredAnswerKeyEntry,
   type Student,
 } from './domain'
 
@@ -64,7 +68,7 @@ export function resolvePublicLookup(sources: LookupSources): PublicLookup {
 
   if (!version.answerKeyPublished) return { status: 'NOTHING_RELEASED', header };
 
-  const answerKey = buildAnswerKey(version.layout.questionOrder, bank);
+  const answerKey = buildAnswerKey(version.layout, bank);
 
   if (!application.gradesReleased || correction === null || correction.status !== CORRECTION_STATUS.DONE) {
     return { status: 'ANSWER_KEY_ONLY', header, answerKey };
@@ -73,7 +77,7 @@ export function resolvePublicLookup(sources: LookupSources): PublicLookup {
   return {
     status: 'ANSWER_KEY_AND_SCORE',
     header,
-    answerKey,
+    answerKey: withMarkedLetters(answerKey, version.layout, correction.objectiveResults),
     totalScore: correction.totalScore,
     objectiveResults: correction.objectiveResults,
   };
@@ -100,19 +104,52 @@ function buildHeader({ sheet, version, application, exam, group, student }: Head
   };
 }
 
+/** Where each question printed its alternatives, by question. */
+function printedOrderOf(layout: ExamVersionLayout): Map<string, readonly string[]> {
+  return new Map(layout.alternativeOrder.map((entry) => [entry.questionId, entry.printedOrder]));
+}
+
+/**
+ * The letter an alternative was printed under on this version; none for one
+ * that was not printed. Read by index rather than through `columnLetter`, which
+ * throws: a public page answers with less, never with an error.
+ */
+function letterOf(printedOrder: readonly string[] | undefined, alternativeId: string | undefined): string | undefined {
+  if (alternativeId === undefined || printedOrder === undefined) return undefined;
+  return ANSWER_CARD.columns[printedOrder.indexOf(alternativeId)];
+}
+
 /**
  * Built from the printed order, so the key lists the questions in the sequence
- * the student is holding. Open-ended questions are left out: there is no
- * correct alternative to publish.
+ * the student is holding, each with the number and the letter on the paper
+ * (#203): the alternatives of a version may be shuffled, so an id alone tells
+ * the student nothing. Open-ended questions are left out: there is no correct
+ * alternative to publish, and their own key is a feature of its own.
  */
 function buildAnswerKey(
-  questionOrder: readonly string[],
+  layout: ExamVersionLayout,
   bank: readonly Pick<Question, 'id' | 'correctAlternativeId'>[],
 ): AnswerKeyEntry[] {
   const byId = new Map(bank.map((question) => [question.id, question]));
-
-  return questionOrder.flatMap((questionId) => {
+  const printed = printedOrderOf(layout);
+  return layout.questionOrder.flatMap((questionId, index) => {
     const correctAlternativeId = byId.get(questionId)?.correctAlternativeId;
-    return correctAlternativeId === undefined ? [] : [{ questionId, correctAlternativeId }];
+    const correctLetter = letterOf(printed.get(questionId), correctAlternativeId);
+    if (correctAlternativeId === undefined || correctLetter === undefined) return [];
+    return [{ questionId, correctAlternativeId, number: index + 1, correctLetter }];
+  });
+}
+
+/** The key with the letter the student marked in each question, read from the confirmed correction. */
+function withMarkedLetters(
+  answerKey: readonly AnswerKeyEntry[],
+  layout: ExamVersionLayout,
+  results: readonly ObjectiveResult[],
+): ScoredAnswerKeyEntry[] {
+  const printed = printedOrderOf(layout);
+  const marked = new Map(results.map((result) => [result.questionId, result.selectedAlternativeId]));
+  return answerKey.map((entry) => {
+    const markedLetter = letterOf(printed.get(entry.questionId), marked.get(entry.questionId));
+    return markedLetter === undefined ? entry : { ...entry, markedLetter };
   });
 }
