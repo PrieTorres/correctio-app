@@ -24,7 +24,7 @@ O portão de qualidade transforma isso em algo automático, em vez de depender d
 | 6 | **Testes E2E (Cypress)** | algum fluxo principal falhar |
 | 7 | **Auditoria de dependências** (`scripts/audit-dependencies.mjs`) | houver vulnerabilidade alta ou crítica fora da lista de exceções |
 | 8 | **SonarCloud** | o portão de qualidade reprovar |
-| 9 | **Issue, checklist and video** (`delivery-rules.yml`) | faltar `Closes #N`, houver item desmarcado no PR ou na issue ligada, ou faltar o vídeo (dispensado com label `docs`, `infra`, `process`, `qa`, `ux` ou `po`) |
+| 9 | **Issue, checklist and video** (`delivery-rules.yml`, regras em `scripts/delivery-rules/`) | faltar `Closes #N`, houver item desmarcado na issue ligada, ou faltar o vídeo (dispensado com label `docs`, `infra`, `process`, `qa`, `ux` ou `po`). O checklist do próprio PR não barra |
 | — | **Journey video** | não bloqueia sozinho: grava a jornada e escreve o link no PR, que é o que o check 9 procura |
 
 Os passos 1 a 5 e a auditoria rodam em sequência num único job, *Lint, tipos, testes e build*. Quando ele passa, três jobs rodam em paralelo: *Cypress* (que refaz o build e sobe MySQL e API), *Journey video* e *SonarCloud*.
@@ -125,6 +125,22 @@ se acumulam entre testes. O demo do GitHub Pages tem um build próprio e um spec
 **O Sonar precisa do histórico completo.** O checkout padrão traz um commit só, e sem histórico o Sonar não consegue identificar o que é código novo — o portão passa a avaliar o repositório inteiro e reprova tudo. Precisa de checkout com histórico completo.
 
 **Cancelar execuções superadas.** Sem isso, cada push em um PR enfileira uma execução nova enquanto a anterior ainda roda. Agrupar por PR e cancelar a anterior deixa o retorno mais rápido.
+
+**O checklist que barra é o da issue, e só o que o PR ainda pode entregar.** O check
+*Issue, checklist and video* barrava quase todo PR: dos 40 anteriores ao #197, 17 falharam nele e
+entraram assim mesmo. Os itens desmarcados eram sempre os mesmos: no PR, os que repetem outra regra
+("Todo o checklist da issue ligada está marcado", "O vídeo mostra o fluxo…"); na issue, "Vídeo …
+anexado no PR", que o check já confere no corpo do PR, e o que só se cumpre depois do merge, como
+"Evidência … anexada na issue" ou "funciona em produção". Desde a #197:
+
+- o checklist do PR é lembrete para quem abre o PR e não barra;
+- na issue, não contam os itens "Vídeo … anexado no PR", "Evidência … anexada na issue" e os que
+  ficam sob um título "Depois do merge", até o título seguinte. Qualquer outro item desmarcado barra;
+- o PR da release do dia não reconfere as issues, porque cada PR do dia já passou por elas;
+- `Closes #N` e o vídeo continuam obrigatórios.
+
+As regras estão em `scripts/delivery-rules/delivery-verdict.mjs`, cobertas por `node:test` no
+`npm run test:tooling`. O workflow só busca o PR e as issues e chama o módulo.
 
 **Exceção na auditoria só com motivo e prazo.** A auditoria reprova em alerta alto ou crítico, como
 o `npm audit --audit-level=high`, mas aceita os que estão em
