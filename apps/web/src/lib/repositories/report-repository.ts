@@ -4,12 +4,15 @@ import {
   consolidatedRows,
   finishedCorrections,
   isPendingCorrection,
+  OPEN_APPLICATION_LIMIT,
   RECENT_ACTIVITY_LIMIT,
   type ApplicationOverview,
   type ApplicationReport,
   type ConsolidatedReportRow,
+  type Class,
   type Correction,
   type DashboardActivity,
+  type DashboardOpenApplication,
   type DashboardSummary,
   type Question,
   type ReportFilters,
@@ -72,6 +75,13 @@ function toActivity(application: ApplicationOverview): DashboardActivity {
 
 const byMostRecent = (a: Pick<ApplicationOverview, 'date'>, b: Pick<ApplicationOverview, 'date'>) => b.date.localeCompare(a.date)
 
+/** Active, with the grades not released: what the panel's next step (#202) weighs. */
+function toOpenApplication(application: ApplicationOverview): DashboardOpenApplication {
+  return { ...toActivity(application), status: application.status === 'generated' ? 'generated' : 'draft', progress: application.progress }
+}
+
+const isOpen = (application: ApplicationOverview) => application.status !== 'closed' && !application.gradesReleased
+
 /**
  * The demo and the unit tests: everything is read from this browser and
  * calculated as the API would. Reading whole lists is fine here, because
@@ -92,6 +102,12 @@ export function createLocalReportRepository(sources: LocalReportSources): Report
     return found.filter((question) => question !== null)
   }
 
+  /** The students of the class who get a paper, by the rule of the generation: neither removed nor anonymized. */
+  async function sheetHoldersOf(schoolClass: Class): Promise<{ schoolClass: Class; count: number }> {
+    const students = await sources.students.listWithRemoved(schoolClass.id)
+    return { schoolClass, count: students.filter((student) => student.removedAt === undefined && student.anonymizedAt === undefined).length }
+  }
+
   async function consolidatedRowFor(application: ApplicationOverview): Promise<ConsolidatedReportRow | null> {
     const [schoolClass, corrections] = await Promise.all([
       sources.classes.getById(application.classId),
@@ -105,22 +121,29 @@ export function createLocalReportRepository(sources: LocalReportSources): Report
   return {
     async dashboard() {
       const [classes, questions, exams, applications] = await Promise.all([
-        sources.classes.list({ pageSize: 1 }),
+        sources.classes.list({ pageSize: LARGEST_PAGE }),
         sources.questions.list({ pageSize: 1 }),
         sources.exams.list({ pageSize: 1 }),
         activeApplications(),
       ])
-      const corrections = (await Promise.all(applications.map((item) => sources.corrections.listByApplication(item.id)))).flat()
+      const [corrections, holders] = await Promise.all([
+        Promise.all(applications.map((item) => sources.corrections.listByApplication(item.id))),
+        Promise.all(classes.items.map((schoolClass) => sheetHoldersOf(schoolClass))),
+      ])
       const sorted = applications.toSorted(byMostRecent)
+      const emptyClass = holders.find((entry) => entry.count === 0)?.schoolClass
 
       return {
         classes: classes.total,
         questions: questions.total,
         exams: exams.total,
         applications: applications.length,
-        pendingCorrections: corrections.filter(isPendingCorrection).length,
+        pendingCorrections: corrections.flat().filter(isPendingCorrection).length,
         recent: sorted.slice(0, RECENT_ACTIVITY_LIMIT).map(toActivity),
         gradable: sorted.filter((item) => item.status === 'generated').map(toActivity),
+        students: holders.reduce((total, entry) => total + entry.count, 0),
+        ...(emptyClass !== undefined && { classWithoutStudents: { id: emptyClass.id, name: emptyClass.name } }),
+        open: sorted.filter(isOpen).slice(0, OPEN_APPLICATION_LIMIT).map(toOpenApplication),
       }
     },
 

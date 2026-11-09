@@ -3,6 +3,7 @@ import { Badge, Button, Card, ConfirmDialog, SaveError } from '@/components/ui';
 import type { ApplicationOverview, ExamVersion } from '@/types/domain';
 import { shuffleOf } from '../application-labels';
 import { usePublishAllAnswerKeys, usePublishAnswerKey } from '../hooks/useApplications';
+import { DETAIL_SECTION } from '../detail-sections';
 
 /** What the student sees once a key is published, said before publishing (RF46). */
 const WHAT_THE_STUDENT_SEES =
@@ -26,7 +27,7 @@ export function VersionsCard({ application, versions }: Readonly<{ application: 
   const canPublishAll = application.status !== 'closed' && versions.some((version) => !version.answerKeyPublished);
 
   return (
-    <Card data-tour="versions">
+    <Card data-tour="versions" id={DETAIL_SECTION.VERSIONS} tabIndex={-1} className="scroll-mt-24">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
         <h2 className="text-title text-primary">Versões</h2>
         {canPublishAll && (

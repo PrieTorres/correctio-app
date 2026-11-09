@@ -388,10 +388,20 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 **Conteúdo e elementos:**
 
 - Saudação “Olá, [nome]”
+- Card “Próximo passo” (#202), o primeiro da tela e com o único botão dourado: a ação que faz o trabalho da professora andar, conforme o que ela já tem. Entre as aplicações em aberto (ativas e com as notas ainda não liberadas), a ordem é:
+  1. véspera de uma prova ainda em rascunho (hoje ou amanhã) → “Gerar o PDF” (P13);
+  2. prova já aplicada com folhas por corrigir → “Corrigir folhas” (P15); no celular, “Fotografar folhas” abre a câmera ali mesmo, envia a foto e leva à P15 com a leitura. Link “Terminou? Liberar as notas” (P14, card de notas);
+  3. discursivas sem nota → “Dar nota às discursivas” (P15);
+  4. gabarito por publicar → “Publicar o gabarito” (P14, card de versões);
+  5. notas por liberar → “Liberar as notas” (P14, card de notas);
+  6. outro rascunho → “Gerar o PDF”;
+  7. prova impressa ainda por aplicar → “Baixar o PDF”, com o link “Já aplicou? Corrigir folhas”.
+
+  Uma prova conta como aplicada quando a data chegou ou já há folha enviada. Entre duas do mesmo passo, vale a aplicada mais recente, ou a próxima a acontecer. Sem aplicação em aberto, o card mostra o que falta, nesta ordem: “Criar uma turma” (o formulário abre no próprio painel), “Cadastrar os alunos” (P5 da turma sem alunos), “Escrever questões” (P7), “Montar uma prova” (P9), “Aplicar uma prova” (P12) e, com todas as notas liberadas, “Ver o relatório” (P18 da mais recente). Sem alunos para receber a folha, um rascunho também pede “Cadastrar os alunos”. As outras aplicações em aberto aparecem recolhidas em “Outras pendências (N)”, cada uma com o seu passo
 - Cards de resumo: Turmas · Questões · Provas · Aplicações · Correções pendentes
 - Lista “Atividade recente”: as 5 aplicações mais recentes
 - Atalhos: “Nova questão”, “Nova prova”, “Nova aplicação”, “Minhas turmas” e “Corrigir folhas”
-- Tour guiado contextual desta tela na primeira visita (RF37): até 4 passos destacando cards e atalhos, com “Pular” e “Próximo” — como em todas as telas
+- Tour guiado contextual desta tela na primeira visita (RF37): até 4 passos destacando os cards de resumo, o próximo passo, os atalhos e o menu, com “Pular” e “Próximo” — como em todas as telas
 
 **Ações e fluxo:**
 
@@ -404,7 +414,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - “Nova prova” → P9
 - “Nova aplicação” → P12
 - “Minhas turmas” → P3
-- “Corrigir folhas” → P15 da aplicação gerada. Com mais de uma aplicação gerada, um diálogo lista prova, turma e data, da mais recente para a mais antiga, e a escolha leva à P15 dela. Sem nenhuma, o diálogo explica que as folhas saem de uma aplicação gerada e oferece “+ Nova aplicação” (→ P12)
+- “Corrigir folhas” (atalho comum, sem destaque: o dourado é o do próximo passo) → P15 da aplicação gerada. Com mais de uma aplicação gerada, um diálogo lista prova, turma e data, da mais recente para a mais antiga, e a escolha leva à P15 dela. Sem nenhuma, o diálogo explica que as folhas saem de uma aplicação gerada e oferece “+ Nova aplicação” (→ P12)
 
 #### P2. Meu perfil
 
@@ -598,7 +608,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Cabeçalho: título, status, “Duplicar” e “Editar” (Exportar pendente, RF19, #69; Arquivar fica na P8)
 - Preferências padrão de embaralhamento (leitura)
 - Lista somente-leitura das questões
-- Seção “Aplicações desta prova” (pendente, #107) + botão “+ Nova aplicação com esta prova”
+- Seção “Aplicações desta prova” (pendente, #107) + botão “+ Nova aplicação com esta prova”, que abre a P12 com a prova já escolhida (#202)
 
 **Ações e fluxo:**
 
@@ -624,12 +634,13 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 #### P12. Aplicação — Criar
 
-*Acesso: “+ Nova aplicação” em P1/P11 ou a partir de P10*
+*Acesso: “+ Nova aplicação” em P1/P11, ou a partir de P10 e P5*
 
 **Conteúdo e elementos:**
 
 - Dropdown “Prova” (só Rascunho/Pronta)
 - Dropdown “Turma” (só ativas)
+- Já vem escolhido o que a professora trouxe: a prova, vinda da P10, e a turma, vinda da P5 (`?prova=` e `?turma=`). Quando só existe uma prova ou uma turma ativa, ela vem escolhida também (#202)
 - Campo “Data da aplicação”
 - Botão “Salvar e gerar”
 
@@ -667,6 +678,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - Tabela “Alunos e versões” (se identificada). O aluno removido da turma depois de gerar continua com o nome (RF09, #161); o anonimizado aparece só como “Aluno anonimizado” (RF38)
 - Card “Correção”: progresso X/N alunos, botões “Corrigir provas” (→ P15) e “Ver relatório” (→ P18), e link “Pendentes de atribuição (N)” (→ P17) quando houver correção sem aluno
 - Controle do que o aluno vê ao escanear o QR, em dois níveis independentes (RF46): “Publicar gabarito” por versão, e “Liberar notas” para a aplicação inteira. Liberar a nota sem o gabarito publicado é bloqueado, com texto explicando o motivo
+- O endereço pode levar direto ao card de versões (`#versoes`) ou ao de notas (`#notas`), com o foco nele: é por onde o próximo passo do painel publica o gabarito e libera as notas (#202)
 
 **Ações e fluxo:**
 

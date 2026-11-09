@@ -103,8 +103,12 @@ const EXAM = {
   description: 'Medidas de tendência central e de dispersão',
 } as const
 
-/** The day the application moves to in step 9, typed as the date control takes it and shown as the screens print it. */
-const APPLICATION_DAY = { typed: '2026-11-30', shown: '30/11/2026' } as const
+/**
+ * The day the application moves to in step 9, typed as the date control takes
+ * it and shown as the screens print it. A day gone by: the sitting took place,
+ * so in step 10 the panel's next step is to grade it (#202).
+ */
+const APPLICATION_DAY = { typed: '2026-10-30', shown: '30/10/2026' } as const
 
 /** Three objectives worth 2 and the essay worth 4, so the exam closes at 10. */
 const SCORES: readonly (readonly [statement: string, score: number])[] = [
@@ -173,12 +177,12 @@ function createAccount(): void {
   cy.contains('h3', 'Nada aconteceu ainda').should('be.visible')
 }
 
-/** Saving a new class opens it (#146), ready for its first student. */
+/**
+ * A new account's next step is the class (#202), created right on the panel.
+ * Saving opens it (#146), ready for its first student.
+ */
 function createClass(): void {
-  openFromMenu('Turmas')
-  cy.contains('h3', 'Nenhuma turma ainda').should('be.visible')
-
-  cy.contains('button', 'Nova turma').click()
+  cy.contains('h2', 'Próximo passo').parent().contains('button', 'Criar uma turma').click()
   cy.findByLabel('Nome da turma').type(SCHOOL_CLASS.name)
   cy.findByLabel('Disciplina').type(SCHOOL_CLASS.subject)
   cy.findByLabel('Período').type(SCHOOL_CLASS.term)
@@ -375,8 +379,8 @@ function applyExam(): void {
   cy.contains('a', 'Nova aplicação com esta prova').click()
   cy.contains('h1', 'Nova aplicação').should('be.visible')
 
-  cy.findByLabel('Prova').should('contain', EXAM.title).select(EXAM.title)
-  cy.findByLabel('Turma').should('contain', SCHOOL_CLASS.name).select(SCHOOL_CLASS.name)
+  cy.findByLabel('Prova').find(':selected').should('have.text', EXAM.title)
+  cy.findByLabel('Turma').find(':selected').should('have.text', SCHOOL_CLASS.name)
   cy.contains('button', 'Salvar e gerar').click()
 
   cy.contains('h1', `Gerar PDF — ${EXAM.title}`).should('be.visible')
@@ -559,7 +563,7 @@ function gradeSheets(): void {
   cy.intercept({ method: 'GET', pathname: /^\/api\/applications\/[^/]+\/sheets$/ }).as('sheets')
   openFromMenu('Painel')
   cy.contains('h1', 'Painel').should('be.visible')
-  cy.get('main').contains('a', 'Corrigir folhas').click()
+  cy.contains('h2', 'Próximo passo').parent().should('contain', EXAM.title).contains('a', 'Corrigir folhas').click()
   cy.contains('h1', 'Enviar folhas de respostas').should('be.visible')
   skipTour()
   cy.contains(`0 de ${STUDENT_COUNT} corrigidas`).should('be.visible')
@@ -670,6 +674,7 @@ function readDashboard(): void {
   cy.contains('h1', 'Painel').should('be.visible')
   walkThroughTour(4)
 
+  cy.contains('h2', 'Próximo passo').parent().contains('a', 'Ver o relatório').should('be.visible')
   summaryCard('Turmas').should('contain', '1')
   summaryCard('Questões').should('contain', '4')
   summaryCard('Provas').should('contain', '1')
@@ -719,7 +724,7 @@ describe('jornada completa', () => {
     cy.log('**2. Criar a conta**')
     createAccount()
 
-    cy.log('**3. Criar a turma, que abre pronta para os alunos**')
+    cy.log('**3. Criar a turma pelo próximo passo do painel, que abre pronta para os alunos**')
     createClass()
 
     cy.log('**4. Cadastrar os alunos, um a um e pela planilha, buscar um deles e ver quantos são na lista**')
@@ -731,7 +736,7 @@ describe('jornada completa', () => {
     cy.log('**6. Montar a prova**')
     buildExam()
 
-    cy.log('**7. Aplicar a prova à turma**')
+    cy.log('**7. Aplicar a prova à turma, com as duas já escolhidas**')
     applyExam()
 
     cy.log('**8. Gerar as versões e o PDF**')
@@ -742,7 +747,7 @@ describe('jornada completa', () => {
     moveTheDate()
     seeTheApplicationOnTheClass()
 
-    cy.log('**10. Corrigir as folhas: uma pela foto, revisada e confirmada, e outra digitada e deixada em andamento**')
+    cy.log('**10. Corrigir as folhas pelo próximo passo do painel: uma pela foto, revisada e confirmada, e outra digitada e deixada em andamento**')
     gradeSheets()
 
     cy.log('**11. Liberar as notas**')
@@ -754,7 +759,7 @@ describe('jornada completa', () => {
     cy.log('**13. Ler o relatório da aplicação e exportar em Excel**')
     readReport()
 
-    cy.log('**14. Conferir o painel: saudação e correções pendentes**')
+    cy.log('**14. Conferir o painel: o relatório como próximo passo, a saudação e as correções pendentes**')
     readDashboard()
   })
 })

@@ -25,15 +25,19 @@ type ApplicationRow = Pick<Selectable<ApplicationsTable>, (typeof APPLICATION_FI
 /** What MySQL answers for a `COUNT`, which the driver may hand over as text. */
 type CountColumn = number | string | bigint | null
 
-/** An application with the names and the counts its overview needs, as the query answers them. */
-interface OverviewRow extends ApplicationRow {
-  examTitle: string
-  className: string
+/** The counts `progressColumns` reads, as the query answers them. */
+export interface ProgressRow {
   versions: CountColumn
   publishedAnswerKeys: CountColumn
   sheets: CountColumn
   correctedSheets: CountColumn
   corrections: CountColumn
+}
+
+/** An application with the names and the counts its overview needs, as the query answers them. */
+interface OverviewRow extends ApplicationRow, ProgressRow {
+  examTitle: string
+  className: string
 }
 
 /** The status of an archived application (RF42); `draft` and `generated` are the active ones. */
@@ -175,18 +179,23 @@ function toStoredApplication(row: ApplicationRow): StoredApplication {
   }
 }
 
+/** The progress of a row read with `progressColumns`, the panel's (P1) included. */
+export function progressOf(row: ProgressRow): ApplicationProgress {
+  return {
+    versions: Number(row.versions),
+    publishedAnswerKeys: Number(row.publishedAnswerKeys),
+    sheets: Number(row.sheets),
+    correctedSheets: Number(row.correctedSheets),
+    corrections: Number(row.corrections),
+  }
+}
+
 function toStoredOverview(row: OverviewRow): StoredOverview {
   return {
     ...toStoredApplication(row),
     examTitle: row.examTitle,
     className: row.className,
-    progress: {
-      versions: Number(row.versions),
-      publishedAnswerKeys: Number(row.publishedAnswerKeys),
-      sheets: Number(row.sheets),
-      correctedSheets: Number(row.correctedSheets),
-      corrections: Number(row.corrections),
-    },
+    progress: progressOf(row),
   }
 }
 
@@ -218,9 +227,10 @@ const IN_CORRECTION_STAGE: Readonly<Record<CorrectionProgress, (eb: ApplicationS
  * The counts of `ApplicationProgress`, each a subquery on the application of
  * the row. The sheets and versions are found by the index that starts with
  * `applicationId`, and a correction by the unique index of its sheet, so a
- * page costs one query however many applications it holds.
+ * page costs one query however many applications it holds. The panel (P1)
+ * reads its open applications with the same columns.
  */
-function progressColumns(eb: ApplicationScope) {
+export function progressColumns(eb: ApplicationScope) {
   const versions = () => eb.selectFrom('exam_versions').whereRef('exam_versions.applicationId', '=', 'applications.id')
   const sheets = () => eb.selectFrom('answer_sheets').whereRef('answer_sheets.applicationId', '=', 'applications.id')
   return [

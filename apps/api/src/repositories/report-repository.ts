@@ -1,21 +1,30 @@
 import {
   CORRECTION_STATUS,
+  OPEN_APPLICATION_LIMIT,
   RECENT_ACTIVITY_LIMIT,
   type ApplicationReportSource,
   type ApplicationStatus,
   type ConsolidatedRowSource,
   type DashboardActivity,
+  type DashboardOpenApplication,
+  type DashboardSummary,
   type ReportedCorrection,
   type ReportedQuestion,
 } from '@correctio/domain'
 import type { Kysely } from 'kysely'
 import type { Database } from '../models/tables'
+import { progressColumns, progressOf } from './application-repository'
 
 /** An archived application (RF42), which leaves the panel and the consolidated report as it leaves the lists. */
 const ARCHIVED: ApplicationStatus = 'closed'
 
 /** The only status with printed sheets to grade: a draft has none, and an archived one left the list. */
 const GENERATED: ApplicationStatus = 'generated'
+
+/** An open application is a draft or a generated one: the query leaves the archived ones out. */
+function openStatusOf(status: ApplicationStatus): DashboardOpenApplication['status'] {
+  return status === GENERATED ? 'generated' : 'draft'
+}
 
 /** What MySQL answers for a `COUNT`, which the driver may hand over as text. */
 type CountColumn = number | string | bigint
@@ -35,6 +44,8 @@ export interface ReportRepository {
   recentApplications: (teacherId: string, limit?: number) => Promise<DashboardActivity[]>
   /** The applications with printed sheets, the most recent day first. */
   gradableApplications: (teacherId: string) => Promise<DashboardActivity[]>
+  /** What the panel's next step (#202) weighs beyond the counts. */
+  nextStepSources: (teacherId: string) => Promise<Pick<DashboardSummary, 'students' | 'classWithoutStudents' | 'open'>>
   /** Everything one application's report is made of; `undefined` when the application is not the teacher's. */
   applicationSource: (teacherId: string, applicationId: string) => Promise<ApplicationReportSource | undefined>
   /** One entry per active application, with the totals of its finished corrections. */
@@ -77,6 +88,60 @@ export function createReportRepository(db: Kysely<Database>): ReportRepository {
     ...activity,
     date: date.toISOString(),
   })
+
+  /**
+   * The students of an active class of the teacher who get a paper, by the
+   * rule of `PrintingRepository.sheetHolders`: neither removed nor anonymized.
+   * The two must agree, or the panel would send the teacher to print for a
+   * class whose generation then refuses for want of students.
+   */
+  const sheetHolders = (teacherId: string) =>
+    db
+      .selectFrom('students')
+      .innerJoin('classes', 'classes.id', 'students.classId')
+      .where('classes.teacherId', '=', teacherId)
+      .where('classes.status', '=', 'active')
+      .where('students.removedAt', 'is', null)
+      .where('students.anonymizedAt', 'is', null)
+
+  /** The active class created last that nobody in it would get a paper from. */
+  const classWithoutStudents = (teacherId: string) =>
+    db
+      .selectFrom('classes')
+      .select(['classes.id', 'classes.name'])
+      .where('classes.teacherId', '=', teacherId)
+      .where('classes.status', '=', 'active')
+      .where((eb) =>
+        eb.not(
+          eb.exists(
+            eb
+              .selectFrom('students')
+              .select('students.id')
+              .whereRef('students.classId', '=', 'classes.id')
+              .where('students.removedAt', 'is', null)
+              .where('students.anonymizedAt', 'is', null),
+          ),
+        ),
+      )
+      .orderBy('classes.createdAt', 'desc')
+      .limit(1)
+      .executeTakeFirst()
+
+  /** Active, grades not released, with the progress P11 shows, the most recent day first. */
+  const openApplications = (teacherId: string) =>
+    db
+      .selectFrom('applications')
+      .where('applications.teacherId', '=', teacherId)
+      .where('applications.status', '<>', ARCHIVED)
+      .where('applications.gradesReleased', '=', false)
+      .select(progressColumns)
+      .innerJoin('exams', 'exams.id', 'applications.examId')
+      .innerJoin('classes', 'classes.id', 'applications.classId')
+      .select(['applications.id as id', 'exams.title as title', 'classes.name as detail', 'applications.date as date', 'applications.status as status'])
+      .orderBy('applications.date', 'desc')
+      .orderBy('applications.createdAt', 'desc')
+      .limit(OPEN_APPLICATION_LIMIT)
+      .execute()
 
   /**
    * Waiting for something from the teacher: an open-ended score (RF48) or the
@@ -160,6 +225,23 @@ export function createReportRepository(db: Kysely<Database>): ReportRepository {
     async gradableApplications(teacherId) {
       const rows = await activities(teacherId).where('applications.status', '=', GENERATED).execute()
       return rows.map(toActivity)
+    },
+
+    async nextStepSources(teacherId) {
+      const [students, emptyClass, open] = await Promise.all([
+        totalOf(sheetHolders(teacherId).select((eb) => eb.fn.countAll<CountColumn>().as('total')).executeTakeFirstOrThrow()),
+        classWithoutStudents(teacherId),
+        openApplications(teacherId),
+      ])
+      return {
+        students,
+        ...(emptyClass !== undefined && { classWithoutStudents: emptyClass }),
+        open: open.map((row) => ({
+          ...toActivity({ id: row.id, title: row.title, detail: row.detail, date: row.date }),
+          status: openStatusOf(row.status),
+          progress: progressOf(row),
+        })),
+      }
     },
 
     async applicationSource(teacherId, applicationId) {

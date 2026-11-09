@@ -70,7 +70,7 @@ describe('createLocalReportRepository', () => {
     it('counts nothing in a system with nothing in it', async () => {
       const reports = reportsWith(createTeacherRepositories(TEST_TEACHER_ID), correctionsOf({}))
 
-      expect(await reports.dashboard()).toEqual({ classes: 0, questions: 0, exams: 0, applications: 0, pendingCorrections: 0, recent: [], gradable: [] })
+      expect(await reports.dashboard()).toEqual({ classes: 0, questions: 0, exams: 0, applications: 0, pendingCorrections: 0, recent: [], gradable: [], students: 0, open: [] })
     })
 
     it('counts what the teacher created and names the exam and class of each recent application', async () => {

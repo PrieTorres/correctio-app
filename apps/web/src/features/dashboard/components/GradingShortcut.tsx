@@ -9,7 +9,14 @@ import type { DashboardActivity } from '@/lib/reports'
 
 const LABEL = 'Corrigir folhas'
 
-/** The gold action of the panel, the same whether it is a link or opens a choice. */
+/**
+ * Drawn like the other quick actions: the gold button of the panel is the next
+ * step (#202), and two gold buttons would compete for the same glance.
+ */
+const SHORTCUT_CLASSES =
+  'touch-target flex w-full items-center gap-3 rounded-[var(--radius-control)] border border-line px-3 text-body text-ink hover:border-primary hover:bg-surface-muted'
+
+/** The single action of the dialog that explains where sheets come from. */
 const ACTION_CLASSES =
   'touch-target mt-2 flex w-full items-center gap-3 rounded-[var(--radius-control)] bg-accent px-3 text-label text-on-accent hover:bg-accent-hover'
 
@@ -62,8 +69,8 @@ export function GradingShortcut({ gradable }: Readonly<{ gradable: readonly Dash
 
   if (shortcut.kind === GRADING_SHORTCUT.ONE) {
     return (
-      <Link to={buildPath(ROUTES.grading, { id: shortcut.application.id })} className={ACTION_CLASSES}>
-        <ScanLine size={18} aria-hidden />
+      <Link to={buildPath(ROUTES.grading, { id: shortcut.application.id })} className={SHORTCUT_CLASSES}>
+        <ScanLine size={18} aria-hidden className="text-primary" />
         {LABEL}
       </Link>
     )
@@ -71,8 +78,8 @@ export function GradingShortcut({ gradable }: Readonly<{ gradable: readonly Dash
 
   return (
     <>
-      <button type="button" className={ACTION_CLASSES} onClick={() => setOpen(true)}>
-        <ScanLine size={18} aria-hidden />
+      <button type="button" className={SHORTCUT_CLASSES} onClick={() => setOpen(true)}>
+        <ScanLine size={18} aria-hidden className="text-primary" />
         {LABEL}
       </button>
       <Modal

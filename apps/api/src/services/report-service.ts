@@ -88,12 +88,13 @@ export function createReportService({ reports, now = () => new Date() }: ReportS
 
   return {
     async dashboard(teacherId) {
-      const [counts, recent, gradable] = await Promise.all([
+      const [counts, recent, gradable, nextStep] = await Promise.all([
         reports.counts(teacherId),
         reports.recentApplications(teacherId),
         reports.gradableApplications(teacherId),
+        reports.nextStepSources(teacherId),
       ])
-      return { ...counts, recent, gradable }
+      return { ...counts, recent, gradable, ...nextStep }
     },
 
     applicationReport,
