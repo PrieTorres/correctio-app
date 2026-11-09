@@ -545,7 +545,16 @@ const publicLookupHeaderSchema = z.object({
   ]),
 });
 
-const answerKeySchema = z.array(z.object({ questionId: id, correctAlternativeId: id }));
+const answerKeyEntrySchema = z.object({
+  questionId: id,
+  correctAlternativeId: id,
+  number: z.number().int().positive(),
+  correctLetter: z.string(),
+});
+
+const answerKeySchema = z.array(answerKeyEntrySchema);
+
+const scoredAnswerKeySchema = z.array(answerKeyEntrySchema.extend({ markedLetter: z.string().optional() }));
 
 /**
  * The answer of the public lookup, one object per state. `z.object` drops any
@@ -560,7 +569,7 @@ export const publicLookupSchema = z.discriminatedUnion('status', [
   z.object({
     status: z.literal('ANSWER_KEY_AND_SCORE'),
     header: publicLookupHeaderSchema,
-    answerKey: answerKeySchema,
+    answerKey: scoredAnswerKeySchema,
     totalScore: z.number(),
     objectiveResults: z.array(objectiveResultSchema),
   }),

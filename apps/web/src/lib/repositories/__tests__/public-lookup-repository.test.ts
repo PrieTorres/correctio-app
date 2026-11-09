@@ -37,7 +37,7 @@ describe('createHttpPublicLookupRepository', () => {
     const body = {
       status: 'ANSWER_KEY_AND_SCORE',
       header: HEADER,
-      answerKey: [{ questionId: 'q1', correctAlternativeId: 'a1' }],
+      answerKey: [{ questionId: 'q1', correctAlternativeId: 'a1', number: 1, correctLetter: 'A', markedLetter: 'A' }],
       totalScore: 7.5,
       objectiveResults: [{ questionId: 'q1', correct: true, score: 2.5, selectedAlternativeId: 'a1' }],
     }
@@ -57,6 +57,13 @@ describe('createHttpPublicLookupRepository', () => {
 
   it('refuses a score in a state that has no answer key', async () => {
     const { api } = clientAnswering({ status: 'ANSWER_KEY_AND_SCORE', header: HEADER, totalScore: 9 })
+
+    await expect(createHttpPublicLookupRepository(api).findByCode('X')).rejects.toBeInstanceOf(StorageError)
+  })
+
+  /** #203: without the printed letter the key tells the student nothing, so an entry missing it is not shown as if it were whole. */
+  it('refuses an answer key entry without the printed number and letter', async () => {
+    const { api } = clientAnswering({ status: 'ANSWER_KEY_ONLY', header: HEADER, answerKey: [{ questionId: 'q1', correctAlternativeId: 'a1' }] })
 
     await expect(createHttpPublicLookupRepository(api).findByCode('X')).rejects.toBeInstanceOf(StorageError)
   })
