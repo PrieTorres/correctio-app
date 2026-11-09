@@ -19,8 +19,9 @@ Uma tabela por entidade do banco MySQL, com as colunas **como as migrations as c
   (`campo?`) do modelo.
 - **`+`** marca o que o grupo acrescentou além da Spec SGP Católica. **Técnica** marca
   `createdAt` e `updatedAt` que o modelo não lista: o banco preenche, e a API não os devolve.
-- **Arquivamento:** o campo que tira o registro de uso. Nenhuma linha de domínio é apagada e
-  nenhuma chave estrangeira apaga em cascata.
+- **Arquivamento:** o campo que tira o registro de uso. Nenhuma linha de domínio é apagada por
+  exclusão, e nenhuma chave estrangeira apaga em cascata. A exceção são as versões e as folhas de
+  uma aplicação, que a regeneração do PDF troca enquanto nenhuma folha tem correção (RF24).
 
 O script `npm run docs:er-diagram` confere este dicionário contra o banco migrado e acusa coluna
 que falta ou que sobra (ver [Como gerar de novo](er-diagram.md#como-gerar-de-novo)).
@@ -287,8 +288,8 @@ enquanto ela não tem correção, troca as versões e as folhas.
 | `layout` | `JSON` | | não | A ordem efetivamente impressa: `{ questionOrder: string[], alternativeOrder: { questionId: string, printedOrder: string[] }[] }`. `questionOrder` lista os `questionId` na ordem do papel; `printedOrder` lista os `id` de alternativa na ordem das letras. Sem ele, a correção é impossível. |
 | `answerKeyPublished` | `TINYINT(1)` | | não | Se o gabarito está publicado na consulta pública. Padrão: falso. |
 | `answerKeyPublishedAt` | `DATETIME(3)` | | sim | Quando o gabarito foi publicado. |
-| `publicCode` | `VARCHAR(64)` | UK | não | Código de acesso público ao gabarito da versão. |
-| `qrCodePayload` | `VARCHAR(512)` | | não | O conteúdo do QR Code da versão. |
+| `publicCode` | `VARCHAR(64)` | UK | não | Código aleatório da versão, criado na geração. Campo da Spec sem uso no site: a consulta pública sai de `answer_sheets.code`. |
+| `qrCodePayload` | `VARCHAR(512)` | | não | Mesmo valor de `publicCode`. Campo da Spec sem uso: o QR impresso carrega `<PUBLIC_APP_URL>/r/<answer_sheets.code>`. |
 
 **Unicidade:** `uq_exam_versions_number (applicationId, versionNumber)`.<br>
 **Arquivamento:** segue a aplicação.
@@ -337,14 +338,14 @@ A correção de uma folha, automática pela foto ou manual.
 | `reportedStudentRegistration` | `VARCHAR(40)` | | sim | Matrícula escrita na folha física, quando ela não tem identificação. |
 | `totalScore` | `DECIMAL(7,2)` | | não | Nota total da folha. |
 | `notes` | `TEXT` | | sim | Observações do professor. |
-| `confirmedAt` | `DATETIME(3)` | | não | Quando a correção foi confirmada. |
+| `confirmedAt` | `DATETIME(3)` | | não | Hora da última gravação da revisão, finalizada ou não. A Spec fala em "confirmada": divergência registrada em `Modelo_de_Dados.md`. |
 | `correctedBy` | `VARCHAR(36)` | FK → `users.id` | não | Professor que corrigiu (o `teacherId`). |
 | `isAutomaticallyAssigned` | `TINYINT(1)` | | não | Se o aluno veio da própria folha identificada (verdadeiro) ou foi atribuído pelo professor (falso). |
 | `clientCorrectionId` | `VARCHAR(64)` | UK | não | Identificador da correção no cliente, obrigatório na Spec. O site gera no servidor; um app preserva o seu. |
 | `syncStatus` | `ENUM('pending','synced','error')` | | não | Situação da sincronização, obrigatória na Spec. O site grava `synced`. |
 | `answerSheetId` | `VARCHAR(36)` | FK → `answer_sheets.id`, UK | não | **+** A folha corrigida. Única: cada folha tem no máximo uma correção. |
 | `source` | `ENUM('IMAGE_UPLOAD','MANUAL')` | | não | **+** Origem da correção: foto da folha ou lançamento manual. |
-| `status` | `ENUM('IN_PROGRESS','DONE')` | | não | **+** `IN_PROGRESS` enquanto falta a nota de alguma discursiva; `DONE` quando completa. |
+| `status` | `ENUM('IN_PROGRESS','DONE')` | | não | **+** `DONE` quando o professor finaliza e toda discursiva tem nota (zero incluso); `IN_PROGRESS` em qualquer outro caso, inclusive ao salvar sem finalizar. |
 | `imageUrl` | `VARCHAR(2048)` | | sim | **+** Referência à foto da folha, guardada fora do banco (ADR-004), quando a correção veio de foto. |
 | `createdAt` | `DATETIME(3)` | | não | **Técnica.** Quando a correção foi criada. |
 | `updatedAt` | `DATETIME(3)` | | não | **Técnica.** Última alteração da linha. |

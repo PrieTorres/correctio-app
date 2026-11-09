@@ -83,10 +83,12 @@ src/
   repositories/     acesso ao banco (Kysely)
   models/           tipos das tabelas (tables.ts)
   db/               conexão, migrations, comando de migrar, busca de texto e erros do MySQL
-  middlewares/      autenticação, erro, rota inexistente
+  middlewares/      autenticação, limite de requisições, tamanho do corpo, no-store, erro, rota inexistente
   lib/              ApiError, paginação, validação da entrada, mesclagem do PATCH, criptografia de campo,
-                    armazenamento de arquivos, logger
+                    armazenamento de arquivos, tipo real da imagem, senha, tokens e cookie da sessão, logger
   lib/exam-pdf/     o PDF da aplicação: páginas, cartão-resposta e QR Code de cada folha
+  lib/sheet-reading/ leitura da foto numa worker thread (ADR-007)
+  lib/report-export/ relatórios em xlsx, csv e pdf
 ```
 
 Tipos e schemas vêm de `@correctio/domain` (`packages/domain`), os mesmos do front: a API valida
@@ -97,7 +99,7 @@ com as mesmas regras das telas, sem cópia.
 | Tema | Regra |
 |---|---|
 | Rotas | Os nomes da tabela de endpoints da Spec (seção 7 do `docs/Spec SGP Católica.pdf`), sem prefixo, substantivo no plural (`/questions`) |
-| Lista | `{ items, total }`. `page` (padrão 1), `pageSize` (padrão 50, máximo 1000), `search`, `archived`, mais os filtros da entidade, aplicados **antes** de paginar. Acima de 1000 responde 400, nunca corta em silêncio |
+| Lista | `{ items, total }`. `page` (padrão 1), `pageSize` (padrão 50, máximo 1000), `search`, `archived`, mais os filtros da entidade, aplicados **antes** de paginar. Acima de 1000 responde 400, nunca corta em silêncio. Exceções: `GET /questions/tags` responde `{ tags }`, e `GET /applications/:id/read-failures` responde a lista sem paginar |
 | Erro | `{ code, message }`, com `message` em português, porque a tela mostra o texto como veio |
 | Códigos | `not-found` 404 · `invalid` 400 · `conflict` 409 · `failure` 500 · `unauthorized` 401 · `too-many-requests` 429 (com `Retry-After`). Erro inesperado vira `failure` sem stack trace, e o detalhe fica só no log |
 | Escrita | `PATCH` mescla `{ ...atual, ...enviado }` e nunca apaga campo que não conhece. Campo limpo chega como `null` |
@@ -122,7 +124,12 @@ com as mesmas regras das telas, sem cópia.
 | `POST /classes/:id/students/:studentId/anonymize` | Anonimização irreversível do aluno (RF38) |
 | `POST /exams/draw` | Geração automática de prova (RF16) |
 | `POST /applications/:id/grades-release` | Libera ou recolhe as notas, com `{ released }`. Responde a aplicação |
-| `POST /applications/:id/publish-answer-keys` | "Publicar todos" da P14: publica o gabarito de todas as versões de uma vez |
+| `POST /applications/:id/publish-answer-keys` | Corresponde ao `POST /applications/:id/publish-answer-key` da Spec, com o nome no plural. É o "Publicar todos" da P14: publica o gabarito de todas as versões de uma vez |
+| `GET /questions/:id` | Uma questão, mesmo excluída, porque a prova aplicada ainda a imprime |
+| `GET /questions/tags` | As tags já usadas, para os filtros e o autocompletar. Responde `{ tags }` |
+| `PATCH /applications/:id` | Edita a aplicação (#163); depois de gerado o PDF, só a data muda |
+| `PATCH /applications/:id/archive` | Arquiva a aplicação, como as turmas e as provas |
+| `GET /auth/google`, `GET /auth/google/callback` e `POST /auth/google/exchange` | Entrada com a conta Google (ADR-003). Ver "Autenticação" |
 | `GET /applications/:id/sheets` | Folhas impressas, por `sheetNumber`. Faz o papel do `GET /applications/:id/students` da Spec, porque a `AnswerSheet` substituiu o `ExamAssignment` (`docs/Modelo_de_Dados.md`) |
 | `GET /applications/:id/pdf` | Baixa o PDF consolidado. É o endereço que o `pdfUrl` da aplicação traz |
 | `POST /applications/:id/corrections` | Grava a revisão de uma folha (RF28, RF30). A Spec só lista e edita as correções |
@@ -133,6 +140,26 @@ com as mesmas regras das telas, sem cópia.
 | `GET /dashboard` | Os números e a atividade recente do painel (P1), numa requisição só (#50). Ver "Painel, perfil e relatórios" |
 | `GET /applications/:id/report?format=` | Arquivo do relatório da aplicação (RF36, #82). A Spec define a rota sem `format`; o parâmetro segue o do `GET /reports/consolidated` |
 | `GET /public/sheets/:code` | Consulta pública por folha, pelo `AnswerSheet.code` (#49). Sem login, com limite de 30 requisições por minuto por IP. Código desconhecido responde `200` com `{ status: "INVALID_CODE" }`, igual a um código que existe mas não leva a nada, para quem tenta adivinhar não distinguir os dois. Responde `X-Robots-Tag: noindex` |
+
+Da Spec, não existem as rotas `/student/*` (a área do aluno está fora do escopo), `/mobile/*`
+(não há app), as de código de convite (ver "Alunos") e `GET /public/answer-key/:publicCode`,
+substituída por `GET /public/sheets/:code`.
+
+### Autenticação
+
+As regras e o porquê estão no ADR-003; aqui fica o contrato das rotas.
+
+- `POST /auth/register` responde 201 com a sessão. `POST /auth/login`, `POST /auth/refresh` e
+  `POST /auth/google/exchange` respondem `{ user, accessToken, expiresIn }`.
+- O token de acesso vai só no corpo, para a página guardar em memória. O de renovação vai só no
+  cookie `__session` (`HttpOnly`, caminho `/api/auth`), vale 30 dias e é trocado a cada uso; um
+  refresh recusado também apaga o cookie.
+- `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/forgot-password` e
+  `POST /auth/reset-password` respondem 204. O `forgot-password` responde 204 mesmo para e-mail
+  que não existe, para não revelar quem tem conta.
+- `GET /auth/google` e `GET /auth/google/callback` respondem com redirecionamento (302): o
+  primeiro leva ao Google, e o segundo volta ao front com um código de uso único, que o
+  `google/exchange` troca pela sessão.
 
 ### Alunos
 
@@ -285,7 +312,11 @@ As três telas de números leem rotas próprias, calculadas no servidor com as f
   aplicações não arquivadas, a correção em andamento (RF48) ou sem aluno (RF31), uma vez cada
   (#93). `recent` são as 5 aplicações não arquivadas mais recentes pela data, ordenadas no banco,
   com o título da prova e o nome da turma; `gradable`, as que têm folhas impressas (`generated`),
-  para o "Corrigir folhas".
+  para o "Corrigir folhas". Para o próximo passo do painel (#202): `students`, os alunos de turmas
+  ativas que recebem folha (nem removidos nem anonimizados, a mesma regra da geração);
+  `classWithoutStudents`, a turma ativa criada por último sem nenhum desses alunos, quando houver;
+  e `open`, as aplicações em aberto (ativas e com as notas não liberadas), até 20, da data mais
+  recente para a mais antiga, cada uma com `status` e o mesmo `progress` da lista (P11).
 - **`GET /applications/:id/report`** (P18): `summary` (corrigidas, média, mediana, desvio padrão,
   menor e maior), `distribution`, `questions` (acerto e letra da alternativa mais marcada, na
   ordem da prova), `tags`, `students` (nome, matrícula, versão, total e a nota de cada questão na
@@ -361,8 +392,6 @@ requisição (não é multipart): a P15 envia uma de cada vez.
 - **Limite:** 500 fotos e 200 MB por professor em 24 horas (`docs/Seguranca_e_LGPD.md`, seção
   4), contados no banco. Passou disso, responde 429.
 - **Aplicação sem PDF gerado** responde 409: não há folha para reconhecer.
-- Por enquanto toda correção é `MANUAL`. A correção que vem de uma foto (`IMAGE_UPLOAD`), com a
-  `imageUrl`, chega com o envio das fotos (#47, segunda parte).
 
 `POST /classes/:id/students` cria o registro do aluno, com nome, matrícula e e-mail opcional. Na
 Spec, a mesma rota matricula por e-mail um aluno que já tem conta, mas aqui o aluno não tem conta
@@ -383,7 +412,9 @@ acento e sem diferenciar maiúscula, como o índice único da tabela.
 
 Ver `.env.example` para rodar local. No Firebase, `NODE_ENV=production`, `DATABASE_TLS=verify`,
 `FILE_STORAGE=firebase`, `CORS_ORIGINS` (os endereços do próprio projeto) e `TRUST_PROXY_HOPS=2`
-vêm de `src/config/hosted-env.ts`, e nenhuma variável do host consegue trocar os três primeiros. Os 2 saltos
+vêm de `src/config/hosted-env.ts`, e nenhuma variável do host consegue trocar os três primeiros.
+Dali vem também o `PUBLIC_APP_URL` (`https://<projeto>.web.app`), que vai no QR Code, no link de
+redefinição de senha e no retorno do Google. Os 2 saltos
 foram medidos no primeiro deploy: a requisição chega com `X-Forwarded-For: <cliente>, <proxy do Google>`. Os segredos vêm do Secret Manager do projeto.
 
 Sem `DATA_ENCRYPTION_KEY`, a API não sobe: o `bootstrapApi` recusa a falta da chave, tanto no
@@ -401,7 +432,8 @@ encaminha `/api/**` para ela, então em produção as rotas respondem em
   nas versões exatas que os testes usaram.
 - `src/server.ts` e `src/function.ts` só recebem requisições; tudo o que respondem é montado em
   `bootstrapApi` (`src/bootstrap.ts`), então local e publicado não divergem.
-- Os PDFs vão para o bucket padrão do Firebase Storage de cada projeto, criado em `us-west1` e
+- Os PDFs (`applications/<id>/…`) e as fotos das folhas (`answer-sheets/<aplicação>/…`) vão para
+  o bucket padrão do Firebase Storage de cada projeto, criado em `us-west1` e
   privado, com as regras do Storage negando todo acesso vindo do navegador (ADR-004). A função
   usa a própria conta de serviço, sem chave salva em lugar nenhum. Enquanto o bucket não existir,
   a API sobe normalmente e só as rotas de arquivo respondem com erro: 500, com a mensagem "O

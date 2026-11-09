@@ -13,11 +13,14 @@ import { useCurrentUser } from '@/features/auth'
 import { applicationListPath, APPLICATION_FILTER } from '@/features/applications/application-filter'
 import { firstName, formatDate } from '@/lib/utils'
 import { GradingShortcut } from '../components/GradingShortcut'
+import { NextStepCard } from '../components/NextStepCard'
 import type { DashboardActivity, DashboardSummary } from '@/lib/reports'
 import { EMPTY_SUMMARY, useDashboardSummary } from '../hooks/useDashboard'
 
 /**
  * Every main action within three clicks of here, which is what RNF06 asks.
+ * The next step (#202) comes first and holds the gold button of the screen;
+ * the quick actions stay for whatever else the teacher came to do.
  *
  * The quick actions sit beside the summary rather than under it: the counts are
  * what a teacher reads, and the actions are what they came to do, so putting
@@ -45,6 +48,7 @@ export function DashboardPage() {
       />
 
       <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando o painel…">
+        <NextStepCard summary={summary} />
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-4 lg:col-span-2">
             <SummaryCards summary={summary} />
@@ -89,7 +93,7 @@ function SummaryCards({ summary }: Readonly<{ summary: DashboardSummary }>) {
 
 function RecentActivityCard({ recent }: Readonly<{ recent: readonly DashboardActivity[] }>) {
   return (
-    <Card data-tour="recent">
+    <Card>
       <div className="border-b border-line px-5 py-4">
         <h2 className="text-title text-primary">Atividade recente</h2>
       </div>

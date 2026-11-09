@@ -45,7 +45,7 @@ localStorage       HTTP → Express        HTTP → Express
                    + login próprio (JWT)
 ```
 
-**Regra dura: nenhum componente chama `localStorage` ou `fetch` diretamente.** Ele chama `useTurmas()`, que chama `turmaRepository.list()`. Trocar de fonte significa trocar uma fábrica lida de variável de ambiente — nenhuma tela muda.
+**Regra dura: nenhum componente chama `localStorage` ou `fetch` diretamente.** Ele chama `useClassList()`, que chama `repositories.classes.list()`. Trocar de fonte significa trocar uma fábrica lida de variável de ambiente — nenhuma tela muda.
 
 O que faz isso funcionar é a interface do repositório já ser escrita **no formato do contrato HTTP futuro**: assíncrona (mesmo lendo `localStorage`, que é síncrono), paginada, com o mesmo formato de erro e os mesmos DTOs. Assim o adaptador HTTP da N2 é tradução mecânica, não redesenho.
 
@@ -53,7 +53,7 @@ O que faz isso funcionar é a interface do repositório já ser escrita **no for
 
 | | N1 — GitHub Pages | N2 — API MySQL | Firebase |
 |---|---|---|---|
-| Repositórios | `LocalStorageRepo` | `HttpRepo` (arquivo novo) | inalterado |
+| Repositórios | `createLocal…Repository` | `createHttp…Repository` (em `lib/repositories/http/`) | inalterado |
 | Schemas de validação | validam o que sai do `localStorage` | **os mesmos** validam a resposta da API | inalterado |
 | Hooks / cache | inalterados | inalterados | inalterados |
 | Telas | — | **nenhuma mudança** | nenhuma |
@@ -68,8 +68,8 @@ builds do Firebase usam.
 apenas no `pages.yml`, decide entre o login local com dados de exemplo e o login real. O Vite
 grava o valor como constante, então o seed, a sessão simulada e os botões "Aplicar"/"Limpar"
 ficam fora do pacote do Firebase, em vez de só escondidos: em produção e na pré-produção nada é
-inventado. As áreas cuja API ainda não entrou continuam gravando no navegador, separadas pelo
-professor logado, até a issue de cada uma ligar o repositório HTTP.
+inventado. Todas as áreas estão na API desde a 2.0.0 (#189): o build do Firebase só tem os
+repositórios HTTP (`createHttpTeacherRepositories`), e o navegador não guarda dado de negócio.
 
 ---
 
@@ -77,7 +77,7 @@ professor logado, até a issue de cada uma ligar o repositório HTTP.
 
 **N1: GitHub Pages. N2: Firebase Hosting para o front e Cloud Functions para a API, no mesmo endereço (o Hosting encaminha `/api/**` para a função); o GitHub Pages segue publicando o front da `main`, como demo. Autenticação: os endpoints `/auth` da Spec, com JWT próprio, login por e-mail e senha ou pelo Google** (decisão da PM de 14/10, na #40).
 
-**Roteamento por caminho, não por hash.** URL limpa (`/correctio/r/ABC123`), com a base do roteador vinda da variável de build. No GitHub Pages, onde o front segue publicado para teste, o `pages.yml` copia o `index.html` para `404.html`; no Firebase, o `firebase.json` devolve o `index.html` para todo caminho que não é arquivo nem `/api`.
+**Roteamento por caminho, não por hash.** URL limpa (`/correctio-app/r/ABC123` no GitHub Pages, `/r/ABC123` no Firebase), com a base do roteador vinda da variável de build. No GitHub Pages, onde o front segue publicado para teste, o `pages.yml` copia o `index.html` para `404.html`; no Firebase, o `firebase.json` devolve o `index.html` para todo caminho que não é arquivo nem `/api`.
 
 O motivo é específico deste projeto e é o **único ponto verdadeiramente irreversível**: a URL de consulta vai impressa em papel dentro do QR Code. Se a N1 imprimir `.../#/r/ABC` e depois o sistema migrar de host, toda folha impressa quebra. Por isso:
 
@@ -104,7 +104,7 @@ Três restrições que definem o que a N1 pode fazer:
 
 **Cerca de 5 MB, e síncrono — não cabe foto de folha de resposta.** Uma foto de celular convertida para texto ocupa de 3 a 7 MB: estoura a cota em **uma única imagem**. Na N1, as telas de correção usavam um conjunto fixo de imagens de demonstração e a leitura era simulada. Desde a N2 a foto vai para a API, que a guarda no Storage e a lê numa worker thread ([ADR-007](adr/ADR-007-sheet-reading-on-api-worker.md)); o demo do Pages lê a foto no próprio navegador e a guarda só na memória, sem `localStorage`.
 
-**É por navegador.** O cliente e a professora abrindo o link veem os dados semeados, não o que a equipe demonstrou. Por isso é obrigatório um conjunto de dados de demonstração realista — turmas, alunos, questões, provas, aplicações e correções já preenchidas — carregado no primeiro acesso, mais um botão "Restaurar dados de demonstração". Sem isso, quem abrir o link vê 25 telas vazias.
+**É por navegador.** O cliente e a professora abrindo o link veem os dados semeados, não o que a equipe demonstrou. Por isso é obrigatório um conjunto de dados de demonstração realista — turmas, alunos, questões, provas, aplicações e correções já preenchidas — carregado no primeiro acesso, mais os botões "Aplicar" e "Limpar" em "Dados de demonstração", no menu. Sem isso, quem abrir o link vê 25 telas vazias.
 
 **O conteúdo é dado externo e não confiável.** O usuário pode editar, ou pode sobrar uma versão antiga do formato depois de um deploy. Toda leitura passa por validação de schema — os **mesmos** schemas que na N2 validam a resposta da API. É isso que faz os tipos da N1 não serem descartáveis.
 
@@ -122,8 +122,8 @@ Três restrições que definem o que a N1 pode fazer:
 | Validação | Schemas compartilhados front/back | Mesma definição valida `localStorage`, API e entrada do Express |
 | Formulários | React Hook Form | Nove das 25 telas são formulário |
 | Estilo | Tailwind + componentes próprios no repositório | Customização total, dependência mínima |
-| Acessibilidade | Primitives headless para modal, drawer, abas e combobox | Metade do RNF11 sai pronta |
-| Gráficos | Biblioteca de gráficos para os relatórios | Histograma e barras |
+| Acessibilidade | Radix (dialog e dropdown-menu) para modal, drawer e menu de ações | Metade do RNF11 sai pronta |
+| Gráficos | Barras em CSS, sem biblioteca | O histograma do relatório é a única figura |
 | Testes | Unitários nas regras críticas + Cypress ponta a ponta | Exigido pelo RNF08, com cobertura mínima barrando o merge |
 | Qualidade contínua | GitHub Actions + SonarCloud em todo PR | RNF20 — ver [CI_CD.md](CI_CD.md) |
 
@@ -134,22 +134,26 @@ Três restrições que definem o que a N1 pode fazer:
 ## 6. Organização do código
 
 ```
-src/
+apps/web/src/
   app/            roteador, providers (cache, autenticação), layouts
   features/
-    turmas/       pages/ components/ hooks/ repository/ schemas.ts index.ts
-    questoes/
-    provas/
-    aplicacoes/
-    correcao/
-    relatorios/
-    publico/
-  components/ui/  Botão, Modal, Tabela, ConfirmarAcao, Importar, EstadoVazio, Tour
-  lib/            adaptadores de armazenamento, cliente HTTP, dados semeados
-  types/          domínio compartilhado
+    classes/      pages/ components/ hooks/ index.ts
+    questions/
+    exams/
+    applications/
+    grading/
+    reports/
+    dashboard/
+    auth/
+    public/
+  components/ui/  Button, ButtonLink, Modal, Drawer, ConfirmDialog, EmptyState, ErrorState,
+                  LoadingState, NotFoundState, QueryBoundary, Tour…
+  lib/            repositórios (locais e HTTP), cliente da API, tour, jobs, dados semeados
+  types/          reexporta o domínio de @correctio/domain
+packages/domain/  tipos, schemas Zod e regras usados pelo site e pela API
 ```
 
-Estrutura por funcionalidade, com `index.ts` como interface pública de cada pasta. Com 25 telas, seis domínios e cinco pessoas, é o que evita conflito de merge e o erro mais comum em equipe: cinco tabelas diferentes fazendo a mesma coisa. Os componentes compartilhados — modal de confirmação, modal de importação, tabela, estado vazio — precisam existir **antes** de qualquer tela.
+Estrutura por funcionalidade, com `index.ts` como interface pública de cada pasta. Com 25 telas, seis domínios e cinco pessoas, é o que evita conflito de merge e o erro mais comum em equipe: cinco tabelas diferentes fazendo a mesma coisa. Os componentes compartilhados — modal de confirmação, estados de carregando, erro e vazio (`QueryBoundary`) — precisam existir **antes** de qualquer tela.
 
 ### Conceitos aplicados
 
@@ -166,11 +170,11 @@ Estrutura por funcionalidade, com `index.ts` como interface pública de cada pas
 
 ### Operação demorada nunca trava a tela (RF41, RNF13)
 
-Gerar PDF, ler folhas, importar e exportar não devolvem o resultado — devolvem **um job**. A tela confirma em menos de 1 segundo, o professor volta a trabalhar, e a notificação chega quando o resultado existe.
+A ideia: uma operação demorada não devolve o resultado, devolve **um job**. A tela confirma em menos de 1 segundo, o professor volta a trabalhar, e a notificação chega quando o resultado existe.
 
 No front isso é um padrão único e reutilizável: iniciar job → registrar o id → acompanhar o estado → avisar. Nenhuma tela implementa isso do seu jeito, e nenhuma mostra spinner bloqueante.
 
-O padrão está em `apps/web/src/lib/background-jobs` (#82): cada job é uma mutation do TanStack Query sob a chave `background-job`, com o tipo do `BackgroundJob` (`EXPORT`, `GENERATE_PDF`, `READ_SHEETS`, `IMPORT`). O cache guarda o job depois que a tela que o iniciou sai, e o aviso do layout (`BackgroundJobsNotice`) lê todos de lá: mostra "em andamento" no clique, oferece o arquivo quando fica pronto, em qualquer tela, e some quando o professor fecha ou quando a sessão termina. A exportação de relatórios é o primeiro uso; gerar PDF e importar usam os mesmos hooks (`useBackgroundJob`, `useBackgroundJobs`).
+O padrão está em `apps/web/src/lib/background-jobs` (#82): cada job é uma mutation do TanStack Query sob a chave `background-job`, com o tipo do `BackgroundJob` (`EXPORT`, `GENERATE_PDF`, `READ_SHEETS`, `IMPORT`). O cache guarda o job depois que a tela que o iniciou sai, e o aviso do layout (`BackgroundJobsNotice`) lê todos de lá: mostra "em andamento" no clique, oferece o arquivo quando fica pronto, em qualquer tela, e some quando o professor fecha ou quando a sessão termina. Hoje só a exportação de relatórios usa esse padrão (`useBackgroundJob`, `useBackgroundJobs`); os tipos `GENERATE_PDF`, `READ_SHEETS` e `IMPORT` existem, mas nada os usa ainda. Gerar PDF avisa na tela que dá para sair dela; cada foto vai sozinha e volta com a leitura; a importação de alunos mostra o resultado no próprio painel. Nenhuma das três aparece no aviso do layout.
 
 A leitura de imagem é intensiva em CPU e **não pode** rodar na thread principal do servidor — travaria a API inteira. É o mesmo motivo, visto do outro lado.
 
@@ -184,7 +188,7 @@ Arquivar turma, prova e aplicação e excluir questão são todos **soft-delete*
 
 ### O tour é conteúdo, não código (RF37, RNF19)
 
-Componente único alimentado por um arquivo de texto por tela. O limite de 4 passos e 90 caracteres vira teste automatizado; revisar a redação é mexer em um arquivo só. Especificação e texto final: [Tour_Guiado.md](Tour_Guiado.md).
+Componente único (`components/ui/Tour.tsx`) alimentado por um arquivo só, `lib/tour/content.ts`, com os passos de todas as telas. O limite de 4 passos e 90 caracteres vira teste automatizado; revisar a redação é mexer em um arquivo só. Especificação e texto final: [Tour_Guiado.md](Tour_Guiado.md).
 
 ---
 

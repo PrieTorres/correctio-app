@@ -166,8 +166,9 @@ export interface PrintOptions {
 /**
  * One sitting printed on the API, with what a test acts on: the sheet comes
  * from the answer of the generation, so its code is never read off a table on
- * screen, and the question with its correct alternative lets the test record a
- * right answer.
+ * screen, and the question with its two alternatives lets the test record a
+ * right answer or a wrong one. Neither version shuffles, so the correct one is
+ * printed under A and the wrong one under B.
  */
 export interface PrintedApplication {
   applicationId: string
@@ -175,6 +176,7 @@ export interface PrintedApplication {
   studentName: string
   questionId: string
   correctAlternativeId: string
+  wrongAlternativeId: string
   sheet: AnswerSheet
 }
 
@@ -182,6 +184,7 @@ interface PrintedExam {
   examId: string
   questionId: string
   correctAlternativeId: string
+  wrongAlternativeId: string
 }
 
 function createPrintedClass(api: Api): Cypress.Chainable<string> {
@@ -193,13 +196,14 @@ function createPrintedClass(api: Api): Cypress.Chainable<string> {
 /** The alternatives keep the ids sent, as the API stores them, so the test knows which one is right. */
 function createPrintedExam(api: Api): Cypress.Chainable<PrintedExam> {
   const correctAlternativeId = crypto.randomUUID()
+  const wrongAlternativeId = crypto.randomUUID()
   const question: QuestionInput = {
     type: 'objetiva',
     statement: PRINTED_SITTING.statement,
     tags: ['Geometria'],
     alternatives: [
       { id: correctAlternativeId, text: '6' },
-      { id: crypto.randomUUID(), text: '5' },
+      { id: wrongAlternativeId, text: '5' },
     ],
     correctAlternativeId,
     allowShuffleAlternatives: false,
@@ -213,7 +217,7 @@ function createPrintedExam(api: Api): Cypress.Chainable<PrintedExam> {
       defaultShuffleQuestions: false,
       defaultShuffleAlternatives: false,
     }
-    return api<{ id: string }>('POST', '/exams', exam).then(({ body }): PrintedExam => ({ examId: body.id, questionId, correctAlternativeId }))
+    return api<{ id: string }>('POST', '/exams', exam).then(({ body }): PrintedExam => ({ examId: body.id, questionId, correctAlternativeId, wrongAlternativeId }))
   })
 }
 

@@ -89,7 +89,7 @@ function version(overrides: Partial<ExamVersion> = {}): ExamVersion {
     shuffleQuestions: true,
     shuffleAlternatives: true,
     withStudentIdentification: true,
-    layout: { questionOrder: ['q1', 'q2'], alternativeOrder: [] },
+    layout: { questionOrder: ['q1', 'q2'], alternativeOrder: [{ questionId: 'q1', printedOrder: ['q1-a', 'q1-b'] }] },
     answerKeyPublished: false,
     publicCode: 'PUBCODE',
     qrCodePayload: 'PUBCODE',
@@ -124,6 +124,24 @@ const CORRECTION: Correction = {
   isAutomaticallyAssigned: true,
   clientCorrectionId: 'client-correction-1',
   syncStatus: 'synced',
+}
+
+/** A version that printed the alternatives of `q1` the other way round, so its correct answer sits under B. */
+const SHUFFLED_LAYOUT = { questionOrder: ['q1', 'q2'], alternativeOrder: [{ questionId: 'q1', printedOrder: ['q1-b', 'q1-a'] }] }
+
+/** A second objective question, printed after the open-ended one. */
+const THIRD: Question = {
+  id: 'q3',
+  teacherId: 'ana',
+  type: 'objetiva',
+  statement: 'Outra objetiva',
+  tags: [],
+  alternatives: [
+    { id: 'q3-a', text: 'errada' },
+    { id: 'q3-b', text: 'certa' },
+  ],
+  correctAlternativeId: 'q3-b',
+  allowShuffleAlternatives: true,
 }
 
 function sources(overrides: Partial<LookupSources> = {}): LookupSources {
@@ -267,7 +285,7 @@ describe('resolvePublicLookup', () => {
   it('lists the answer key in the order the paper was printed in', () => {
     const reversed = version({
       answerKeyPublished: true,
-      layout: { questionOrder: ['q2', 'q1'], alternativeOrder: [] },
+      layout: { questionOrder: ['q2', 'q1'], alternativeOrder: [{ questionId: 'q1', printedOrder: ['q1-a', 'q1-b'] }] },
     })
 
     const result = resolvePublicLookup(sources({ version: reversed }))
@@ -275,6 +293,83 @@ describe('resolvePublicLookup', () => {
     if (result.status === 'ANSWER_KEY_ONLY') {
       expect(result.answerKey.map((entry) => entry.questionId)).toEqual(['q1'])
     }
+  })
+
+  /** #203: the student holds paper, not ids, and a shuffled version prints the right answer under another letter. */
+  it('gives the letter the correct alternative was printed under on this version', () => {
+    const result = resolvePublicLookup(sources({ version: version({ answerKeyPublished: true, layout: SHUFFLED_LAYOUT }) }))
+
+    expect(result).toMatchObject({
+      status: 'ANSWER_KEY_ONLY',
+      answerKey: [{ questionId: 'q1', correctAlternativeId: 'q1-a', number: 1, correctLetter: 'B' }],
+    })
+  })
+
+  /** The open-ended question is skipped, but it keeps its place, so the numbers match the paper. */
+  it('numbers each question as the paper does, counting the open-ended ones it skips', () => {
+    const printed = version({
+      answerKeyPublished: true,
+      layout: {
+        questionOrder: ['q1', 'q2', 'q3'],
+        alternativeOrder: [
+          { questionId: 'q1', printedOrder: ['q1-a', 'q1-b'] },
+          { questionId: 'q3', printedOrder: ['q3-a', 'q3-b'] },
+        ],
+      },
+    })
+
+    const result = resolvePublicLookup(sources({ version: printed, bank: [...BANK, THIRD] }))
+
+    expect(result).toMatchObject({
+      status: 'ANSWER_KEY_ONLY',
+      answerKey: [
+        { questionId: 'q1', number: 1, correctLetter: 'A' },
+        { questionId: 'q3', number: 3, correctLetter: 'B' },
+      ],
+    })
+  })
+
+  /** A question this version printed without alternatives had nowhere to be marked, so no letter is guessed for it. */
+  it('leaves out a question this version printed no alternatives for', () => {
+    const unprinted = version({ answerKeyPublished: true, layout: { questionOrder: ['q1', 'q2'], alternativeOrder: [] } })
+
+    expect(resolvePublicLookup(sources({ version: unprinted }))).toMatchObject({ status: 'ANSWER_KEY_ONLY', answerKey: [] })
+  })
+
+  it('shows the letter the student marked once the grades are out', () => {
+    const result = resolvePublicLookup(
+      sources({
+        version: version({ answerKeyPublished: true, layout: SHUFFLED_LAYOUT }),
+        application: application({ gradesReleased: true }),
+        correction: { ...CORRECTION, objectiveResults: [{ questionId: 'q1', correct: false, score: 0, selectedAlternativeId: 'q1-b' }] },
+      }),
+    )
+
+    expect(result).toMatchObject({
+      status: 'ANSWER_KEY_AND_SCORE',
+      answerKey: [{ questionId: 'q1', number: 1, correctLetter: 'B', markedLetter: 'A' }],
+    })
+  })
+
+  it('gives no marked letter for a question left blank', () => {
+    const result = resolvePublicLookup(
+      sources({
+        version: version({ answerKeyPublished: true }),
+        application: application({ gradesReleased: true }),
+        correction: { ...CORRECTION, objectiveResults: [{ questionId: 'q1', correct: false, score: 0 }] },
+      }),
+    )
+
+    expect(result).toMatchObject({ status: 'ANSWER_KEY_AND_SCORE', answerKey: [{ questionId: 'q1', correctLetter: 'A' }] })
+    expect(JSON.stringify(result)).not.toContain('markedLetter')
+  })
+
+  /** What the student marked is part of the grade, so it waits for the grades like the score does. */
+  it('keeps what the student marked hidden while only the answer key is published', () => {
+    const result = resolvePublicLookup(sources({ version: version({ answerKeyPublished: true }) }))
+
+    expect(result.status).toBe('ANSWER_KEY_ONLY')
+    expect(JSON.stringify(result)).not.toContain('markedLetter')
   })
 
   it('carries the exam, the class and the date for the header', () => {

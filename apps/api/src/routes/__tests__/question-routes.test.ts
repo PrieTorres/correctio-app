@@ -401,6 +401,47 @@ describe.runIf(serverUrl !== undefined)('question routes (real MySQL)', () => {
    * the bank on the front. Now each one answers 400 with the message the form
    * shows, and nothing is written.
    */
+  describe('one tag, many spellings (#199)', () => {
+    const tagsOf = async (statement: string) =>
+      (await db.selectFrom('question_tags').innerJoin('questions', 'questions.id', 'question_tags.questionId').select('tag').where('statement', '=', statement).execute()).map((row) => row.tag)
+
+    it('writes a new tag in the spelling the teacher already uses', async () => {
+      await post('token-ana', { ...makeQuestion('A'), tags: ['Matemática'] })
+      const res = await post('token-ana', { ...makeQuestion('B'), tags: ['matematica', 'Física'] })
+
+      expect([...(res.body.tags as string[])].sort()).toEqual(['Física', 'Matemática'])
+      expect((await tagsOf('B')).sort()).toEqual(['Física', 'Matemática'])
+    })
+
+    it("never takes another teacher's spelling", async () => {
+      await post('token-bia', { ...makeQuestion('A'), tags: ['Matemática'] })
+      const res = await post('token-ana', { ...makeQuestion('B'), tags: ['matematica'] })
+
+      expect(res.body.tags).toEqual(['matematica'])
+    })
+
+    it('lets the only question with a spelling change it', async () => {
+      const created = await post('token-ana', { ...makeQuestion('A'), tags: ['matematica'] })
+      const res = await request(app)
+        .patch(`/questions/${created.body.id as string}`)
+        .set('Authorization', 'Bearer token-ana')
+        .send({ tags: ['Matemática'] })
+
+      expect(res.body.tags).toEqual(['Matemática'])
+    })
+
+    it('keeps an edited tag in the spelling the other questions use', async () => {
+      await post('token-ana', { ...makeQuestion('A'), tags: ['Matemática'] })
+      const created = await post('token-ana', { ...makeQuestion('B'), tags: ['Física'] })
+      const res = await request(app)
+        .patch(`/questions/${created.body.id as string}`)
+        .set('Authorization', 'Bearer token-ana')
+        .send({ tags: ['Física', 'MATEMATICA'] })
+
+      expect([...(res.body.tags as string[])].sort()).toEqual(['Física', 'Matemática'])
+    })
+  })
+
   describe('inputs the database cannot store as typed (#184)', () => {
     const openEnded = (maxScore: number) => ({
       type: 'discursiva' as const,

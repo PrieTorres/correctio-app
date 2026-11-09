@@ -44,6 +44,10 @@ encontrar cada um: *quem inicia uma ação, ou quem o sistema precisa acionar?*
 | **Aluno**             | Primário   | Não tem conta; é um registro dentro da turma | Escaneia o QR Code da própria folha e vê o resultado em uma página pública          |
 | **Serviço de E-mail** | Secundário | Sistema externo                              | É acionado pelo Correctio para entregar o link de recuperação de senha              |
 
+O login com a conta Google (decidido em 14/10, ADR-003) também passa por um sistema externo,
+o Google como provedor de identidade. Ele fica dentro de UC02 Fazer login, como outra forma
+de entrar, e o desenho ainda não mostra o Google como ator secundário.
+
 Atores primários **iniciam** casos de uso; o secundário **é acionado** pelo sistema para
 completar um deles. Por isso o Professor e o Aluno ficam à esquerda do diagrama e o Serviço de
 E-mail à direita.
@@ -75,7 +79,7 @@ arquivar turma são o objetivo "Gerenciar turmas".
 | UC   | Caso de uso                      | Ator                         | RFs                    |
 | ---- | -------------------------------- | ---------------------------- | ---------------------- |
 | UC01 | Cadastrar-se                     | Professor                    | RF01, RF39             |
-| UC02 | Fazer login                      | Professor                    | RF02                   |
+| UC02 | Fazer login                      | Professor                    | RF02 (e-mail e senha ou conta Google) |
 | UC03 | Recuperar senha                  | Professor, Serviço de E-mail | RF03                   |
 | UC04 | Encerrar sessão                  | Professor                    | RF04                   |
 | UC05 | Gerenciar a própria conta        | Professor                    | RF05                   |
@@ -170,7 +174,7 @@ São três tipos de ligação, e a escolha entre eles é a parte que mais gera d
 | UC14 Duplicar prova          | «extend»  | UC12 Montar prova        | Parte de uma prova existente em vez de começar do zero.                  |
 | UC15 Importar / exportar     | «extend»  | UC12 Montar prova        | Opcional.                                                                |
 | UC16 Aplicar prova           | «include» | UC17 Gerar PDF           | Aplicação existe para ser impressa: sem PDF, não há folha para corrigir. |
-| UC18 Regenerar PDF           | «extend»  | UC17 Gerar PDF           | Só enquanto não há correção confirmada (RF24).                           |
+| UC18 Regenerar PDF           | «extend»  | UC17 Gerar PDF           | Só sem nenhuma correção (confirmada ou não), sem notas liberadas e com a aplicação ativa (RF24). |
 | UC19 Publicar gabarito       | «include» | UC30 Registrar auditoria | Exigido pelo RF40.                                                       |
 | UC20 Liberar resultado       | «include» | UC30 Registrar auditoria | Exigido pelo RF40.                                                       |
 | UC21 Corrigir por imagem     | «include» | UC22 Revisar correção    | Nenhuma leitura vira nota sem confirmação do professor.                  |
@@ -182,7 +186,9 @@ São três tipos de ligação, e a escolha entre eles é a parte que mais gera d
 
 **Por que UC30 não tem ator:** "Registrar auditoria" é feito pelo sistema, nunca pedido
 pelo professor. Ele só existe como caso incluído — desenhá-lo deixa visível no diagrama que
-as operações sensíveis de LGPD são sempre registradas.
+as operações sensíveis de LGPD são sempre registradas. Na N2, o log do sistema só registra as
+falhas de leitura de foto; a trilha de auditoria das operações de UC07, UC19 e UC20 é da N3
+(RF40).
 
 **Por que UC29 depende de UC20 mas não tem seta:** a página pública só mostra o resultado
 depois da liberação, mas isso é uma **pré-condição** (ordem no tempo), não include nem
@@ -336,23 +342,24 @@ que envolve o aluno.
 
 1. O professor abre a aplicação e escolhe corrigir.
 2. O professor envia uma ou várias imagens de folhas (RF26).
-3. O sistema confirma o recebimento e processa em segundo plano (RF41).
+3. O sistema guarda cada foto e devolve a leitura na mesma resposta; a leitura roda fora da
+   linha principal da API (ADR-007).
 4. O sistema lê o QR Code e identifica folha, versão e, se houver, aluno.
-5. O sistema lê as marcações e compara com o gabarito daquela versão (RF27).
-6. O sistema calcula a nota das questões objetivas.
-7. Inclui **UC22 Revisar correção**: o professor confere e confirma.
-8. O sistema salva a correção como concluída.
+5. O sistema lê as marcações daquela versão (RF27). Nenhuma correção é gravada no envio.
+6. Inclui **UC22 Revisar correção**: o professor confere as marcações e confirma.
+7. O sistema compara com o gabarito, calcula a nota das objetivas e grava a correção.
+8. A correção fica concluída quando o professor finaliza e toda discursiva tem nota (RF47).
 
 **Fluxos alternativos**
 
 - **4a. QR Code ilegível ou inválido** → o sistema avisa; o professor segue por **UC24
   Corrigir manualmente** (extend).
-- **6a. A prova tem discursivas** → a correção fica "em andamento" até o professor executar
+- **8b. A prova tem discursivas** → a correção fica "em andamento" até o professor executar
   **UC23 Lançar nota discursiva** (RF47, RF48).
 - **4b. Prova sem identificação do aluno** → a correção fica ligada à folha; o professor pode
   executar **UC25 Associar folha ao aluno** (RF31).
-- **8a. Já existe correção confirmada para o mesmo aluno na mesma versão** → o sistema
-  sinaliza o conflito e não sobrescreve a anterior.
+- **7a. Já existe correção, confirmada ou não, para o mesmo aluno na mesma versão, ou a folha
+  já foi corrigida** → o sistema sinaliza o conflito e não sobrescreve a anterior.
 
 ### UC29 — Consultar resultado pelo QR Code
 

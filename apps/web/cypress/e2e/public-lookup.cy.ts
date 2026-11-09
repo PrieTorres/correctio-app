@@ -103,7 +103,9 @@ describe('consulta pública de uma folha impressa', () => {
       scan(sheet.code)
       cy.contains('h2', 'Gabarito').should('be.visible')
       cy.contains('A nota ainda não foi liberada').should('be.visible')
+      cy.contains('li', 'Questão 1').should('contain', 'Resposta certa: A')
       cy.contains('h2', 'Sua nota').should('not.exist')
+      cy.contains('Você marcou').should('not.exist')
 
       cy.recordCorrection(accessToken, {
         applicationId,
@@ -118,7 +120,7 @@ describe('consulta pública de uma folha impressa', () => {
 
       scan(sheet.code)
       cy.contains('h2', 'Sua nota').parent().should('contain', '10')
-      cy.contains('Você acertou').should('be.visible')
+      cy.contains('li', 'Questão 1').should('contain', 'Resposta certa: A').and('contain', 'Você marcou A').and('contain', 'Você acertou')
 
       openDetailOf(examTitle)
       cy.contains('button', 'Ações').click()
@@ -154,6 +156,41 @@ describe('consulta pública de uma folha impressa', () => {
       cy.contains('h2', 'Gabarito').should('be.visible')
       cy.contains('h2', 'Sua nota').should('not.exist')
       cy.contains('Você acertou').should('not.exist')
+    })
+  })
+
+  /**
+   * #203: the key gives the letter as printed on the paper, and once the
+   * grades are out, the letter the student marked beside it, so a wrong
+   * answer says which one was chosen.
+   */
+  it('mostra a letra certa e a que o aluno marcou quando ele erra', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, sheet, questionId, wrongAlternativeId }) => {
+      const api = apiAs(accessToken)
+      api('POST', `/applications/${applicationId}/publish-answer-keys`)
+      cy.recordCorrection(accessToken, {
+        applicationId,
+        answerSheetId: sheet.id,
+        answers: [{ questionId, selectedAlternativeId: wrongAlternativeId }],
+        finalize: true,
+      })
+      api('POST', `/applications/${applicationId}/grades-release`, { released: true })
+
+      scan(sheet.code)
+      cy.contains('li', 'Questão 1').should('contain', 'Resposta certa: A').and('contain', 'Você marcou B').and('contain', 'Você errou')
+    })
+  })
+
+  /** A blank question is told apart from a wrong mark, since "você errou" alone does not say which. */
+  it('diz que o aluno deixou em branco a questão sem marcação', () => {
+    printForTheTeacher().then(({ accessToken, applicationId, sheet, questionId }) => {
+      const api = apiAs(accessToken)
+      api('POST', `/applications/${applicationId}/publish-answer-keys`)
+      cy.recordCorrection(accessToken, { applicationId, answerSheetId: sheet.id, answers: [{ questionId }], finalize: true })
+      api('POST', `/applications/${applicationId}/grades-release`, { released: true })
+
+      scan(sheet.code)
+      cy.contains('li', 'Questão 1').should('contain', 'Resposta certa: A').and('contain', 'Você deixou em branco').and('contain', 'Você errou')
     })
   })
 

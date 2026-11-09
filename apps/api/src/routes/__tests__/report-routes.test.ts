@@ -245,6 +245,49 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('report routes (real MySQL)', ()
 
       expect(gradable.map((item) => item.id)).toEqual([newer.applicationId, older.applicationId])
     })
+
+    /** The next step (#202) counts students the way the generation does, so it never sends anyone to print for nobody. */
+    it('counts the students who get a paper, and names the active class without any', async () => {
+      await db
+        .insertInto('students')
+        .values({ id: 'student-gone', classId: 'class-bia', fullName: 'Anonimizado', registration: 'x', email: null, userId: null, anonymizedAt: new Date() })
+        .execute()
+      try {
+        const forAna = (await ana().get('/dashboard')).body as DashboardSummary
+        const forBia = (await bia().get('/dashboard')).body as DashboardSummary
+
+        expect(forAna.students).toBe(1)
+        expect(forAna).not.toHaveProperty('classWithoutStudents')
+        expect(forBia.students).toBe(0)
+        expect(forBia.classWithoutStudents).toEqual({ id: 'class-bia', name: 'Turma class-bia' })
+      } finally {
+        await db.deleteFrom('students').where('id', '=', 'student-gone').execute()
+      }
+    })
+
+    it('lists the open applications with their progress, leaving out the archived and the released ones', async () => {
+      const graded = await application({ date: '2026-10-20T12:00:00.000Z' })
+      await correct(graded.applicationId, graded.first, FULL_MARKS)
+      await correct(graded.applicationId, graded.blank, UNFINISHED)
+      const draft = await application({ date: '2026-10-01T12:00:00.000Z', status: 'draft' })
+      await application({ date: '2026-10-25T12:00:00.000Z', status: 'closed' })
+      const released = await application({ date: '2026-10-28T12:00:00.000Z' })
+      await db.updateTable('applications').set({ gradesReleased: true }).where('id', '=', released.applicationId).execute()
+      await application({ teacherId: 'bia', classId: 'class-bia', examId: 'exam-bia' })
+
+      const { open } = (await ana().get('/dashboard')).body as DashboardSummary
+
+      expect(open.map((item) => item.id)).toEqual([graded.applicationId, draft.applicationId])
+      expect(open[0]).toEqual({
+        id: graded.applicationId,
+        title: 'Prova exam-applied',
+        detail: 'Turma class-ana',
+        date: '2026-10-20T12:00:00.000Z',
+        status: 'generated',
+        progress: { versions: 1, publishedAnswerKeys: 0, sheets: 3, correctedSheets: 1, corrections: 2 },
+      })
+      expect(open[1]).toMatchObject({ status: 'draft' })
+    })
   })
 
   describe('GET /applications/:id/report', () => {

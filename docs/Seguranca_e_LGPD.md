@@ -23,7 +23,7 @@ Isso não é um problema na N1, porque lá o dado é fictício e semeado. O que 
 
 ### Regra 1 — nunca confiar em id vindo do cliente
 
-`GET /turmas/:id` não busca a turma e devolve. Busca `WHERE id = :id AND professor_id = :usuarioAutenticado`. Isso vale para turma, aluno, questão, prova, aplicação, versão, folha e correção.
+`GET /classes/:id` não busca a turma e devolve. Busca `WHERE id = :id AND teacherId = :usuarioAutenticado`. Isso vale para turma, aluno, questão, prova, aplicação, versão, folha e correção.
 
 É o bug conhecido como IDOR (*Insecure Direct Object Reference*) e é por onde vazam praticamente todos os sistemas desse tipo. Duas consequências de projeto:
 
@@ -65,7 +65,7 @@ Como a decisão de produto foi consulta sem digitar matrícula, **o código é a
 |---|---|
 | **Token opaco** | Aleatório criptográfico, ≥ 128 bits. Nunca sequencial, nunca derivado do id do aluno ou da aplicação. |
 | **Separado do número visível** | "Folha 37" é para o professor organizar papel. Não é chave de consulta. |
-| **Limite de requisições** | 30/min por IP, com espera progressiva. Segunda barreira contra varredura. |
+| **Limite de requisições** | 30/min por IP, sem espera: passou do limite, responde 429 com `Retry-After` de 60 s. Segunda barreira contra varredura. |
 | **`noindex` + `robots.txt`** | Sem isso o Google indexa notas de aluno — e o site é totalmente público. |
 | **Resposta mínima** | Só o que a regra autoriza, e só depois de notas liberadas / gabarito publicado. Nunca o registro completo do aluno. |
 | **Invalidação** | Folha de PDF regenerado responde "QR inválido", nunca a nota antiga. |
@@ -79,11 +79,11 @@ Um limite único não serve: 300 req/min mata a importação em lote e não impe
 
 | Camada | Rotas | Limite | Chave |
 |---|---|---|---|
-| Pública | consulta por código | 30/min, espera progressiva | IP |
-| Autenticação | cadastro, login, recuperação | 5 tentativas / 15 min, espera progressiva a partir da 3ª | IP **+** e-mail |
+| Pública | consulta por código | 30/min, sem espera | IP |
+| Autenticação | cadastro, login, recuperação | 5 tentativas / 15 min, espera progressiva a partir da 3ª. O login conta só as falhas; a redefinição com o código conta as falhas por IP | IP **+** e-mail |
 | Leitura | GETs autenticados | 300/min | professor |
 | Escrita comum | CRUD | 60/min | professor |
-| **Cara** | gerar PDF, importar lote, exportar relatório | 10/h + 1 job concorrente | professor |
+| **Cara** | gerar PDF, importar lote, exportar relatório (só com `?format=`) | 10/h. Não há limite de trabalhos simultâneos; a geração trava a linha da aplicação | professor |
 | **Muito cara** | upload e leitura de folha | 500 imagens/dia, 200 MB/dia, contados no banco (`sheet_images`); uma leitura de cada vez, na worker thread | professor |
 
 ### Quatro detalhes que quebram isso na prática
@@ -92,13 +92,17 @@ Um limite único não serve: 300 req/min mata a importação em lote e não impe
 
 **2. `app.set('trust proxy', ...)` é obrigatório.** Atrás de balanceador de carga sem essa configuração, o IP que a aplicação enxerga é o do proxy, e *todo mundo* compartilha o mesmo balde. O limite some silenciosamente — não gera erro, só para de funcionar.
 
-**3. O contador precisa ser compartilhado.** Com mais de uma instância, um limitador em memória conta por processo: três instâncias entregam o triplo do limite. Exige store externo (Redis).
+**3. O contador precisa ser compartilhado.** Com mais de uma instância, um limitador em memória conta por processo: três instâncias entregam o triplo do limite. Exige store externo (Redis). Hoje a API roda com
+`maxInstances: 1` e conta em memória, e a cota de fotos fica no banco; o Redis só entra ao passar
+de uma instância (ADR-005).
 
 **4. Trabalho caro vai para fila — e a fila deixa o app mais rápido, não mais lento.** Este é o ponto que costuma ser mal lido. A alternativa à fila não é "resposta instantânea": é a tela travada em uma barra de progresso por 40 segundos enquanto o servidor monta o PDF. Com fila, o professor recebe **confirmação em menos de 1 segundo** ("Gerando seu PDF, avisamos quando ficar pronto") e volta a usar o sistema imediatamente; a notificação chega quando o arquivo existe (RNF13).
 
 Ou seja: a fila é o que permite atender pico de semana de prova **sem** degradar o tempo de resposta percebido. O que ela converte em latência é a conclusão do trabalho pesado, não a interação. E dá idempotência de graça — duplo clique em "Gerar PDF" não gera dois PDFs.
 
-Isso vale para gerar PDF, ler folhas, importar em lote e exportar relatório. Nenhuma dessas telas mostra spinner bloqueante.
+Isso vale para gerar PDF, ler folhas, importar em lote e exportar relatório. Na N2, nada disso está
+em fila: tudo roda dentro da requisição, e só a exportação é um trabalho em segundo plano no front
+(o aviso do layout). A fila é da N3 (seção 8).
 
 ---
 
@@ -128,24 +132,25 @@ Limite por usuário não protege a conta: 600 professores legítimos na semana d
 |---|---|
 | **Necessidade / minimização** (Art. 6º, III) | Pendente: o e-mail do aluno é coletado sem finalidade no sistema. Ver nota do RF07. |
 | **Transparência** (Art. 6º, VI) | RF39 — aviso de privacidade no cadastro e na importação de alunos, mais página pública de aviso de privacidade. |
-| **Direito de exclusão** (Art. 18, VI) | RF38 — anonimização do aluno. Remover da turma (RF09) **não** cumpre esse direito: preserva os dados. RF05 — anonimização da conta do professor (`POST /me/anonymize`): nome, e-mail e senha substituídos e sessões encerradas, com turmas, provas e notas preservadas. |
+| **Direito de exclusão** (Art. 18, VI) | RF38 — anonimização do aluno. Remover da turma (RF09) **não** cumpre esse direito: preserva os dados. A anonimização troca nome e matrícula e apaga o e-mail; as fotos das folhas e o PDF da aplicação, que podem trazer o nome, continuam no bucket. RF05 — anonimização da conta do professor (`POST /me/anonymize`): nome, e-mail e senha substituídos e sessões encerradas, com turmas, provas e notas preservadas. |
 | **Direito de acesso e correção** (Art. 18, I–III) | O aluno não tem login, então exerce pelo professor, que edita ou anonimiza o registro. |
 | **Segurança** (Art. 46) | RNF04 (tráfego), RNF16 (arquivos), RNF18 (API), RNF14 (isolamento). |
 | **Registro das operações** (Art. 37) | RF40 e RNF17 — trilha de auditoria. |
 | **Retenção** | Definida pela instituição, não pelo sistema. Sem descarte automático — o que protege contra perda é o backup com restauração testada (RNF09), e o que é "excluído" pela interface é reversível (RF42). Os backups em si duram 30 dias: um aluno anonimizado (RF38) continua, por até 30 dias, nos backups feitos antes da anonimização. |
-| **Transferência internacional** (Art. 33) | Acontece e precisa estar declarada. O banco fica nos EUA, no Aiven sobre a DigitalOcean, em São Francisco (ADR-001). A API, as imagens das folhas e os backups diários do banco ficam no Google, em us-west1 (ADR-004, ADR-005 e `docs/CI_CD.md`, seção 8). Aiven, DigitalOcean e Google são subprocessadores. A leitura da folha roda na API ou, no demo, no navegador do professor, nunca mandando a imagem a terceiros (ADR-006 e ADR-007). |
+| **Transferência internacional** (Art. 33) | Acontece e precisa estar declarada. O banco fica nos EUA, no Aiven sobre a DigitalOcean, em São Francisco (ADR-001). A API, as imagens das folhas, os PDFs e os backups diários do banco ficam no Google, em us-west1 (ADR-004, ADR-005 e `docs/CI_CD.md`, seção 8). Aiven, DigitalOcean e Google são subprocessadores. A leitura da folha roda na API ou, no demo, no navegador do professor, nunca mandando a imagem a terceiros (ADR-006 e ADR-007). |
 | **Comunicação de incidente** (Art. 48) | Procedimento documentado: quem detecta, quem comunica, em quanto tempo. |
 
 ### Três pontos que não estavam previstos em lugar nenhum
 
-**Imagens de questão são upload de professor, não dado de aluno.** Valem os mesmos limites
+**Imagens de questão são upload de professor, não dado de aluno.** Ainda não implementadas
+(RF45, #105). Quando entrarem, valem os mesmos limites
 técnicos do RNF16 — tipo real do arquivo, teto de tamanho e re-processamento no recebimento —
 mas a sensibilidade é outra: são conteúdo autoral, não dado pessoal de terceiro. Ficam no mesmo
 armazenamento privado, e entram no PDF gerado.
 
-**EXIF.** Foto de celular carrega **coordenadas de GPS**, data e modelo do aparelho. A tela de envio de folhas aceita foto direto da câmera. Toda imagem recebida precisa ser **re-processada no servidor**, o que remove os metadados e, de quebra, neutraliza conteúdo malicioso embutido em arquivo de imagem.
+**EXIF.** Foto de celular carrega **coordenadas de GPS**, data e modelo do aparelho. A tela de envio de folhas aceita foto direto da câmera. Toda imagem recebida precisa ser **re-processada no servidor**, o que remove os metadados e, de quebra, neutraliza conteúdo malicioso embutido em arquivo de imagem. Na N2, a foto é guardada como chegou; só a cópia usada na leitura é reduzida. O re-processamento é da N3 (seção 8).
 
-**Armazenamento privado.** As imagens das folhas ficam em armazenamento fechado, acessível só por URL assinada de curta validade. Se o repositório de arquivos for público, toda folha de resposta — com nome e nota — está na internet aberta.
+**Armazenamento privado.** As imagens das folhas ficam em armazenamento fechado e saem só pela API, para o professor da aplicação, com `Cache-Control: private, no-store`. URL assinada de curta validade é da N3. Se o repositório de arquivos for público, toda folha de resposta — com nome e nota — está na internet aberta.
 
 **Trilha ≠ log.** São coisas diferentes e ambas precisam existir: a **trilha de auditoria** registra quem fez o quê (autor, ação, entidade, data), enquanto o **log de aplicação** não pode conter nenhum dado pessoal (RNF05). A trilha guarda a ação, nunca o conteúdo do dado.
 
@@ -162,14 +167,14 @@ armazenamento privado, e entram no PDF gerado.
 | Cabeçalhos de segurança + CSP | Via `helmet`. Não depender de `X-XSS-Protection`, hoje desativado nos navegadores. |
 | CORS | Só os endereços do próprio projeto Firebase (`<projeto>.web.app` e `<projeto>.firebaseapp.com`), derivados do projeto em que a API roda (`config/hosted-env.ts`). Nunca `*`. Front e API dividem o mesmo endereço, então o navegador nem faz chamada entre origens. |
 | Validação de entrada | Schemas na fronteira, reaproveitando os mesmos do front. |
-| Limite de payload | JSON pequeno por rota; upload com teto próprio. |
-| Upload | Validar pelo **tipo real do arquivo**, não pela extensão. Teto de tamanho e de dimensão. |
+| Limite de payload | Teto único de 100 KB para todo JSON; a foto da folha tem teto próprio de 10 MB. |
+| Upload | Validar pelo **tipo real do arquivo**, não pela extensão. Teto de tamanho; não há teto de dimensão. |
 | SQL | Sempre parametrizado ou via ORM. Nunca concatenar, nunca "escapar na mão". |
 | Segredos | Em gerenciador de segredos. Nunca no repositório, nunca no bundle do front. |
 | Dependências | `npm ci` com lockfile; build reprovado com vulnerabilidade alta ou crítica. |
-| Container | Executado sem privilégio de root, imagem em versão LTS fixada. |
+| Runtime | Cloud Functions de 2ª geração, com Node 22 fixado no `firebase.json`; o contêiner é do Google. |
 | Observabilidade | Log estruturado em JSON com id de correlação por requisição, sem dado pessoal. |
-| Ciclo de vida | Encerramento gracioso em `SIGTERM`; erro desconhecido derruba o processo em vez de seguir em estado corrompido. |
+| Ciclo de vida | No servidor local (`server.ts`), encerramento gracioso em `SIGTERM` e erro desconhecido derruba o processo em vez de seguir em estado corrompido. Na função publicada, quem controla o ciclo de vida é o runtime do Google. |
 | Processamento pesado | Leitura de imagem é uso intensivo de CPU e **não pode** rodar na thread principal — trava a API inteira. Roda numa worker thread (`lib/sheet-reading`, ADR-007), uma foto de cada vez. |
 | Upload de imagem | Tipo conferido pelos primeiros bytes (JPEG, PNG ou WebP), nunca pela extensão nem pelo `Content-Type`; até 10 MB; guardado no bucket privado e entregue só ao professor da aplicação (#47). |
 | Cache das respostas | `Cache-Control: no-store` em toda resposta da API (`middlewares/no-store.ts`). O cache existe só na memória do app — ver "Cache" abaixo. |
@@ -210,5 +215,5 @@ O objetivo é não refazer a mesma leitura a cada troca de tela, sem nunca guard
 | Fase | Entrega desta área |
 |---|---|
 | **N1** (11/09) | Este documento e os requisitos. No código: escopo por professor já na camada de repositório, DTO estreito na consulta pública, `noindex`. |
-| **N2** (23/10) | Autenticação real, isolamento por conta com teste automatizado, validação na fronteira, SQL parametrizado, CORS, cabeçalhos de segurança (HSTS incluído), limite de requisições em camadas, hash de senha e de token, criptografia do e-mail do aluno, TLS até o banco, `no-store` na API e cache só em memória no front. |
-| **N3** (27/11) | Fila com confirmação imediata e notificação, re-processamento de imagem e remoção de EXIF, URLs assinadas, trilha de auditoria, anonimização de aluno, alertas de orçamento. |
+| **N2** (2.0.0, 01/11) | Autenticação real, isolamento por conta com teste automatizado, validação na fronteira, SQL parametrizado, CORS, cabeçalhos de segurança (HSTS incluído), limite de requisições em camadas, hash de senha e de token, criptografia do e-mail do aluno, TLS até o banco, `no-store` na API e cache só em memória no front, anonimização de aluno e da conta, envio de foto com tipo real, até 10 MB, bucket privado e cota diária. |
+| **N3** (27/11) | Fila com confirmação imediata e notificação, re-processamento de imagem e remoção de EXIF, URLs assinadas, trilha de auditoria, alertas de orçamento. |

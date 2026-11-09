@@ -267,6 +267,14 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('exam routes (real MySQL)', () =
       expect(response.body.shortfall).toEqual({ multipleChoice: 2, openEnded: 0 })
     })
 
+    /** #199: the bank's filter ignores case and accents, and the draw now keeps what it finds. */
+    it('draws a tag asked with other case or accents', async () => {
+      const response = await ana().post('/exams/draw', { tags: ['LIMITES', 'calculo i'], multipleChoiceCount: 5, openEndedCount: 1 })
+
+      const ids = (response.body.questions as { id: string }[]).map((item) => item.id).sort()
+      expect(ids).toEqual(['q-continuity', 'q-essay', 'q-limits'])
+    })
+
     it('leaves out the questions already in the exam or on screen', async () => {
       const response = await ana().post('/exams/draw', {
         tags: ['Limites'],

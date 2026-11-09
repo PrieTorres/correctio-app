@@ -4,6 +4,7 @@ import { BackLink, Badge, Button, ButtonLink, Card, NotFoundState, PageHeader, Q
 import { buildPath, ROUTES } from '@/app/routes';
 import { totalScore } from '@/lib/exams';
 import { useQuestionsByIds } from '@/features/questions';
+import { newApplicationPath } from '@/features/applications/sitting-choice';
 import { isMultipleChoice, type ExamStatus } from '@/types/domain';
 import { useDuplicateExam, useExam } from '../hooks/useExams';
 
@@ -113,7 +114,7 @@ export function ExamDetailPage() {
               Aplicar leva a prova a uma turma numa data. A mesma prova rende quantas aplicações
               você quiser, inclusive segunda chamada.
             </p>
-            <ButtonLink variant="primary" icon={<Plus size={18} aria-hidden />} to={ROUTES.newApplication}>
+            <ButtonLink variant="primary" icon={<Plus size={18} aria-hidden />} to={newApplicationPath({ examId: exam.id })}>
               Nova aplicação com esta prova
             </ButtonLink>
           </Card>

@@ -47,7 +47,7 @@ function without(fields: string[], ...childTables: string[]): string[] {
  * listed (#146), has no column at all.
  */
 const CONTRACT: Readonly<Record<string, string[]>> = {
-  users: [...fieldsOf(authenticatedUserSchema), 'passwordHash'],
+  users: [...fieldsOf(authenticatedUserSchema), 'passwordHash', 'emailVerifiedAt'],
   refresh_tokens: ['id', 'userId', 'tokenHash', 'deviceInfo', 'issuedAt', 'expiresAt', 'revokedAt'],
   auth_codes: ['id', 'userId', 'purpose', 'codeHash', 'expiresAt', 'usedAt', 'createdAt'],
   classes: without(fieldsOf(classSchema), 'studentCount'),
@@ -66,6 +66,7 @@ const CONTRACT: Readonly<Record<string, string[]>> = {
   correction_objective_results: ['correctionId', ...fieldsOf(objectiveResultSchema)],
   correction_discursive_scores: ['correctionId', 'questionId', 'score'],
   activity_logs: ['id', 'teacherId', 'type', 'entity', 'entityId', 'details', 'createdAt'],
+  sheet_images: ['id', 'applicationId', 'teacherId', 'storageKey', 'contentType', 'byteSize', 'status', 'answerSheetId', 'createdAt'],
 }
 
 describe.runIf(serverUrl !== undefined)('database schema', () => {

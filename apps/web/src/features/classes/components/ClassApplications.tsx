@@ -4,6 +4,7 @@ import { buildPath, ROUTES } from '@/app/routes'
 import { correctionBadgeOf, examTitleOf } from '@/features/applications/application-labels'
 import { useApplicationList } from '@/features/applications/hooks/useApplications'
 import { classApplicationsPath } from '@/features/applications/list-filters'
+import { newApplicationPath } from '@/features/applications/sitting-choice'
 import { formatDate } from '@/lib/utils'
 import type { ApplicationOverview } from '@/types/domain'
 
@@ -42,7 +43,7 @@ export function ClassApplications({ classId }: Readonly<{ classId: string }>) {
               title="Nenhuma prova aplicada ainda"
               description="Quando você aplicar uma prova a esta turma, ela aparece aqui com a data e a situação da correção."
               action={
-                <ButtonLink variant="secondary" to={ROUTES.newApplication}>
+                <ButtonLink variant="secondary" to={newApplicationPath({ classId })}>
                   Nova aplicação
                 </ButtonLink>
               }

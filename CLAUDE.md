@@ -111,7 +111,9 @@ ganhou quatro funções e continuou invisível para a cobertura.
 
 ### O Cypress roda local
 
-`npm run test:e2e` sobe o preview e roda a suíte inteira. Se aparecer
+`npm run test:e2e` sobe o preview e roda a suíte inteira contra a API local: antes,
+`docker compose up -d mysql`, `npm run db:migrate` e `npm run dev:api`, porque o Cypress
+cadastra cada professor na API. Se aparecer
 `bad option: --no-sandbox`, a causa é `ELECTRON_RUN_AS_NODE=1` no ambiente — o VS Code
 define isso para o processo de extensões, e com ela o Electron do Cypress roda como Node puro
 e recusa as próprias flags. O script já remove a variável com `env -u`; ao rodar o binário
@@ -161,14 +163,18 @@ Erros que já aconteceram e não podem repetir:
 apps/web/          front-end React + Vite (o demo do Pages ainda roda em localStorage)
 apps/api/          back-end Express + MySQL, em camadas (desde a N2)
 packages/domain/   tipos e schemas Zod do contrato, usados pelo front e pela API
+packages/sheet-reader/ leitor do QR Code e das marcações, o mesmo no navegador e na API
+scripts/           diagrama ER, backup do banco, verificações da CI
+tooling/eslint/    regras de lint compartilhadas
 docs/              documentação — ver índice no readme.md
 .plano/            plano de execução interno, fora do controle de versão
 .ui_v1/            protótipo visual de referência, fora do controle de versão
 ```
 
 A fronteira de dados fica em `apps/web/src/lib/repositories`. Nenhum componente chama
-`localStorage` ou `fetch` direto — chama um hook, que chama um repositório. Trocar a fonte
-de dados na N2 muda só a fábrica.
+`localStorage` ou `fetch` direto — chama um hook, que chama um repositório. Na N2, a troca
+para a API mudou só a fábrica (`createHttpTeacherRepositories`, em `lib/repositories/index.ts`);
+o demo do Pages segue com a versão em `localStorage`.
 
 ## Comandos
 

@@ -1,7 +1,7 @@
-import { useId, useState, type ChangeEvent } from 'react';
+import { useId, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Camera, CheckCircle2, Clock, FolderOpen, Loader2 } from 'lucide-react';
-import { ApplicationsIllustration, BackLink, Badge, Button, ButtonLink, Card, EmptyState, PageHeader, QueryBoundary, Tour } from '@/components/ui';
+import { ApplicationsIllustration, BackLink, Badge, Button, ButtonLink, Card, EmptyState, PageHeader, PhotoButton, QueryBoundary, Tour } from '@/components/ui';
 import { buildPath, ROUTES } from '@/app/routes';
 import { discursiveQuestionIdsOf, gradeObjectives } from '@/lib/grading';
 import { formatDate } from '@/lib/utils';
@@ -14,9 +14,6 @@ type Overview = NonNullable<ReturnType<typeof useGradingOverview>['data']>;
 
 /** A link that looks like the secondary button, for "Revisar" in every list of the screen. */
 /** What a file field looks like when its label is the button: the field stays focusable, and its focus shows on the label. */
-const FILE_BUTTON =
-  'touch-target inline-flex cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-control)] px-4 text-label font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary';
-
 function reviewPath(applicationId: string, sheetId: string, photoId?: string): string {
   const path = buildPath(ROUTES.gradingSheet, { id: applicationId, sheetId });
   return photoId === undefined ? path : `${path}?${PHOTO_PARAM}=${encodeURIComponent(photoId)}`;
@@ -88,39 +85,34 @@ function UploadArea({ applicationId, overview }: Readonly<{ applicationId: strin
 }
 
 /**
- * Two ways in, both a real file field behind a label that looks like a button.
- * On a phone, "Fotografar folha" opens the back camera (`capture`); on a
- * computer, "Escolher arquivos" takes several at once, each sent on its own.
- * The field is cleared after each choice: the iPhone names every photo
- * `image.jpg`, and the same name twice would not fire the next change.
+ * Two ways in (`PhotoButton`). On a phone, "Fotografar folha" opens the back
+ * camera; on a computer, "Escolher arquivos" takes several at once, each sent
+ * on its own.
  */
 function PhotoPicker({ applicationId }: Readonly<{ applicationId: string }>) {
   const upload = useUploadSheetPhoto(applicationId);
-  const cameraId = useId();
-  const filesId = useId();
 
-  const send = (event: ChangeEvent<HTMLInputElement>) => {
-    for (const photo of Array.from(event.target.files ?? [])) upload.mutate(photo);
-    event.target.value = '';
+  const send = (photos: File[]) => {
+    for (const photo of photos) upload.mutate(photo);
   };
 
   return (
     <Card data-tour="upload" className="flex flex-col items-center gap-4 border-2 border-dashed border-line p-8 text-center">
       <div className="flex flex-wrap justify-center gap-3">
-        <span>
-          <input id={cameraId} type="file" accept="image/*" capture="environment" className="peer sr-only" onChange={send} />
-          <label htmlFor={cameraId} className={`${FILE_BUTTON} bg-accent text-on-accent hover:bg-accent-hover`}>
-            <Camera size={18} aria-hidden />
-            Fotografar folha
-          </label>
-        </span>
-        <span>
-          <input id={filesId} type="file" accept="image/*" multiple className="peer sr-only" onChange={send} />
-          <label htmlFor={filesId} className={`${FILE_BUTTON} border border-primary bg-surface text-primary hover:bg-surface-muted`}>
-            <FolderOpen size={18} aria-hidden />
-            Escolher arquivos
-          </label>
-        </span>
+        <PhotoButton
+          camera
+          label="Fotografar folha"
+          icon={<Camera size={18} aria-hidden />}
+          className="bg-accent text-on-accent hover:bg-accent-hover"
+          onPhotos={send}
+        />
+        <PhotoButton
+          multiple
+          label="Escolher arquivos"
+          icon={<FolderOpen size={18} aria-hidden />}
+          className="border border-primary bg-surface text-primary hover:bg-surface-muted"
+          onPhotos={send}
+        />
       </div>
       <p className="max-w-lg text-caption text-ink-subtle">
         Fotografe de cima, com a folha inteira e os quatro quadrados dos cantos aparecendo. JPG, PNG ou WebP, até 10 MB.

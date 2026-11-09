@@ -1,6 +1,6 @@
 # ADR-004: Imagens das folhas no Firebase Storage, fora do banco
 
-**Status:** aceito em 15/10/2026, decisão da PM · Issues: #47 (envio das folhas, segue este ADR), #84 (este registro)
+**Status:** aceito em 15/10/2026, decisão da PM · Revisto em 01/11/2026 com o que a N2 entregou (ver "Revisão de 01/11/2026") · Issues: #47 (envio das folhas, segue este ADR), #84 (este registro)
 
 ## Contexto
 
@@ -48,4 +48,22 @@ Alternativas avaliadas:
 
   Processamento de imagem é uso pesado de CPU e não pode rodar na thread que atende as requisições. Enquanto a N3 não chega, o EXIF fica guardado, e esta é uma lacuna conhecida do RNF16.
 - **Apagar é soft, como no resto do sistema (RF42).** O objeto continua no bucket enquanto a correção existir. A anonimização do aluno (RF38) precisa decidir se a imagem é apagada ou mantida sem vínculo, junto da #50.
-- **Onde a leitura da folha roda**, no navegador ou no servidor, é o ADR seguinte, da #78.
+- **Onde a leitura da folha roda**, no navegador ou no servidor, é o ADR seguinte, da #78 ([ADR-006](ADR-006-answer-sheet-reading.md), revisto pelo [ADR-007](ADR-007-sheet-reading-on-api-worker.md)).
+
+## Revisão de 01/11/2026
+
+O que a N2 entregou difere da decisão em quatro pontos:
+
+- **Chave do objeto:** é `answer-sheets/<applicationId>/<imageId>.<jpg|png|webp>`, sem a pasta da
+  folha, porque a foto chega antes de se saber de que folha ela é. Os PDFs ficam em
+  `applications/<id>/<uuid>.pdf`.
+- **Leitura da foto pelo professor:** a API não gera URL assinada. A foto sai pela rota
+  autenticada `GET /applications/:id/sheet-images/:imageId`, só para o professor da aplicação,
+  com `Cache-Control: private, no-store`. URL assinada fica para a N3.
+- **A leitura já roda na N2**, numa worker thread da própria API, com as fotos em fila na
+  memória ([ADR-007](ADR-007-sheet-reading-on-api-worker.md)). Para a N3 ficam o
+  re-processamento da imagem e a remoção do EXIF.
+- **Anonimização do aluno (RF38):** entrou na N2 sem mexer nas fotos. As imagens são mantidas,
+  ainda ligadas à correção, e a decisão de apagá-las segue pendente.
+
+As imagens de enunciado (RF45) ainda não existem (#105).

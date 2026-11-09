@@ -47,7 +47,7 @@ describe('createTeacherRepositories', () => {
   it('reads the panel and the reports from the API when there is a client', async () => {
     const { api, request } = fakeApi()
     const { reports } = createTeacherRepositories('ana', api)
-    request.mockResolvedValueOnce({ classes: 0, questions: 0, exams: 0, applications: 0, pendingCorrections: 0, recent: [], gradable: [] })
+    request.mockResolvedValueOnce({ classes: 0, questions: 0, exams: 0, applications: 0, pendingCorrections: 0, recent: [], gradable: [], students: 0, open: [] })
     request.mockResolvedValueOnce([])
 
     await reports.dashboard()

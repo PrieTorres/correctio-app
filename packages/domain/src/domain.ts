@@ -416,6 +416,19 @@ export interface PublicLookupHeader {
 export interface AnswerKeyEntry {
   questionId: Id;
   correctAlternativeId: Id;
+  /**
+   * The question's number on the printed exam (#203). Open-ended questions
+   * stay out of the key, but they keep their place in the count, so the
+   * student finds the question on the paper.
+   */
+  number: number;
+  /** The correct alternative's letter on this student's version, where the alternatives may be shuffled. */
+  correctLetter: string;
+}
+
+/** An entry of the key once the grades are out: the letter the student marked, none when the question was left blank. */
+export interface ScoredAnswerKeyEntry extends AnswerKeyEntry {
+  markedLetter?: string;
 }
 
 /**
@@ -433,7 +446,7 @@ export type PublicLookup =
   | {
       status: 'ANSWER_KEY_AND_SCORE';
       header: PublicLookupHeader;
-      answerKey: AnswerKeyEntry[];
+      answerKey: ScoredAnswerKeyEntry[];
       totalScore: number;
       objectiveResults: ObjectiveResult[];
     };

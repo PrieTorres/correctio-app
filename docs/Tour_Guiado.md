@@ -8,7 +8,7 @@ Especificação do tour de apresentação das telas. Atende **RF37** (tour conte
 
 O erro clássico é disparar um tour único no primeiro login e desfilar 60 passos por um sistema que a pessoa ainda não usou. Ninguém lê, todo mundo pula, e o conhecimento se perde.
 
-**O tour do Correctio aparece por tela, na primeira vez que aquela tela é aberta.** O professor recebe 2 a 4 frases sobre o que está vendo, no momento em que aquilo importa. Isso significa que ele nunca vê mais de 4 passos de uma vez, e que aprende a tela de correção quando vai corrigir — não semanas antes.
+**O tour do Correctio aparece por tela, na primeira vez que aquela tela é aberta.** O professor recebe 1 a 4 frases sobre o que está vendo, no momento em que aquilo importa. Isso significa que ele nunca vê mais de 4 passos de uma vez, e que aprende a tela de correção quando vai corrigir — não semanas antes.
 
 ## 2. Regras de escrita
 
@@ -24,14 +24,14 @@ O erro clássico é disparar um tour único no primeiro login e desfilar 60 pass
 ## 3. Comportamento
 
 - **Dispara sozinho na primeira visita de cada tela**, uma única vez por navegador. Concluir, "Pular", o X ou `Esc` encerram de vez: o estado "já viu" fica no `localStorage` (`correctio:tour-seen`), por tela, e não se perde ao sair da conta nem ao limpar os dados de exemplo.
-- **Nunca bloqueia.** "Pular" sempre visível, `Esc` fecha, clique fora fecha. A tela continua utilizável por baixo.
+- **Nunca bloqueia.** "Pular" sempre visível e `Esc` fecha. Clicar fora não fecha, e a tela continua utilizável por baixo.
 - **Para rever, só a ajuda da tela atual**, nunca o sistema inteiro: o "?" ao lado do título, "Ajuda desta tela" no menu ou o ícone de ajuda do cabeçalho no celular abrem o tour daquela tela do primeiro passo. Reabrir não faz o tour voltar sozinho depois. Não existe mais o "rever tudo" no perfil.
 - **Não dispara em tela vazia.** Uma turma sem alunos já mostra o estado vazio com o botão certo — explicar uma tabela que não tem linhas é pior que não explicar nada. O tour espera existir conteúdo.
-- **No celular**, o passo aparece como faixa na base da tela, não como balão flutuante.
+- **No celular**, o passo é uma faixa de largura inteira, não um balão flutuante: fica na base da tela, ou no topo quando o elemento destacado está embaixo. Dentro de um modal (P9b), aparece no próprio modal.
 
 ## 4. Acessibilidade (RNF19)
 
-Foco move para o passo ativo ao abrir · navegação por `Tab`, `Enter` e `Esc` · o passo é anunciado por leitor de tela · o destaque do elemento não depende só de cor · ao fechar, o foco volta para onde estava.
+Foco move para o passo ativo ao abrir, exceto se o professor estiver digitando num campo; aí o passo é só anunciado · navegação por `Tab`, `Enter` e `Esc` · o passo é anunciado por leitor de tela · o destaque do elemento não depende só de cor · ao fechar, o foco volta para onde estava.
 
 ## 5. Conteúdo por tela
 
@@ -46,7 +46,7 @@ Os textos abaixo são os que o sistema mostra, copiados de `apps/web/src/lib/tou
 
 **Painel** — 4 passos
 1. `Clique em um destes cartões para abrir a lista que ele resume.`
-2. `Aqui embaixo ficam as últimas aplicações, para retomar de onde parou.`
+2. `Comece por este botão: ele mostra o próximo passo do seu trabalho.`
 3. `Use os atalhos para as quatro ações mais comuns, sem passar pelo menu.`
 4. `O menu segue a ordem do trabalho: turma, questão, prova, aplicação.`
 
@@ -145,6 +145,6 @@ A regra: se a tela não introduz **conceito** novo (Aplicação, versão, embara
 
 ## 6. Nota de implementação
 
-O tour é **um componente compartilhado** em `components/ui`, alimentado por um arquivo de conteúdo por tela — nunca texto espalhado dentro dos componentes de página. Assim a revisão do texto é feita em um lugar só, o limite de caracteres é verificável por teste automatizado (RNF19) e traduzir depois é trocar um arquivo.
+O tour é **um componente compartilhado** em `components/ui`, alimentado por um único arquivo de conteúdo (`lib/tour/content.ts`), com os passos de todas as telas — nunca texto espalhado dentro dos componentes de página. Assim a revisão do texto é feita em um lugar só, o limite de caracteres é verificável por teste automatizado (RNF19) e traduzir depois é trocar um arquivo.
 
 O estado "já viu esta tela" é preferência local do professor, não dado de negócio: vive no navegador, não no banco.

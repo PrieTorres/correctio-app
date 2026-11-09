@@ -1,13 +1,30 @@
-import type { ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { BackLink, Button, Card, PageHeader, QueryBoundary, SaveError } from '@/components/ui';
-import { applicationInputSchema, type ApplicationInput } from '@/lib/schemas';
-import { buildPath, ROUTES } from '@/app/routes';
-import { todayAsStored } from '@/lib/utils';
-import { ApplicationDateField } from '../components/ApplicationDateField';
-import { useSaveApplication, useSittingChoices } from '../hooks/useApplications';
+import type { ReactNode } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  BackLink,
+  Button,
+  Card,
+  PageHeader,
+  QueryBoundary,
+  SaveError,
+} from "@/components/ui";
+import { applicationInputSchema, type ApplicationInput } from "@/lib/schemas";
+import { buildPath, ROUTES } from "@/app/routes";
+import { todayAsStored } from "@/lib/utils";
+import { ApplicationDateField } from "../components/ApplicationDateField";
+import {
+  useSaveApplication,
+  useSittingChoices,
+} from "../hooks/useApplications";
+import { initialSittingOf } from "../sitting-choice";
+
+/** Every active exam and class, as `useSittingChoices` reads them. */
+interface SittingChoices {
+  exams: readonly { id: string; title: string }[];
+  classes: readonly { id: string; name: string }[];
+}
 
 /**
  * Creating an application (P12): an active exam, an active class and a day.
@@ -15,26 +32,13 @@ import { useSaveApplication, useSittingChoices } from '../hooks/useApplications'
  * lists, and the server refuses an archived one or the same sitting twice,
  * with the message shown above the buttons. The day changes later on the
  * detail (P14); the exam and the class, once printed, do not.
+ *
+ * The form opens with the exam or the class the link named, or the only one
+ * there is (#202), so it waits for the choices before it is built.
  */
 export function ApplicationFormPage() {
-  const navigate = useNavigate();
-  const save = useSaveApplication();
+  const [params] = useSearchParams();
   const { data: choices, isPending, isError } = useSittingChoices();
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors, isSubmitting },
-  } = useForm<ApplicationInput>({
-    resolver: zodResolver(applicationInputSchema),
-    defaultValues: { examId: '', classId: '', date: todayAsStored() },
-  });
-
-  const onSubmit = (input: ApplicationInput) => {
-    save.mutate({ input }, { onSuccess: (saved) => void navigate(buildPath(ROUTES.applicationPdf, { id: saved.id })) });
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -45,67 +49,129 @@ export function ApplicationFormPage() {
         description="Escolha a prova, a turma e a data. As versões e as folhas saem no passo seguinte."
       />
 
-      <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando provas e turmas…">
-        <form onSubmit={(event) => void handleSubmit(onSubmit)(event)} className="flex flex-col gap-6" noValidate>
-          <Card className="flex flex-col gap-4 p-6">
-            <Select
-              label="Prova"
-              error={errors.examId?.message}
-              placeholder="Escolha a prova"
-              options={(choices?.exams ?? []).map((exam) => ({ value: exam.id, label: exam.title }))}
-              missing={
-                <MissingChoice to={ROUTES.newExam} action="Monte uma prova">
-                  Você ainda não tem uma prova ativa.
-                </MissingChoice>
-              }
-              {...register('examId')}
-            />
-
-            <Select
-              label="Turma"
-              error={errors.classId?.message}
-              placeholder="Escolha a turma"
-              options={(choices?.classes ?? []).map((item) => ({ value: item.id, label: item.name }))}
-              missing={
-                <MissingChoice to={ROUTES.classes} action="Crie uma turma">
-                  Você ainda não tem uma turma ativa.
-                </MissingChoice>
-              }
-              {...register('classId')}
-            />
-
-            <ApplicationDateField
-              id="application-date"
-              value={watch('date')}
-              onChange={(date) => setValue('date', date, { shouldValidate: true })}
-              error={errors.date?.message}
-            />
-          </Card>
-
-          <SaveError error={save.error} />
-
-          <div className="flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => void navigate(ROUTES.applications)}>
-              Cancelar
-            </Button>
-            <Button variant="primary" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Salvando…' : 'Salvar e gerar'}
-            </Button>
-          </div>
-        </form>
+      <QueryBoundary
+        isPending={isPending}
+        isError={isError}
+        pendingLabel="Carregando provas e turmas…"
+      >
+        {choices !== undefined && (
+          <ApplicationForm
+            choices={choices}
+            initial={initialSittingOf(choices, params)}
+          />
+        )}
       </QueryBoundary>
     </div>
   );
 }
 
+function ApplicationForm({
+  choices,
+  initial,
+}: Readonly<{
+  choices: SittingChoices;
+  initial: { examId: string; classId: string };
+}>) {
+  const navigate = useNavigate();
+  const save = useSaveApplication();
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<ApplicationInput>({
+    resolver: zodResolver(applicationInputSchema),
+    defaultValues: { ...initial, date: todayAsStored() },
+  });
+
+  const onSubmit = (input: ApplicationInput) => {
+    save.mutate(
+      { input },
+      {
+        onSuccess: (saved) =>
+          void navigate(buildPath(ROUTES.applicationPdf, { id: saved.id })),
+      },
+    );
+  };
+
+  return (
+    <form
+      onSubmit={(event) => void handleSubmit(onSubmit)(event)}
+      className="flex flex-col gap-6"
+      noValidate
+    >
+      <Card className="flex flex-col gap-4 p-6">
+        <Select
+          label="Prova"
+          error={errors.examId?.message}
+          placeholder="Escolha a prova"
+          options={choices.exams.map((exam) => ({
+            value: exam.id,
+            label: exam.title,
+          }))}
+          missing={
+            <MissingChoice to={ROUTES.newExam} action="Monte uma prova">
+              Você ainda não tem uma prova ativa.
+            </MissingChoice>
+          }
+          {...register("examId")}
+        />
+
+        <Select
+          label="Turma"
+          error={errors.classId?.message}
+          placeholder="Escolha a turma"
+          options={choices.classes.map((item) => ({
+            value: item.id,
+            label: item.name,
+          }))}
+          missing={
+            <MissingChoice to={ROUTES.classes} action="Crie uma turma">
+              Você ainda não tem uma turma ativa.
+            </MissingChoice>
+          }
+          {...register("classId")}
+        />
+
+        <ApplicationDateField
+          id="application-date"
+          value={watch("date")}
+          onChange={(date) => setValue("date", date, { shouldValidate: true })}
+          error={errors.date?.message}
+        />
+      </Card>
+
+      <SaveError error={save.error} />
+
+      <div className="flex justify-end gap-3">
+        <Button
+          variant="ghost"
+          onClick={() => void navigate(ROUTES.applications)}
+        >
+          Cancelar
+        </Button>
+        <Button variant="primary" type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Salvando…" : "Salvar e gerar"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 /** What to do first when a choice has nothing to offer. */
-function MissingChoice({ to, action, children }: Readonly<{ to: string; action: string; children: string }>) {
+function MissingChoice({
+  to,
+  action,
+  children,
+}: Readonly<{ to: string; action: string; children: string }>) {
   return (
     <p className="text-caption text-ink-subtle">
-      {children}{' '}
+      {children}{" "}
       <Link to={to} className="text-primary underline">
         {action}
-      </Link>{' '}
+      </Link>{" "}
       antes de aplicar.
     </p>
   );
@@ -147,7 +213,11 @@ const Select = function Select({
         className="touch-target w-full rounded-[var(--radius-control)] border border-line bg-surface px-3 text-body focus:outline-none focus-visible:border-primary"
         {...rest}
       >
-        <option value="">{empty ? `Nenhuma ${label.toLocaleLowerCase('pt-BR')} disponível` : placeholder}</option>
+        <option value="">
+          {empty
+            ? `Nenhuma ${label.toLocaleLowerCase("pt-BR")} disponível`
+            : placeholder}
+        </option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}

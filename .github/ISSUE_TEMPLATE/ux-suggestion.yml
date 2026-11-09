@@ -36,6 +36,5 @@ body:
       value: |
         - [ ] Proposta aprovada pela PM
         - [ ] Implementada com teste
-        - [ ] Vídeo do antes/depois anexado no PR
     validations:
       required: true

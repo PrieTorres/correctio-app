@@ -68,6 +68,22 @@ describe('drawQuestions', () => {
     expect(result.questions.map((item) => item.id).sort()).toEqual(['mc2', 'mc3', 'oe2'])
   })
 
+  /** #199: the bank's filter already finds "matematica" for "Matemática", so the draw must keep it too. */
+  it('takes a question whose tag is spelled with other case or accents', () => {
+    const spelled = [multipleChoice('mc1', ['Matemática']), multipleChoice('mc2', ['matematica']), multipleChoice('mc3', ['MATEMATICA'])]
+    const result = drawQuestions(spelled, { tags: ['Matemática'], multipleChoiceCount: 3, openEndedCount: 0 }, takeFirst)
+
+    expect(result.questions.map((item) => item.id).sort()).toEqual(['mc1', 'mc2', 'mc3'])
+    expect(result.shortfall).toBeNull()
+  })
+
+  it('counts two spellings of one tag asked together as one content', () => {
+    const spelled = [multipleChoice('mc1', ['Matemática']), multipleChoice('mc2', ['matematica']), multipleChoice('mc3', ['Física'])]
+    const result = drawQuestions(spelled, { tags: ['Matemática', 'matematica', 'Física'], multipleChoiceCount: 2, openEndedCount: 0 }, takeFirst)
+
+    expect(result.questions.map((item) => item.id)).toEqual(['mc1', 'mc3'])
+  })
+
   it('leaves out a question with none of the tags asked for', () => {
     const result = drawQuestions(bank, { tags: ['Cálculo'], multipleChoiceCount: 5, openEndedCount: 5 }, takeFirst)
 
@@ -152,6 +168,13 @@ describe('redrawQuestion', () => {
     const replacement = redrawQuestion(bank, { tags: ['Matrizes'], alreadyChosenIds: [], replacing: bank[0] as never })
 
     expect(replacement).toBeNull()
+  })
+
+  it('replaces with a question whose tag is spelled differently', () => {
+    const spelled = [multipleChoice('mc1', ['Cálculo']), multipleChoice('mc2', ['calculo'])]
+    const replacement = redrawQuestion(spelled, { tags: ['Cálculo'], alreadyChosenIds: ['mc1'], replacing: { type: 'objetiva' } }, takeFirst)
+
+    expect(replacement?.id).toBe('mc2')
   })
 })
 

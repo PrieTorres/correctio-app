@@ -15,7 +15,7 @@ function fakeApi(answer: unknown, filename: string | null = 'relatorio-consolida
 
 describe('createHttpReportRepository', () => {
   it('reads the panel from its own route', async () => {
-    const dashboard = { classes: 1, questions: 2, exams: 3, applications: 4, pendingCorrections: 0, recent: [], gradable: [] }
+    const dashboard = { classes: 1, questions: 2, exams: 3, applications: 4, pendingCorrections: 0, recent: [], gradable: [], students: 12, open: [] }
     const { api, request } = fakeApi(dashboard)
 
     expect(await createHttpReportRepository(api).dashboard()).toEqual(dashboard)

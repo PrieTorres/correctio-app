@@ -3,6 +3,7 @@ import { Button, Card, ConfirmDialog, SaveError } from '@/components/ui';
 import { canReleaseGrades } from '@/lib/applications';
 import type { ApplicationOverview } from '@/types/domain';
 import { useReleaseGrades } from '../hooks/useApplications';
+import { DETAIL_SECTION } from '../detail-sections';
 
 /**
  * Whether the students see their grades when they scan their sheets (RF33,
@@ -26,7 +27,7 @@ export function GradesCard({ application }: Readonly<{ application: ApplicationO
   };
 
   return (
-    <Card data-tour="release" className="flex flex-col gap-3 p-6">
+    <Card data-tour="release" id={DETAIL_SECTION.GRADES} tabIndex={-1} className="flex scroll-mt-24 flex-col gap-3 p-6">
       <h2 className="text-title text-primary">Notas para os alunos</h2>
       <p className="text-body text-ink-muted" aria-live="polite">
         {application.gradesReleased

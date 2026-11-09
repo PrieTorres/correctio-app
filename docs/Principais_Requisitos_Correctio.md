@@ -103,9 +103,9 @@ Itens marcados com **[validar]** dependem de confirmação do cliente.
 
 **Questões** — objetiva: 2 a 5 alternativas, 1 correta; discursiva: enunciado + nota máxima; excluir é soft-delete; cada questão tem opção "permitir embaralhar alternativas" (padrão ligada), ajustável questão a questão ao montar a prova.
 
-**Provas** — até 20 questões; pontuação livre, soma não validada; estados rascunho → pronta (automático na 1ª aplicação) → arquivada (manual); prova arquivada não recebe novas aplicações; guarda preferências padrão de embaralhamento; duplicar cria cópia em rascunho.
+**Provas** — até 20 questões; pontuação livre, soma não validada; estados rascunho → pronta (automático quando o PDF da 1ª aplicação é gerado) → arquivada (manual); prova arquivada não recebe novas aplicações; guarda preferências padrão de embaralhamento; duplicar cria cópia em rascunho.
 
-**Aplicações e PDF** — mesma prova pode ir para várias turmas ou ser reaplicada; PDF único por Aplicação; embaralhamento independente por versão; identificação vale para a Aplicação inteira; regenerar é bloqueado após a primeira correção confirmada.
+**Aplicações e PDF** — mesma prova pode ir para várias turmas ou ser reaplicada; PDF único por Aplicação; embaralhamento independente por versão; identificação vale para a Aplicação inteira; regenerar é bloqueado após a primeira correção salva (confirmada ou não), com as notas liberadas ou com a Aplicação arquivada.
 
 **Correção e notas** — nenhuma leitura vira nota sem confirmação do professor; a nota fica ligada à folha corrigida — com identificação vai direto ao aluno, sem identificação o vínculo fica pendente até o professor associar, mas o aluno já consulta pela própria folha; duas correções para o mesmo aluno/versão geram conflito para revisão; gabarito e nota só aparecem na página pública depois que o professor publica/libera.
 
@@ -129,9 +129,9 @@ Separar os dois é o que permite ter um número curto legível no papel sem torn
 **Pública (sem login)** — Consulta de nota e gabarito pelo QR Code do cartão-resposta (código único por folha) · Aviso de privacidade
 
 **Web Professor**
-- Painel (com tour guiado no 1º acesso) · Meu perfil
+- Painel (com tour guiado quando já há conteúdo) · Meu perfil (acesso pela interface pendente)
 - Turmas — lista · criar/editar · detalhe (alunos, cadastro manual e importação, aviso de privacidade e anonimização de aluno)
-- Banco de questões — lista (com importação) · criar/editar
+- Banco de questões — lista (importação pendente, #69) · criar/editar
 - Provas — lista · criar/editar · gerar automaticamente · detalhe
 - Aplicações — lista · criar · gerar PDF · detalhe (versões, gabarito, correção, liberar notas)
 - Correção — enviar folhas de respostas · revisar e confirmar · pendentes de atribuição
