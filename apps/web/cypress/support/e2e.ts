@@ -9,6 +9,17 @@
  */
 import './commands'
 
+/**
+ * A resource the CSP blocks often fails without breaking the screen at once (a
+ * font, a style), so a blocked one fails the test that loaded it instead of
+ * reaching production unnoticed.
+ */
+Cypress.on('window:before:load', (win) => {
+  win.document.addEventListener('securitypolicyviolation', (event) => {
+    throw new Error(`The CSP blocked ${event.blockedURI || 'an inline resource'} (${event.violatedDirective})`)
+  })
+})
+
 beforeEach(() => {
   cy.clearLocalStorage()
   cy.clearCookies()

@@ -114,6 +114,8 @@ porque quem os cobre é o Cypress.
 
 **O Cypress precisa da aplicação servida.** Não adianta rodar contra o código-fonte: sobe o build de produção, espera a porta responder, roda os testes, derruba. Rodar contra o servidor de desenvolvimento esconde justamente os problemas que só aparecem no build. Os jobs do Cypress e da jornada também sobem um MySQL e a API (`.github/actions/start-api`), e o `vite preview` encaminha `/api` para ela, como o Hosting faz no Firebase.
 
+**O Cypress roda sob a CSP de produção.** O `vite preview` serve os mesmos cabeçalhos que o `firebase.json` manda o Hosting servir, e o `experimentalCspAllowList` impede o Cypress de removê-los, como faz por padrão. Um recurso que a CSP bloqueia reprova o teste que o carregou (`cypress/support/e2e.ts`). O preview do demo (`VITE_DEMO_MODE`) não recebe cabeçalhos, como o GitHub Pages.
+
 **Cada teste do Cypress entra como um professor novo.** O `cypress/support/e2e.ts` cadastra um
 professor na API antes de cada teste e cria para ele, pela própria API, todo o exemplo: turmas,
 alunos, questões, provas e aplicações, uma delas já gerada (`signInAsNewTeacher`, em

@@ -164,14 +164,14 @@ armazenamento privado, e entram no PDF gerado.
 
 | Item | Detalhe |
 |---|---|
-| Cabeçalhos de segurança + CSP | Via `helmet`. Não depender de `X-XSS-Protection`, hoje desativado nos navegadores. |
+| Cabeçalhos de segurança + CSP | Na API, via `helmet`. No site, pelo Firebase Hosting (`firebase.json`): CSP só com o próprio endereço e as fontes do Google, `frame-ancestors 'none'` e `X-Frame-Options: DENY` contra a página dentro de outro site, `nosniff`, `Referrer-Policy: same-origin` e `Permissions-Policy`. O estilo inline fica permitido porque os diálogos do Radix inserem um `<style>`. O demo do GitHub Pages não recebe cabeçalhos. Não depender de `X-XSS-Protection`, hoje desativado nos navegadores. |
 | CORS | Só os endereços do próprio projeto Firebase (`<projeto>.web.app` e `<projeto>.firebaseapp.com`), derivados do projeto em que a API roda (`config/hosted-env.ts`). Nunca `*`. Front e API dividem o mesmo endereço, então o navegador nem faz chamada entre origens. |
 | Validação de entrada | Schemas na fronteira, reaproveitando os mesmos do front. |
 | Limite de payload | Teto único de 100 KB para todo JSON; a foto da folha tem teto próprio de 10 MB. |
 | Upload | Validar pelo **tipo real do arquivo**, não pela extensão. Teto de tamanho; não há teto de dimensão. |
 | SQL | Sempre parametrizado ou via ORM. Nunca concatenar, nunca "escapar na mão". |
 | Segredos | Em gerenciador de segredos. Nunca no repositório, nunca no bundle do front. |
-| Dependências | `npm ci` com lockfile; build reprovado com vulnerabilidade alta ou crítica. |
+| Dependências | `npm ci` com lockfile; build reprovado com vulnerabilidade alta ou crítica. Em 26/11 o `npm audit` voltou a zero, inclusive os alertas moderados, com atualizações dentro das faixas já declaradas. |
 | Runtime | Cloud Functions de 2ª geração, com Node 22 fixado no `firebase.json`; o contêiner é do Google. |
 | Observabilidade | Log estruturado em JSON com id de correlação por requisição, sem dado pessoal. |
 | Ciclo de vida | No servidor local (`server.ts`), encerramento gracioso em `SIGTERM` e erro desconhecido derruba o processo em vez de seguir em estado corrompido. Na função publicada, quem controla o ciclo de vida é o runtime do Google. |
