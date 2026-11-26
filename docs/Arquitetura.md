@@ -95,6 +95,9 @@ O motivo é específico deste projeto e é o **único ponto verdadeiramente irre
 - **RF03:** e-mail de redefinição pelo Gmail do projeto, com link de 30 minutos e uso único. A
   resposta é a mesma, e leva o mesmo tempo, com ou sem conta.
 - **RF04:** "Sair de todos os dispositivos" revoga todos os refresh tokens da conta.
+- **Verificação em duas etapas (R2):** opcional, ligada no perfil com um aplicativo autenticador (TOTP).
+  Com ela, o login por senha e o do Google devolvem um desafio, e só o código atual o troca pela sessão.
+  O cadastro e a redefinição recusam senhas de vazamentos conhecidos. Ver `docs/Seguranca_e_LGPD.md`, Regra 4.
 
 ---
 

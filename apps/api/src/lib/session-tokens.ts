@@ -20,9 +20,18 @@ export interface SessionTokens {
   /** A short-lived signed value, for the state Google hands back after sign-in. */
   signState: (payload: Record<string, string>, ttlSeconds: number) => Promise<string>
   verifyState: (state: string) => Promise<Record<string, unknown> | null>
+  /**
+   * Proof that the first step of a sign-in succeeded, valid only for the second.
+   * It has an audience of its own, so neither the access token check nor the
+   * Google state check can mistake one for the other.
+   */
+  signSecondFactorChallenge: (userId: string, ttlSeconds: number) => Promise<string>
+  /** The account of a valid, unexpired challenge, or `null`. */
+  verifySecondFactorChallenge: (challenge: string) => Promise<string | null>
 }
 
 const STATE_AUDIENCE = 'correctio-google-state'
+const CHALLENGE_AUDIENCE = 'correctio-second-factor'
 
 function isRole(value: unknown): value is UserRole {
   return value === 'professor' || value === 'estudante'
@@ -65,6 +74,25 @@ export function createSessionTokens(base64Secret: string): SessionTokens {
       try {
         const { payload } = await jwtVerify(state, secret, { issuer: ISSUER, audience: STATE_AUDIENCE, algorithms: ['HS256'] })
         return payload
+      } catch {
+        return null
+      }
+    },
+
+    signSecondFactorChallenge: (userId, ttlSeconds) =>
+      new SignJWT({})
+        .setProtectedHeader({ alg: 'HS256' })
+        .setSubject(userId)
+        .setIssuer(ISSUER)
+        .setAudience(CHALLENGE_AUDIENCE)
+        .setIssuedAt()
+        .setExpirationTime(`${ttlSeconds}s`)
+        .sign(secret),
+
+    async verifySecondFactorChallenge(challenge) {
+      try {
+        const { payload } = await jwtVerify(challenge, secret, { issuer: ISSUER, audience: CHALLENGE_AUDIENCE, algorithms: ['HS256'] })
+        return payload.sub ?? null
       } catch {
         return null
       }

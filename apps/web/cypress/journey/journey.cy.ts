@@ -178,6 +178,34 @@ function createAccount(): void {
 }
 
 /**
+ * Right after the account exists, the teacher protects it: the profile shows
+ * the QR Code, a code from the authenticator app turns the second factor on, and
+ * the same screen turns it off again, so nothing later in the journey asks for a
+ * code. The codes come from a task that plays the app, one step apart.
+ */
+function protectTheAccount(): void {
+  cy.visit('/perfil')
+  cy.contains('h2', 'Verificação em duas etapas').should('be.visible')
+  cy.contains('button', 'Ativar verificação em duas etapas').click()
+  cy.get('img[alt="QR Code para o aplicativo autenticador"]').should('be.visible')
+
+  cy.get('[data-testid="totp-secret"]')
+    .invoke('text')
+    .then((secret) => {
+      cy.task<string>('totpCode', { secret, offset: -1 }).then((code) => cy.findByLabel('Código de confirmação (6 dígitos)').type(code))
+      cy.contains('button', 'Confirmar e ativar').click()
+      cy.contains('Ativada: ao entrar, o Correctio pede o código do aplicativo.').should('be.visible')
+
+      cy.task<string>('totpCode', { secret, offset: 1 }).then((code) => cy.findByLabel('Código para desativar (6 dígitos)').type(code))
+      cy.contains('button', 'Desativar verificação em duas etapas').click()
+      cy.contains('button', 'Ativar verificação em duas etapas').should('be.visible')
+    })
+
+  cy.visit('/painel')
+  cy.contains('h3', 'Nada aconteceu ainda').should('be.visible')
+}
+
+/**
  * A new account's next step is the class (#202), created right on the panel.
  * Saving opens it (#146), ready for its first student.
  */
@@ -726,6 +754,9 @@ describe('jornada completa', () => {
 
     cy.log('**2. Criar a conta**')
     createAccount()
+
+    cy.log('**2.1. Proteger a conta com a verificação em duas etapas: ativar pelo QR Code e desativar com um código atual**')
+    protectTheAccount()
 
     cy.log('**3. Criar a turma pelo próximo passo do painel, que abre pronta para os alunos**')
     createClass()

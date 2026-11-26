@@ -33,12 +33,13 @@ export function bootstrapApi(env: Env, { basePath }: { basePath?: string } = {})
 
   const logger = createLogger(env.LOG_LEVEL)
   const db = createDatabase({ url: env.DATABASE_URL, tls: env.DATABASE_TLS, caCert: env.DATABASE_CA_CERT })
+  const fieldCipher = createFieldCipher(env.DATA_ENCRYPTION_KEY)
   const app = createApp({
     env,
     logger,
     db,
-    auth: composeAuth({ env, db, logger }),
-    fieldCipher: createFieldCipher(env.DATA_ENCRYPTION_KEY),
+    auth: composeAuth({ env, db, logger, fieldCipher }),
+    fieldCipher,
     fileStorage: createFileStorage(env),
     basePath,
     healthChecks: [() => pingDatabase(db)],

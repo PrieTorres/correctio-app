@@ -3,17 +3,21 @@ import type { Kysely } from 'kysely'
 import type { Logger } from 'pino'
 import type { AuthComponents } from './app'
 import type { Env } from './config/env'
+import { refuseWithoutKey, type FieldCipher } from './lib/field-encryption'
+import { acceptAnyPassword, createPwnedPasswordChecker, type PasswordBreachChecker } from './lib/pwned-passwords'
 import { createSessionTokens, type SessionTokens } from './lib/session-tokens'
 import type { VerifyToken } from './middlewares/require-auth'
 import type { Database } from './models/tables'
 import { createAuthCodeRepository } from './repositories/auth-code-repository'
 import { createRefreshTokenRepository } from './repositories/refresh-token-repository'
+import { createSecondFactorRepository } from './repositories/second-factor-repository'
 import { createUserRepository } from './repositories/user-repository'
 import { PUBLIC_API_PATH } from './lib/session-cookie'
 import { createAuthService } from './services/auth-service'
 import { createGoogleIdentity, type GoogleIdentity } from './services/google-identity'
 import { createGoogleSignInService } from './services/google-sign-in-service'
 import { createGmailMailer, createLogMailer, type Mailer } from './services/mailer'
+import { createSecondFactorService } from './services/second-factor-service'
 import { createSessionIssuer } from './services/session-issuer'
 
 /** Only teachers sign in while the student area is out of scope (`docs/Arquitetura.md`, section 9). */
@@ -60,6 +64,10 @@ export interface ComposeAuthOptions {
   /** Overridable so tests play Google's part. */
   google?: GoogleIdentity | null
   passwordResetResponseMs?: number
+  /** Overridable so tests never reach the network; by default the Pwned Passwords API, unless `PASSWORD_BREACH_CHECK=off`. */
+  passwordBreaches?: PasswordBreachChecker
+  /** Encrypts the second-factor secrets; the default refuses, so a missing key never stores one in plain text. */
+  fieldCipher?: FieldCipher
 }
 
 /** Builds the sign-in services from the environment, the one place that knows which mailer and which Google client apply. */
@@ -70,27 +78,38 @@ export function composeAuth({
   mailer = mailerFor(env, logger),
   google = googleFor(env),
   passwordResetResponseMs,
+  passwordBreaches = env.PASSWORD_BREACH_CHECK === 'on' ? createPwnedPasswordChecker({ logger }) : acceptAnyPassword,
+  fieldCipher = refuseWithoutKey,
 }: ComposeAuthOptions): AuthComponents {
   const tokens = createSessionTokens(signingSecret(env, logger))
   const users = createUserRepository(db)
   const refreshTokens = createRefreshTokenRepository(db)
   const authCodes = createAuthCodeRepository(db)
   const sessions = createSessionIssuer({ tokens, refreshTokens })
+  const secondFactor = createSecondFactorService({
+    users,
+    secondFactors: createSecondFactorRepository(db),
+    sessions,
+    tokens,
+    cipher: fieldCipher,
+    logger,
+  })
   const publicAppUrl = env.PUBLIC_APP_URL
 
   return {
-    service: createAuthService({ users, refreshTokens, authCodes, sessions, mailer, logger, publicAppUrl, passwordResetResponseMs }),
+    service: createAuthService({ users, refreshTokens, authCodes, sessions, secondFactor, passwordBreaches, mailer, logger, publicAppUrl, passwordResetResponseMs }),
     google: createGoogleSignInService({
       identity: google,
       tokens,
       users,
       refreshTokens,
       authCodes,
-      sessions,
+      secondFactor,
       logger,
       publicAppUrl,
       corsOrigins: env.CORS_ORIGINS,
     }),
+    secondFactor,
     verifyToken: verifierFor(tokens),
   }
 }

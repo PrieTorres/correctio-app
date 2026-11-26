@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { SIGN_IN_STATUS } from '@/types/domain'
 import { createLocalAuthProvider } from '../index'
 
 describe('local auth provider', () => {
@@ -69,5 +70,25 @@ describe('anonymize', () => {
     const auth = createLocalAuthProvider()
 
     await expect(auth.anonymize()).resolves.toBeUndefined()
+  })
+})
+
+describe('second factor in the demo', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('does not offer it, as it does not offer Google, and signs in at once', async () => {
+    const auth = createLocalAuthProvider()
+
+    expect(auth.offersTotp).toBe(false)
+    await expect(auth.signIn('ana@exemplo.edu.br', 'senha123')).resolves.toMatchObject({ status: SIGN_IN_STATUS.SIGNED_IN })
+  })
+
+  it('refuses every call that needs a server', async () => {
+    const auth = createLocalAuthProvider()
+
+    await expect(auth.beginTotpSetup()).rejects.toMatchObject({ code: 'failure' })
+    await expect(auth.enableTotp('123456')).rejects.toMatchObject({ code: 'failure' })
+    await expect(auth.disableTotp('123456')).rejects.toMatchObject({ code: 'failure' })
+    await expect(auth.completeSecondFactor('desafio', '123456')).rejects.toMatchObject({ code: 'failure' })
   })
 })

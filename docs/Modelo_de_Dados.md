@@ -55,6 +55,13 @@ Campos marcados **`+`** são acréscimos do grupo. Todo o resto vem da Spec e é
   createdAt: Date
   anonymizedAt?: Date
   emailVerifiedAt?: Date       // +  servidor apenas: quando alguém provou ler a caixa do e-mail
+  totpEnabled?: boolean        // +  se o login pede o código do aplicativo autenticador (derivado de totpEnabledAt)
+  totpSecret?: string          // +  servidor apenas: segredo TOTP confirmado, cifrado (AES-256-GCM)
+  totpPendingSecret?: string   // +  servidor apenas: segredo do QR Code ainda sem código confirmado, cifrado
+  totpEnabledAt?: Date         // +  servidor apenas: quando o segundo fator foi confirmado
+  totpLastStep?: number        // +  servidor apenas: último passo de 30 s aceito (um código vale uma vez)
+  totpFailedAttempts: number   // +  servidor apenas: códigos errados desde o último certo
+  totpLockedUntil?: Date       // +  servidor apenas: até quando o segundo fator recusa qualquer código
 }
 ```
 
@@ -62,6 +69,12 @@ Campos marcados **`+`** são acréscimos do grupo. Todo o resto vem da Spec e é
 formas de provar que se lê aquele e-mail. Enquanto está vazio, a senha pode ter sido criada por
 quem digitou o e-mail de outra pessoa no cadastro: por isso, quando a dona do e-mail entra com o
 Google, essa senha deixa de valer e as sessões da conta terminam (#40).
+
+Os campos `totp*` guardam o segundo fator opcional (migração `0006`). O segredo nasce em
+`totpPendingSecret` e só vai para `totpSecret`, com `totpEnabledAt`, quando a professora digita
+um código válido: o segundo fator nunca fica ligado antes de provado. Os dois segredos são
+cifrados com a mesma cifra de campo do e-mail do aluno. O cliente recebe só `totpEnabled`.
+Anonimizar a conta apaga todos os campos `totp*`.
 
 ### RefreshToken
 
@@ -463,7 +476,7 @@ para o Express da N2**:
 Os tipos ficam em [`packages/domain/src/domain.ts`](../packages/domain/src/domain.ts) e os
 schemas de validação em [`packages/domain/src/schemas.ts`](../packages/domain/src/schemas.ts),
 usados pelo site e pela API; os caminhos antigos em `apps/web` só reexportam. As entidades que
-só existem no servidor (`AuthCode`, `ActivityLog`, `SheetImage` e `User.emailVerifiedAt`) estão
+só existem no servidor (`AuthCode`, `ActivityLog`, `SheetImage`, `User.emailVerifiedAt` e os campos `User.totp*`) estão
 em [`apps/api/src/models/tables.ts`](../apps/api/src/models/tables.ts). Todos devem espelhar
 este documento campo a campo.
 

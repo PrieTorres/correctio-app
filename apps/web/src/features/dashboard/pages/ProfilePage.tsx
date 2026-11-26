@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { LogOut, UserX } from 'lucide-react'
 import { Button, Card, PageHeader, QueryBoundary, SaveError, TextField } from '@/components/ui'
-import { useAccount, useAnonymizeAccount, useSignOutEverywhere } from '@/features/auth'
+import { useServices } from '@/app/services'
+import { TotpSection, useAccount, useAnonymizeAccount, useSignOutEverywhere } from '@/features/auth'
 import type { UserRole } from '@/types/domain'
 
 const CONFIRMATION = 'ANONIMIZAR'
@@ -21,6 +22,7 @@ const ROLE_LABEL: Readonly<Record<UserRole, string>> = { professor: 'Professor',
  * server has now; the e-mail is for reading only, as P2 defines.
  */
 export function ProfilePage() {
+  const { auth } = useServices()
   const { data: user, isPending, isError } = useAccount()
   const signOutEverywhere = useSignOutEverywhere()
   const anonymize = useAnonymizeAccount()
@@ -30,7 +32,7 @@ export function ProfilePage() {
   return (
     <QueryBoundary isPending={isPending} isError={isError} pendingLabel="Carregando o perfil…">
       <div className="flex flex-col gap-6">
-        <PageHeader title="Meu perfil" description="Seus dados, as sessões e o encerramento da conta." />
+        <PageHeader title="Meu perfil" description="Seus dados, a verificação em duas etapas, as sessões e o encerramento da conta." />
 
         <Card className="flex flex-col gap-3 p-6">
           <h2 className="text-title text-primary">Dados da conta</h2>
@@ -49,6 +51,8 @@ export function ProfilePage() {
             </div>
           </dl>
         </Card>
+
+        {auth.offersTotp && <TotpSection enabled={user?.totpEnabled === true} />}
 
         <Card className="flex flex-col items-start gap-3 p-6">
           <h2 className="text-title text-primary">Sessão</h2>

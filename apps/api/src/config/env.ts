@@ -74,6 +74,11 @@ const envSchema = z
     /** Both or neither: without them, sign-in with Google is simply not offered. */
     GOOGLE_CLIENT_ID: optionalText,
     GOOGLE_CLIENT_SECRET: optionalText,
+    /**
+     * `on` checks new passwords against Have I Been Pwned; `off` skips the
+     * call, for an environment without internet access.
+     */
+    PASSWORD_BREACH_CHECK: z.enum(['on', 'off']).default('on'),
     /** The app password of the project's Gmail, which sends the password reset e-mail. */
     GMAIL_APP_PASSWORD: optionalText,
     MAIL_FROM: z.email().default('correctioapp@gmail.com'),

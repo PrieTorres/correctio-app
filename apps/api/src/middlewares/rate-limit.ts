@@ -171,6 +171,8 @@ export function createTeacherRateLimit(
 export interface AuthLimits {
   register: RequestHandler[]
   signIn: RequestHandler[]
+  /** The code step of a sign-in: failures only, per address, on top of the per-account lock in the database. */
+  secondFactor: RequestHandler[]
   forgotPassword: RequestHandler[]
   resetPassword: RequestHandler[]
 }
@@ -180,7 +182,8 @@ export interface AuthLimits {
  * with its own count. Sign-in counts only failures, so a teacher who gets it
  * right never moves closer to the block; sign-up and the reset request count
  * every attempt, since a repeat of either is never needed. The reset itself
- * carries a code instead of an e-mail, so it counts per address.
+ * carries a code instead of an e-mail, so it counts per address, and so does
+ * the code of the second factor, which carries a challenge instead of an e-mail.
  */
 export function createAuthLimits(tier: RateLimitTier, delayStepMs?: number): AuthLimits {
   const message = `Muitas tentativas seguidas. Aguarde ${Math.ceil(tier.windowMs / 60_000)} minutos e tente de novo.`
@@ -189,6 +192,7 @@ export function createAuthLimits(tier: RateLimitTier, delayStepMs?: number): Aut
   return {
     register: limit(COUNTED_RESPONSES.ALL),
     signIn: limit(COUNTED_RESPONSES.FAILURES),
+    secondFactor: limit(COUNTED_RESPONSES.FAILURES, byClientAddress),
     forgotPassword: limit(COUNTED_RESPONSES.ALL),
     resetPassword: limit(COUNTED_RESPONSES.FAILURES, byClientAddress),
   }

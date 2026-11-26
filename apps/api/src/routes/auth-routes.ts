@@ -11,6 +11,7 @@ export function publicAuthRoutes(controller: AuthController, limits: AuthLimits)
 
   router.post('/register', ...limits.register, controller.register)
   router.post('/login', ...limits.signIn, controller.signIn)
+  router.post('/login/totp', ...limits.secondFactor, controller.signInWithCode)
   router.post('/refresh', controller.refresh)
   router.post('/logout', controller.signOut)
   router.post('/forgot-password', ...limits.forgotPassword, controller.forgotPassword)
@@ -29,10 +30,13 @@ export function signedInAuthRoutes(controller: AuthController): Router {
   return router
 }
 
-/** The account of the token: who it is (P2) and the anonymization of RF05. */
+/** The account of the token: who it is (P2), the anonymization of RF05 and the optional second factor. */
 export function meRoutes(controller: AuthController): Router {
   const router = Router()
   router.get('/', controller.me)
   router.post('/anonymize', controller.anonymize)
+  router.post('/totp/setup', controller.totpSetup)
+  router.post('/totp/enable', controller.totpEnable)
+  router.post('/totp/disable', controller.totpDisable)
   return router
 }

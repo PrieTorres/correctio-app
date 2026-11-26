@@ -11,6 +11,8 @@ export interface UserRecord {
   createdAt: Date
   anonymizedAt: Date | null
   emailVerifiedAt: Date | null
+  /** When the second factor was confirmed; `null` while it is off. The secret itself is read only by the second-factor repository. */
+  totpEnabledAt: Date | null
 }
 
 export interface NewUser {
@@ -41,7 +43,7 @@ export interface UserRepository {
   anonymize: (id: string, markers: AnonymizedUser) => Promise<boolean>
 }
 
-const COLUMNS = ['id', 'role', 'fullName', 'email', 'passwordHash', 'createdAt', 'anonymizedAt', 'emailVerifiedAt'] as const
+const COLUMNS = ['id', 'role', 'fullName', 'email', 'passwordHash', 'createdAt', 'anonymizedAt', 'emailVerifiedAt', 'totpEnabledAt'] as const
 
 const DUPLICATE_ENTRY = 'ER_DUP_ENTRY'
 
@@ -81,7 +83,18 @@ export function createUserRepository(db: Kysely<Database>): UserRepository {
     async anonymize(id, { fullName, email, passwordHash, at }) {
       const result = await db
         .updateTable('users')
-        .set({ fullName, email, passwordHash, anonymizedAt: at })
+        .set({
+          fullName,
+          email,
+          passwordHash,
+          anonymizedAt: at,
+          totpSecret: null,
+          totpPendingSecret: null,
+          totpEnabledAt: null,
+          totpLastStep: null,
+          totpFailedAttempts: 0,
+          totpLockedUntil: null,
+        })
         .where('id', '=', id)
         .where('anonymizedAt', 'is', null)
         .executeTakeFirst()

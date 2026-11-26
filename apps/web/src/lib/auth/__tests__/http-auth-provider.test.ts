@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { StorageError } from '@/lib/storage/errors'
+import { SIGN_IN_STATUS } from '@/types/domain'
 import { createHttpAuthProvider, type HttpAuthOptions } from '../http-auth-provider'
 
 const USER = {
@@ -61,7 +62,7 @@ describe('createHttpAuthProvider', () => {
   it('signs in, keeps the token in memory and sends the refresh cookie along', async () => {
     const { auth, fetchFn } = setup([json(200, sessionBody())])
 
-    expect(await auth.signIn('ana@exemplo.edu.br', 'senha-forte-1')).toEqual(USER)
+    expect(await auth.signIn('ana@exemplo.edu.br', 'senha-forte-1')).toEqual({ status: SIGN_IN_STATUS.SIGNED_IN, user: USER })
     expect(auth.getCurrentUser()).toEqual(USER)
     expect(await auth.getAccessToken()).toBe('token-1')
 
@@ -226,7 +227,7 @@ describe('createHttpAuthProvider', () => {
       const { auth, fetchFn, tabStorage } = setup([json(200, sessionBody())])
       tabStorage.setItem('correctio:google-binding', 'segredo')
 
-      expect(await auth.completeGoogleSignIn('codigo')).toEqual(USER)
+      expect(await auth.completeGoogleSignIn('codigo')).toEqual({ status: SIGN_IN_STATUS.SIGNED_IN, user: USER })
       expect(requestOf(fetchFn)).toMatchObject({ url: '/api/auth/google/exchange', body: { code: 'codigo', binding: 'segredo' } })
       expect(tabStorage.values.has('correctio:google-binding')).toBe(false)
     })
@@ -280,6 +281,72 @@ describe('createHttpAuthProvider', () => {
 
       await expect(auth.anonymize()).rejects.toMatchObject({ code: 'failure' })
       expect(auth.getCurrentUser()).toEqual(USER)
+    })
+  })
+
+  describe('second factor', () => {
+    const SETUP = { secret: 'JBSWY3DPEHPK3PXP', otpauthUri: 'otpauth://totp/Correctio:ana', qrCodeDataUrl: 'data:image/svg+xml;base64,AAAA' }
+
+    it('answers the challenge instead of a session when the account asks for the code, and keeps nobody signed in', async () => {
+      const { auth } = setup([json(200, { secondFactorRequired: true, challenge: 'desafio', expiresIn: 300 })])
+
+      expect(await auth.signIn('ana@exemplo.edu.br', 'senha-forte-1')).toEqual({ status: SIGN_IN_STATUS.SECOND_FACTOR, challenge: 'desafio' })
+      expect(auth.getCurrentUser()).toBeNull()
+    })
+
+    it('answers the challenge for the Google exchange too', async () => {
+      const { auth, tabStorage } = setup([json(200, { secondFactorRequired: true, challenge: 'desafio', expiresIn: 300 })])
+      tabStorage.setItem('correctio:google-binding', 'segredo')
+
+      expect(await auth.completeGoogleSignIn('codigo')).toEqual({ status: SIGN_IN_STATUS.SECOND_FACTOR, challenge: 'desafio' })
+    })
+
+    it('trades the challenge and the code for the session', async () => {
+      const { auth, fetchFn } = setup([json(200, sessionBody('token-ana'))])
+
+      expect(await auth.completeSecondFactor('desafio', '123456')).toEqual(USER)
+      expect(requestOf(fetchFn)).toMatchObject({ url: '/api/auth/login/totp', body: { challenge: 'desafio', code: '123456' } })
+      expect(await auth.getAccessToken()).toBe('token-ana')
+    })
+
+    it('refuses a wrong code with the server message and starts no session', async () => {
+      const { auth } = setup([json(401, { code: 'unauthorized', message: 'Código incorreto ou já usado.' })])
+
+      await expect(auth.completeSecondFactor('desafio', '123456')).rejects.toMatchObject({ code: 'unauthorized', message: 'Código incorreto ou já usado.' })
+      expect(auth.getCurrentUser()).toBeNull()
+    })
+
+    it('sets up, turns on and turns off with the access token', async () => {
+      const { auth, fetchFn } = setup([json(200, sessionBody('token-ana')), json(200, SETUP), json(204), json(204)])
+      await auth.signIn('ana@exemplo.edu.br', 'senha-forte-1')
+
+      expect(await auth.beginTotpSetup()).toEqual(SETUP)
+      await auth.enableTotp('123456')
+      await auth.disableTotp('654321')
+
+      const calls = [1, 2, 3].map((call) => requestOf(fetchFn, call))
+      expect(calls.map(({ url }) => url)).toEqual(['/api/me/totp/setup', '/api/me/totp/enable', '/api/me/totp/disable'])
+      expect(calls.map(({ body }) => body)).toEqual([undefined, { code: '123456' }, { code: '654321' }])
+      for (const { headers } of calls) expect(headers.get('Authorization')).toBe('Bearer token-ana')
+    })
+
+    it('needs a session for any of them', async () => {
+      const { auth, fetchFn } = setup([])
+
+      await expect(auth.beginTotpSetup()).rejects.toMatchObject({ code: 'unauthorized' })
+      await expect(auth.enableTotp('123456')).rejects.toMatchObject({ code: 'unauthorized' })
+      expect(fetchFn).not.toHaveBeenCalled()
+    })
+
+    it('does not trust a setup answer without a QR Code', async () => {
+      const { auth } = setup([json(200, sessionBody()), json(200, { secret: 'X' })])
+      await auth.signIn('ana@exemplo.edu.br', 'senha-forte-1')
+
+      await expect(auth.beginTotpSetup()).rejects.toBeInstanceOf(StorageError)
+    })
+
+    it('is offered on the published sites and not on the demo', () => {
+      expect(setup([]).auth.offersTotp).toBe(true)
     })
   })
 })

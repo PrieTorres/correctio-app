@@ -3,7 +3,8 @@ description: Applies the migrations and starts the built API on port 3000, the o
 
 # Shared by the jobs that run Cypress against the production build. The job
 # provides the MySQL service and the DATABASE_URL, DATABASE_TLS, LOG_LEVEL and
-# DATA_ENCRYPTION_KEY variables, and must have run `npm run build` before this
+# DATA_ENCRYPTION_KEY variables (and PASSWORD_BREACH_CHECK=off, so a run never
+# depends on the Pwned Passwords service), and must have run `npm run build` before this
 # action.
 runs:
   using: composite

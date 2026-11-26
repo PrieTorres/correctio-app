@@ -94,6 +94,9 @@ jobs:
       # The API does not start without it. The database is thrown away with
       # the job, so a fixed key protects nothing here and is not a secret.
       DATA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      # The suite signs up accounts with fixed passwords, and a run must not
+      # depend on whether a third party answers.
+      PASSWORD_BREACH_CHECK: 'off'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -157,6 +160,7 @@ jobs:
       # The API does not start without it. The database is thrown away with
       # the job, so a fixed key protects nothing here and is not a secret.
       DATA_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      PASSWORD_BREACH_CHECK: 'off'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

@@ -19,6 +19,7 @@ describe('loadEnv', () => {
       DATA_ENCRYPTION_KEY: undefined,
       JWT_SECRET: undefined,
       PUBLIC_APP_URL: 'http://localhost:5173',
+      PASSWORD_BREACH_CHECK: 'on',
       GOOGLE_CLIENT_ID: undefined,
       GOOGLE_CLIENT_SECRET: undefined,
       GMAIL_APP_PASSWORD: undefined,
@@ -43,6 +44,12 @@ describe('loadEnv', () => {
 
   it('names the variable that is wrong', () => {
     expect(() => loadEnv({ NODE_ENV: 'test', PORT: 'not-a-port' })).toThrow(/PORT/)
+  })
+
+  it('checks new passwords against known breaches unless told otherwise, and refuses any other value', () => {
+    expect(loadEnv({ NODE_ENV: 'test' }).PASSWORD_BREACH_CHECK).toBe('on')
+    expect(loadEnv({ NODE_ENV: 'test', PASSWORD_BREACH_CHECK: 'off' }).PASSWORD_BREACH_CHECK).toBe('off')
+    expect(() => loadEnv({ NODE_ENV: 'test', PASSWORD_BREACH_CHECK: 'maybe' })).toThrow(/PASSWORD_BREACH_CHECK/)
   })
 
   it('cannot be changed after it is read', () => {
