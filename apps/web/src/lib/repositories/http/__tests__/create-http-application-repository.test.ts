@@ -88,6 +88,16 @@ describe('createHttpApplicationRepository', () => {
     expect(released.gradesReleased).toBe(true)
   })
 
+  it('asks the API to e-mail the grade links and reads back the counts', async () => {
+    const summary = { sent: 2, failed: 1, skipped: { noEmail: 3, anonymized: 0, removed: 1, noSheet: 0 } }
+    const { api, request } = fakeApi(() => Promise.resolve(summary))
+
+    const answer = await createHttpApplicationRepository(api).sendGradeLinks('a1')
+
+    expect(request).toHaveBeenCalledWith('POST', '/applications/a1/grade-links')
+    expect(answer).toEqual(summary)
+  })
+
   it('downloads the PDF with the name the API gave it, or a plain one when it gave none', async () => {
     const blob = new Blob(['%PDF-1.7'])
     const named = fakeApi(() => Promise.resolve(undefined), { blob, filename: 'prova-2026-10-05.pdf' })

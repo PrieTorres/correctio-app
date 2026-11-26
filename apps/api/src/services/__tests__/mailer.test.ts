@@ -17,6 +17,14 @@ describe('createLogMailer', () => {
     expect(logger.info).toHaveBeenCalledWith(expect.objectContaining({ text: 'link secreto' }), expect.any(String))
   })
 
+  it('keeps the address and the body of a confidential e-mail out of the log, even on a developer machine', async () => {
+    const { logger, asLogger } = spyLogger()
+    await createLogMailer(asLogger, { production: false }).send({ ...MESSAGE, confidential: true })
+
+    expect(JSON.stringify(logger.info.mock.calls)).not.toContain('link secreto')
+    expect(JSON.stringify(logger.info.mock.calls)).not.toContain('ana@exemplo.edu.br')
+  })
+
   it('reports an error on a deployed API without ever printing the link', async () => {
     const { logger, asLogger } = spyLogger()
     await createLogMailer(asLogger, { production: true }).send(MESSAGE)

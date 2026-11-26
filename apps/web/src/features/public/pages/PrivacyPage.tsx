@@ -27,8 +27,9 @@ export function PrivacyPage() {
         <section className="flex flex-col gap-2">
           <h2 className="text-title text-primary">Para quê</h2>
           <p>
-            Para montar provas, imprimir versões, corrigir folhas e devolver a nota ao aluno. Os
-            dados não são usados para nenhuma outra finalidade, não são vendidos e não alimentam
+            Para montar provas, imprimir versões, corrigir folhas e devolver a nota ao aluno. O
+            e-mail do aluno, quando informado, serve só para enviar a ele o link da própria nota,
+            por pedido do professor. Os dados não são usados para nenhuma outra finalidade, não são vendidos e não alimentam
             perfil de comportamento.
           </p>
         </section>

@@ -213,6 +213,14 @@ describe('application repository', () => {
     await expect(applications.setGradesReleased('nope', true)).rejects.toThrow('Aplicação não encontrada.')
   })
 
+  it('says the e-mails cannot go out without a server to send them', async () => {
+    const { application } = await seedSitting()
+
+    await expect(repositoriesOf('ana').applications.sendGradeLinks(application.id)).rejects.toThrow(
+      'O envio de e-mails é feito pelo servidor e não existe nesta demonstração.',
+    )
+  })
+
   it('says the PDF does not exist without a server to draw it', async () => {
     const { application } = await seedSitting()
 

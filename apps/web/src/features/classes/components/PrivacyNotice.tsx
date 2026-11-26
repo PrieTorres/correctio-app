@@ -10,7 +10,8 @@ export function PrivacyNotice() {
   return (
     <p className="rounded-[var(--radius-control)] bg-surface-muted p-3 text-caption text-ink-muted">
       Você é responsável pelos dados pessoais de terceiros que insere aqui. O aluno pode
-      solicitar a anonimização a qualquer momento.{' '}
+      solicitar a anonimização a qualquer momento. O e-mail do aluno, quando informado, serve só
+      para enviar a ele o link da própria nota, e apenas quando você pedir.{' '}
       <Link to={ROUTES.privacy} className="underline">
         Aviso de privacidade
       </Link>

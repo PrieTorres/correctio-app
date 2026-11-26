@@ -250,6 +250,17 @@ export function useReleaseGrades() {
   });
 }
 
+/**
+ * E-mails each student the link to their own grade page. It changes nothing the
+ * screens cache, so there is nothing to invalidate: the answer is the counts
+ * the teacher is shown.
+ */
+export function useSendGradeLinks() {
+  const { repositories } = useServices();
+
+  return useMutation({ mutationFn: (id: string) => repositories.applications.sendGradeLinks(id) });
+}
+
 /** Saves the PDF of the application, which comes from the API with the teacher's token. */
 export function useDownloadApplicationPdf() {
   const { repositories } = useServices();

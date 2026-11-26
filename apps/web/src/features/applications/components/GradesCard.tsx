@@ -4,13 +4,15 @@ import { canReleaseGrades } from '@/lib/applications';
 import type { ApplicationOverview } from '@/types/domain';
 import { useReleaseGrades } from '../hooks/useApplications';
 import { DETAIL_SECTION } from '../detail-sections';
+import { GradeLinksSection } from './GradeLinksSection';
 
 /**
  * Whether the students see their grades when they scan their sheets (RF33,
  * RF46). A button rather than a switch: a switch that asks for confirmation
  * already looks on before the teacher confirms. Releasing asks first and
  * says what the student starts to see; taking the grades back only hides
- * them, so it does not ask.
+ * them, so it does not ask. Once released, the card also offers the opt-in
+ * e-mail of the grade links.
  *
  * The rule that blocks the release is the one the API applies, so the reason
  * under the disabled button is the one the server would answer; an archived
@@ -52,6 +54,7 @@ export function GradesCard({ application }: Readonly<{ application: ApplicationO
         </>
       )}
       {!confirming && <SaveError error={release.error} />}
+      {application.gradesReleased && <GradeLinksSection application={application} />}
 
       <ConfirmDialog
         open={confirming}

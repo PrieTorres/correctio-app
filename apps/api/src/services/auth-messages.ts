@@ -2,8 +2,8 @@ import type { MailMessage } from './mailer'
 
 const HTML_ENTITIES: Readonly<Record<string, string>> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 
-/** The name is whatever someone typed at sign-up; unescaped, it could put markup into the e-mail. */
-function escapeHtml(text: string): string {
+/** Names and titles are whatever someone typed; unescaped, they could put markup into the e-mail. */
+export function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (character) => HTML_ENTITIES[character] ?? character)
 }
 

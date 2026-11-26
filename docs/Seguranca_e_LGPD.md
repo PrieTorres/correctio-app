@@ -83,7 +83,7 @@ Um limite único não serve: 300 req/min mata a importação em lote e não impe
 | Autenticação | cadastro, login, recuperação | 5 tentativas / 15 min, espera progressiva a partir da 3ª. O login conta só as falhas; a redefinição com o código conta as falhas por IP | IP **+** e-mail |
 | Leitura | GETs autenticados | 300/min | professor |
 | Escrita comum | CRUD | 60/min | professor |
-| **Cara** | gerar PDF, importar lote, exportar relatório (só com `?format=`) | 10/h. Não há limite de trabalhos simultâneos; a geração trava a linha da aplicação | professor |
+| **Cara** | gerar PDF, importar lote, exportar relatório (só com `?format=`), enviar o link da nota por e-mail | 10/h. Não há limite de trabalhos simultâneos; a geração trava a linha da aplicação | professor |
 | **Muito cara** | upload e leitura de folha | 500 imagens/dia, 200 MB/dia, contados no banco (`sheet_images`); uma leitura de cada vez, na worker thread | professor |
 
 ### Quatro detalhes que quebram isso na prática
@@ -130,7 +130,7 @@ Limite por usuário não protege a conta: 600 professores legítimos na semana d
 
 | Exigência | Como o Correctio atende |
 |---|---|
-| **Necessidade / minimização** (Art. 6º, III) | Pendente: o e-mail do aluno é coletado sem finalidade no sistema. Ver nota do RF07. |
+| **Necessidade / minimização** (Art. 6º, III) | O e-mail do aluno tem uma finalidade declarada: enviar a ele o link da própria nota, por ação explícita do professor depois de liberar as notas (nota do RF07). A mensagem vai para um aluno só, sem a nota e sem as respostas, o endereço só é decifrado para enviar, e nem ele nem o código entram no log. Segue opcional. |
 | **Transparência** (Art. 6º, VI) | RF39 — aviso de privacidade no cadastro e na importação de alunos, mais página pública de aviso de privacidade. |
 | **Direito de exclusão** (Art. 18, VI) | RF38 — anonimização do aluno. Remover da turma (RF09) **não** cumpre esse direito: preserva os dados. A anonimização troca nome e matrícula e apaga o e-mail; as fotos das folhas e o PDF da aplicação, que podem trazer o nome, continuam no bucket. RF05 — anonimização da conta do professor (`POST /me/anonymize`): nome, e-mail e senha substituídos e sessões encerradas, com turmas, provas e notas preservadas. |
 | **Direito de acesso e correção** (Art. 18, I–III) | O aluno não tem login, então exerce pelo professor, que edita ou anonimiza o registro. |

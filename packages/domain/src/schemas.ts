@@ -447,6 +447,13 @@ export const applicationOverviewSchema = applicationSchema.extend({
   progress: applicationProgressSchema,
 });
 
+/** How the API answers the e-mailing of the grade links (`POST /applications/:id/grade-links`). */
+export const gradeLinkSummarySchema = z.object({
+  sent: count,
+  failed: count,
+  skipped: z.object({ noEmail: count, anonymized: count, removed: count, noSheet: count }),
+});
+
 export const correctionProgressSchema = z.enum(CORRECTION_PROGRESS);
 
 /**

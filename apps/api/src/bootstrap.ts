@@ -2,7 +2,7 @@ import type { Express } from 'express'
 import type { Kysely } from 'kysely'
 import type { Logger } from 'pino'
 import { createApp } from './app'
-import { composeAuth } from './compose-auth'
+import { composeAuth, mailerFor } from './compose-auth'
 import type { Env } from './config/env'
 import { createDatabase } from './db/connection'
 import { createFieldCipher } from './lib/field-encryption'
@@ -33,11 +33,13 @@ export function bootstrapApi(env: Env, { basePath }: { basePath?: string } = {})
 
   const logger = createLogger(env.LOG_LEVEL)
   const db = createDatabase({ url: env.DATABASE_URL, tls: env.DATABASE_TLS, caCert: env.DATABASE_CA_CERT })
+  const mailer = mailerFor(env, logger)
   const app = createApp({
     env,
     logger,
     db,
-    auth: composeAuth({ env, db, logger }),
+    mailer,
+    auth: composeAuth({ env, db, logger, mailer }),
     fieldCipher: createFieldCipher(env.DATA_ENCRYPTION_KEY),
     fileStorage: createFileStorage(env),
     basePath,

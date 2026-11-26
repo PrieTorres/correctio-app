@@ -530,7 +530,7 @@ function reviewReading(): void {
 /**
  * RF30: a sheet with no photo is typed by hand. The teacher stops before the
  * open-ended score and saves without finishing (RF47), which leaves the one
- * correction the panel counts as pending in step 14.
+ * correction the panel counts as pending in step 15.
  */
 function typeSheetOf(fullName: string): void {
   cy.findByLabel('Escolha a folha')
@@ -557,7 +557,7 @@ function typeSheetOf(fullName: string): void {
  *
  * Grading starts from the panel's shortcut, as on a test day. With this the
  * only application generated, it goes straight to the upload screen. The
- * panel's tour is left open, not dismissed, so step 14 can still walk it.
+ * panel's tour is left open, not dismissed, so step 15 can still walk it.
  */
 function gradeSheets(): void {
   cy.intercept({ method: 'GET', pathname: /^\/api\/applications\/[^/]+\/sheets$/ }).as('sheets')
@@ -595,6 +595,26 @@ function releaseGrades(): void {
   skipTour()
   cy.findByLabel('Turma').should('contain', SCHOOL_CLASS.name).select(SCHOOL_CLASS.name)
   cy.contains('a', EXAM.title).closest('li').should('contain', 'Notas liberadas').and('contain', 'Gabarito publicado')
+}
+
+/**
+ * The e-mail is opt-in and asks first. Two of the five students left an
+ * address (the one typed by hand and the first of the spreadsheet), and the
+ * three without one are counted as left out. The log mailer of the pipeline
+ * takes the messages, so the counts on screen are the proof. The list is
+ * reached again with the browser's own back, which keeps its class filter.
+ */
+function sendGradeLinks(): void {
+  cy.contains('a', EXAM.title).click()
+  cy.contains('h2', 'Notas para os alunos').should('be.visible')
+
+  cy.contains('button', 'Enviar link por e-mail').click()
+  cy.findInDialog('h2', 'Enviar o link por e-mail?').should('be.visible')
+  cy.findInDialog('button', 'Enviar e-mails').click()
+  cy.contains('[role="status"]', '2 e-mails enviados.').should('contain', 'sem e-mail: 3')
+
+  cy.go('back')
+  cy.contains('a', EXAM.title).should('be.visible')
 }
 
 /**
@@ -756,13 +776,16 @@ describe('jornada completa', () => {
     cy.log('**11. Liberar as notas**')
     releaseGrades()
 
-    cy.log('**12. Consultar a nota pelo QR Code**')
+    cy.log('**12. Enviar a cada aluno com e-mail o link da própria nota**')
+    sendGradeLinks()
+
+    cy.log('**13. Consultar a nota pelo QR Code**')
     lookUpByQrCode()
 
-    cy.log('**13. Ler o relatório da aplicação e exportar em Excel**')
+    cy.log('**14. Ler o relatório da aplicação e exportar em Excel**')
     readReport()
 
-    cy.log('**14. Conferir o painel: o relatório como próximo passo, a saudação e as correções pendentes**')
+    cy.log('**15. Conferir o painel: o relatório como próximo passo, a saudação e as correções pendentes**')
     readDashboard()
   })
 })

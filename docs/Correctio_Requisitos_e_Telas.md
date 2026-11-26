@@ -36,7 +36,7 @@ O que o cliente confirmou em 04/09:
 - **Paginação virou requisito**, não nota de qualidade: questão não quebra entre páginas (RF43) e prova com número ímpar de páginas ganha uma folha em branco ao final (RF44), para não começar a próxima prova no verso.
 - **Imagens no enunciado das questões** entram no escopo (RF45).
 
-**Pendente de validação com o cliente:** importação/exportação via Excel, retorno do cartão-resposta, finalidade do e-mail do aluno e existência de alunos menores de idade — lista completa na seção 7.
+**Pendente de validação com o cliente:** importação/exportação via Excel, retorno do cartão-resposta, existência de alunos menores de idade — lista completa na seção 7. A finalidade do e-mail do aluno foi decidida pela PM (nota do RF07).
 
 ## 1. Sobre este documento e regra de ouro
 
@@ -84,7 +84,7 @@ Formato exigido pela professora: cada RF descreve uma ação que pode ser feita 
 | RF04 | O sistema deve permitir que o professor encerre a sessão atual ou todas as sessões ativas. | Conta |
 | RF05 | O sistema deve permitir que o professor consulte os próprios dados e anonimize a própria conta de forma irreversível. | Conta |
 | RF06 | O sistema deve permitir que o professor crie, edite e arquive turmas (nome, disciplina, período). | Turmas |
-| RF07 | O sistema deve permitir que o professor cadastre alunos em uma turma (nome, matrícula, e-mail opcional). [validar minimização] | Turmas |
+| RF07 | O sistema deve permitir que o professor cadastre alunos em uma turma (nome, matrícula, e-mail opcional, usado só para enviar ao aluno o link da própria nota). | Turmas |
 | RF08 | O sistema deve permitir que o professor importe alunos em lote a partir de planilha Excel ou arquivo JSON. [validar] | Turmas |
 | RF09 | O sistema deve permitir que o professor remova um aluno da turma preservando o histórico de notas. | Turmas |
 | RF10 | O sistema deve permitir que o professor crie, edite e exclua (soft-delete) questões objetivas (2 a 5 alternativas, 1 correta) e discursivas (enunciado + nota máxima). | Questões |
@@ -129,7 +129,7 @@ Formato exigido pela professora: cada RF descreve uma ação que pode ser feita 
 
 **Colunas da exportação (RF36).** Enquanto o cliente não valida as colunas (#69), a exportação segue a decisão da PM de 30/10: o relatório da aplicação sai com uma linha por aluno corrigido, com nome, matrícula, versão, a nota de cada questão na coluna da questão da prova (Q1 é a questão 1 da prova, qualquer que seja a versão do aluno) e o total; a folha ainda sem aluno sai como "Folha N", com a matrícula vazia. O consolidado sai com uma linha por aplicação e as colunas da tela (prova, turma, data, corrigidas, média, menor e maior), só com as linhas dos filtros aplicados. As colunas podem mudar quando a #69 for respondida.
 
-**Minimização (RF07).** O e-mail do aluno é coletado hoje sem nenhuma finalidade no sistema: não existe área do aluno e nada é enviado a ele por e-mail. Coletar dado pessoal sem finalidade contraria o princípio da necessidade (LGPD, Art. 6º, III). Levar ao cliente: o campo tem uso previsto? Se não tiver, sai do cadastro e da importação.
+**Minimização (RF07).** Decisão da PM: o e-mail do aluno tem uma finalidade, enviar a ele o link da própria consulta de nota (a página pública `/r/<código da folha>`). O envio é uma ação explícita do professor, só depois de liberar as notas, nunca automática: ele confirma, e o sistema informa quantos e-mails saíram e quantos alunos ficaram de fora (sem e-mail, anonimizado, removido da turma ou sem folha). Cada e-mail vai para um aluno só, diz de qual prova e turma se trata e traz apenas o link, sem a nota nem as respostas. O endereço é decifrado só para enviar e nunca vai para o log. O aviso de privacidade declara essa finalidade (LGPD, Art. 6º, I e III). Fora disso o e-mail não é usado, e o campo continua opcional.
 
 ## 4. Requisitos Não-Funcionais (RNF) — com métrica
 
@@ -250,7 +250,6 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 
 1. Importação e exportação de dados via Excel — quais colunas ele já usa hoje (lista de alunos, notas para o sistema acadêmico)?
 1. O cartão-resposta corrigido volta para o aluno? Se não, o código de consulta deve ir também no caderno de prova (ver 6.1).
-1. Finalidade do campo e-mail do aluno — ele tem algum uso previsto? Hoje é coletado sem finalidade no sistema (ver nota do RF07).
 1. Existe aluno menor de 18 anos? Se houver, o tratamento tem exigências adicionais (LGPD, Art. 14).
 
 **Levado à professora (respondido em 26/10/2026, #83):**
@@ -689,6 +688,7 @@ Alunos são cadastrados pelo professor, sem consentimento próprio no sistema. A
 - “Publicar gabarito” → confirmação → publica
 - “Corrigir provas” → P15 · “Ver relatório” → P18 · “Pendentes de atribuição” → P17
 - “Liberar notas” → confirmação → PUB1 passa a exibir a nota junto do gabarito. Indisponível enquanto houver versão sem gabarito publicado. “Despublicar gabarito” e “Recolher notas” desfazem
+- Com as notas liberadas, “Enviar link por e-mail” → confirmação → cada aluno com e-mail recebe uma mensagem só dele com o link do PUB1 da própria folha (sem a nota); a tela mostra quantos saíram e quantos ficaram de fora e por quê. Ação explícita, nunca automática (nota do RF07).
 - Arquivar → confirmação · Restaurar → confirmação → aplicação volta à lista ativa (RF42)
 
 #### P15. Correção — Enviar folhas de respostas
@@ -791,9 +791,9 @@ Mudanças em relação às entidades da Spec, decorrentes do novo escopo:
 - **Application:** + gradesReleased: boolean (libera consulta em PUB1). Estado closed ganha endpoint de arquivar.
 - **AnswerSheet (novo):** { id, applicationId, examVersionId, studentId?, sheetNumber, code } — uma por cartão-resposta impresso. sheetNumber é o número curto e legível impresso para o professor organizar as pilhas de papel; code é o token aleatório opaco de no mínimo 128 bits que vai dentro do QR Code e é a única chave de consulta pública. Os dois nunca se confundem. Faz o papel que a Spec dá ao ExamAssignment, que continua no contrato sem uso; `qrCodePayload` e `publicCode` da versão também continuam, preenchidos e sem uso — ver 6.1.
 - **Correction:** passa a apontar para answerSheetId (a folha), não só para a versão; objectiveResults ganha selectedAlternativeId; + source: “IMAGE_UPLOAD” | “MANUAL”; + imageUrl?; + status: “IN_PROGRESS” | “DONE”, que distingue a correção que ainda espera nota de discursiva (RF47). O status é derivado das discursivas sem nota e gravado junto, para a listagem não precisar consultar a prova a cada linha. `clientCorrectionId` e `syncStatus` continuam obrigatórios, como na Spec: o servidor gera o primeiro e grava `"synced"`.
-- **Endpoints novos:** import (alunos, questões, provas), export de prova, duplicar prova, gerar prova automática, upload/leitura de folha, liberar notas, página pública por código.
+- **Endpoints novos:** import (alunos, questões, provas), export de prova, duplicar prova, gerar prova automática, upload/leitura de folha, liberar notas, enviar por e-mail o link da nota (`POST /applications/:id/grade-links`), página pública por código.
 
-**Student:** o campo email está pendente de validação — hoje é coletado sem finalidade no sistema (ver nota do RF07).
+**Student:** o campo email é opcional e serve só para enviar ao aluno o link da própria nota (ver nota do RF07).
 
 **Soft delete geral:** Class, Exam e Application ganham marcação de arquivamento reversível, e Question mantém o soft-delete já previsto. Nenhuma exclusão é física, e a listagem filtra os inativos por padrão na camada de repositório (RF42).
 
@@ -804,7 +804,7 @@ Mudanças em relação às entidades da Spec, decorrentes do novo escopo:
 ## 10. Fora do escopo / em discussão
 
 - **Fora:** app mobile; editor manual de layout do PDF / exportar .doc; área do aluno com login; versionamento A/B/C de questões (provas realmente diferentes por aluno), extra opcional se sobrar tempo — ver 6.3.
-- **Depende de validação:** importação/exportação Excel, retorno do cartão-resposta, finalidade do e-mail do aluno, existência de alunos menores de idade — ver seção 7.
+- **Depende de validação:** importação/exportação Excel, retorno do cartão-resposta, existência de alunos menores de idade — ver seção 7.
 
 ## 11. Situação
 

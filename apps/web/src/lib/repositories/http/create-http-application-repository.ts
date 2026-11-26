@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { answerSheetSchema, applicationOverviewSchema, examVersionSchema, type ApplicationInput } from '@/lib/schemas'
+import { answerSheetSchema, applicationOverviewSchema, examVersionSchema, gradeLinkSummarySchema, type ApplicationInput } from '@/lib/schemas'
 import type { ApplicationOverview } from '@/types/domain'
 import type { ApplicationListParams, ApplicationRepository } from '../application-repository'
 import type { ApiClient, FileClient } from './api-client'
@@ -41,6 +41,10 @@ export function createHttpApplicationRepository(api: ApiClient & FileClient): Ap
         applicationOverviewSchema,
         await api.request('POST', `${itemPath(id)}/grades-release`, { body: { released } }),
       )
+    },
+
+    async sendGradeLinks(id) {
+      return parseEntity(gradeLinkSummarySchema, await api.request('POST', `${itemPath(id)}/grade-links`))
     },
 
     async downloadPdf(id) {
