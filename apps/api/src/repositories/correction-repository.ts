@@ -1,6 +1,7 @@
 import type { Correction, CorrectionStatus, DiscursiveScore, ObjectiveResult } from '@correctio/domain'
 import type { Insertable, Kysely, Selectable } from 'kysely'
 import { pageWindow, type Page, type PageRequest } from '../lib/pagination'
+import { appendAudit, type AuditEntry } from './activity-log-repository'
 import type { CorrectionsTable, Database } from '../models/tables'
 
 /** The unique indexes of `corrections`, named after their column, which the service turns into a 409. */
@@ -45,9 +46,10 @@ export interface CorrectionRepository {
   findById: (applicationId: string, id: string) => Promise<Correction | undefined>
   /** The correction already made for the student on the version, other than `exceptId`, if any. */
   findStudentIn: (examVersionId: string, studentId: string, exceptId?: string) => Promise<string | undefined>
-  create: (correction: Correction) => Promise<void>
-  /** Replaces the stored correction with `correction`, which the service already merged with it. */
-  update: (correction: Correction) => Promise<void>
+  /** Writes the correction, its results and `audit` in one transaction. */
+  create: (correction: Correction, audit: AuditEntry) => Promise<void>
+  /** Replaces the stored correction with `correction`, which the service already merged with it, and writes `audit` in the same transaction. */
+  update: (correction: Correction, audit: AuditEntry) => Promise<void>
 }
 
 function optionalFields(row: CorrectionRow): Partial<Correction> {
@@ -188,20 +190,22 @@ export function createCorrectionRepository(db: Kysely<Database>): CorrectionRepo
       return row?.id
     },
 
-    async create(correction) {
+    async create(correction, audit) {
       await db.transaction().execute(async (trx) => {
         await trx.insertInto('corrections').values(toRow(correction)).execute()
         await insertResults(trx, correction)
+        await appendAudit(trx, [audit])
       })
     },
 
-    async update(correction) {
+    async update(correction, audit) {
       await db.transaction().execute(async (trx) => {
         const { id, ...changes } = toRow(correction)
         await trx.updateTable('corrections').set(changes).where('id', '=', id).execute()
         await trx.deleteFrom('correction_objective_results').where('correctionId', '=', id).execute()
         await trx.deleteFrom('correction_discursive_scores').where('correctionId', '=', id).execute()
         await insertResults(trx, correction)
+        await appendAudit(trx, [audit])
       })
     },
   }

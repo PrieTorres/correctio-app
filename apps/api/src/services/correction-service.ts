@@ -18,6 +18,7 @@ import { isDuplicateEntry } from '../db/errors'
 import { API_ERROR_CODE, ApiError } from '../lib/api-error'
 import { booleanParam, parseListRequest, type Page } from '../lib/pagination'
 import { parseRequest } from '../lib/parse-request'
+import { ACTIVITY_TYPE, AUDIT_ENTITY, type AuditEntry } from '../repositories/activity-log-repository'
 import type { ApplicationRepository } from '../repositories/application-repository'
 import { CORRECTION_INDEX, type CorrectionRepository } from '../repositories/correction-repository'
 import type { GradingExam, GradingQuestion, GradingRepository } from '../repositories/grading-repository'
@@ -182,6 +183,18 @@ function conflictOf(error: unknown): unknown {
   return error
 }
 
+/** The audit entry of a confirmation: the correction and its application by id, and for an edit the names of the fields sent, never their values. */
+function auditOf(teacherId: string, type: AuditEntry['type'], path: CorrectionPath, fields?: readonly string[]): AuditEntry {
+  const { applicationId, correctionId } = path
+  return {
+    teacherId,
+    type,
+    entity: AUDIT_ENTITY.CORRECTION,
+    entityId: correctionId,
+    details: { applicationId, ...(fields !== undefined && { fields }) },
+  }
+}
+
 /**
  * The corrections of an application (P15, P16 and P17). The owner is the
  * application's teacher, so every call starts from an application of the
@@ -263,7 +276,7 @@ export function createCorrectionService({ applications, printing, grading, corre
         syncStatus: syncStatus ?? 'synced',
         ...origin,
       }
-      await corrections.create(correction).catch((error: unknown) => {
+      await corrections.create(correction, auditOf(teacherId, ACTIVITY_TYPE.CORRECTION_CREATED, { applicationId, correctionId: id })).catch((error: unknown) => {
         throw conflictOf(error)
       })
       return correction
@@ -272,12 +285,15 @@ export function createCorrectionService({ applications, printing, grading, corre
     /**
      * Merges what came with what is stored (`{ ...current, ...sent }`), so a
      * field left out is never erased, and grades the result again. Leaving
-     * `finalize` out keeps the correction as finished or as open as it was.
+     * `finalize` out keeps the correction as finished or as open as it was. Each
+     * confirmation is an entry of the audit trail with the names of the fields
+     * sent, since an edit of a grade is an operation on a student's data (RF40).
      */
     async update(teacherId, { applicationId, correctionId }, body) {
       const application = await requireApplication(applications, teacherId, applicationId)
       const current = await requireCorrection(applicationId, correctionId)
-      const { answers, discursiveScores, finalize, studentId, ...sent } = parseRequest(updateSchema, body)
+      const request = parseRequest(updateSchema, body)
+      const { answers, discursiveScores, finalize, studentId, ...sent } = request
       const sheet = await requireSheet(applicationId, current.answerSheetId)
 
       const review: Review = {
@@ -293,7 +309,7 @@ export function createCorrectionService({ applications, printing, grading, corre
         confirmedAt: now().toISOString(),
         correctedBy: teacherId,
       }
-      await corrections.update(merged)
+      await corrections.update(merged, auditOf(teacherId, ACTIVITY_TYPE.CORRECTION_UPDATED, { applicationId, correctionId }, Object.keys(request)))
       return merged
     },
   }

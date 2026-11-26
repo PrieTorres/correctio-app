@@ -389,6 +389,11 @@ requisição (não é multipart): a P15 envia uma de cada vez.
 - **Falhas:** toda leitura que não termina em `READ` vai para o `ActivityLog`
   (`SHEET_READ_FAILED`), com o id da foto e da folha e sem dado pessoal, e aparece em
   `GET /applications/:id/read-failures`.
+- **Trilha de auditoria (RF40):** a mesma tabela guarda quem cadastrou, editou, removeu ou
+  anonimizou um aluno, confirmou ou editou uma correção, publicou ou retirou um gabarito e liberou
+  ou recolheu notas. O repositório grava a entrada (`appendAudit`) na transação da própria
+  operação, com ids e nomes de campo e nunca o dado. Só há inserção. Os tipos estão em
+  `docs/Modelo_de_Dados.md`.
 - **Limite:** 500 fotos e 200 MB por professor em 24 horas (`docs/Seguranca_e_LGPD.md`, seção
   4), contados no banco. Passou disso, responde 429.
 - **Aplicação sem PDF gerado** responde 409: não há folha para reconhecer.

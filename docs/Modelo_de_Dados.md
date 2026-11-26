@@ -319,7 +319,7 @@ havia.
 ### ActivityLog `+`
 
 Acréscimo do grupo: o log geral do sistema. Registra o que falhou ou aconteceu, como uma
-foto cujo QR não foi lido, e no N3 a trilha de auditoria (RF40). **Nunca guarda o conteúdo de
+foto cujo QR não foi lido, e a trilha de auditoria (RF40, RNF17). **Nunca guarda o conteúdo de
 dado pessoal.**
 
 ```ts
@@ -333,6 +333,26 @@ dado pessoal.**
   createdAt: Date
 }
 ```
+
+Os valores de `type` que a API escreve hoje:
+
+| `type` | `entity` | Quando |
+|---|---|---|
+| `SHEET_READ_FAILED` | `application` | Foto cujo QR ou marcações não foram lidos (log geral, não é trilha). |
+| `STUDENT_CREATED` | `student` | Aluno cadastrado, um por aluno, inclusive na importação. `details`: `classId`. |
+| `STUDENT_UPDATED` | `student` | Aluno editado. `details`: `classId` e `fields`, os **nomes** dos campos enviados. |
+| `STUDENT_REMOVED` | `student` | Aluno removido da turma. |
+| `STUDENT_ANONYMIZED` | `student` | Aluno anonimizado. |
+| `CORRECTION_CREATED` | `correction` | Correção confirmada. `details`: `applicationId`. |
+| `CORRECTION_UPDATED` | `correction` | Correção editada, ou seja, nota alterada. `details`: `applicationId` e `fields`. |
+| `ANSWER_KEY_PUBLISHED` | `exam_version` | Gabarito publicado, um por versão. `details`: `applicationId`. |
+| `ANSWER_KEY_TAKEN_BACK` | `exam_version` | Gabarito despublicado. `details`: `applicationId`. |
+| `GRADES_RELEASED` | `application` | Notas liberadas. |
+| `GRADES_WITHDRAWN` | `application` | Notas recolhidas. |
+
+Todos, menos o primeiro, são a trilha de auditoria: `teacherId` é o autor, `entityId` a linha
+afetada e `createdAt` o momento. Operação que não muda nada (publicar o que já está publicado,
+anonimizar de novo) e operação que falha não deixam entrada. A API só insere nessa tabela.
 
 ### SheetImage `+`
 

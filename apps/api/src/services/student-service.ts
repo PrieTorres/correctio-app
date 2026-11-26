@@ -6,6 +6,7 @@ import { API_ERROR_CODE, ApiError } from '../lib/api-error'
 import { mergePatch } from '../lib/merge-patch'
 import { booleanParam, parseListRequest, type Page } from '../lib/pagination'
 import { parseRequest } from '../lib/parse-request'
+import { ACTIVITY_TYPE, AUDIT_ENTITY, type AuditEntry } from '../repositories/activity-log-repository'
 import type { ClassRepository } from '../repositories/class-repository'
 import { REGISTRATION_INDEX, type NewStudent, type StudentChanges, type StudentRepository } from '../repositories/student-repository'
 
@@ -59,6 +60,17 @@ export interface StudentService {
 export interface StudentServiceDependencies {
   classes: ClassRepository
   students: StudentRepository
+}
+
+/** The audit entry of an operation on a student: the class by id, plus the names of the fields touched, never their values. */
+function auditOf(teacherId: string, type: AuditEntry['type'], student: { id: string; classId: string }, fields?: readonly string[]): AuditEntry {
+  return {
+    teacherId,
+    type,
+    entity: AUDIT_ENTITY.STUDENT,
+    entityId: student.id,
+    details: { classId: student.classId, ...(fields !== undefined && { fields }) },
+  }
 }
 
 /**
@@ -164,7 +176,9 @@ export function createStudentService({ classes, students }: StudentServiceDepend
       await requireOpenClass(teacherId, classId)
       const input = parseRequest(studentInputSchema, body)
       const student: NewStudent = { id: randomUUID(), classId, ...input }
-      await writeRegistration(classId, input.registration, () => students.insert([student]))
+      await writeRegistration(classId, input.registration, () =>
+        students.insert([student], [auditOf(teacherId, ACTIVITY_TYPE.STUDENT_CREATED, student)]),
+      )
       return student
     },
 
@@ -187,7 +201,10 @@ export function createStudentService({ classes, students }: StudentServiceDepend
       }
 
       try {
-        await students.insert(fresh)
+        await students.insert(
+          fresh,
+          fresh.map((student) => auditOf(teacherId, ACTIVITY_TYPE.STUDENT_CREATED, student)),
+        )
       } catch (error) {
         if (!isDuplicateEntry(error, REGISTRATION_INDEX)) throw error
         throw new ApiError(API_ERROR_CODE.CONFLICT, IMPORT_CLASHED)
@@ -202,14 +219,15 @@ export function createStudentService({ classes, students }: StudentServiceDepend
 
       const { merged, sent } = mergePatch(pickForm(current), body, STUDENT_FIELDS)
       const input = parseRequest(studentInputSchema, merged)
-      await writeRegistration(classId, input.registration, () => students.update(classId, studentId, changesFrom(input, sent)))
+      const audit = auditOf(teacherId, ACTIVITY_TYPE.STUDENT_UPDATED, current, sent)
+      await writeRegistration(classId, input.registration, () => students.update(classId, studentId, changesFrom(input, sent), audit))
       return requireStudent(classId, studentId)
     },
 
     async remove(teacherId, classId, studentId) {
       await requireClass(teacherId, classId)
-      await requireStudent(classId, studentId)
-      await students.markRemoved(classId, studentId, new Date())
+      const student = await requireStudent(classId, studentId)
+      await students.markRemoved(classId, studentId, new Date(), auditOf(teacherId, ACTIVITY_TYPE.STUDENT_REMOVED, student))
     },
 
     /**
@@ -222,11 +240,12 @@ export function createStudentService({ classes, students }: StudentServiceDepend
       const student = await requireStudent(classId, studentId, true)
       if (student.anonymizedAt !== undefined) return
 
-      await students.anonymize(classId, studentId, {
-        fullName: ANONYMIZED_NAME,
-        registration: anonymizedRegistration(studentId),
-        at: new Date(),
-      })
+      await students.anonymize(
+        classId,
+        studentId,
+        { fullName: ANONYMIZED_NAME, registration: anonymizedRegistration(studentId), at: new Date() },
+        auditOf(teacherId, ACTIVITY_TYPE.STUDENT_ANONYMIZED, student),
+      )
     },
   }
 }

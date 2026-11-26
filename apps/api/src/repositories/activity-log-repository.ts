@@ -1,13 +1,70 @@
 import { randomUUID } from 'node:crypto'
 import { SHEET_READING, type ReadFailure } from '@correctio/domain'
-import type { Kysely } from 'kysely'
+import type { Kysely, Transaction } from 'kysely'
 import type { Database } from '../models/tables'
 
 /** The kinds of event the API writes to the general log. Values the group added. */
 export const ACTIVITY_TYPE = Object.freeze({
   /** A photo of a sheet whose QR Code or marks could not be read (#47). */
   SHEET_READ_FAILED: 'SHEET_READ_FAILED',
+  STUDENT_CREATED: 'STUDENT_CREATED',
+  STUDENT_UPDATED: 'STUDENT_UPDATED',
+  STUDENT_REMOVED: 'STUDENT_REMOVED',
+  STUDENT_ANONYMIZED: 'STUDENT_ANONYMIZED',
+  CORRECTION_CREATED: 'CORRECTION_CREATED',
+  CORRECTION_UPDATED: 'CORRECTION_UPDATED',
+  ANSWER_KEY_PUBLISHED: 'ANSWER_KEY_PUBLISHED',
+  ANSWER_KEY_TAKEN_BACK: 'ANSWER_KEY_TAKEN_BACK',
+  GRADES_RELEASED: 'GRADES_RELEASED',
+  GRADES_WITHDRAWN: 'GRADES_WITHDRAWN',
 } as const)
+
+/** The entities an audit entry points at, by the id of the row. */
+export const AUDIT_ENTITY = Object.freeze({
+  STUDENT: 'student',
+  CORRECTION: 'correction',
+  EXAM_VERSION: 'exam_version',
+  APPLICATION: 'application',
+} as const)
+
+type ActivityType = (typeof ACTIVITY_TYPE)[keyof typeof ACTIVITY_TYPE]
+type AuditEntity = (typeof AUDIT_ENTITY)[keyof typeof AUDIT_ENTITY]
+
+/**
+ * One line of the audit trail (RF40, RNF17): who did what to which row. The
+ * details hold ids and the names of the fields touched, as strings, so a name,
+ * a registration, an e-mail or a score has no way in through the type.
+ */
+export interface AuditEntry {
+  teacherId: string
+  type: Exclude<ActivityType, typeof ACTIVITY_TYPE.SHEET_READ_FAILED>
+  entity: AuditEntity
+  entityId: string
+  details?: Readonly<Record<string, string | readonly string[]>>
+}
+
+/**
+ * Appends entries to the trail through the executor of the write they
+ * describe, so a repository passes its own transaction and the entry commits
+ * or rolls back together with the change. Insert is the only write the trail
+ * has: nothing in the API updates or deletes an entry.
+ */
+export async function appendAudit(executor: Kysely<Database> | Transaction<Database>, entries: readonly AuditEntry[]): Promise<void> {
+  if (entries.length === 0) return
+  await executor
+    .insertInto('activity_logs')
+    .values(
+      entries.map(({ teacherId, type, entity, entityId, details }) => ({
+        id: randomUUID(),
+        teacherId,
+        type,
+        entity,
+        entityId,
+        details: details === undefined ? null : JSON.stringify(details),
+      })),
+    )
+    .execute()
+}
 
 /** How many failures the upload screen lists at most: more than any class has sheets. */
 const FAILURES_LISTED = 500

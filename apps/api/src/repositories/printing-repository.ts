@@ -3,6 +3,7 @@ import type { Insertable, Kysely, Selectable } from 'kysely'
 import { byText } from '../db/text-search'
 import { pageWindow, type Page, type PageRequest } from '../lib/pagination'
 import type { ReadingContext } from '../lib/sheet-reading/read-photo'
+import { ACTIVITY_TYPE, appendAudit, AUDIT_ENTITY, type AuditEntry } from './activity-log-repository'
 import type { AnswerSheetsTable, Database, ExamVersionsTable } from '../models/tables'
 
 const VERSION_COLUMNS = [
@@ -56,21 +57,27 @@ export interface PrintingRepository {
   /** The versions of an application, by `versionNumber`. */
   listVersions: (applicationId: string, request: PageWindowRequest) => Promise<Page<ExamVersion>>
   findVersion: (applicationId: string, versionId: string) => Promise<ExamVersion | undefined>
-  /** Publishes the answer key of the version as of `publishedAt`; publishing never conflicts with released grades. */
-  publishAnswerKey: (applicationId: string, versionId: string, publishedAt: Date) => Promise<void>
+  /**
+   * Publishes the answer key of the version as of `publishedAt`; publishing
+   * never conflicts with released grades. Written with its entry of the audit
+   * trail, and only when the key was not published yet.
+   */
+  publishAnswerKey: (teacherId: string, applicationId: string, versionId: string, publishedAt: Date) => Promise<void>
   /**
    * Publishes, as of `publishedAt`, every answer key of the application still
    * unpublished, in one statement: a failure leaves none of them half done,
-   * and a key published before keeps the moment it first became public.
+   * and a key published before keeps the moment it first became public. One
+   * entry of the audit trail per key published now, in the same transaction.
    */
-  publishAllAnswerKeys: (applicationId: string, publishedAt: Date) => Promise<void>
+  publishAllAnswerKeys: (teacherId: string, applicationId: string, publishedAt: Date) => Promise<void>
   /**
    * Takes the answer key back unless the grades are released, and answers
    * whether it did. Checked and written under the lock of the application row,
    * which `ApplicationRepository.releaseGrades` also takes first, so a release
    * at the same moment waits instead of passing on a key about to go (RF46).
+   * The entry of the audit trail is written in the same transaction.
    */
-  takeBackAnswerKey: (applicationId: string, versionId: string) => Promise<boolean>
+  takeBackAnswerKey: (teacherId: string, applicationId: string, versionId: string) => Promise<boolean>
   /** The sheets of an application, by `sheetNumber`. */
   listSheets: (applicationId: string, request: PageWindowRequest) => Promise<Page<AnswerSheet>>
   /** One sheet, looked for inside its application, so the id of another application's sheet finds nothing. */
@@ -141,6 +148,14 @@ function versionUpdate(db: Kysely<Database>, applicationId: string, versionId: s
   return db.updateTable('exam_versions').where('applicationId', '=', applicationId).where('id', '=', versionId)
 }
 
+const keyAudit = (teacherId: string, type: AuditEntry['type'], versionId: string, applicationId: string): AuditEntry => ({
+  teacherId,
+  type,
+  entity: AUDIT_ENTITY.EXAM_VERSION,
+  entityId: versionId,
+  details: { applicationId },
+})
+
 /**
  * The printed side of an application: its versions and the sheets handed out,
  * and, for a generation, who gets a sheet and which sheets were corrected.
@@ -166,20 +181,39 @@ export function createPrintingRepository(db: Kysely<Database>): PrintingReposito
       return row === undefined ? undefined : toVersion(row)
     },
 
-    async publishAnswerKey(applicationId, versionId, publishedAt) {
-      await versionUpdate(db, applicationId, versionId).set({ answerKeyPublished: true, answerKeyPublishedAt: publishedAt }).execute()
+    async publishAnswerKey(teacherId, applicationId, versionId, publishedAt) {
+      await db.transaction().execute(async (trx) => {
+        const result = await versionUpdate(trx, applicationId, versionId)
+          .where('answerKeyPublished', '=', false)
+          .set({ answerKeyPublished: true, answerKeyPublishedAt: publishedAt })
+          .executeTakeFirst()
+        if (result.numUpdatedRows > 0n) await appendAudit(trx, [keyAudit(teacherId, ACTIVITY_TYPE.ANSWER_KEY_PUBLISHED, versionId, applicationId)])
+      })
     },
 
-    async publishAllAnswerKeys(applicationId, publishedAt) {
-      await db
-        .updateTable('exam_versions')
-        .set({ answerKeyPublished: true, answerKeyPublishedAt: publishedAt })
-        .where('applicationId', '=', applicationId)
-        .where('answerKeyPublished', '=', false)
-        .execute()
+    async publishAllAnswerKeys(teacherId, applicationId, publishedAt) {
+      await db.transaction().execute(async (trx) => {
+        const pending = await trx
+          .selectFrom('exam_versions')
+          .select('id')
+          .where('applicationId', '=', applicationId)
+          .where('answerKeyPublished', '=', false)
+          .forUpdate()
+          .execute()
+        if (pending.length === 0) return
+        await trx
+          .updateTable('exam_versions')
+          .set({ answerKeyPublished: true, answerKeyPublishedAt: publishedAt })
+          .where('id', 'in', pending.map((version) => version.id))
+          .execute()
+        await appendAudit(
+          trx,
+          pending.map((version) => keyAudit(teacherId, ACTIVITY_TYPE.ANSWER_KEY_PUBLISHED, version.id, applicationId)),
+        )
+      })
     },
 
-    async takeBackAnswerKey(applicationId, versionId) {
+    async takeBackAnswerKey(teacherId, applicationId, versionId) {
       return db.transaction().execute(async (trx) => {
         const application = await trx
           .selectFrom('applications')
@@ -189,7 +223,11 @@ export function createPrintingRepository(db: Kysely<Database>): PrintingReposito
           .executeTakeFirst()
         if (application === undefined || application.gradesReleased) return false
 
-        await versionUpdate(trx, applicationId, versionId).set({ answerKeyPublished: false, answerKeyPublishedAt: null }).execute()
+        const result = await versionUpdate(trx, applicationId, versionId)
+          .where('answerKeyPublished', '=', true)
+          .set({ answerKeyPublished: false, answerKeyPublishedAt: null })
+          .executeTakeFirst()
+        if (result.numUpdatedRows > 0n) await appendAudit(trx, [keyAudit(teacherId, ACTIVITY_TYPE.ANSWER_KEY_TAKEN_BACK, versionId, applicationId)])
         return true
       })
     },
