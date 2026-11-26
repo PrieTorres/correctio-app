@@ -34,6 +34,7 @@ Alternativas avaliadas:
   - `correctio-app`, produção, em https://correctio-app.web.app;
   - `correctio-app-preview`, pré-produção, com o link fixo da release do dia e até 10 links de branch, os mais antigos apagados.
 - **Uma instância (`maxInstances: 1`).** Os limites de requisição contam em memória; duas instâncias contariam separado e dobrariam cada limite.
+- **1 GiB de memória (`memory: '1GiB'`).** Ler uma foto de celular de 12 MP consome de 90 a 140 MB além do que a API já ocupa. Com os 256 MiB padrão, a primeira foto real enviada em produção derrubou a instância (#207).
 - **Segredos no Secret Manager de cada projeto,** declarados na função (`apps/api/src/function.ts`). O que é igual em todo projeto (origens permitidas, endereço público, saltos de proxy, modo produção e TLS verificado) é montado no código (`config/hosted-env.ts`), sem configuração manual.
 - **Deploy pelo GitHub Actions, sem chave guardada:**
   - o Google só entrega credencial a um job deste repositório rodando no ambiente `production` ou `preview`;
@@ -42,7 +43,7 @@ Alternativas avaliadas:
 
 ## Consequências
 
-- **Cota gratuita:** o Blaze cobra só acima da cota. O Cloud Run dá 2 milhões de requisições, 180 mil vCPU-segundo e 360 mil GB-segundo por mês ([cotas gratuitas do Google Cloud](https://docs.cloud.google.com/free/docs/free-cloud-features)), muito acima do volume da disciplina. O Secret Manager cobra cada versão ativa de segredo além de 6, alguns centavos por mês nos dois projetos.
+- **Cota gratuita:** o Blaze cobra só acima da cota. O Cloud Run dá 2 milhões de requisições, 180 mil vCPU-segundo e 360 mil GB-segundo por mês ([cotas gratuitas do Google Cloud](https://docs.cloud.google.com/free/docs/free-cloud-features)), muito acima do volume da disciplina, mesmo com 1 GiB de memória. O Secret Manager cobra cada versão ativa de segredo além de 6, alguns centavos por mês nos dois projetos.
 - **Cartão vinculado.** O Blaze exige forma de pagamento. Alertas de orçamento estão previstos para a N3 (`docs/Seguranca_e_LGPD.md`, seção 8).
 - **A função só tem CPU enquanto responde.** Nada pode rodar depois da resposta. Por isso o pedido de redefinição de senha espera um tempo fixo antes de responder, em vez de mandar o e-mail em segundo plano (ADR-003).
 - **Partida a frio.** A primeira requisição depois de um tempo parada leva alguns segundos para subir a instância.
