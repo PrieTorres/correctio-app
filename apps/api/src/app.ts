@@ -3,11 +3,11 @@ import express, { type Express } from 'express'
 import helmet from 'helmet'
 import type { Kysely } from 'kysely'
 import type { Logger } from 'pino'
-import { pinoHttp } from 'pino-http'
 import type { Env } from './config/env'
 import { createAuthController } from './controllers/auth-controller'
 import { refuseWithoutKey, type FieldCipher } from './lib/field-encryption'
 import { unavailableFileStorage, type FileStorage } from './lib/file-storage'
+import { createHttpLogger } from './lib/logger'
 import { createPhotoReader, type PhotoReader } from './lib/sheet-reading/photo-reader'
 import { createSessionCookie } from './lib/session-cookie'
 import { BODY_LIMIT_BYTES, limitBodySize } from './middlewares/body-limit'
@@ -131,7 +131,7 @@ export function createApp({
   app.use(cors({ origin: [...env.CORS_ORIGINS] }))
   app.use(limitBodySize)
   app.use(express.json({ limit: BODY_LIMIT_BYTES }))
-  app.use(pinoHttp({ logger }))
+  app.use(createHttpLogger(logger))
 
   app.use(
     basePath,
