@@ -91,6 +91,29 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('sheet image service (real MySQL
     await expect(service.upload('ana', 'app-ana', photo)).rejects.toMatchObject({ status: 429 })
   })
 
+  /** RNF16: the stored photo is the one the teacher sees later, and a phone writes where and when it was taken. */
+  it('stores the photo without its EXIF', async () => {
+    const fromPhone = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#ffffff' } })
+      .withExifMerge({ IFD0: { Make: 'Apple', Model: 'iPhone 13' }, IFD3: { GPSLatitudeRef: 'S', GPSLatitude: '26/1 29/1 0/1' } })
+      .jpeg()
+      .toBuffer()
+    const service = serviceWith()
+
+    const { imageId } = await service.upload('ana', 'app-ana', fromPhone)
+
+    const stored = await service.image('ana', 'app-ana', imageId)
+    expect((await sharp(stored.content).metadata()).exif).toBeUndefined()
+    expect(stored.contentType).toBe('image/jpeg')
+  })
+
+  /** Its first bytes say JPEG but nothing after them decodes, so there is no photo to show or read. */
+  it('refuses a photo that does not decode, and stores nothing', async () => {
+    const broken = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46])
+
+    await expect(serviceWith().upload('ana', 'app-ana', broken)).rejects.toMatchObject({ status: 400, message: 'Envie a foto em JPG, PNG ou WebP.' })
+    expect(await db.selectFrom('sheet_images').select('id').execute()).toEqual([])
+  })
+
   /** The photo is stored before the reading, so a reader that breaks still leaves something the teacher grades by hand. */
   it('counts a broken reading as a photo with no QR Code recognized, and logs the cause', async () => {
     const logger = { error: vi.fn() }

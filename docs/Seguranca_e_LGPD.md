@@ -148,7 +148,7 @@ técnicos do RNF16 — tipo real do arquivo, teto de tamanho e re-processamento 
 mas a sensibilidade é outra: são conteúdo autoral, não dado pessoal de terceiro. Ficam no mesmo
 armazenamento privado, e entram no PDF gerado.
 
-**EXIF.** Foto de celular carrega **coordenadas de GPS**, data e modelo do aparelho. A tela de envio de folhas aceita foto direto da câmera. Toda imagem recebida precisa ser **re-processada no servidor**, o que remove os metadados e, de quebra, neutraliza conteúdo malicioso embutido em arquivo de imagem. Na N2, a foto é guardada como chegou; só a cópia usada na leitura é reduzida. O re-processamento é da N3 (seção 8).
+**EXIF.** Foto de celular carrega **coordenadas de GPS**, data e modelo do aparelho. A tela de envio de folhas aceita foto direto da câmera. Toda imagem recebida precisa ser **re-processada no servidor**, o que remove os metadados e, de quebra, neutraliza conteúdo malicioso embutido em arquivo de imagem. Desde a N3, a API regrava toda foto a partir dos pixels antes de guardá-la (`lib/clean-photo.ts`): mesmo formato, já de pé pela orientação que o celular gravou, sem EXIF. Uma foto de cada vez, porque decodificar uma foto de 12 MP consome de 90 a 140 MB. Arquivo que não decodifica é recusado e nada é guardado.
 
 **Armazenamento privado.** As imagens das folhas ficam em armazenamento fechado e saem só pela API, para o professor da aplicação, com `Cache-Control: private, no-store`. URL assinada de curta validade é da N3. Se o repositório de arquivos for público, toda folha de resposta — com nome e nota — está na internet aberta.
 
@@ -176,7 +176,7 @@ armazenamento privado, e entram no PDF gerado.
 | Observabilidade | Log estruturado em JSON com id de correlação por requisição, sem dado pessoal. |
 | Ciclo de vida | No servidor local (`server.ts`), encerramento gracioso em `SIGTERM` e erro desconhecido derruba o processo em vez de seguir em estado corrompido. Na função publicada, quem controla o ciclo de vida é o runtime do Google. |
 | Processamento pesado | Leitura de imagem é uso intensivo de CPU e **não pode** rodar na thread principal — trava a API inteira. Roda numa worker thread (`lib/sheet-reading`, ADR-007), uma foto de cada vez. |
-| Upload de imagem | Tipo conferido pelos primeiros bytes (JPEG, PNG ou WebP), nunca pela extensão nem pelo `Content-Type`; até 10 MB; guardado no bucket privado e entregue só ao professor da aplicação (#47). |
+| Upload de imagem | Tipo conferido pelos primeiros bytes (JPEG, PNG ou WebP), nunca pela extensão nem pelo `Content-Type`; até 10 MB; regravado sem EXIF antes de ser guardado (RNF16); guardado no bucket privado e entregue só ao professor da aplicação (#47). |
 | Cache das respostas | `Cache-Control: no-store` em toda resposta da API (`middlewares/no-store.ts`). O cache existe só na memória do app — ver "Cache" abaixo. |
 | Limite de requisições | As camadas da seção 4 estão em `apps/api/src/middlewares/rate-limit.ts` (`RATE_LIMITS`). Cada rota especial aplica a sua camada. |
 | Exportação de relatório | A camada cara vale só com `?format=` (#82): a mesma rota sem ele é a tela lendo os números. No CSV, célula que começaria com `=`, `+`, `-`, `@`, tabulação ou retorno ganha um apóstrofo na frente e não vira fórmula no Excel (injeção por CSV, OWASP), porque nome de aluno chega por importação; no .xlsx toda célula de texto é gravada como texto. O nome do arquivo leva o relatório e a data, nunca o nome de um aluno. |

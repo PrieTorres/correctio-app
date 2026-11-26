@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { SHEET_READING, type ReadFailure, type SheetImageUpload } from '@correctio/domain'
 import type { Logger } from 'pino'
 import { API_ERROR_CODE, ApiError } from '../lib/api-error'
+import { createPhotoCleaner, type PhotoCleaner } from '../lib/clean-photo'
 import type { FileStorage } from '../lib/file-storage'
 import { EXTENSION_OF, sheetPhotoTypeOf, type SheetPhotoType } from '../lib/image-type'
 import type { PhotoReader } from '../lib/sheet-reading/photo-reader'
@@ -45,6 +46,8 @@ export interface SheetImageServiceDependencies {
   fileStorage: FileStorage
   readPhoto: PhotoReader
   logger: Logger
+  /** Injected so a test can follow the order of the cleaning without decoding photos. */
+  cleanPhoto?: PhotoCleaner
   /** Injected so a test can reach the limit with a few photos. */
   dailyLimits?: DailyPhotoLimits
   now?: () => Date
@@ -72,8 +75,9 @@ function checkedPhoto(body: Buffer | undefined): { photo: Buffer; type: SheetPho
 }
 
 /**
- * The photos of the sheets of an application (#47): stored privately, read,
- * and served back only to the application's teacher. A reading is never a
+ * The photos of the sheets of an application (#47): written again without
+ * their EXIF, stored privately, read, and served back only to the
+ * application's teacher. A reading is never a
  * correction: it goes back to the screen, which opens the review (RF28), and
  * the correction is written only when the teacher confirms it.
  */
@@ -81,6 +85,14 @@ export function createSheetImageService(deps: SheetImageServiceDependencies): Sh
   const { applications, printing, sheetImages, activityLog, fileStorage, readPhoto, logger } = deps
   const limits = deps.dailyLimits ?? DAILY_PHOTO_LIMITS
   const now = deps.now ?? (() => new Date())
+  const cleanPhoto = deps.cleanPhoto ?? createPhotoCleaner()
+
+  /** The photo as it is stored and read: written again from its pixels, with no EXIF (RNF16). */
+  async function cleaned(photo: Buffer, type: SheetPhotoType): Promise<Buffer> {
+    const clean = await cleanPhoto(photo, type)
+    if (clean === null) throw new ApiError(API_ERROR_CODE.INVALID, NOT_A_PHOTO)
+    return clean
+  }
 
   async function requireRoomFor(teacherId: string, bytes: number): Promise<void> {
     const usage = await sheetImages.usageSince(teacherId, new Date(now().getTime() - DAY_MS))
@@ -112,9 +124,10 @@ export function createSheetImageService(deps: SheetImageServiceDependencies): Sh
   return {
     async upload(teacherId, applicationId, body) {
       await requireApplication(applications, teacherId, applicationId)
-      const { photo, type } = checkedPhoto(body)
+      const { photo: received, type } = checkedPhoto(body)
       const context = await requirePrinted(applicationId)
-      await requireRoomFor(teacherId, photo.length)
+      await requireRoomFor(teacherId, received.length)
+      const photo = await cleaned(received, type)
 
       const imageId = randomUUID()
       const storageKey = `answer-sheets/${applicationId}/${imageId}.${EXTENSION_OF[type]}`

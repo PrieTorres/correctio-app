@@ -67,3 +67,16 @@ O que a N2 entregou difere da decisão em quatro pontos:
   ainda ligadas à correção, e a decisão de apagá-las segue pendente.
 
 As imagens de enunciado (RF45) ainda não existem (#105).
+
+## Revisão de 26/11/2026
+
+- **O EXIF não é mais guardado.** A API regrava cada foto a partir dos pixels antes de guardá-la
+  (`apps/api/src/lib/clean-photo.ts`): mesmo formato, já de pé pela orientação que o celular
+  gravou e sem metadado nenhum. O RNF16 deixa de ter essa lacuna.
+- **A regravação não ocupa a thread que atende as requisições.** O `sharp` trabalha nas threads
+  do libuv, e a API regrava uma foto de cada vez, porque cada foto de 12 MP decodificada consome
+  de 90 a 140 MB.
+- **Arquivo que não decodifica é recusado** com "Envie a foto em JPG, PNG ou WebP.", e nada é
+  guardado. Antes ele era guardado e contava como QR não reconhecido, sem imagem que o professor
+  pudesse ver.
+- As fotos enviadas antes desta revisão continuam com o EXIF com que chegaram.
