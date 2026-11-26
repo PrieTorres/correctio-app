@@ -124,6 +124,7 @@ com as mesmas regras das telas, sem cópia.
 | `POST /classes/:id/students/:studentId/anonymize` | Anonimização irreversível do aluno (RF38) |
 | `POST /exams/draw` | Geração automática de prova (RF16) |
 | `POST /applications/:id/grades-release` | Libera ou recolhe as notas, com `{ released }`. Responde a aplicação |
+| `POST /applications/:id/grade-links` | Envia por e-mail a cada aluno o link da própria consulta de nota (ver "Link da nota por e-mail"). Responde `{ sent, failed, skipped }` |
 | `POST /applications/:id/publish-answer-keys` | Corresponde ao `POST /applications/:id/publish-answer-key` da Spec, com o nome no plural. É o "Publicar todos" da P14: publica o gabarito de todas as versões de uma vez |
 | `GET /questions/:id` | Uma questão, mesmo excluída, porque a prova aplicada ainda a imprime |
 | `GET /questions/tags` | As tags já usadas, para os filtros e o autocompletar. Responde `{ tags }` |
@@ -223,6 +224,17 @@ essa lista e continua escondendo o aluno removido.
 - **Publicar todos:** `POST /applications/:id/publish-answer-keys`, sem corpo, publica numa
   instrução só todas as versões que ainda não estavam publicadas, então uma falha não deixa metade
   publicada. Aplicação sem nada gerado responde 409. Despublicar continua versão por versão.
+- **Link da nota por e-mail:** `POST /applications/:id/grade-links`, sem corpo, só com as notas
+  liberadas e a aplicação não arquivada (senão 409), e só para o professor dono (outro professor
+  recebe 404). Está na camada cara (`expensiveLimit`). Envia um e-mail por aluno, em sequência, com
+  o link `PUBLIC_APP_URL/r/<código da folha>`, o nome da prova e da turma, sem a nota. Responde
+  `{ sent, failed, skipped: { noEmail, anonymized, removed, noSheet } }`: cada aluno da turma
+  conta uma vez, na primeira razão que vale (removido, anonimizado, sem folha desta aplicação, sem
+  e-mail). A folha do aluno é a impressa para ele ou a que a correção atribuiu a ele; com duas, a
+  de menor número. Um envio que falha conta em `failed` e o lote segue. O e-mail é decifrado só
+  na hora de enviar, a mensagem é `confidential` (o mailer de desenvolvimento não escreve nem o
+  endereço nem o código no log) e o erro do servidor de e-mail, que cita o destinatário, nunca é
+  registrado. Enviar de novo repete a mensagem a todos.
 - **Aplicação arquivada:** publicar o gabarito (uma versão ou todas), liberar as notas, gerar e
   editar respondem 409, pedindo para restaurar antes. Despublicar o gabarito e recolher as notas
   continuam liberados, porque só escondem.

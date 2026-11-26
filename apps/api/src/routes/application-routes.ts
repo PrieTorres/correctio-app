@@ -7,6 +7,8 @@ import { createGenerationController } from '../controllers/generation-controller
 import { createPrintingController } from '../controllers/printing-controller'
 import type { ReportController } from '../controllers/report-controller'
 import { createSheetImageController } from '../controllers/sheet-image-controller'
+import { createGradeLinkController } from '../controllers/grade-link-controller'
+import type { FieldCipher } from '../lib/field-encryption'
 import type { FileStorage } from '../lib/file-storage'
 import type { PhotoReader } from '../lib/sheet-reading/photo-reader'
 import { PHOTO_BODY_LIMIT_BYTES } from '../middlewares/body-limit'
@@ -16,6 +18,7 @@ import { createApplicationRepository, type ApplicationRepository } from '../repo
 import { createClassRepository } from '../repositories/class-repository'
 import { createCorrectionRepository } from '../repositories/correction-repository'
 import { createExamRepository } from '../repositories/exam-repository'
+import { createGradeLinkRepository } from '../repositories/grade-link-repository'
 import { createGradingRepository } from '../repositories/grading-repository'
 import { createPrintingRepository, type PrintingRepository } from '../repositories/printing-repository'
 import { QuestionRepository } from '../repositories/question-repository'
@@ -24,6 +27,8 @@ import { createApplicationService } from '../services/application-service'
 import { createCorrectionService } from '../services/correction-service'
 import { createExamService } from '../services/exam-service'
 import { createGenerationService } from '../services/generation-service'
+import { createGradeLinkService } from '../services/grade-link-service'
+import { unavailableMailer, type Mailer } from '../services/mailer'
 import { createPrintingService } from '../services/printing-service'
 import { createSheetImageService } from '../services/sheet-image-service'
 import { onlyWhenExporting } from './report-routes'
@@ -41,6 +46,10 @@ export interface ApplicationRouteDependencies {
   logger: Logger
   /** The report of each application (P18), shared with `/dashboard` and `/reports` (#50). */
   reports: ReportController
+  /** Decrypts the e-mail of a student only to write to them. */
+  fieldCipher: FieldCipher
+  /** Sends the link of the grade lookup to each student; absent, every send fails. */
+  mailer: Mailer | undefined
 }
 
 interface Repositories {
@@ -85,6 +94,14 @@ export function applicationRoutes(dependencies: ApplicationRouteDependencies): R
       fileStorage,
     }),
   )
+  const gradeLinks = createGradeLinkController(
+    createGradeLinkService({
+      applications: repositories.applications,
+      recipients: createGradeLinkRepository(db, dependencies.fieldCipher),
+      mailer: dependencies.mailer ?? unavailableMailer,
+      publicAppUrl: dependencies.publicAppUrl,
+    }),
+  )
   const generation = generationController(dependencies, repositories)
   const printing = createPrintingController(createPrintingService(repositories))
   const sheetImageRepository = createSheetImageRepository(db)
@@ -118,6 +135,7 @@ export function applicationRoutes(dependencies: ApplicationRouteDependencies): R
   router.patch('/:id/restore', applications.restore)
   router.post('/:id/generate-pdf', expensiveLimit, generation.generatePdf)
   router.post('/:id/grades-release', applications.releaseGrades)
+  router.post('/:id/grade-links', expensiveLimit, gradeLinks.send)
   router.get('/:id/pdf', applications.downloadPdf)
 
   router.get('/:id/versions', printing.listVersions)

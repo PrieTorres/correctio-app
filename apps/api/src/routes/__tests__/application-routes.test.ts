@@ -211,6 +211,7 @@ describe.runIf(DATABASE_TEST_URL !== undefined)('application routes (real MySQL)
       request(app).patch(`/applications/${id}/archive`),
       request(app).patch(`/applications/${id}/restore`),
       request(app).post(`/applications/${id}/grades-release`),
+      request(app).post(`/applications/${id}/grade-links`),
       request(app).get(`/applications/${id}/pdf`),
       request(app).get(`/applications/${id}/versions`),
       request(app).post(`/applications/${id}/versions/${id}/publish-answer-key`),

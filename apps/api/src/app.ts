@@ -30,6 +30,7 @@ import { createRouter } from './routes'
 import type { AuthService } from './services/auth-service'
 import type { GoogleSignInService } from './services/google-sign-in-service'
 import { createHealthService, type HealthCheck } from './services/health-service'
+import type { Mailer } from './services/mailer'
 import { REFRESH_TOKEN_TTL_MS } from './services/session-issuer'
 
 /** What `composeAuth` builds; absent, the API has no sign-in routes and refuses every token. */
@@ -69,6 +70,13 @@ export interface AppDependencies {
   fileStorage?: FileStorage
   /** Reads the photo of a sheet (#47); by default on a worker thread when the API runs bundled (ADR-007). */
   readPhoto?: PhotoReader
+  /**
+   * Sends the grade links the teacher asks for. Without one every send fails
+   * (`unavailableMailer`), like `refuseWithoutKey`, so an app built without a
+   * mailer never reports a delivery that did not happen; `bootstrapApi` always
+   * passes a real one.
+   */
+  mailer?: Mailer
   healthChecks?: readonly HealthCheck[]
   /** Overridable so tests reach a limit in a few requests instead of hundreds. */
   rateLimits?: Partial<RateLimits>
@@ -117,6 +125,7 @@ export function createApp({
   fieldCipher = refuseWithoutKey,
   fileStorage = unavailableFileStorage,
   readPhoto = createPhotoReader(),
+  mailer,
   healthChecks = [],
   rateLimits,
   signInDelayStepMs,
@@ -147,6 +156,7 @@ export function createApp({
       expensiveLimit: createRateLimit(limits.expensive, { key: byTeacher }),
       publicAppUrl: env.PUBLIC_APP_URL,
       readPhoto,
+      mailer,
       logger,
       auth: auth === undefined ? undefined : authRoutesFor(auth, env, limits, signInDelayStepMs),
     }),

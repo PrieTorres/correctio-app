@@ -36,7 +36,8 @@ function signingSecret(env: Env, logger: Logger): string {
   return randomBytes(32).toString('base64')
 }
 
-function mailerFor(env: Env, logger: Logger): Mailer {
+/** The one mailer of the process, shared by the sign-in services and the grade links. */
+export function mailerFor(env: Env, logger: Logger): Mailer {
   if (env.GMAIL_APP_PASSWORD === undefined) return createLogMailer(logger, { production: env.NODE_ENV === 'production' })
   return createGmailMailer({ from: env.MAIL_FROM, appPassword: env.GMAIL_APP_PASSWORD })
 }

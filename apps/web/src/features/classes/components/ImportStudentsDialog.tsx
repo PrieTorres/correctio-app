@@ -132,8 +132,8 @@ function ImportPreview({
           className="rounded-[var(--radius-control)] border border-line bg-surface p-3 font-mono text-caption focus:outline-none focus-visible:border-primary"
         />
         <p className="text-caption text-ink-subtle">
-          Aceita vírgula, ponto e vírgula ou tabulação. O e-mail é opcional, e a linha de
-          cabeçalho da planilha é ignorada.
+          Aceita vírgula, ponto e vírgula ou tabulação. O e-mail é opcional e só serve para
+          enviar ao aluno o link da própria nota. A linha de cabeçalho da planilha é ignorada.
         </p>
       </div>
 

@@ -416,6 +416,7 @@ verdade, que toda tabela tem todos os campos deste documento.
   folhas de uma aplicação ao regenerar o PDF, o que só é permitido enquanto nenhuma folha tem
   correção (RF24).
 - **`Student.email` guarda o texto criptografado** (AES-256-GCM), nunca o endereço.
+- **`Student.email` tem uma única finalidade:** enviar ao aluno o link da própria consulta de nota, a pedido do professor. É decifrado só para enviar e não vai para o log.
 - **Campo calculado não vira coluna.** `Class.studentCount` é contado dos alunos a cada listagem;
   o teste de conformidade das tabelas o deixa de fora.
 

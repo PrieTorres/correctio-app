@@ -244,6 +244,26 @@ export interface ApplicationOverview extends Application {
   progress: ApplicationProgress;
 }
 
+/** Why a student of the class was left out of the grade-link e-mails; each student counts under one reason only. */
+export interface GradeLinkSkipped {
+  /** The student left no e-mail address. */
+  noEmail: number;
+  /** The student was anonymized, so there is no address to write to. */
+  anonymized: number;
+  /** The student left the class after the sheets were printed. */
+  removed: number;
+  /** No printed sheet of this application belongs to the student. */
+  noSheet: number;
+}
+
+/** What the teacher is told after asking to e-mail each student the link to their own grade page. */
+export interface GradeLinkSummary {
+  sent: number;
+  /** Students whose e-mail the mail server refused or could not deliver to; the rest of the batch still went out. */
+  failed: number;
+  skipped: GradeLinkSkipped;
+}
+
 /**
  * Where the correction of an application stands, as P11 filters it. The
  * three stages split every application: none of its sheets read yet; at least

@@ -8,6 +8,7 @@ import type { PhotoReader } from '../lib/sheet-reading/photo-reader'
 import type { AuthLimits } from '../middlewares/rate-limit'
 import type { Database } from '../models/tables'
 import type { HealthService } from '../services/health-service'
+import type { Mailer } from '../services/mailer'
 import { applicationRoutes } from './application-routes'
 import { meRoutes, publicAuthRoutes, signedInAuthRoutes } from './auth-routes'
 import { classRoutes } from './class-routes'
@@ -35,6 +36,8 @@ export interface RouteDependencies {
   publicAppUrl: string
   /** Reads the photo of a sheet sent for correction (#47, ADR-007). */
   readPhoto: PhotoReader
+  /** Sends the e-mails the teacher asks for; the sign-in services have their own copy from `composeAuth`. */
+  mailer: Mailer | undefined
   logger: Logger
   /** Absent in tests that exercise only the gate, which then answers every route as before #40. */
   auth?: { controller: AuthController; limits: AuthLimits }
@@ -58,6 +61,7 @@ export function createRouter({
   expensiveLimit,
   publicAppUrl,
   readPhoto,
+  mailer,
   logger,
   auth,
 }: RouteDependencies): Router {
@@ -79,7 +83,7 @@ export function createRouter({
   router.use('/questions', questionRoutes(db))
   router.use('/classes', classRoutes({ db, fieldCipher, expensiveLimit }))
   router.use('/exams', examRoutes(db))
-  router.use('/applications', applicationRoutes({ db, fileStorage, expensiveLimit, publicAppUrl, readPhoto, logger, reports }))
+  router.use('/applications', applicationRoutes({ db, fileStorage, expensiveLimit, publicAppUrl, readPhoto, logger, reports, fieldCipher, mailer }))
 
   return router
 }

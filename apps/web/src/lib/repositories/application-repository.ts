@@ -5,6 +5,7 @@ import {
   type ApplicationOverview,
   type ApplicationStatus,
   type CorrectionProgress,
+  type GradeLinkSummary,
   type ExamVersion,
 } from '@/types/domain'
 import type { ApplicationInput, GenerationRequest } from '@/lib/schemas'
@@ -47,15 +48,17 @@ export interface ApplicationPdf {
  * class and how far each one has gone, which the API counts for a whole page
  * at once (`ApplicationOverview`).
  *
- * Three operations the form cannot express, because none of them is something
- * the teacher types: printing, letting the students see their grades, and
- * handing the PDF over. No screen builds versions or sheets any more: the
+ * Four operations the form cannot express, because none of them is something
+ * the teacher types: printing, letting the students see their grades, e-mailing
+ * them the link to their grade, and handing the PDF over. No screen builds versions or sheets any more: the
  * generation hands back what it printed.
  */
 export interface ApplicationRepository extends OwnedRepository<ApplicationOverview, ApplicationInput, ApplicationListParams> {
   /** Prints the application again from scratch: new versions, new sheets with new codes, and a new PDF (RF22 to RF24). */
   generate: (id: string, request: GenerationRequest) => Promise<GeneratedPaper>
   setGradesReleased: (id: string, released: boolean) => Promise<ApplicationOverview>
+  /** E-mails each student the link to their own grade page and says how many went out, failed or were skipped. */
+  sendGradeLinks: (id: string) => Promise<GradeLinkSummary>
   downloadPdf: (id: string) => Promise<ApplicationPdf>
 }
 
@@ -74,6 +77,9 @@ const EXAM_NOT_FOUND = 'Prova não encontrada.'
 
 /** The demo has no server, and the PDF is drawn there. */
 const NO_PDF_IN_THE_BROWSER = 'O PDF é montado pelo servidor e não existe nesta demonstração.'
+
+/** The demo has no mail server. */
+const NO_MAIL_IN_THE_BROWSER = 'O envio de e-mails é feito pelo servidor e não existe nesta demonstração.'
 
 /** Every application the filters let through, for a list paged only after the correction stage is known. */
 const EVERY_MATCH = Number.MAX_SAFE_INTEGER
@@ -235,6 +241,11 @@ export function createLocalApplicationRepository(
     async setGradesReleased(id, released) {
       await simulateLatency()
       return overviewOf(change(id, (application) => ({ ...application, gradesReleased: released })))
+    },
+
+    async sendGradeLinks() {
+      await simulateLatency()
+      throw new StorageError(NO_MAIL_IN_THE_BROWSER, 'conflict')
     },
 
     async downloadPdf() {
