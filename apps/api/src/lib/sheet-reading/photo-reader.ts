@@ -9,16 +9,20 @@ export type PhotoReader = (photo: Uint8Array, context: ReadingContext) => Promis
 /** What the worker sends back: the reading, or why it failed. */
 type WorkerAnswer = { id: number; reading: PhotoReading } | { id: number; error: string }
 
-interface Pending {
+interface QueuedReading {
+  photo: Uint8Array
+  context: ReadingContext
   resolve: (reading: PhotoReading) => void
   reject: (error: Error) => void
 }
 
 /**
  * Readings on one worker thread, started on the first photo and kept for the
- * next ones, since loading the decoder costs more than a reading. Photos queue
- * on it one after another. If the thread dies, every reading still waiting
- * fails, and the next photo starts a new one.
+ * next ones, since loading the decoder costs more than a reading. The thread
+ * gets one photo at a time and the rest wait in the queue: decoding a 12 MP
+ * phone photo takes 90 to 140 MB, and photos sent together would add up past
+ * the function's memory. If the thread dies, only the photo it was reading
+ * fails, and a new thread goes on with the queue.
  *
  * The thread holds the process only while a reading is under way, so an idle
  * reader never keeps the API from shutting down, and a reading is never cut
@@ -26,36 +30,50 @@ interface Pending {
  */
 export function createWorkerPhotoReader(workerUrl: URL): PhotoReader {
   let worker: Worker | undefined
+  let current: QueuedReading | undefined
   let nextId = 0
-  const pending = new Map<number, Pending>()
+  const queue: QueuedReading[] = []
 
-  const failAll = (error: Error) => {
-    for (const waiting of pending.values()) waiting.reject(error)
-    pending.clear()
-    worker = undefined
+  function sendNext(thread: Worker): void {
+    current = queue.shift()
+    if (current === undefined) {
+      thread.unref()
+      return
+    }
+    thread.ref()
+    thread.postMessage({ id: nextId++, photo: current.photo, context: current.context })
   }
 
-  const start = (): Worker => {
-    const started = new Worker(workerUrl)
-    started.on('message', (answer: WorkerAnswer) => {
-      const waiting = pending.get(answer.id)
-      pending.delete(answer.id)
-      if (pending.size === 0) started.unref()
-      if ('reading' in answer) waiting?.resolve(answer.reading)
-      else waiting?.reject(new Error(answer.error))
+  function stop(thread: Worker, error: Error): void {
+    if (worker !== thread) return
+    worker = undefined
+    current?.reject(error)
+    current = undefined
+    if (queue.length > 0) sendNext(running())
+  }
+
+  function start(): Worker {
+    const thread = new Worker(workerUrl)
+    thread.on('message', (answer: WorkerAnswer) => {
+      if ('reading' in answer) current?.resolve(answer.reading)
+      else current?.reject(new Error(answer.error))
+      sendNext(thread)
     })
-    started.on('error', failAll)
-    started.on('exit', (code) => failAll(new Error(`The sheet reader stopped with code ${code}`)))
-    return started
+    thread.on('error', (error) => stop(thread, error))
+    thread.on('exit', (code) => stop(thread, new Error(`The sheet reader stopped with code ${code}`)))
+    return thread
+  }
+
+  function running(): Worker {
+    worker ??= start()
+    return worker
   }
 
   return (photo, context) =>
     new Promise<PhotoReading>((resolve, reject) => {
-      worker ??= start()
-      worker.ref()
-      const id = nextId++
-      pending.set(id, { resolve, reject })
-      worker.postMessage({ id, photo, context })
+      queue.push({ photo, context, resolve, reject })
+      const thread = running()
+      if (current === undefined) sendNext(thread)
     })
 }
 

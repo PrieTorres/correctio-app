@@ -44,8 +44,9 @@ function appForRequests(): Express {
  * Near the database, which runs in San Francisco: each request makes several
  * queries, so the distance that adds up is API to database, not browser to API.
  * One instance only, because the rate limits count in memory and a second
- * instance would double every limit.
+ * instance would double every limit. 1 GiB because reading a 12 MP phone photo
+ * takes 90 to 140 MB on top of the API, past the default 256 MiB.
  */
-export const api = onRequest({ region: 'us-west1', maxInstances: 1, secrets: SECRETS }, (request, response) => {
+export const api = onRequest({ region: 'us-west1', maxInstances: 1, memory: '1GiB', secrets: SECRETS }, (request, response) => {
   appForRequests()(request, response)
 })
