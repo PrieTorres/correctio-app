@@ -135,7 +135,7 @@ Limite por usuário não protege a conta: 600 professores legítimos na semana d
 | **Direito de exclusão** (Art. 18, VI) | RF38 — anonimização do aluno. Remover da turma (RF09) **não** cumpre esse direito: preserva os dados. A anonimização troca nome e matrícula e apaga o e-mail; as fotos das folhas e o PDF da aplicação, que podem trazer o nome, continuam no bucket. RF05 — anonimização da conta do professor (`POST /me/anonymize`): nome, e-mail e senha substituídos e sessões encerradas, com turmas, provas e notas preservadas. |
 | **Direito de acesso e correção** (Art. 18, I–III) | O aluno não tem login, então exerce pelo professor, que edita ou anonimiza o registro. |
 | **Segurança** (Art. 46) | RNF04 (tráfego), RNF16 (arquivos), RNF18 (API), RNF14 (isolamento). |
-| **Registro das operações** (Art. 37) | RF40 e RNF17 — trilha de auditoria. |
+| **Registro das operações** (Art. 37) | RF40 e RNF17 — trilha de auditoria na tabela `activity_logs` (`ActivityLog`): autor, ação, entidade, id e data/hora de cadastro, edição, remoção da turma e anonimização de aluno, de confirmação e edição de correção, de publicação e retirada de gabarito e de liberação e recolhimento de notas, **sem o conteúdo do dado**. Cada entrada é gravada na mesma transação da operação, então operação que falha não deixa entrada e operação que vale não fica sem ela. A API só insere nessa tabela; a proteção no MySQL (gatilho que recusa `UPDATE` e `DELETE`) ficou de fora por depender de privilégio que o Aiven pode não dar. |
 | **Retenção** | Definida pela instituição, não pelo sistema. Sem descarte automático — o que protege contra perda é o backup com restauração testada (RNF09), e o que é "excluído" pela interface é reversível (RF42). Os backups em si duram 30 dias: um aluno anonimizado (RF38) continua, por até 30 dias, nos backups feitos antes da anonimização. |
 | **Transferência internacional** (Art. 33) | Acontece e precisa estar declarada. O banco fica nos EUA, no Aiven sobre a DigitalOcean, em São Francisco (ADR-001). A API, as imagens das folhas, os PDFs e os backups diários do banco ficam no Google, em us-west1 (ADR-004, ADR-005 e `docs/CI_CD.md`, seção 8). Aiven, DigitalOcean e Google são subprocessadores. A leitura da folha roda na API ou, no demo, no navegador do professor, nunca mandando a imagem a terceiros (ADR-006 e ADR-007). |
 | **Comunicação de incidente** (Art. 48) | Procedimento documentado: quem detecta, quem comunica, em quanto tempo. |
@@ -152,7 +152,7 @@ armazenamento privado, e entram no PDF gerado.
 
 **Armazenamento privado.** As imagens das folhas ficam em armazenamento fechado e saem só pela API, para o professor da aplicação, com `Cache-Control: private, no-store`. URL assinada de curta validade é da N3. Se o repositório de arquivos for público, toda folha de resposta — com nome e nota — está na internet aberta.
 
-**Trilha ≠ log.** São coisas diferentes e ambas precisam existir: a **trilha de auditoria** registra quem fez o quê (autor, ação, entidade, data), enquanto o **log de aplicação** não pode conter nenhum dado pessoal (RNF05). A trilha guarda a ação, nunca o conteúdo do dado.
+**Trilha ≠ log.** São coisas diferentes e ambas precisam existir: a **trilha de auditoria** registra quem fez o quê (autor, ação, entidade, data), enquanto o **log de aplicação** não pode conter nenhum dado pessoal (RNF05). A trilha guarda a ação, nunca o conteúdo do dado: `details` leva ids e os nomes dos campos alterados (`["fullName"]`), nunca nome, matrícula, e-mail, marcação ou nota.
 
 ### A confirmar
 
@@ -216,4 +216,4 @@ O objetivo é não refazer a mesma leitura a cada troca de tela, sem nunca guard
 |---|---|
 | **N1** (11/09) | Este documento e os requisitos. No código: escopo por professor já na camada de repositório, DTO estreito na consulta pública, `noindex`. |
 | **N2** (2.0.0, 01/11) | Autenticação real, isolamento por conta com teste automatizado, validação na fronteira, SQL parametrizado, CORS, cabeçalhos de segurança (HSTS incluído), limite de requisições em camadas, hash de senha e de token, criptografia do e-mail do aluno, TLS até o banco, `no-store` na API e cache só em memória no front, anonimização de aluno e da conta, envio de foto com tipo real, até 10 MB, bucket privado e cota diária. |
-| **N3** (27/11) | Fila com confirmação imediata e notificação, re-processamento de imagem e remoção de EXIF, URLs assinadas, trilha de auditoria, alertas de orçamento. |
+| **N3** (27/11) | Fila com confirmação imediata e notificação, re-processamento de imagem e remoção de EXIF, URLs assinadas, trilha de auditoria (entregue), alertas de orçamento. |

@@ -1,5 +1,6 @@
 import type { Student } from '@correctio/domain'
 import type { Kysely, Selectable } from 'kysely'
+import { appendAudit, type AuditEntry } from './activity-log-repository'
 import { anyColumnContains, byText } from '../db/text-search'
 import type { FieldCipher } from '../lib/field-encryption'
 import { pageWindow, type Page, type PageRequest } from '../lib/pagination'
@@ -54,11 +55,14 @@ export interface StudentRepository {
   findByRegistration: (classId: string, registration: string) => Promise<Student | undefined>
   /** Every registration taken in the class, removed students included, as the unique index sees them. */
   registrationsIn: (classId: string) => Promise<string[]>
-  /** One statement, so a batch is written whole or not at all. */
-  insert: (students: readonly NewStudent[]) => Promise<void>
-  update: (classId: string, id: string, changes: StudentChanges) => Promise<void>
-  markRemoved: (classId: string, id: string, at: Date) => Promise<void>
-  anonymize: (classId: string, id: string, data: AnonymizedData) => Promise<void>
+  /** One transaction, so a batch is written whole or not at all, and with it one entry of the audit trail per student. */
+  insert: (students: readonly NewStudent[], audit: readonly AuditEntry[]) => Promise<void>
+  /** Writes the changes and `audit` together; nothing is written, nor audited, when `changes` is empty. */
+  update: (classId: string, id: string, changes: StudentChanges, audit: AuditEntry) => Promise<void>
+  /** `audit` is written only when this call is the one that removed the student. */
+  markRemoved: (classId: string, id: string, at: Date, audit: AuditEntry) => Promise<void>
+  /** `audit` is written only when this call is the one that anonymized the student. */
+  anonymize: (classId: string, id: string, data: AnonymizedData, audit: AuditEntry) => Promise<void>
 }
 
 /**
@@ -96,8 +100,6 @@ export function createStudentRepository(db: Kysely<Database>, cipher: FieldCiphe
     return row === undefined ? undefined : toStudent(row)
   }
 
-  const changeRow = (classId: string, id: string) => db.updateTable('students').where('classId', '=', classId).where('id', '=', id)
-
   return {
     async list(classId, { search, page, pageSize, includeRemoved }) {
       const filtered = inClass(classId)
@@ -124,7 +126,7 @@ export function createStudentRepository(db: Kysely<Database>, cipher: FieldCiphe
       return rows.map((row) => row.registration)
     },
 
-    async insert(students) {
+    async insert(students, audit) {
       if (students.length === 0) return
       const rows = students.map((student) => ({
         id: student.id,
@@ -133,24 +135,45 @@ export function createStudentRepository(db: Kysely<Database>, cipher: FieldCiphe
         registration: student.registration,
         email: encryptedEmail(student.email),
       }))
-      await db.insertInto('students').values(rows).execute()
+      await db.transaction().execute(async (trx) => {
+        await trx.insertInto('students').values(rows).execute()
+        await appendAudit(trx, audit)
+      })
     },
 
-    async update(classId, id, { email, ...plain }) {
+    async update(classId, id, { email, ...plain }, audit) {
       const columns = { ...plain, ...(email !== undefined && { email: encryptedEmail(email) }) }
       if (Object.keys(columns).length === 0) return
-      await changeRow(classId, id).set(columns).execute()
+      await db.transaction().execute(async (trx) => {
+        await trx.updateTable('students').where('classId', '=', classId).where('id', '=', id).set(columns).execute()
+        await appendAudit(trx, [audit])
+      })
     },
 
-    async markRemoved(classId, id, at) {
-      await changeRow(classId, id).set({ removedAt: at }).where('removedAt', 'is', null).execute()
+    async markRemoved(classId, id, at, audit) {
+      await db.transaction().execute(async (trx) => {
+        const result = await trx
+          .updateTable('students')
+          .where('classId', '=', classId)
+          .where('id', '=', id)
+          .where('removedAt', 'is', null)
+          .set({ removedAt: at })
+          .executeTakeFirst()
+        if (result.numUpdatedRows > 0n) await appendAudit(trx, [audit])
+      })
     },
 
-    async anonymize(classId, id, { fullName, registration, at }) {
-      await changeRow(classId, id)
-        .set({ fullName, registration, email: null, anonymizedAt: at })
-        .where('anonymizedAt', 'is', null)
-        .execute()
+    async anonymize(classId, id, { fullName, registration, at }, audit) {
+      await db.transaction().execute(async (trx) => {
+        const result = await trx
+          .updateTable('students')
+          .where('classId', '=', classId)
+          .where('id', '=', id)
+          .where('anonymizedAt', 'is', null)
+          .set({ fullName, registration, email: null, anonymizedAt: at })
+          .executeTakeFirst()
+        if (result.numUpdatedRows > 0n) await appendAudit(trx, [audit])
+      })
     },
   }
 }

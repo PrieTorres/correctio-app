@@ -75,8 +75,8 @@ export function createPrintingService({ applications, printing, now = () => new 
       if (version.answerKeyPublished === published) return
 
       if (published) {
-        await printing.publishAnswerKey(applicationId, versionId, now())
-      } else if (!(await printing.takeBackAnswerKey(applicationId, versionId))) {
+        await printing.publishAnswerKey(teacherId, applicationId, versionId, now())
+      } else if (!(await printing.takeBackAnswerKey(teacherId, applicationId, versionId))) {
         throw new ApiError(API_ERROR_CODE.CONFLICT, GRADES_RELEASED)
       }
     },
@@ -92,7 +92,7 @@ export function createPrintingService({ applications, printing, now = () => new 
 
       const { total } = await printing.listVersions(applicationId, { page: 1, pageSize: 1 })
       if (total === 0) throw new ApiError(API_ERROR_CODE.CONFLICT, NOTHING_TO_PUBLISH)
-      await printing.publishAllAnswerKeys(applicationId, now())
+      await printing.publishAllAnswerKeys(teacherId, applicationId, now())
     },
   }
 }

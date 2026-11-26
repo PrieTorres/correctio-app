@@ -9,6 +9,7 @@ import {
 import type { Expression, ExpressionBuilder, Kysely, Selectable, SelectQueryBuilder, SqlBool } from 'kysely'
 import { dayContains } from '../db/text-search'
 import { pageWindow, type Page, type PageRequest } from '../lib/pagination'
+import { ACTIVITY_TYPE, appendAudit, AUDIT_ENTITY, type AuditEntry } from './activity-log-repository'
 import type { ApplicationsTable, Database } from '../models/tables'
 
 /** The fields of `Application` in the contract; `createdAt` and `updatedAt` are technical and stay in the database. */
@@ -104,10 +105,12 @@ export interface ApplicationRepository {
    * reason. The answer keys are read and the grades written under the lock of
    * the application row, the same lock `PrintingRepository.takeBackAnswerKey`
    * takes first: a key taken back at the same moment waits, so the two can
-   * never both pass and leave a grade without its key (RF46).
+   * never both pass and leave a grade without its key (RF46). The entry of the
+   * audit trail commits with the release, and a release of grades already
+   * released writes none.
    */
   releaseGrades: (teacherId: string, id: string, blockerOf: ReleaseBlocker) => Promise<string | undefined>
-  /** Takes the grades back, which RF46 always allows. */
+  /** Takes the grades back, which RF46 always allows, and records it in the audit trail unless they were already back. */
   withdrawGrades: (teacherId: string, id: string) => Promise<void>
   /**
    * Stores a new application unless `blockerOf` names a reason, and answers
@@ -264,6 +267,13 @@ function overviewOf(query: SelectQueryBuilder<Database, 'applications', object>)
     .select(['exams.title as examTitle', 'classes.name as className'])
 }
 
+const gradesAudit = (teacherId: string, applicationId: string, type: AuditEntry['type']): AuditEntry => ({
+  teacherId,
+  type,
+  entity: AUDIT_ENTITY.APPLICATION,
+  entityId: applicationId,
+})
+
 /**
  * Every query is scoped by `teacherId` here, so no service can forget it: an
  * application of another teacher is simply not found (`docs/Seguranca_e_LGPD.md`,
@@ -322,14 +332,30 @@ export function createApplicationRepository(db: Kysely<Database>): ApplicationRe
 
         const blocker = blockerOf(versions.map((version) => version.answerKeyPublished))
         if (blocker === undefined) {
-          await trx.updateTable('applications').set({ gradesReleased: true }).where('teacherId', '=', teacherId).where('id', '=', id).execute()
+          const result = await trx
+            .updateTable('applications')
+            .set({ gradesReleased: true })
+            .where('teacherId', '=', teacherId)
+            .where('id', '=', id)
+            .where('gradesReleased', '=', false)
+            .executeTakeFirst()
+          if (result.numUpdatedRows > 0n) await appendAudit(trx, [gradesAudit(teacherId, id, ACTIVITY_TYPE.GRADES_RELEASED)])
         }
         return blocker
       })
     },
 
     async withdrawGrades(teacherId, id) {
-      await ownedUpdate(teacherId, id).set({ gradesReleased: false }).execute()
+      await db.transaction().execute(async (trx) => {
+        const result = await trx
+          .updateTable('applications')
+          .set({ gradesReleased: false })
+          .where('teacherId', '=', teacherId)
+          .where('id', '=', id)
+          .where('gradesReleased', '=', true)
+          .executeTakeFirst()
+        if (result.numUpdatedRows > 0n) await appendAudit(trx, [gradesAudit(teacherId, id, ACTIVITY_TYPE.GRADES_WITHDRAWN)])
+      })
     },
 
     async insert({ pdfKey, ...application }, blockerOf) {
