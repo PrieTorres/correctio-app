@@ -214,6 +214,9 @@ na interface do GitHub, que nenhum arquivo versionado consegue ligar:
 | Tags de versão `v*` não podem ser movidas nem apagadas (só a admin passa por cima) | Settings → Rules, "release tags" | ✅ |
 | Branches `release/**` com a proteção da `main` (PR, aprovação da PM e verificações) | Settings → Rules, "release branches" | ✅ |
 | GitHub Pages publicando o front da `main`, para teste | Settings → Pages, fonte GitHub Actions | ✅ |
+| Uptime check `correctio-api-health`: `/api/health` de produção a cada 5 minutos, de três regiões, conferindo `"status":"UP"` (RNF03) | Google Cloud, Monitoring, projeto `correctio-app` | ✅ desde 26/11 |
+| Alerta "API do Correctio fora do ar": e-mail ao projeto quando o uptime check falha por 10 minutos | Google Cloud, Monitoring, alertas | ✅ desde 26/11 |
+| Orçamento mensal de R$ 50 do `correctio-app`, com aviso em 50%, 80% e 100% do gasto e em 100% do previsto | Google Cloud, Faturamento, orçamentos | ✅ desde 26/11 |
 
 > **Workflow sob demanda só aparece depois de estar na `main`.** O GitHub lista em Actions apenas
 > os workflows que existem na branch padrão, então o "1. Pre-release" e o "Rollback"

@@ -111,7 +111,7 @@ em fila: tudo roda dentro da requisição, e só a exportação é um trabalho e
 Limite por usuário não protege a conta: 600 professores legítimos na semana de prova estouram o orçamento sem violar limite nenhum.
 
 - **Quota global diária com degradação** — passado o teto do dia, as rotas caras entram em fila longa ou recusam com mensagem clara, em vez de escalar sem limite.
-- **Alerta de orçamento** em 50%, 80% e 100%. É a linha de defesa que de fato evita a fatura surpresa.
+- **Alerta de orçamento** em 50%, 80% e 100%. É a linha de defesa que de fato evita a fatura surpresa. Configurado em 26/11 na conta de faturamento do projeto: orçamento de R$ 50 por mês para o `correctio-app`, com aviso em 50%, 80% e 100% do gasto e em 100% do gasto previsto para o mês. O aviso vai por e-mail a quem administra a conta de faturamento.
 - **Teto de instâncias.** Autoescalonamento sem máximo definido é exatamente como o custo explode.
 - **Leitura da folha com processamento de imagem próprio**, em vez de API de visão paga: na API, numa worker thread (ADR-007), e no navegador do professor só no demo sem API (ADR-006). Custo previsível, e a imagem nunca vai a terceiros (ver seção 6).
 - **Armazenamento em classe adequada ao acesso.** Folhas escaneadas são o maior volume e quase nunca são relidas depois do semestre. A economia vem de mover imagens antigas para armazenamento frio — **não** de apagá-las. Não existe descarte automático no Correctio: apagar dado que ninguém pediu para apagar é perda de informação. Exclusão só sob solicitação, via anonimização (RF05 e RF38).
@@ -137,8 +137,8 @@ Limite por usuário não protege a conta: 600 professores legítimos na semana d
 | **Segurança** (Art. 46) | RNF04 (tráfego), RNF16 (arquivos), RNF18 (API), RNF14 (isolamento). |
 | **Registro das operações** (Art. 37) | RF40 e RNF17 — trilha de auditoria. |
 | **Retenção** | Definida pela instituição, não pelo sistema. Sem descarte automático — o que protege contra perda é o backup com restauração testada (RNF09), e o que é "excluído" pela interface é reversível (RF42). Os backups em si duram 30 dias: um aluno anonimizado (RF38) continua, por até 30 dias, nos backups feitos antes da anonimização. |
-| **Transferência internacional** (Art. 33) | Acontece e precisa estar declarada. O banco fica nos EUA, no Aiven sobre a DigitalOcean, em São Francisco (ADR-001). A API, as imagens das folhas, os PDFs e os backups diários do banco ficam no Google, em us-west1 (ADR-004, ADR-005 e `docs/CI_CD.md`, seção 8). Aiven, DigitalOcean e Google são subprocessadores. A leitura da folha roda na API ou, no demo, no navegador do professor, nunca mandando a imagem a terceiros (ADR-006 e ADR-007). |
-| **Comunicação de incidente** (Art. 48) | Procedimento documentado: quem detecta, quem comunica, em quanto tempo. |
+| **Transferência internacional** (Art. 33) | Acontece e precisa estar declarada. O banco fica nos EUA, no Aiven sobre a DigitalOcean, em São Francisco (ADR-001). A API, as imagens das folhas, os PDFs e os backups diários do banco ficam no Google, em us-west1 (ADR-004, ADR-005 e `docs/CI_CD.md`, seção 8). Aiven, DigitalOcean e Google são subprocessadores. A leitura da folha roda na API ou, no demo, no navegador do professor, nunca mandando a imagem a terceiros (ADR-006 e ADR-007). Declarada no aviso de privacidade (`/privacidade`, "Onde os dados ficam"), com os três fornecedores. |
+| **Comunicação de incidente** (Art. 48) | Procedimento na seção 9: quem detecta, quem decide, quem avisa a instituição e em quanto tempo. A instituição, controladora, tem 3 dias úteis para comunicar a ANPD e os titulares (Resolução CD/ANPD nº 15/2024). |
 
 ### Três pontos que não estavam previstos em lugar nenhum
 
@@ -217,3 +217,48 @@ O objetivo é não refazer a mesma leitura a cada troca de tela, sem nunca guard
 | **N1** (11/09) | Este documento e os requisitos. No código: escopo por professor já na camada de repositório, DTO estreito na consulta pública, `noindex`. |
 | **N2** (2.0.0, 01/11) | Autenticação real, isolamento por conta com teste automatizado, validação na fronteira, SQL parametrizado, CORS, cabeçalhos de segurança (HSTS incluído), limite de requisições em camadas, hash de senha e de token, criptografia do e-mail do aluno, TLS até o banco, `no-store` na API e cache só em memória no front, anonimização de aluno e da conta, envio de foto com tipo real, até 10 MB, bucket privado e cota diária. |
 | **N3** (27/11) | Fila com confirmação imediata e notificação, re-processamento de imagem e remoção de EXIF, URLs assinadas, trilha de auditoria, alertas de orçamento. |
+
+---
+
+## 9. Operação: incidente, monitoramento e riscos aceitos
+
+### Procedimento de incidente (Art. 48)
+
+Incidente é qualquer evento que exponha, altere ou torne indisponível dado de professor ou de aluno: credencial vazada, acesso de um professor a dado de outro, foto ou PDF acessível sem login, banco ou backup copiado, perda de dado, API fora do ar.
+
+| Papel | Quem | O que faz |
+|---|---|---|
+| Detecta | Equipe de desenvolvimento, ou quem perceber primeiro (professor, alerta automático) | Registra o que viu, quando e onde, e avisa a PM na hora. Não discute o incidente em issue ou PR, porque o repositório é público. |
+| Decide | PM do projeto | Confirma se é incidente, decide a contenção e quem a executa. |
+| Comunica à instituição | PM do projeto, pelo e-mail do projeto (`correctioapp@gmail.com`) | Avisa a instituição em até 24 horas da confirmação: o que aconteceu, quais dados, quantos titulares, o que já foi feito. |
+| Comunica à ANPD e aos titulares | A instituição, que é a controladora | Tem 3 dias úteis a partir de quando soube para comunicar a ANPD e os alunos afetados, se o incidente puder causar risco ou dano relevante (Resolução CD/ANPD nº 15/2024). |
+
+**Passos:**
+
+1. **Detectar.** Fontes: o alerta de disponibilidade e o de orçamento (abaixo), o e-mail de falha do keep-alive e do backup (`docs/CI_CD.md`), um professor que relate algo, um achado de código ou de log.
+2. **Conter**, conforme o caso:
+   - credencial de professor: pedir que ele troque a senha e saia de todos os dispositivos ("Sair de todos os dispositivos", no perfil);
+   - token ou chave da aplicação: trocar o segredo no Secret Manager e publicar de novo. Trocar o `JWT_SECRET` encerra todas as sessões;
+   - defeito no código: reverter a versão (`republish.yml`).
+3. **Avaliar:** quais dados (pela classificação: credencial, dado de aluno, gabarito antes da publicação), quantos titulares, por quanto tempo ficaram expostos e se há risco relevante.
+4. **Comunicar** à instituição, nos prazos da tabela.
+5. **Registrar** o incidente fora do repositório público, com data, dados afetados, medidas e comunicações. A instituição guarda o registro por pelo menos 5 anos (Resolução CD/ANPD nº 15/2024).
+6. **Revisar:** a política de segurança e este documento são revistos depois de todo incidente, e a correção entra como issue e PR sem dado pessoal na descrição.
+
+### Monitoramento
+
+- **Disponibilidade (RNF03, 99,5% ao mês).** Um uptime check do Cloud Monitoring (`correctio-api-health`, projeto `correctio-app`) chama o `/api/health` de produção a cada 5 minutos, de três regiões, e confere o `"status":"UP"`. O `/api/health` consulta o banco, então mede a API e o banco juntos. A disponibilidade do mês sai do histórico desse check.
+- **Alerta de indisponibilidade.** Uma política de alerta manda e-mail ao projeto quando o check falha por 10 minutos seguidos.
+- **Custo.** Alerta de orçamento, na seção 5.
+
+### Prova impressa e PDF
+
+Depois que o PDF é baixado ou impresso, nenhum controle do sistema alcança o arquivo, e uma cópia antecipada da prova é fraude na avaliação. Por isso a regra é de uso, não de código:
+
+- gerar o PDF perto da data da prova, e não semanas antes;
+- guardar as provas impressas em lugar fechado até a aplicação, e não deixá-las na mesa;
+- não mandar o PDF por e-mail nem por mensagem; quem precisa dele baixa pelo sistema, com login.
+
+### Riscos aceitos
+
+- **Banco no plano gratuito do Aiven**, que pode desligar por inatividade (ADR-001). Aceito pela PM em 21/10, para o período da disciplina. Antes de uso real com alunos, o plano pago (Developer, de US$ 5 a 8 por mês) elimina esse risco. Enquanto isso, o uptime check consulta o banco a cada poucos minutos, o que também conta como atividade.

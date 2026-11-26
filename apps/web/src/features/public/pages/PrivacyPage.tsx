@@ -19,8 +19,9 @@ export function PrivacyPage() {
           <h2 className="text-title text-primary">Quais dados são tratados</h2>
           <p>
             Do professor: nome, e-mail e as turmas, questões, provas e correções que ele cria. Do
-            aluno: nome, matrícula, e-mail quando informado pelo professor, e as notas das provas
-            que ele fizer.
+            aluno: nome, matrícula, e-mail quando informado pelo professor, as notas das provas
+            que ele fizer e a foto da folha de respostas, que mostra a letra dele e pode trazer o
+            nome.
           </p>
         </section>
 
@@ -48,6 +49,18 @@ export function PrivacyPage() {
             O tratamento se apoia na execução das atividades de ensino da instituição e no
             legítimo interesse de avaliar e devolver resultados ao aluno, conforme a Lei Geral de
             Proteção de Dados.
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-title text-primary">Onde os dados ficam</h2>
+          <p>
+            Fora do Brasil, nos Estados Unidos, o que é uma transferência internacional de dados
+            (LGPD, art. 33). O banco de dados fica no Aiven, sobre a DigitalOcean, em São
+            Francisco. O sistema, as fotos das folhas, os PDFs das provas e as cópias de segurança
+            ficam no Google, na região us-west1. Esses fornecedores guardam e processam os dados
+            só para o sistema funcionar, com tráfego e armazenamento criptografados. A foto da
+            folha é lida pelo próprio sistema e nunca é enviada a outro serviço.
           </p>
         </section>
 

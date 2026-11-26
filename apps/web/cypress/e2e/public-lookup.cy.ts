@@ -232,6 +232,16 @@ describe('aviso de privacidade', () => {
     cy.contains('h2', 'Para quê').should('be.visible')
   })
 
+  /** LGPD art. 33: the data lives in the United States, with three providers, and the notice has to say so. */
+  it('diz que os dados ficam nos Estados Unidos e com quais fornecedores', () => {
+    cy.contains('h2', 'Onde os dados ficam').should('be.visible')
+    cy.contains('p', 'transferência internacional').should('contain', 'Aiven').and('contain', 'DigitalOcean').and('contain', 'Google')
+  })
+
+  it('cita a foto da folha entre os dados do aluno', () => {
+    cy.contains('p', 'foto da folha de respostas').should('be.visible')
+  })
+
   it('nomeia controlador e operador', () => {
     cy.contains('h2', 'Quem responde').should('be.visible')
     cy.contains('operador').should('be.visible')
