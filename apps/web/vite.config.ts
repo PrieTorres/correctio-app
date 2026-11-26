@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 
 /**
@@ -14,6 +15,25 @@ const API_PROXY = {
     target: 'http://localhost:3000',
     rewrite: (path: string) => path.replace(/^\/api/, ''),
   },
+}
+
+interface HostingHeaders {
+  hosting: { headers: { source: string; headers: { key: string; value: string }[] }[] }
+}
+
+/**
+ * The headers Firebase Hosting sends with every page of the site, the CSP
+ * among them, read from `firebase.json` so the preview Cypress runs against
+ * serves exactly what production does and a CSP that breaks a screen fails a
+ * spec. The GitHub Pages demo gets no headers at all, so its preview gets none
+ * either: it reads photos with WebAssembly, which the site's CSP does not
+ * allow.
+ */
+function siteHeaders(): Record<string, string> {
+  if (process.env.VITE_DEMO_MODE === 'true') return {}
+  const { hosting } = JSON.parse(readFileSync(new URL('../../firebase.json', import.meta.url), 'utf8')) as HostingHeaders
+  const everyPage = hosting.headers.find((entry) => entry.source === '**')?.headers ?? []
+  return Object.fromEntries(everyPage.map(({ key, value }) => [key, value]))
 }
 
 /**
@@ -33,7 +53,7 @@ export default defineConfig({
   build: { target: 'es2022' },
   plugins: [react(), tailwindcss()],
   server: { proxy: API_PROXY },
-  preview: { proxy: API_PROXY },
+  preview: { proxy: API_PROXY, headers: siteHeaders() },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
