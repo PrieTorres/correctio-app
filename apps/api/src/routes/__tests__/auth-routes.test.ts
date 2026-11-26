@@ -18,7 +18,7 @@ const PASSWORD = 'senha-forte-1'
 const BINDING = 'segredo-que-so-o-navegador-tem'
 const SIGN_IN_FAILED = 'E-mail ou senha incorretos.'
 
-const env = loadEnv({ NODE_ENV: 'test', LOG_LEVEL: 'silent', JWT_SECRET: Buffer.alloc(32, 5).toString('base64'), PUBLIC_APP_URL: APP_URL })
+const env = loadEnv({ NODE_ENV: 'test', LOG_LEVEL: 'silent', JWT_SECRET: Buffer.alloc(32, 5).toString('base64'), PUBLIC_APP_URL: APP_URL, PASSWORD_BREACH_CHECK: 'off' })
 const logger = createLogger('silent')
 
 function sha256(value: string): string {

@@ -7,7 +7,15 @@ import { AuthLayout } from '@/app/layouts/AuthLayout'
 import { ROUTES } from '@/app/routes'
 import { useServices } from '@/app/services'
 import { signInSchema, type SignInInput } from '@/lib/schemas'
-import { useCompleteGoogleSignIn, useCurrentUser, useSignIn, useStartGoogleSignIn } from '../hooks/useAuth'
+import { CodeForm } from '../components/CodeForm'
+import {
+  pendingChallengeOf,
+  useCompleteGoogleSignIn,
+  useCompleteSecondFactor,
+  useCurrentUser,
+  useSignIn,
+  useStartGoogleSignIn,
+} from '../hooks/useAuth'
 
 const EMPTY: SignInInput = { email: '', password: '' }
 
@@ -37,7 +45,7 @@ function returnPathOf(state: unknown): string {
  */
 function useGoogleReturn() {
   const [params, setParams] = useSearchParams()
-  const { mutate, error } = useCompleteGoogleSignIn()
+  const { mutate, error, data, reset } = useCompleteGoogleSignIn()
   const exchanged = useRef<string | null>(null)
   const code = params.get('google')
 
@@ -48,22 +56,75 @@ function useGoogleReturn() {
     mutate(code)
   }, [code, mutate, setParams])
 
-  return params.get('erro') === 'google' ? GOOGLE_FAILED : error
+  return {
+    error: params.get('erro') === 'google' ? GOOGLE_FAILED : error,
+    challenge: pendingChallengeOf(data),
+    reset,
+  }
+}
+
+/**
+ * The second step of a sign-in, for an account with the authenticator app on:
+ * the first step (password or Google) left a challenge, and only a current
+ * code trades it for the session.
+ */
+function SecondFactorStep({ challenge, onBack }: Readonly<{ challenge: string; onBack: () => void }>) {
+  const completion = useCompleteSecondFactor()
+
+  return (
+    <AuthLayout title="Verificação em duas etapas" description="Digite o código de 6 dígitos que o seu aplicativo autenticador mostra agora.">
+      <CodeForm
+        submitLabel="Verificar e entrar"
+        pendingLabel="Verificando…"
+        isPending={completion.isPending}
+        error={completion.error}
+        onSubmit={(code) => completion.mutate({ challenge, code })}
+      />
+      <Button variant="secondary" fullWidth className="mt-3" onClick={onBack}>
+        Voltar
+      </Button>
+    </AuthLayout>
+  )
+}
+
+function PasswordResetNotice({ state }: Readonly<{ state: unknown }>) {
+  if (!isPasswordResetDone(state)) return null
+
+  return (
+    <output className="mb-4 block rounded-[var(--radius-control)] bg-success-surface p-3 text-caption text-ink">
+      Senha redefinida. Entre com a senha nova.
+    </output>
+  )
+}
+
+/** Offered only where the app has a server to talk to Google (`AuthProvider.offersGoogle`). */
+function GoogleButton({ google }: Readonly<{ google: ReturnType<typeof useStartGoogleSignIn> }>) {
+  const { auth } = useServices()
+  if (!auth.offersGoogle) return null
+
+  return (
+    <Button variant="secondary" fullWidth className="mt-3" disabled={google.isPending} onClick={() => google.mutate()}>
+      Entrar com o Google
+    </Button>
+  )
 }
 
 /**
  * Screen C1. Wrong e-mail and wrong password read the same, and a blocked
- * address gets the API's own message saying how long to wait (RNF12). Once
- * there is a session, from the form, from Google or from an earlier visit, the
- * page sends the teacher back where the guard found them.
+ * address gets the API's own message saying how long to wait (RNF12). An
+ * account with the second factor on goes on to the code step, from the form or
+ * from Google alike. Once there is a session, from the form, from Google or
+ * from an earlier visit, the page sends the teacher back where the guard found
+ * them.
  */
 export function SignInPage() {
   const location = useLocation()
-  const { auth } = useServices()
+  const navigationState: unknown = location.state
   const { data: user } = useCurrentUser()
   const signIn = useSignIn()
-  const google = useStartGoogleSignIn()
-  const googleError = useGoogleReturn()
+  const googleStart = useStartGoogleSignIn()
+  const googleReturn = useGoogleReturn()
+  const challenge = pendingChallengeOf(signIn.data) ?? googleReturn.challenge
 
   const {
     register,
@@ -72,14 +133,21 @@ export function SignInPage() {
   } = useForm<SignInInput>({ resolver: zodResolver(signInSchema), defaultValues: EMPTY })
 
   if (user) return <Navigate to={returnPathOf(location.state)} replace />
+  if (challenge !== null) {
+    return (
+      <SecondFactorStep
+        challenge={challenge}
+        onBack={() => {
+          signIn.reset()
+          googleReturn.reset()
+        }}
+      />
+    )
+  }
 
   return (
     <AuthLayout title="Entrar" description="Acesse sua conta para continuar corrigindo provas.">
-      {isPasswordResetDone(location.state) && (
-        <output className="mb-4 block rounded-[var(--radius-control)] bg-success-surface p-3 text-caption text-ink">
-          Senha redefinida. Entre com a senha nova.
-        </output>
-      )}
+      <PasswordResetNotice state={navigationState} />
 
       <form
         onSubmit={(event) => void handleSubmit((input) => signIn.mutate(input))(event)}
@@ -103,18 +171,14 @@ export function SignInPage() {
           {...register('password')}
         />
 
-        <SaveError error={signIn.error ?? googleError ?? google.error} />
+        <SaveError error={signIn.error ?? googleReturn.error ?? googleStart.error} />
 
         <Button variant="primary" type="submit" fullWidth disabled={isSubmitting || signIn.isPending}>
           {signIn.isPending ? 'Entrando…' : 'Entrar'}
         </Button>
       </form>
 
-      {auth.offersGoogle && (
-        <Button variant="secondary" fullWidth className="mt-3" disabled={google.isPending} onClick={() => google.mutate()}>
-          Entrar com o Google
-        </Button>
-      )}
+      <GoogleButton google={googleStart} />
 
       <div className="mt-4 flex flex-col items-center text-label">
         <Link to={ROUTES.passwordReset} className="link-target text-primary hover:underline">

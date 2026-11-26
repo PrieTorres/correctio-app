@@ -41,6 +41,7 @@ Alternativas avaliadas:
   - a API devolve o navegador à origem que começou: produção, o link fixo da pré ou o link de uma branch;
   - o código de uso único só funciona no navegador que iniciou o login, e um link repassado não serve em outro;
   - o mesmo e-mail é sempre a mesma conta. Uma conta cujo e-mail ninguém provou ler (`User.emailVerifiedAt`, acréscimo do grupo) perde a senha e as sessões quando a dona do e-mail entra com o Google.
+- **Verificação em duas etapas (opcional) e senha vazada:** decididas depois da análise de risco R2 e descritas na Regra 4 de `docs/Seguranca_e_LGPD.md`. O login por senha e o do Google passam pelo mesmo ponto, que devolve um desafio em vez da sessão para a conta que a ligou.
 - **"Sair de todos os dispositivos" (RF04)** revoga todos os refresh tokens da conta.
 
 ## Consequências

@@ -4,6 +4,7 @@ import type { AuthenticatedUser, ForgotPasswordInput, ResetPasswordRequest, Sign
 import type { Logger } from 'pino'
 import { API_ERROR_CODE, ApiError } from '../lib/api-error'
 import { hashPassword, verifyPassword } from '../lib/password'
+import type { PasswordBreachChecker } from '../lib/pwned-passwords'
 import { createOpaqueToken, hashOpaqueToken } from '../lib/session-tokens'
 import { AUTH_CODE_PURPOSE } from '../models/auth-code-purpose'
 import type { AuthCodeRepository } from '../repositories/auth-code-repository'
@@ -11,6 +12,7 @@ import type { RefreshTokenRecord, RefreshTokenRepository } from '../repositories
 import type { UserRecord, UserRepository } from '../repositories/user-repository'
 import { passwordResetMessage } from './auth-messages'
 import type { Mailer } from './mailer'
+import type { SecondFactorService, SignInOutcome } from './second-factor-service'
 import { isActiveAccount, toAuthenticatedUser, type IssuedSession, type SessionIssuer } from './session-issuer'
 
 const MINUTE_MS = 60 * 1000
@@ -33,6 +35,7 @@ export const REUSE_GRACE_MS = 10_000
  */
 export const PASSWORD_RESET_RESPONSE_MS = 2_500
 
+const BREACHED_PASSWORD = 'Esta senha já apareceu em vazamentos de dados. Escolha outra, que você não use em outros sites.'
 const INVALID_CREDENTIALS = 'E-mail ou senha incorretos.'
 const SESSION_ENDED = 'Sua sessão terminou. Entre de novo.'
 
@@ -41,6 +44,9 @@ export interface AuthServiceDependencies {
   refreshTokens: RefreshTokenRepository
   authCodes: AuthCodeRepository
   sessions: SessionIssuer
+  /** Decides, after the password, whether the sign-in ends in a session or asks for a code. */
+  secondFactor: SecondFactorService
+  passwordBreaches: PasswordBreachChecker
   mailer: Mailer
   logger: Logger
   /** The fixed address of this environment's web app, which the reset e-mail links to. */
@@ -50,7 +56,7 @@ export interface AuthServiceDependencies {
 
 export interface AuthService {
   register: (input: SignUpRequest, deviceInfo: string | null) => Promise<IssuedSession>
-  signIn: (input: SignInInput, deviceInfo: string | null) => Promise<IssuedSession>
+  signIn: (input: SignInInput, deviceInfo: string | null) => Promise<SignInOutcome>
   refresh: (refreshToken: string | undefined, deviceInfo: string | null) => Promise<IssuedSession>
   signOut: (refreshToken: string | undefined) => Promise<void>
   signOutEverywhere: (userId: string) => Promise<void>
@@ -78,6 +84,8 @@ export function createAuthService({
   refreshTokens,
   authCodes,
   sessions,
+  secondFactor,
+  passwordBreaches,
   mailer,
   logger,
   publicAppUrl,
@@ -106,6 +114,10 @@ export function createAuthService({
     await refreshTokens.revokeAllForUser(token.userId)
   }
 
+  async function assertNotBreached(password: string): Promise<void> {
+    if (await passwordBreaches.isBreached(password)) throw new ApiError(API_ERROR_CODE.INVALID, BREACHED_PASSWORD)
+  }
+
   async function sendResetLink(email: string): Promise<void> {
     const user = await users.findByEmail(email)
     if (!isActiveAccount(user)) return
@@ -122,17 +134,20 @@ export function createAuthService({
   }
 
   return {
+    /** A password found in known breaches is refused before the account is created. */
     async register({ fullName, email, password }, deviceInfo) {
+      await assertNotBreached(password)
       const user = await users.create({ id: randomUUID(), fullName, email, passwordHash: await hashPassword(password), emailVerifiedAt: null })
       if (user === null) throw new ApiError(API_ERROR_CODE.CONFLICT, 'Este e-mail já tem uma conta. Entre com ele ou recupere a senha.')
       return sessions.issue(user, deviceInfo)
     },
 
+    /** A right password ends in a session, or in a challenge when the account has a second factor. */
     async signIn({ email, password }, deviceInfo) {
       const user = await users.findByEmail(email)
       const passwordMatches = await verifyPassword(await hashToCheck(user), password)
       if (!passwordMatches || !isActiveAccount(user)) throw new ApiError(API_ERROR_CODE.UNAUTHORIZED, INVALID_CREDENTIALS)
-      return sessions.issue(user, deviceInfo)
+      return secondFactor.admit(user, deviceInfo)
     },
 
     /**
@@ -177,11 +192,14 @@ export function createAuthService({
     },
 
     /**
-     * The new password is hashed before the code is spent, so a failure there
-     * leaves the link usable. Reading the link proves the inbox, and every
-     * session ends: whoever knew the old password is out.
+     * A breached password is refused and the new one is hashed before the code
+     * is spent, so a failure there leaves the link usable. Reading the link
+     * proves the inbox, and every session ends: whoever knew the old password
+     * is out. It never issues a session and leaves the second factor as it
+     * is, so the inbox alone cannot get past the code.
      */
     async resetPassword({ code, password }) {
+      await assertNotBreached(password)
       const passwordHash = await hashPassword(password)
       const userId = await authCodes.consume(hashOpaqueToken(code), AUTH_CODE_PURPOSE.PASSWORD_RESET)
       if (userId === null) throw new ApiError(API_ERROR_CODE.INVALID, 'Este link de redefinição é inválido ou já foi usado. Peça um novo.')

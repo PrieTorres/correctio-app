@@ -1,8 +1,8 @@
-import { authenticatedUserSchema, authSessionSchema } from '@/lib/schemas'
+import { authenticatedUserSchema, authSessionSchema, signInResultSchema, totpSetupSchema } from '@/lib/schemas'
 import { toStorageError } from '@/lib/repositories/http/api-client'
 import { StorageError } from '@/lib/storage/errors'
-import type { AuthenticatedUser } from '@/types/domain'
-import type { AuthProvider } from './index'
+import { SIGN_IN_STATUS, type AuthenticatedUser } from '@/types/domain'
+import type { AuthProvider, SignInOutcome } from './index'
 
 /** Renewed this long before it expires, so a request never leaves with a token that dies on the way. */
 const RENEW_MARGIN_MS = 30_000
@@ -113,6 +113,14 @@ export function createHttpAuthProvider({
     return user
   }
 
+  /** The answer of a route that signs in: a session, or the challenge of the second step. */
+  function beginOutcome(payload: unknown): SignInOutcome {
+    const parsed = signInResultSchema.safeParse(payload)
+    if (!parsed.success) throw new StorageError(GENERIC_FAILURE, 'failure', { cause: parsed.error })
+    if ('secondFactorRequired' in parsed.data) return { status: SIGN_IN_STATUS.SECOND_FACTOR, challenge: parsed.data.challenge }
+    return { status: SIGN_IN_STATUS.SIGNED_IN, user: begin(parsed.data) }
+  }
+
   /** A refused refresh means the session is over, which is an answer and not a failure. */
   async function refreshNow(): Promise<AuthenticatedUser | null> {
     try {
@@ -166,7 +174,7 @@ export function createHttpAuthProvider({
     getAccessToken,
 
     async signIn(email, password) {
-      return begin(await post('/auth/login', { email, password }))
+      return beginOutcome(await post('/auth/login', { email, password }))
     },
 
     async signUp(fullName, email, password) {
@@ -206,7 +214,27 @@ export function createHttpAuthProvider({
       const binding = tabStorage.getItem(GOOGLE_BINDING_KEY)
       tabStorage.removeItem(GOOGLE_BINDING_KEY)
       if (binding === null) throw new StorageError(GOOGLE_NOT_FINISHED, 'unauthorized')
-      return begin(await post('/auth/google/exchange', { code, binding }))
+      return beginOutcome(await post('/auth/google/exchange', { code, binding }))
+    },
+
+    offersTotp: true,
+
+    async completeSecondFactor(challenge, code) {
+      return begin(await post('/auth/login/totp', { challenge, code }))
+    },
+
+    async beginTotpSetup() {
+      const parsed = totpSetupSchema.safeParse(await post('/me/totp/setup', undefined, await requireToken()))
+      if (!parsed.success) throw new StorageError(GENERIC_FAILURE, 'failure', { cause: parsed.error })
+      return parsed.data
+    },
+
+    async enableTotp(code) {
+      await post('/me/totp/enable', { code }, await requireToken())
+    },
+
+    async disableTotp(code) {
+      await post('/me/totp/disable', { code }, await requireToken())
     },
 
     /** `GET /me`: the account as the server has it now, not as it was when the session began. */

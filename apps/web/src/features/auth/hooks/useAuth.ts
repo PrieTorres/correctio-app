@@ -9,9 +9,9 @@ import {
 } from '@tanstack/react-query'
 import { useServices } from '@/app/services'
 import { dropBackgroundJobs } from '@/lib/background-jobs'
-import type { AuthProvider } from '@/lib/auth'
+import type { AuthProvider, SignInOutcome } from '@/lib/auth'
 import type { SignInInput, SignUpInput } from '@/lib/schemas'
-import type { AuthenticatedUser } from '@/types/domain'
+import { SIGN_IN_STATUS, type AuthenticatedUser } from '@/types/domain'
 
 export const authKeys = {
   currentUser: ['auth', 'currentUser'] as const satisfies QueryKey,
@@ -83,12 +83,36 @@ function useSessionStart() {
   return (user: AuthenticatedUser | null) => startSession(queryClient, user)
 }
 
+/** The session starts only when the first step ended in one; a challenge leaves the cache as it was. */
+function useOutcomeStart() {
+  const start = useSessionStart()
+  return (outcome: SignInOutcome) => {
+    if (outcome.status === SIGN_IN_STATUS.SIGNED_IN) start(outcome.user)
+  }
+}
+
+/** The challenge a sign-in is waiting on the code for, or `null` when it ended in a session or has not answered. */
+export function pendingChallengeOf(outcome: SignInOutcome | undefined): string | null {
+  return outcome?.status === SIGN_IN_STATUS.SECOND_FACTOR ? outcome.challenge : null
+}
+
 export function useSignIn() {
+  const { auth } = useServices()
+  const onSuccess = useOutcomeStart()
+
+  return useMutation({
+    mutationFn: ({ email, password }: SignInInput) => auth.signIn(email, password),
+    onSuccess,
+  })
+}
+
+/** The second step of a sign-in, from the password or from Google. */
+export function useCompleteSecondFactor() {
   const { auth } = useServices()
   const onSuccess = useSessionStart()
 
   return useMutation({
-    mutationFn: ({ email, password }: SignInInput) => auth.signIn(email, password),
+    mutationFn: ({ challenge, code }: { challenge: string; code: string }) => auth.completeSecondFactor(challenge, code),
     onSuccess,
   })
 }
@@ -105,7 +129,7 @@ export function useSignUp() {
 
 export function useCompleteGoogleSignIn() {
   const { auth } = useServices()
-  const onSuccess = useSessionStart()
+  const onSuccess = useOutcomeStart()
 
   return useMutation({
     mutationFn: (code: string) => auth.completeGoogleSignIn(code),
@@ -162,4 +186,30 @@ export function useAnonymizeAccount() {
 export function useStartGoogleSignIn() {
   const { auth } = useServices()
   return useMutation({ mutationFn: () => auth.startGoogleSignIn() })
+}
+
+/** The profile's second factor: the account is read again after every change, so the screen shows what the server has. */
+export function useTotpSetup() {
+  const { auth } = useServices()
+  return useMutation({ mutationFn: () => auth.beginTotpSetup() })
+}
+
+export function useEnableTotp() {
+  const { auth } = useServices()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (code: string) => auth.enableTotp(code),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: accountKeys.detail }),
+  })
+}
+
+export function useDisableTotp() {
+  const { auth } = useServices()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (code: string) => auth.disableTotp(code),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: accountKeys.detail }),
+  })
 }

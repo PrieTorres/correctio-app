@@ -49,6 +49,42 @@ Cada refresh revoga o token usado e emite outro. Um token já revogado que volta
 segundos é sinal de cópia, e todas as sessões da conta terminam. As abas do mesmo navegador
 renovam uma de cada vez (Web Locks), para que a rotação de uma não pareça roubo para a outra.
 
+### Regra 4 — segunda etapa opcional e senha vazada (risco R2)
+
+Senha fraca ou reaproveitada é a forma mais comum de invadir uma conta de professor, e a conta guarda
+notas de alunos. Duas defesas, as duas decididas pela PM:
+
+- **Verificação em duas etapas (TOTP, RFC 6238), opcional.** Na tela "Meu perfil" a professora escaneia
+  um QR Code num aplicativo autenticador, digita um código de 6 dígitos para confirmar e a segunda
+  etapa passa a valer; para desligar, digita um código atual. O segredo nasce como pendente e só vira
+  o da conta quando um código é confirmado, e fica cifrado com a mesma cifra de campo do e-mail do
+  aluno (AES-256-GCM, `DATA_ENCRYPTION_KEY`). A implementação usa só `node:crypto` (HMAC-SHA1, passo de
+  30 s, 6 dígitos, janela de um passo para cada lado), e os vetores do RFC 6238 estão nos testes.
+- **Todo caminho que emite sessão respeita a segunda etapa.** `POST /auth/login` e
+  `POST /auth/google/exchange` passam por um único ponto (`SecondFactorService.admit`): conta com a
+  segunda etapa ligada recebe um desafio de 5 minutos, assinado e de audiência própria, e não uma
+  sessão; `POST /auth/login/totp` troca desafio e código pela sessão. A redefinição de senha grava a
+  senha mas não emite sessão e não desliga a segunda etapa: quem só tem acesso à caixa de e-mail ainda
+  precisa do código para entrar. O `refresh` renova uma sessão que já passou pela segunda etapa.
+- **Um código vale uma vez.** O último passo de 30 s aceito fica em `totpLastStep`, e um código de passo
+  igual ou anterior é recusado, mesmo dentro da janela. O código que confirmou a ativação também conta.
+- **Adivinhar o código tem limite próprio.** Além do limite por IP da seção 4, cada conta aceita 5
+  códigos errados seguidos e depois recusa todos por 15 minutos (`totpFailedAttempts` e
+  `totpLockedUntil`). A tentativa é reservada no banco antes de conferir o código, em uma escrita
+  condicional, então requisições paralelas também são contadas, e o limite vale em qualquer instância
+  e para quem troca de endereço. Os mesmos contadores valem para ativar e desativar pela tela de perfil.
+- **Senha vazada é recusada** no cadastro e na redefinição (os únicos lugares onde uma senha é
+  escolhida; a conta criada pelo Google não tem senha). A API consulta o serviço Pwned Passwords, do
+  Have I Been Pwned, com k-anonymity: só os 5 primeiros caracteres do SHA-1 saem da API
+  (`https://api.pwnedpasswords.com/range/<prefixo>`, com `Add-Padding: true`), e a comparação do resto é
+  feita aqui. **Falha aberta:** com timeout (2 s) ou erro de rede a senha é aceita e fica um aviso no
+  log, sem a senha e sem o hash, porque uma queda de terceiro não pode impedir a professora de entrar.
+  `PASSWORD_BREACH_CHECK=off` desliga a consulta (a CI de ponta a ponta usa assim).
+
+Limites que continuam: a segunda etapa é opcional, então uma conta que não a ligar segue protegida só
+pela senha; não há códigos de recuperação, e quem perder o aplicativo precisa de ajuda da equipe
+para desligá-la; e a anonimização apaga os campos da segunda etapa.
+
 ### O que isso significa com cadastro aberto
 
 Sem restrição de domínio de e-mail, qualquer pessoa cria uma conta de professor. Isso é aceitável **desde que** o isolamento seja perfeito: cada conta vê exclusivamente o que criou. O isolamento deixa de ser uma boa prática e passa a ser a única barreira do sistema — daí ele ser um requisito com métrica e teste automatizado (RNF14), não uma recomendação.
@@ -80,7 +116,7 @@ Um limite único não serve: 300 req/min mata a importação em lote e não impe
 | Camada | Rotas | Limite | Chave |
 |---|---|---|---|
 | Pública | consulta por código | 30/min, sem espera | IP |
-| Autenticação | cadastro, login, recuperação | 5 tentativas / 15 min, espera progressiva a partir da 3ª. O login conta só as falhas; a redefinição com o código conta as falhas por IP | IP **+** e-mail |
+| Autenticação | cadastro, login, recuperação | 5 tentativas / 15 min, espera progressiva a partir da 3ª. O login conta só as falhas; a redefinição com o código conta as falhas por IP. O passo do código da segunda etapa (`/auth/login/totp`) conta só as falhas, por IP, e tem ainda o bloqueio por conta da Regra 4 | IP **+** e-mail |
 | Leitura | GETs autenticados | 300/min | professor |
 | Escrita comum | CRUD | 60/min | professor |
 | **Cara** | gerar PDF, importar lote, exportar relatório (só com `?format=`) | 10/h. Não há limite de trabalhos simultâneos; a geração trava a linha da aplicação | professor |
@@ -193,6 +229,7 @@ armazenamento privado, e entram no PDF gerado.
 | Dado | Proteção |
 |---|---|
 | Senha | Hash **argon2id**. Nunca criptografia reversível: nem o sistema consegue recuperar a senha. |
+| Segredo da segunda etapa | **AES-256-GCM**, a mesma cifra de campo do e-mail do aluno. O cliente só recebe se a segunda etapa está ligada; o segredo aparece uma única vez, na resposta que gera o QR Code. |
 | Refresh token | Só o hash (`tokenHash` da Spec). Quem lê o banco não consegue usar o token. |
 | E-mail do aluno | **Criptografia de campo AES-256-GCM.** A chave vem de `DATA_ENCRYPTION_KEY`, guardada no gerenciador de segredos, nunca no repositório nem no bundle. |
 | Nome, matrícula e notas | Criptografia em repouso do provedor, no disco e nos backups. Criptografia de campo aqui quebraria a busca e a ordenação por nome no servidor. |

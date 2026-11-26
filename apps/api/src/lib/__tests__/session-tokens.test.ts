@@ -42,6 +42,31 @@ describe('createSessionTokens', () => {
   })
 })
 
+describe('second-factor challenge', () => {
+  it('reads back the account of a challenge it signed', async () => {
+    expect(await tokens.verifySecondFactorChallenge(await tokens.signSecondFactorChallenge('ana', 60))).toBe('ana')
+  })
+
+  it('is not an access token or a Google state, and neither of them is a challenge', async () => {
+    const challenge = await tokens.signSecondFactorChallenge('ana', 60)
+    const access = await tokens.signAccessToken({ userId: 'ana', role: 'professor' })
+    const state = await tokens.signState({ returnTo: 'https://correctio-app.web.app' }, 60)
+
+    expect(await tokens.verifyAccessToken(challenge)).toBeNull()
+    expect(await tokens.verifyState(challenge)).toBeNull()
+    expect(await tokens.verifySecondFactorChallenge(access)).toBeNull()
+    expect(await tokens.verifySecondFactorChallenge(state)).toBeNull()
+  })
+
+  it('refuses an expired challenge, one signed with another secret and anything that is not a token', async () => {
+    const other = createSessionTokens(Buffer.alloc(32, 4).toString('base64'))
+
+    expect(await tokens.verifySecondFactorChallenge(await tokens.signSecondFactorChallenge('ana', -60))).toBeNull()
+    expect(await tokens.verifySecondFactorChallenge(await other.signSecondFactorChallenge('ana', 60))).toBeNull()
+    expect(await tokens.verifySecondFactorChallenge('nem-um-jwt')).toBeNull()
+  })
+})
+
 describe('opaque tokens', () => {
   it('are random and stored as a SHA-256 that does not reveal them', () => {
     const token = createOpaqueToken()

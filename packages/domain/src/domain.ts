@@ -45,8 +45,24 @@ export interface User {
   anonymizedAt?: Timestamp;
 }
 
-/** What the client is allowed to hold: the entity minus the server secret. */
-export type AuthenticatedUser = Omit<User, 'passwordHash'>;
+/**
+ * What the client is allowed to hold: the entity minus the server secret, plus
+ * `+ totpEnabled`, whether signing in asks for a code from an authenticator app.
+ * The flag is derived on the server from `User.totpEnabledAt`, which stays there
+ * with the secrets.
+ */
+export type AuthenticatedUser = Omit<User, 'passwordHash'> & { totpEnabled?: boolean };
+
+/**
+ * How the first step of a sign-in ended: with a session, or, for an account
+ * with a second factor, with a challenge that a code from the authenticator
+ * app completes. Values the group added, shared by the API and the web app so
+ * both name the outcomes alike.
+ */
+export const SIGN_IN_STATUS = Object.freeze({
+  SIGNED_IN: 'SIGNED_IN',
+  SECOND_FACTOR: 'SECOND_FACTOR',
+} as const);
 
 export interface RefreshToken {
   id: Id;

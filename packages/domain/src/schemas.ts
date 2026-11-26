@@ -21,6 +21,8 @@ export const authenticatedUserSchema = z.object({
   email: z.email(),
   createdAt: timestamp,
   anonymizedAt: timestamp.optional(),
+  /** `+` Whether signing in asks for a code from an authenticator app; absent where the server has no such factor. */
+  totpEnabled: z.boolean().optional(),
 });
 
 /**
@@ -102,6 +104,39 @@ export const authSessionSchema = z.object({
   expiresIn: z.number().int().positive(),
   user: authenticatedUserSchema,
 });
+
+/** The code an authenticator app shows: exactly six digits, with no room for spaces or letters. */
+export const totpCodeSchema = z.string().regex(/^\d{6}$/, 'Digite os 6 números do código');
+
+/** What `POST /me/totp/enable` and `POST /me/totp/disable` receive. */
+export const totpCodeRequestSchema = z.object({ code: totpCodeSchema });
+
+/** What `POST /auth/login/totp` receives: the proof of the first step and the code of the second. */
+export const secondFactorRequestSchema = z.object({
+  challenge: z.string().min(1).max(2000),
+  code: totpCodeSchema,
+});
+
+/**
+ * What `POST /me/totp/setup` answers: the secret for typing in, the
+ * `otpauth://` address, and the same address drawn as a QR Code (a `data:` URL
+ * of an SVG), so the web app needs no QR library of its own.
+ */
+export const totpSetupSchema = z.object({
+  secret: z.string().min(1),
+  otpauthUri: z.string().min(1),
+  qrCodeDataUrl: z.string().startsWith('data:image/'),
+});
+
+/** What a password sign-in answers, instead of a session, when the account asks for a second step. */
+export const secondFactorChallengeSchema = z.object({
+  secondFactorRequired: z.literal(true),
+  challenge: z.string().min(1),
+  expiresIn: z.number().int().positive(),
+});
+
+/** Every route that signs someone in answers with a session or, when the account has a second factor, with a challenge. */
+export const signInResultSchema = z.union([authSessionSchema, secondFactorChallengeSchema]);
 
 export const classStatusSchema = z.enum(['active', 'archived']);
 
@@ -642,6 +677,11 @@ export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type GoogleExchange = z.infer<typeof googleExchangeSchema>;
 export type AuthSession = z.infer<typeof authSessionSchema>;
+export type TotpCodeRequest = z.infer<typeof totpCodeRequestSchema>;
+export type SecondFactorRequest = z.infer<typeof secondFactorRequestSchema>;
+export type TotpSetup = z.infer<typeof totpSetupSchema>;
+export type SecondFactorChallenge = z.infer<typeof secondFactorChallengeSchema>;
+export type SignInResult = z.infer<typeof signInResultSchema>;
 export type ExamInput = z.infer<typeof examInputSchema>;
 export type DrawRequest = z.infer<typeof drawRequestSchema>;
 export type ApplicationInput = z.infer<typeof applicationInputSchema>;

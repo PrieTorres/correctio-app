@@ -27,7 +27,7 @@ export function isActiveAccount(user: UserRecord | null): user is UserRecord {
   return user?.anonymizedAt === null
 }
 
-/** The entity minus the server secret, with dates as the strings the domain schema expects. */
+/** The entity minus the server secrets, with dates as the strings the domain schema expects and the second factor reduced to whether it is on. */
 export function toAuthenticatedUser(user: UserRecord): AuthenticatedUser {
   return {
     id: user.id,
@@ -35,6 +35,7 @@ export function toAuthenticatedUser(user: UserRecord): AuthenticatedUser {
     fullName: user.fullName,
     email: user.email,
     createdAt: user.createdAt.toISOString(),
+    totpEnabled: user.totpEnabledAt !== null,
     ...(user.anonymizedAt === null ? {} : { anonymizedAt: user.anonymizedAt.toISOString() }),
   }
 }

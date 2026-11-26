@@ -47,7 +47,17 @@ function without(fields: string[], ...childTables: string[]): string[] {
  * listed (#146), has no column at all.
  */
 const CONTRACT: Readonly<Record<string, string[]>> = {
-  users: [...fieldsOf(authenticatedUserSchema), 'passwordHash', 'emailVerifiedAt'],
+  users: [
+    ...without(fieldsOf(authenticatedUserSchema), 'totpEnabled'),
+    'passwordHash',
+    'emailVerifiedAt',
+    'totpSecret',
+    'totpPendingSecret',
+    'totpEnabledAt',
+    'totpLastStep',
+    'totpFailedAttempts',
+    'totpLockedUntil',
+  ],
   refresh_tokens: ['id', 'userId', 'tokenHash', 'deviceInfo', 'issuedAt', 'expiresAt', 'revokedAt'],
   auth_codes: ['id', 'userId', 'purpose', 'codeHash', 'expiresAt', 'usedAt', 'createdAt'],
   classes: without(fieldsOf(classSchema), 'studentCount'),

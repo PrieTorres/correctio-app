@@ -1,7 +1,17 @@
-import type { AuthenticatedUser } from '@/types/domain'
+import type { TotpSetup } from '@/lib/schemas'
+import { SIGN_IN_STATUS, type AuthenticatedUser } from '@/types/domain'
 import { StorageError } from '@/lib/storage/errors'
 
 export { createHttpAuthProvider } from './http-auth-provider'
+
+/**
+ * What the first step of a sign-in leads to: a session, or, for an account
+ * with the second factor on, the challenge the code of the second step is
+ * traded for.
+ */
+export type SignInOutcome =
+  | { status: typeof SIGN_IN_STATUS.SIGNED_IN; user: AuthenticatedUser }
+  | { status: typeof SIGN_IN_STATUS.SECOND_FACTOR; challenge: string }
 
 export interface AuthProvider {
   /**
@@ -18,7 +28,7 @@ export interface AuthProvider {
    * any script on the page could read it.
    */
   getAccessToken: () => Promise<string | null>
-  signIn: (email: string, password: string) => Promise<AuthenticatedUser>
+  signIn: (email: string, password: string) => Promise<SignInOutcome>
   signUp: (fullName: string, email: string, password: string) => Promise<AuthenticatedUser>
   signOut: () => Promise<void>
   /** P2: the account of the session as the server has it now (`GET /me`), with its name, e-mail and type. */
@@ -34,7 +44,16 @@ export interface AuthProvider {
   /** Leaves for Google's consent screen; the browser comes back to the sign-in page. */
   startGoogleSignIn: () => Promise<void>
   /** Trades the one-time code Google sign-in left in the address for a session. */
-  completeGoogleSignIn: (code: string) => Promise<AuthenticatedUser>
+  completeGoogleSignIn: (code: string) => Promise<SignInOutcome>
+  /** Whether the profile offers the second factor; the demo has no server to hold a secret. */
+  offersTotp: boolean
+  /** The second step of a sign-in: the challenge of the first and the current code of the authenticator app. */
+  completeSecondFactor: (challenge: string, code: string) => Promise<AuthenticatedUser>
+  /** Generates a secret and its QR Code; the factor stays off until `enableTotp` receives a code. */
+  beginTotpSetup: () => Promise<TotpSetup>
+  enableTotp: (code: string) => Promise<void>
+  /** Turning it off takes a current code, so a session left open cannot remove the protection. */
+  disableTotp: (code: string) => Promise<void>
   /**
    * RF05: replaces the name and the e-mail with markers and ends the session.
    *
@@ -60,6 +79,7 @@ export const DEMO_TEACHER: AuthenticatedUser = {
 }
 
 const NO_GOOGLE = 'O login com o Google não está disponível na demonstração.'
+const NO_TOTP = 'A verificação em duas etapas não está disponível na demonstração.'
 const SIGNED_OUT = 'Faça login para continuar.'
 
 /**
@@ -93,7 +113,7 @@ export function createLocalAuthProvider(): AuthProvider {
     restoreSession: () => Promise.resolve(getCurrentUser()),
     /** Nothing here talks to a server, so there is no token to send. */
     getAccessToken: () => Promise.resolve(null),
-    signIn: (email) => Promise.resolve(persist({ ...DEMO_TEACHER, email })),
+    signIn: (email) => Promise.resolve({ status: SIGN_IN_STATUS.SIGNED_IN, user: persist({ ...DEMO_TEACHER, email }) }),
     signUp: (fullName, email) => Promise.resolve(persist({ ...DEMO_TEACHER, fullName, email })),
     signOut,
     signOutEverywhere: signOut,
@@ -107,6 +127,11 @@ export function createLocalAuthProvider(): AuthProvider {
     offersGoogle: false,
     startGoogleSignIn: () => Promise.reject(new StorageError(NO_GOOGLE, 'failure')),
     completeGoogleSignIn: () => Promise.reject(new StorageError(NO_GOOGLE, 'failure')),
+    offersTotp: false,
+    completeSecondFactor: () => Promise.reject(new StorageError(NO_TOTP, 'failure')),
+    beginTotpSetup: () => Promise.reject(new StorageError(NO_TOTP, 'failure')),
+    enableTotp: () => Promise.reject(new StorageError(NO_TOTP, 'failure')),
+    disableTotp: () => Promise.reject(new StorageError(NO_TOTP, 'failure')),
 
     anonymize() {
       const user = getCurrentUser()

@@ -2,8 +2,11 @@ import {
   forgotPasswordSchema,
   googleExchangeSchema,
   resetPasswordRequestSchema,
+  secondFactorRequestSchema,
+  SIGN_IN_STATUS,
   signInSchema,
   signUpRequestSchema,
+  totpCodeRequestSchema,
 } from '@correctio/domain'
 import type { Request, RequestHandler, Response } from 'express'
 import { parseRequest } from '../lib/parse-request'
@@ -11,6 +14,7 @@ import type { SessionCookie } from '../lib/session-cookie'
 import { currentTeacherId } from '../middlewares/require-auth'
 import type { AuthService } from '../services/auth-service'
 import type { GoogleSignInService } from '../services/google-sign-in-service'
+import type { SecondFactorService, SignInOutcome } from '../services/second-factor-service'
 import type { IssuedSession } from '../services/session-issuer'
 
 const DEVICE_INFO_MAX_LENGTH = 255
@@ -28,6 +32,7 @@ function queryText(req: Request, name: string): string | undefined {
 export interface AuthControllerDependencies {
   auth: AuthService
   google: GoogleSignInService
+  secondFactor: SecondFactorService
   cookie: SessionCookie
 }
 
@@ -43,7 +48,11 @@ export type AuthController = Record<
   | 'anonymize'
   | 'googleStart'
   | 'googleCallback'
-  | 'googleExchange',
+  | 'googleExchange'
+  | 'signInWithCode'
+  | 'totpSetup'
+  | 'totpEnable'
+  | 'totpDisable',
   RequestHandler
 >
 
@@ -51,11 +60,17 @@ export type AuthController = Record<
  * Express 5 forwards a rejected handler to the error middleware on its own,
  * so the handlers only translate between HTTP and the services.
  */
-export function createAuthController({ auth, google, cookie }: AuthControllerDependencies): AuthController {
+export function createAuthController({ auth, google, secondFactor, cookie }: AuthControllerDependencies): AuthController {
   /** The refresh token goes to the cookie only; the body carries what the page may hold in memory. */
   const sendSession = (res: Response, { refreshToken, ...session }: IssuedSession, status = 200) => {
     cookie.set(res, refreshToken)
     res.status(status).json(session)
+  }
+
+  /** A challenge carries no cookie: the session starts only with the second step. */
+  const sendOutcome = (res: Response, outcome: SignInOutcome) => {
+    if (outcome.status === SIGN_IN_STATUS.SIGNED_IN) return sendSession(res, outcome.session)
+    res.json({ secondFactorRequired: true, challenge: outcome.challenge, expiresIn: outcome.expiresIn })
   }
 
   const endSession = (res: Response) => {
@@ -69,7 +84,7 @@ export function createAuthController({ auth, google, cookie }: AuthControllerDep
     },
 
     async signIn(req, res) {
-      sendSession(res, await auth.signIn(parseRequest(signInSchema, req.body), deviceOf(req)))
+      sendOutcome(res, await auth.signIn(parseRequest(signInSchema, req.body), deviceOf(req)))
     },
 
     /** A refused refresh also drops the cookie, so the browser stops offering a token that will never work. */
@@ -121,7 +136,26 @@ export function createAuthController({ auth, google, cookie }: AuthControllerDep
     },
 
     async googleExchange(req, res) {
-      sendSession(res, await google.exchange(parseRequest(googleExchangeSchema, req.body), deviceOf(req)))
+      sendOutcome(res, await google.exchange(parseRequest(googleExchangeSchema, req.body), deviceOf(req)))
+    },
+
+    async signInWithCode(req, res) {
+      const { challenge, code } = parseRequest(secondFactorRequestSchema, req.body)
+      sendSession(res, await secondFactor.completeSignIn(challenge, code, deviceOf(req)))
+    },
+
+    async totpSetup(_req, res) {
+      res.json(await secondFactor.beginSetup(currentTeacherId(res)))
+    },
+
+    async totpEnable(req, res) {
+      await secondFactor.enable(currentTeacherId(res), parseRequest(totpCodeRequestSchema, req.body).code)
+      res.status(204).end()
+    },
+
+    async totpDisable(req, res) {
+      await secondFactor.disable(currentTeacherId(res), parseRequest(totpCodeRequestSchema, req.body).code)
+      res.status(204).end()
     },
   }
 }

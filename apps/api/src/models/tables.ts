@@ -25,6 +25,8 @@ import type { AuthCodePurpose } from './auth-code-purpose'
 type Timestamp = ColumnType<Date, Date | string, Date | string>
 type DatabaseTimestamp = ColumnType<Date, Date | string | undefined, Date | string>
 type OptionalTimestamp = ColumnType<Date | null, Date | string | null | undefined, Date | string | null>
+type OptionalText = ColumnType<string | null, string | null | undefined, string | null>
+type OptionalNumber = ColumnType<number | null, number | null | undefined, number | null>
 type Json<T> = ColumnType<T, string, string>
 
 interface Audited {
@@ -42,6 +44,18 @@ export interface UsersTable {
   anonymizedAt: OptionalTimestamp
   /** `+` When someone proved they read the inbox (`0002-authentication`). */
   emailVerifiedAt: OptionalTimestamp
+  /** `+` The confirmed TOTP secret, encrypted with the field cipher (`0006-teacher-totp`). */
+  totpSecret: OptionalText
+  /** `+` The secret shown in the QR Code, not yet confirmed with a code; encrypted. */
+  totpPendingSecret: OptionalText
+  /** `+` When the second factor was confirmed; `null` while it is off. */
+  totpEnabledAt: OptionalTimestamp
+  /** `+` The last accepted 30 s time step, so a code works once. */
+  totpLastStep: OptionalNumber
+  /** `+` Wrong codes since the last right one; a full count locks the second factor for a while. */
+  totpFailedAttempts: ColumnType<number, number | undefined, number>
+  /** `+` Until when the second factor refuses every code. */
+  totpLockedUntil: OptionalTimestamp
   updatedAt: DatabaseTimestamp
 }
 

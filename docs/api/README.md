@@ -45,16 +45,20 @@ O detalhe de cada recurso (regras, códigos de erro e exemplos) está no
 | Método | Rota | Descrição |
 |---|---|---|
 | `POST` | `/auth/register` | Cria a conta do professor (C2). |
-| `POST` | `/auth/login` | Entra com e-mail e senha (C1); devolve o token de acesso e grava o de renovação em cookie. |
+| `POST` | `/auth/login` | Entra com e-mail e senha (C1); devolve o token de acesso e grava o de renovação em cookie. Se a conta tem a verificação em duas etapas, devolve só `{ secondFactorRequired: true, challenge, expiresIn }`, sem cookie. |
+| `POST` | `/auth/login/totp` | Segunda etapa do login: troca o `challenge` e o código de 6 dígitos pela sessão. |
 | `POST` | `/auth/refresh` | Troca o token de renovação por um novo token de acesso. |
 | `POST` | `/auth/logout` | Encerra a sessão deste aparelho. |
 | `POST` | `/auth/forgot-password` | Envia por e-mail o link de redefinição de senha (C3). |
 | `POST` | `/auth/reset-password` | Grava a senha nova a partir do link. |
 | `GET` | `/auth/google` | Começa a entrada pelo Google. |
 | `GET` | `/auth/google/callback` | Volta do Google e leva ao front com um código de uso único. |
-| `POST` | `/auth/google/exchange` | Troca o código de uso único pela sessão. |
+| `POST` | `/auth/google/exchange` | Troca o código de uso único pela sessão, ou pelo desafio da segunda etapa. |
 | `POST` | `/auth/logout-all` | Encerra as sessões de todos os aparelhos (RF04). |
 | `GET` | `/me` | O professor da sessão e o tipo da conta (P2). |
+| `POST` | `/me/totp/setup` | Gera o segredo pendente e devolve `{ secret, otpauthUri, qrCodeDataUrl }`; a segunda etapa continua desligada. |
+| `POST` | `/me/totp/enable` | Liga a verificação em duas etapas com o código `{ code }` do aplicativo. Responde 204. |
+| `POST` | `/me/totp/disable` | Desliga com um código atual `{ code }`. Responde 204. |
 | `POST` | `/me/anonymize` | Anonimiza a conta (RF05): troca nome, e-mail e senha, encerra as sessões e mantém turmas, provas e correções. |
 
 ## Turmas e alunos

@@ -88,7 +88,7 @@ O conceito-chave é a separação entre **Prova** (conteúdo, reutilizável) e *
 
 | Bloco | Entrega |
 |---|---|
-| **Contas** | Só o professor tem conta. Cadastro, login, recuperação de senha, encerrar sessões, anonimização de conta |
+| **Contas** | Só o professor tem conta. Cadastro, login (com verificação em duas etapas opcional), recuperação de senha, encerrar sessões, anonimização de conta |
 | **Turmas** | Criar, editar, arquivar; alunos cadastrados um a um ou importados em lote |
 | **Questões** | Objetivas (2 a 5 alternativas) e discursivas, com tags, filtros, soft-delete, importação em lote e imagens no enunciado |
 | **Provas** | Montagem manual ou automática por filtros, até 20 questões, duplicação, importação e exportação |

@@ -10,7 +10,8 @@ import type { AuthCodeRepository } from '../repositories/auth-code-repository'
 import type { RefreshTokenRepository } from '../repositories/refresh-token-repository'
 import type { UserRecord, UserRepository } from '../repositories/user-repository'
 import type { GoogleIdentity, GoogleProfile } from './google-identity'
-import { isActiveAccount, type IssuedSession, type SessionIssuer } from './session-issuer'
+import type { SecondFactorService, SignInOutcome } from './second-factor-service'
+import { isActiveAccount } from './session-issuer'
 
 /** Time to pick an account on Google's screen. */
 const STATE_TTL_SECONDS = 10 * 60
@@ -40,7 +41,8 @@ export interface GoogleSignInService {
   start: (request: GoogleStart) => Promise<string>
   /** Back on the sign-in page that started, with a one-time code or an error. */
   finish: (callback: GoogleCallback) => Promise<string>
-  exchange: (input: GoogleExchange, deviceInfo: string | null) => Promise<IssuedSession>
+  /** Trades the one-time code for a session, or for a challenge when the account has a second factor. */
+  exchange: (input: GoogleExchange, deviceInfo: string | null) => Promise<SignInOutcome>
 }
 
 export interface GoogleSignInDependencies {
@@ -50,7 +52,7 @@ export interface GoogleSignInDependencies {
   users: UserRepository
   refreshTokens: RefreshTokenRepository
   authCodes: AuthCodeRepository
-  sessions: SessionIssuer
+  secondFactor: SecondFactorService
   logger: Logger
   publicAppUrl: string
   corsOrigins: readonly string[]
@@ -90,7 +92,7 @@ function signInPage(origin: string, params: Record<string, string>): string {
 const FAILED = { erro: 'google' }
 
 export function createGoogleSignInService(deps: GoogleSignInDependencies): GoogleSignInService {
-  const { identity, tokens, users, refreshTokens, authCodes, sessions, logger, publicAppUrl } = deps
+  const { identity, tokens, users, refreshTokens, authCodes, secondFactor, logger, publicAppUrl } = deps
 
   async function readFlow(state: string | undefined): Promise<Flow | null> {
     const payload = state === undefined ? null : await tokens.verifyState(state)
@@ -167,7 +169,7 @@ export function createGoogleSignInService(deps: GoogleSignInDependencies): Googl
       if (!isActiveAccount(user)) {
         throw new ApiError(API_ERROR_CODE.UNAUTHORIZED, 'O login com o Google não foi concluído. Tente de novo.')
       }
-      return sessions.issue(user, deviceInfo)
+      return secondFactor.admit(user, deviceInfo)
     },
   }
 }

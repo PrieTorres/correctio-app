@@ -149,8 +149,18 @@ substituída por `GET /public/sheets/:code`.
 
 As regras e o porquê estão no ADR-003; aqui fica o contrato das rotas.
 
-- `POST /auth/register` responde 201 com a sessão. `POST /auth/login`, `POST /auth/refresh` e
-  `POST /auth/google/exchange` respondem `{ user, accessToken, expiresIn }`.
+- `POST /auth/register` responde 201 com a sessão. `POST /auth/login`, `POST /auth/refresh`,
+  `POST /auth/login/totp` e `POST /auth/google/exchange` respondem `{ user, accessToken, expiresIn }`.
+- **Verificação em duas etapas (opcional, R2).** `POST /auth/login` e `POST /auth/google/exchange`,
+  numa conta que a ligou, respondem 200 com `{ secondFactorRequired: true, challenge, expiresIn: 300 }`
+  e nenhum cookie. `POST /auth/login/totp` com `{ challenge, code }` responde com a sessão; código
+  errado ou já usado é 401, e 5 erros seguidos na conta bloqueiam por 15 minutos (429). Na conta,
+  `POST /me/totp/setup` responde `{ secret, otpauthUri, qrCodeDataUrl }`, e `POST /me/totp/enable` e
+  `POST /me/totp/disable` recebem `{ code }` e respondem 204. `GET /me` e a sessão trazem
+  `totpEnabled`. A redefinição de senha não emite sessão e não desliga a segunda etapa.
+- Cadastro e redefinição recusam senha que aparece em vazamentos (400, "Esta senha já apareceu em
+  vazamentos de dados…"), pelo Pwned Passwords com k-anonymity. Falha aberta: sem resposta em 2 s, a
+  senha é aceita. `PASSWORD_BREACH_CHECK=off` desliga a consulta.
 - O token de acesso vai só no corpo, para a página guardar em memória. O de renovação vai só no
   cookie `__session` (`HttpOnly`, caminho `/api/auth`), vale 30 dias e é trocado a cada uso; um
   refresh recusado também apaga o cookie.

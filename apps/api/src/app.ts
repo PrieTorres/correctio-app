@@ -29,6 +29,7 @@ import type { Database } from './models/tables'
 import { createRouter } from './routes'
 import type { AuthService } from './services/auth-service'
 import type { GoogleSignInService } from './services/google-sign-in-service'
+import type { SecondFactorService } from './services/second-factor-service'
 import { createHealthService, type HealthCheck } from './services/health-service'
 import { REFRESH_TOKEN_TTL_MS } from './services/session-issuer'
 
@@ -36,6 +37,7 @@ import { REFRESH_TOKEN_TTL_MS } from './services/session-issuer'
 export interface AuthComponents {
   service: AuthService
   google: GoogleSignInService
+  secondFactor: SecondFactorService
   verifyToken: VerifyToken
 }
 
@@ -95,7 +97,7 @@ const DEFAULT_RATE_LIMITS: RateLimits = {
 function authRoutesFor(auth: AuthComponents, env: Env, limits: RateLimits, delayStepMs: number | undefined) {
   const cookie = createSessionCookie({ secure: env.PUBLIC_APP_URL.startsWith('https:'), maxAgeMs: REFRESH_TOKEN_TTL_MS })
   return {
-    controller: createAuthController({ auth: auth.service, google: auth.google, cookie }),
+    controller: createAuthController({ auth: auth.service, google: auth.google, secondFactor: auth.secondFactor, cookie }),
     limits: createAuthLimits(limits.signIn, delayStepMs),
   }
 }

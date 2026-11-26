@@ -4,11 +4,17 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createLocalAuthProvider, type AuthProvider } from '@/lib/auth'
 import { useBackgroundJob, useBackgroundJobs } from '@/lib/background-jobs'
 import { renderHookWithProviders, renderWithProviders } from '@/test-utils'
+import { SIGN_IN_STATUS } from '@/types/domain'
 import {
   authKeys,
   recheckSession,
+  pendingChallengeOf,
   useCompleteGoogleSignIn,
+  useCompleteSecondFactor,
   useCurrentUser,
+  useDisableTotp,
+  useEnableTotp,
+  useTotpSetup,
   useRequestPasswordReset,
   useResetPassword,
   useSignIn,
@@ -195,7 +201,10 @@ describe('password reset and Google hooks', () => {
       resetPassword: vi.fn(() => Promise.resolve()),
       startGoogleSignIn: vi.fn(() => Promise.resolve()),
       completeGoogleSignIn: vi.fn(() =>
-        Promise.resolve({ id: 'g', role: 'professor' as const, fullName: 'Bia', email: 'bia@gmail.com', createdAt: '2026-10-14T12:00:00.000Z' }),
+        Promise.resolve({
+          status: SIGN_IN_STATUS.SIGNED_IN,
+          user: { id: 'g', role: 'professor' as const, fullName: 'Bia', email: 'bia@gmail.com', createdAt: '2026-10-14T12:00:00.000Z' },
+        }),
       ),
     }
   }
@@ -224,5 +233,60 @@ describe('password reset and Google hooks', () => {
     expect(auth.startGoogleSignIn).toHaveBeenCalledOnce()
     expect(auth.completeGoogleSignIn).toHaveBeenCalledWith('codigo')
     await waitFor(() => expect(result.current.session.data).toMatchObject({ email: 'bia@gmail.com' }))
+  })
+})
+
+describe('second factor hooks', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  const user = { id: 'g', role: 'professor' as const, fullName: 'Bia', email: 'bia@gmail.com', createdAt: '2026-10-14T12:00:00.000Z' }
+
+  it('keeps the cache as it was while a sign-in waits for the code, and starts the session when the code is right', async () => {
+    const auth: AuthProvider = {
+      ...createLocalAuthProvider(),
+      signIn: vi.fn(() => Promise.resolve({ status: SIGN_IN_STATUS.SECOND_FACTOR, challenge: 'desafio' })),
+      completeSecondFactor: vi.fn(() => Promise.resolve(user)),
+    }
+    const { result } = renderHookWithProviders(
+      () => ({ signIn: useSignIn(), second: useCompleteSecondFactor(), session: useCurrentUser() }),
+      { auth },
+    )
+    await waitFor(() => expect(result.current.session.isSuccess).toBe(true))
+
+    await act(() => result.current.signIn.mutateAsync({ email: 'bia@gmail.com', password: 'senha-forte-1' }))
+    await waitFor(() => expect(pendingChallengeOf(result.current.signIn.data)).toBe('desafio'))
+    expect(result.current.session.data).toBeNull()
+
+    await act(() => result.current.second.mutateAsync({ challenge: 'desafio', code: '123456' }))
+    expect(auth.completeSecondFactor).toHaveBeenCalledWith('desafio', '123456')
+    await waitFor(() => expect(result.current.session.data).toMatchObject({ email: 'bia@gmail.com' }))
+  })
+
+  it('has no challenge when the sign-in ended in a session', () => {
+    expect(pendingChallengeOf({ status: SIGN_IN_STATUS.SIGNED_IN, user })).toBeNull()
+    expect(pendingChallengeOf(undefined)).toBeNull()
+  })
+
+  it('hands the setup and the codes to the provider, and reads the account again after turning on or off', async () => {
+    const auth: AuthProvider = {
+      ...createLocalAuthProvider(),
+      beginTotpSetup: vi.fn(() => Promise.resolve({ secret: 'ABC', otpauthUri: 'otpauth://totp/x', qrCodeDataUrl: 'data:image/svg+xml;base64,AAAA' })),
+      enableTotp: vi.fn(() => Promise.resolve()),
+      disableTotp: vi.fn(() => Promise.resolve()),
+    }
+    const { result } = renderHookWithProviders(
+      () => ({ setup: useTotpSetup(), enable: useEnableTotp(), disable: useDisableTotp(), queryClient: useQueryClient() }),
+      { auth },
+    )
+    const invalidate = vi.spyOn(result.current.queryClient, 'invalidateQueries')
+
+    await act(() => result.current.setup.mutateAsync())
+    await act(() => result.current.enable.mutateAsync('123456'))
+    await act(() => result.current.disable.mutateAsync('654321'))
+
+    await waitFor(() => expect(result.current.setup.data?.secret).toBe('ABC'))
+    expect(auth.enableTotp).toHaveBeenCalledWith('123456')
+    expect(auth.disableTotp).toHaveBeenCalledWith('654321')
+    expect(invalidate).toHaveBeenCalledTimes(2)
   })
 })
