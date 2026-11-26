@@ -67,3 +67,9 @@ Alternativas avaliadas:
   - O que avisa: uma execução do keep-alive que falha manda e-mail, e a volta é clicar em "Power on" no console do Aiven.
 - **O RNF09 passa a ser atendido pelo backup do projeto**, não pelo do Aiven (#151): dump diário, só de leitura, no bucket `correctio-app-db-backups`, e teste mensal de restauração com registro. Fica no Google, que já é subprocessador (ADR-004, ADR-005), na mesma região us-west1.
 - **Trocar de plano continua sendo uma decisão reversível.** Subir para o Developer é um clique no console e não muda nada no código, e o backup do projeto continua valendo do mesmo jeito.
+
+## Revisão de 26/11/2026
+
+- **O risco do desligamento segue aceito para a disciplina** (risco R5 da análise de segurança da N3). Antes de uso real com alunos, o plano Developer elimina o desligamento por inatividade.
+- **Mais atividade no banco.** O uptime check `correctio-api-health`, do Cloud Monitoring, chama o `/api/health` de produção a cada 5 minutos, de três regiões, e o `/api/health` consulta o banco. Somado ao `keep-alive.yml`, o banco recebe consultas a cada poucos minutos.
+- **Aviso mais rápido.** Um alerta manda e-mail ao projeto quando o check falha por 10 minutos, em vez de esperar a próxima execução do keep-alive, que pode levar até 6 horas (`docs/Seguranca_e_LGPD.md`, seção 9).
