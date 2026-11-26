@@ -3,6 +3,7 @@ import * as initialSchema from './0001-initial-schema'
 import * as authentication from './0002-authentication'
 import * as answerCardVersion from './0003-answer-card-version'
 import * as sheetImages from './0004-sheet-images'
+import * as revokeLoggedRefreshTokens from './0005-revoke-logged-refresh-tokens'
 
 /**
  * Listed by hand instead of read from the folder, so the same list works in the
@@ -14,4 +15,5 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   '0002-authentication': authentication,
   '0003-answer-card-version': answerCardVersion,
   '0004-sheet-images': sheetImages,
+  '0005-revoke-logged-refresh-tokens': revokeLoggedRefreshTokens,
 }

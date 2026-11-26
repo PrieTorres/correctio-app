@@ -173,7 +173,7 @@ armazenamento privado, e entram no PDF gerado.
 | Segredos | Em gerenciador de segredos. Nunca no repositório, nunca no bundle do front. |
 | Dependências | `npm ci` com lockfile; build reprovado com vulnerabilidade alta ou crítica. |
 | Runtime | Cloud Functions de 2ª geração, com Node 22 fixado no `firebase.json`; o contêiner é do Google. |
-| Observabilidade | Log estruturado em JSON com id de correlação por requisição, sem dado pessoal. |
+| Observabilidade | Log estruturado em JSON com id de correlação por requisição, sem dado pessoal. Cada requisição grava só id, método, caminho e status (`lib/logger.ts`): nenhum cabeçalho, nenhuma query string, e o código da folha da consulta pública vira `:code`. |
 | Ciclo de vida | No servidor local (`server.ts`), encerramento gracioso em `SIGTERM` e erro desconhecido derruba o processo em vez de seguir em estado corrompido. Na função publicada, quem controla o ciclo de vida é o runtime do Google. |
 | Processamento pesado | Leitura de imagem é uso intensivo de CPU e **não pode** rodar na thread principal — trava a API inteira. Roda numa worker thread (`lib/sheet-reading`, ADR-007), uma foto de cada vez. |
 | Upload de imagem | Tipo conferido pelos primeiros bytes (JPEG, PNG ou WebP), nunca pela extensão nem pelo `Content-Type`; até 10 MB; guardado no bucket privado e entregue só ao professor da aplicação (#47). |
@@ -184,7 +184,8 @@ armazenamento privado, e entram no PDF gerado.
 ### Credenciais em trânsito
 
 - **Só HTTPS.** O `helmet` envia HSTS, e a partir daí o navegador nunca mais volta para HTTP naquele domínio. É o que impede que alguém leia o token no tráfego de uma rede compartilhada.
-- **Token só no cabeçalho `Authorization`.** Nunca na URL (fica em histórico, log de proxy e cabeçalho `Referer`) e nunca no log. O log da API apaga `Authorization` e `Cookie`.
+- **Token só no cabeçalho `Authorization`.** Nunca na URL (fica em histórico, log de proxy e cabeçalho `Referer`) e nunca no log. O log da API não grava cabeçalho nenhum, nem o `Set-Cookie` que renova a sessão.
+- **Tokens que passaram pelo log foram revogados.** Até a correção do log, cada login e cada renovação gravavam o refresh token novo no `Set-Cookie` do log. A migração `0005` revoga todos os que ainda valiam no deploy, e cada professor entra de novo uma vez.
 - **Access token curto (15 min) e refresh token rotativo, com detecção de reuso.** O refresh token mora num cookie `httpOnly` + `Secure` + `SameSite=Strict`, fora do alcance de qualquer JavaScript, e o access token fica só na memória do front (Regra 3).
 - **Barreira contra adivinhar token.** No máximo 30 respostas 401 por minuto por endereço. Só 401 conta, então um professor logado nunca gasta esse limite, nem num NAT compartilhado.
 
