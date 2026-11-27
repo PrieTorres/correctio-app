@@ -3,10 +3,12 @@ import { registrationKey, studentInputSchema, type Class, type Student, type Stu
 import { z } from 'zod'
 import { isDuplicateEntry } from '../db/errors'
 import { API_ERROR_CODE, ApiError } from '../lib/api-error'
+import type { FileStorage } from '../lib/file-storage'
 import { mergePatch } from '../lib/merge-patch'
 import { booleanParam, parseListRequest, type Page } from '../lib/pagination'
 import { parseRequest } from '../lib/parse-request'
 import type { ClassRepository } from '../repositories/class-repository'
+import type { SheetImageRepository } from '../repositories/sheet-image-repository'
 import { REGISTRATION_INDEX, type NewStudent, type StudentChanges, type StudentRepository } from '../repositories/student-repository'
 
 /** The fields of the student form. `userId` and the rest of a `Student` never come from a request. */
@@ -59,6 +61,8 @@ export interface StudentService {
 export interface StudentServiceDependencies {
   classes: ClassRepository
   students: StudentRepository
+  sheetPhotos: Pick<SheetImageRepository, 'storageKeysOfStudent'>
+  fileStorage: Pick<FileStorage, 'remove'>
 }
 
 /**
@@ -109,7 +113,12 @@ function changesFrom(input: StudentInput, sent: readonly (typeof STUDENT_FIELDS)
  * anonymizable: the right to have personal data erased does not wait for the
  * class to be restored.
  */
-export function createStudentService({ classes, students }: StudentServiceDependencies): StudentService {
+export function createStudentService({ classes, students, sheetPhotos, fileStorage }: StudentServiceDependencies): StudentService {
+  async function erasePhotosOf(studentId: string): Promise<void> {
+    const keys = await sheetPhotos.storageKeysOfStudent(studentId)
+    await Promise.all(keys.map((key) => fileStorage.remove(key)))
+  }
+
   async function requireClass(teacherId: string, classId: string): Promise<Class> {
     const found = await classes.findById(teacherId, classId)
     if (found === undefined) throw new ApiError(API_ERROR_CODE.NOT_FOUND, CLASS_NOT_FOUND)
@@ -214,12 +223,18 @@ export function createStudentService({ classes, students }: StudentServiceDepend
 
     /**
      * Irreversible (RF38), and it applies to a removed student too: removing
-     * keeps the personal data, and the right to have it erased still holds. A
-     * second request finds nothing left to erase and changes nothing.
+     * keeps the personal data, and the right to have it erased still holds.
+     * The photos of the student's sheets, which show the handwriting and may
+     * carry the name, are erased from the storage first, so a request that
+     * fails halfway leaves the student as they were and the next one finishes
+     * the job; a second request on an anonymized student only erases what may
+     * have been left. The PDF of the application stays: it holds the whole
+     * class (`docs/Seguranca_e_LGPD.md`, section 6).
      */
     async anonymize(teacherId, classId, studentId) {
       await requireClass(teacherId, classId)
       const student = await requireStudent(classId, studentId, true)
+      await erasePhotosOf(studentId)
       if (student.anonymizedAt !== undefined) return
 
       await students.anonymize(classId, studentId, {

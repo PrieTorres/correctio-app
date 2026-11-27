@@ -67,3 +67,9 @@ O que a N2 entregou difere da decisão em quatro pontos:
   ainda ligadas à correção, e a decisão de apagá-las segue pendente.
 
 As imagens de enunciado (RF45) ainda não existem (#105).
+
+## Revisão de 26/11/2026: anonimização
+
+- **A anonimização do aluno (RF38) apaga as fotos das folhas dele** do bucket: a da folha impressa para ele e a da folha que uma correção lhe deu. As fotos são apagadas antes dos dados do aluno, então um pedido que falha no meio deixa o aluno como estava, e o próximo termina. A linha em `sheet_images` fica, sem dado pessoal, e a foto passa a responder "Foto não encontrada".
+- **O PDF da aplicação fica.** Ele traz a turma inteira, e a PM decidiu mantê-lo (`docs/Seguranca_e_LGPD.md`, seção 6).
+- Alunos anonimizados antes desta revisão mantêm as fotos até um novo pedido de anonimização.

@@ -65,9 +65,10 @@ export function PrivacyPage() {
           <h2 className="text-title text-primary">Seus direitos</h2>
           <p>
             Você pode pedir acesso aos seus dados, correção do que estiver errado e anonimização.
-            Anonimizar substitui nome e matrícula por marcadores e desfaz o vínculo com a pessoa,
-            preservando as estatísticas da turma. Nada é apagado automaticamente por prazo: a
-            exclusão acontece quando alguém pede.
+            Anonimizar substitui nome e matrícula por marcadores, apaga as fotos das folhas do
+            aluno e desfaz o vínculo com a pessoa, preservando as estatísticas da turma. O PDF da
+            prova, que traz a turma inteira, continua guardado. Nada é apagado automaticamente por
+            prazo: a exclusão acontece quando alguém pede.
           </p>
         </section>
 

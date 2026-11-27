@@ -77,7 +77,7 @@ export function createRouter({
   router.use('/dashboard', dashboardRoutes(reports))
   router.use('/reports', reportRoutes(reports, expensiveLimit))
   router.use('/questions', questionRoutes(db))
-  router.use('/classes', classRoutes({ db, fieldCipher, expensiveLimit }))
+  router.use('/classes', classRoutes({ db, fieldCipher, fileStorage, expensiveLimit }))
   router.use('/exams', examRoutes(db))
   router.use('/applications', applicationRoutes({ db, fileStorage, expensiveLimit, publicAppUrl, readPhoto, logger, reports }))
 

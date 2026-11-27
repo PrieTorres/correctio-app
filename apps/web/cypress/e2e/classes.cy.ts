@@ -73,6 +73,7 @@ describe('turmas', () => {
 
     cy.contains('a', 'Cálculo I — Noturno').click()
     cy.get('[aria-label="Anonimizar Ana Beatriz Moreira"]').click()
+    cy.get('[role="dialog"]').should('contain', 'junto com as fotos das folhas do aluno')
     cy.findInDialog('button', 'Anonimizar').click()
     cy.contains('li', 'Aluno anonimizado').should('be.visible')
     cy.get('[aria-label="Remover Bruno Carvalho Lima da turma"]').click()

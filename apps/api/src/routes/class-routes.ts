@@ -3,8 +3,10 @@ import type { Kysely } from 'kysely'
 import { createClassController } from '../controllers/class-controller'
 import { createStudentController } from '../controllers/student-controller'
 import type { FieldCipher } from '../lib/field-encryption'
+import type { FileStorage } from '../lib/file-storage'
 import type { Database } from '../models/tables'
 import { createClassRepository } from '../repositories/class-repository'
+import { createSheetImageRepository } from '../repositories/sheet-image-repository'
 import { createStudentRepository } from '../repositories/student-repository'
 import { createClassService } from '../services/class-service'
 import { createStudentService } from '../services/student-service'
@@ -13,6 +15,8 @@ export interface ClassRouteDependencies {
   db: Kysely<Database>
   /** Encrypts the student e-mail at rest. */
   fieldCipher: FieldCipher
+  /** Where the photos of the sheets are, which the anonymization of a student erases. */
+  fileStorage: FileStorage
   /** The expensive tier, per teacher, for the bulk import (`docs/Seguranca_e_LGPD.md`, section 4). */
   expensiveLimit: RequestHandler
 }
@@ -23,11 +27,16 @@ export interface ClassRouteDependencies {
  * `inviteCode` and `ClassEnrollment` get no route: they serve a student area
  * this project does not build (`docs/Arquitetura.md`, section 9).
  */
-export function classRoutes({ db, fieldCipher, expensiveLimit }: ClassRouteDependencies): Router {
+export function classRoutes({ db, fieldCipher, fileStorage, expensiveLimit }: ClassRouteDependencies): Router {
   const classRepository = createClassRepository(db)
   const classes = createClassController(createClassService({ repository: classRepository }))
   const students = createStudentController(
-    createStudentService({ classes: classRepository, students: createStudentRepository(db, fieldCipher) }),
+    createStudentService({
+      classes: classRepository,
+      students: createStudentRepository(db, fieldCipher),
+      sheetPhotos: createSheetImageRepository(db),
+      fileStorage,
+    }),
   )
 
   const router = Router()

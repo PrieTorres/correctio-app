@@ -239,6 +239,7 @@ describe('aviso de privacidade', () => {
 
   it('explica os direitos e como exercê-los', () => {
     cy.contains('h2', 'Seus direitos').should('be.visible')
+    cy.contains('p', 'apaga as fotos das folhas do aluno').should('be.visible')
     cy.contains('h2', 'Contato').should('be.visible')
   })
 })

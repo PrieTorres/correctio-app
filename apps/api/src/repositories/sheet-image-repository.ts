@@ -25,6 +25,13 @@ export interface SheetImageRepository {
   /** One photo, looked for inside its application, so the id of another application's photo finds nothing. */
   find: (applicationId: string, id: string) => Promise<StoredSheetImage | undefined>
   usageSince: (teacherId: string, since: Date) => Promise<UploadUsage>
+  /**
+   * Where the photos of a student's sheets are stored: the sheets printed for
+   * the student and the ones a correction gave to the student. The photo shows
+   * the student's handwriting and may carry the name, so anonymization erases
+   * these files (RF38).
+   */
+  storageKeysOfStudent: (studentId: string) => Promise<string[]>
 }
 
 /** The photos of the sheets sent for correction (#47), scoped by application as the corrections are. */
@@ -57,6 +64,20 @@ export function createSheetImageRepository(db: Kysely<Database>): SheetImageRepo
         .where('createdAt', '>=', since)
         .executeTakeFirstOrThrow()
       return { count: Number(row.count), bytes: Number(row.bytes ?? 0) }
+    },
+
+    async storageKeysOfStudent(studentId) {
+      const rows = await db
+        .selectFrom('sheet_images')
+        .select('storageKey')
+        .where((eb) =>
+          eb.or([
+            eb('answerSheetId', 'in', eb.selectFrom('answer_sheets').select('id').where('studentId', '=', studentId)),
+            eb('answerSheetId', 'in', eb.selectFrom('corrections').select('answerSheetId').where('studentId', '=', studentId)),
+          ]),
+        )
+        .execute()
+      return rows.map((row) => row.storageKey)
     },
   }
 }

@@ -58,7 +58,7 @@ const ACTION_COPY: Record<StudentAction, (name: string) => { title: string; desc
   anonymize: (name) => ({
     title: `Anonimizar ${name}?`,
     description:
-      'Nome, matrícula e e-mail serão apagados de forma irreversível. As notas já registradas são preservadas, sem vínculo com a identidade.',
+      'Nome, matrícula e e-mail serão apagados de forma irreversível, junto com as fotos das folhas do aluno. As notas já registradas são preservadas, sem vínculo com a identidade.',
     confirmLabel: 'Anonimizar',
   }),
   remove: (name) => ({
